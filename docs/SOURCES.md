@@ -1,0 +1,13 @@
+# Foundation and reuse
+
+Generated and composed from [Base fc0e1041](https://github.com/runeditrun/base/tree/fc0e1041efa55771142bbb57c4ab4743147e264d) as workforce/lanyard. The locked package supplies CLI operations; copied Base modules supply native auth, themes and import-kit. `composition.lock.json` records generated source. Import-kit retains original bytes, fingerprints and journals through a native staff adapter.
+
+MIT patterns copied and adapted:
+
+- [Willow leave](https://github.com/just-every/run-willow/blob/e1da1b9933905f6b1d4732f6e8bdd1f0d104e937/src/willow/leave.ts): explicit decisions and correction history.
+- [Willow payroll](https://github.com/just-every/run-willow/blob/e1da1b9933905f6b1d4732f6e8bdd1f0d104e937/src/willow/payroll.ts): reviewed batches, unique claims, immutable files and acknowledgement.
+- [Gauge time](https://github.com/just-every/run-gauge/blob/89dad1e9e7bcb6baaa621931fccfdfa20d3c595a/src/gauge/time.ts): revision-bound approval and corrections.
+- [Glove field capture](https://github.com/just-every/run-glove/blob/778474d80bf5f440b42fb8f3364a191908d0e4b9/src/glove/commands/field.ts): device time, stable retries and atomic event/command commits.
+- [Dial calendar conflicts](https://github.com/just-every/run-dial/blob/0f17a8522556bcae29cc45e7f1ef15e2647c67f2/src/core/features/bookings/calendar-conflicts.ts): fenced state transitions. Lanyard's availability/overlap rules are new; that source handles calendar restoration conflicts.
+
+Package-mode examples: [Coaster](https://github.com/just-every/run-coaster), [Beam](https://github.com/just-every/run-beam), [Pier](https://github.com/just-every/run-pier). Sibling repositories were not edited. Market research is outside public source.

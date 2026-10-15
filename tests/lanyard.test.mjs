@@ -1,0 +1,117 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import { run } from './harness.mjs'
+
+const shift = staffId => ({ staffId, start: '2026-10-11T23:00:00Z', end: '2026-10-12T07:00:00Z', breakMinutes: 30, label: 'Morning service' })
+const missed = staffId => ({ ...shift(staffId), label: undefined, reason: 'Forgot clock at opening' })
+const timeInput = staffId => { const { label, ...p } = missed(staffId); return p }
+
+test('native access, owner-only grants, staff isolation, CSRF and immediate revocation', () => run(async h => {
+  const alex = await h.person('Alex'), sam = await h.person('Sam')
+  await h.state('', 401)
+  assert.deepEqual((await h.state(alex.cookie)).staff.map(s => s.id), [alex.id])
+  await h.cmd('staff.save', { name: 'Bad' }, alex.cookie, 403)
+  await h.cmd('time.approve', { id: 'anything', revision: 1 }, sam.cookie, 403)
+  await h.cmd('availability.save', { ...shift(alex.id) }, alex.cookie, 400)
+  const cross = await h.send('/api/lanyard/command', { name: 'staff.erase', input: { id: alex.id, revision: 1 } }, h.owner, { origin: 'https://evil.example' })
+  assert.equal(cross.status, 403)
+  await h.cmd('staff.save', { id: alex.id, revision: 1, name: 'Alex', email: alex.email, payrollId: 'ALEX', role: 'staff', active: false })
+  await h.state(alex.cookie, 403)
+  await h.cmd('staff.erase', { id: sam.id, revision: 1 }, h.owner, 409)
+}))
+
+test('availability, approved leave, conflicts, exact roster publication and personal confirmation', () => run(async h => {
+  const alex = await h.person('Alex'), manager = await h.person('Priya', 'manager')
+  await h.cmd('availability.save', { start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' }, alex.cookie)
+  const leave = await h.cmd('leave.request', { start: '2026-10-13T00:00:00Z', end: '2026-10-14T00:00:00Z', reason: 'Family day' }, alex.cookie)
+  await h.cmd('leave.decide', { id: leave.id, revision: 1, decision: 'approved' }, alex.cookie, 403)
+  await h.cmd('leave.decide', { id: leave.id, revision: 1, decision: 'approved' }, manager.cookie)
+  const bad = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [{ ...shift(alex.id), start: '2026-10-13T00:00:00Z', end: '2026-10-13T08:00:00Z' }] })
+  assert.ok(bad.conflicts.length)
+  await h.cmd('roster.publish', { id: bad.id, revision: bad.revision }, h.owner, 409)
+  const good = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [shift(alex.id)] })
+  await h.cmd('roster.publish', { id: good.id, revision: bad.revision }, manager.cookie, 409)
+  await h.cmd('roster.publish', { id: good.id, revision: good.revision }, manager.cookie)
+  await h.cmd('settings.save', { timezone: 'Australia/Perth' }, h.owner, 409)
+  const visible = (await h.state(alex.cookie)).shifts
+  assert.equal(visible.length, 1)
+  await h.cmd('shift.confirm', { id: visible[0].id, revision: visible[0].revision }, alex.cookie)
+  assert.ok((await h.state()).events.some(e => e.action === 'roster.publish' && e.actorRole === 'manager'))
+}))
+
+test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
+  const alex = await h.person('Alex'), sam = await h.person('Sam')
+  const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }
+  const first = await h.cmd('clock.in', input, alex.cookie)
+  assert.deepEqual(await h.cmd('clock.in', input, alex.cookie), first)
+  await h.cmd('clock.in', { ...input, capturedAt: '2026-10-12T01:00:00Z' }, alex.cookie, 409)
+  await h.cmd('clock.in', input, sam.cookie, 409)
+  const out = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T08:00:00Z', breakMinutes: 30 }
+  const stopped = await h.cmd('clock.out', out, alex.cookie)
+  assert.deepEqual(await h.cmd('clock.out', out, alex.cookie), stopped)
+  assert.equal((await h.state()).timesheets.length, 1)
+  assert.equal(stopped.timesheet.minutes, 450)
+  await h.cmd('time.approve', { id: stopped.timesheet.id, revision: 1 }, alex.cookie, 403)
+  await h.cmd('time.approve', { id: stopped.timesheet.id, revision: 1 })
+}))
+
+test('reviewed payroll claims once, immutable downloads, acknowledgement and signed correction delta', () => run(async h => {
+  const alex = await h.person('Alex')
+  const submitted = await h.cmd('time.prepare', timeInput(alex.id))
+  const approved = await h.cmd('time.approve', { id: submitted.id, revision: 1 })
+  const batch = await h.cmd('payroll.prepare', {}), rival = await h.cmd('payroll.prepare', {})
+  const exported = await h.cmd('payroll.export', { id: batch.id, revision: batch.revision })
+  await h.cmd('payroll.export', { id: rival.id, revision: 1 }, h.owner, 409)
+  const path = `/api/lanyard/batches/${batch.id}.csv`
+  const a = await h.send(path, undefined, h.owner), b = await h.send(path, undefined, h.owner)
+  assert.equal(a.text, b.text); assert.match(a.text, /450,7\.5000/)
+  assert.equal((await h.send(path, undefined, alex.cookie)).status, 403)
+  await h.cmd('payroll.acknowledge', { id: batch.id, revision: exported.revision, reference: 'Payroll-import-101' })
+  const corrected = await h.cmd('time.prepare', { ...timeInput(alex.id), breakMinutes: 45, corrects: approved.id, reason: 'Break correction agreed with Alex' })
+  const correction = await h.cmd('time.approve', { id: corrected.id, revision: 1 })
+  assert.equal(correction.exportMinutes, -15)
+  const adjustment = await h.cmd('payroll.prepare', {}), done = await h.cmd('payroll.export', { id: adjustment.id, revision: 1 })
+  assert.match(done.csv, /-15,-0\.2500/)
+  assert.equal((await h.send(path, undefined, h.owner)).text, a.text)
+  assert.equal((await h.state()).timesheets.find(t => t.id === approved.id).status, 'superseded')
+}))
+
+test('agent prepares drafts but cannot approve through any human or agent door; key revocation is immediate', () => run(async h => {
+  const alex = await h.person('Alex'), key = await h.cmd('agent.create', { label: 'Roster assistant' }), headers = { authorization: `Bearer ${key.token}` }
+  const agent = (name, input) => h.send('/api/lanyard/agent/command', { name, input }, '', headers)
+  const context = await h.send('/api/lanyard/agent/context', undefined, '', headers)
+  assert.equal(context.status, 200); assert.equal(context.value.staff[0].email, undefined)
+  const draft = await agent('time.prepare', timeInput(alex.id)); assert.equal(draft.status, 200)
+  assert.equal((await agent('time.approve', { id: draft.value.result.id, revision: 1 })).status, 403)
+  assert.equal((await h.send('/api/lanyard/command', { name: 'time.approve', input: { id: draft.value.result.id, revision: 1 } }, '', headers)).status, 401)
+  await h.cmd('time.approve', { id: draft.value.result.id, revision: 1 })
+  await h.cmd('agent.revoke', { id: key.id })
+  assert.equal((await agent('payroll.prepare', {})).status, 401)
+}))
+
+test('staff CSV dry run, exact reviewed apply, original journal, undo and native edit preservation', () => run(async h => {
+  const csv = await readFile('tests/fixtures/staff.csv', 'utf8')
+  const preview = await h.cmd('import.preview', { csv })
+  assert.equal((await h.state()).staff.length, 0)
+  await h.cmd('import.apply', { csv: csv.replace('Alex', 'Alec'), fingerprint: preview.fingerprint }, h.owner, 409)
+  const applied = await h.cmd('import.apply', { csv, fingerprint: preview.fingerprint })
+  assert.equal(applied.job.state, 'completed')
+  const staff = (await h.state()).staff; assert.ok(staff.length > 0); assert.ok(staff.every(s => !s.active))
+  const journal = await h.cmd('import.journal', { jobId: applied.job.id }); assert.ok(journal.originals.length)
+  await h.cmd('staff.save', { id: staff[0].id, revision: staff[0].revision, name: 'Edited by owner', email: staff[0].email, payrollId: staff[0].payrollId, role: 'staff', active: false })
+  await h.cmd('import.undo', { jobId: applied.job.id })
+  const after = (await h.state()).staff; assert.equal(after.length, 1); assert.equal(after[0].name, 'Edited by owner')
+  await h.cmd('staff.erase', { id: after[0].id, revision: after[0].revision }, h.owner, 409)
+}))
+
+test('unused identity erasure removes personal values and fences recreation; used identities remain retained', () => run(async h => {
+  const p = { name: 'Never joined', email: 'unused@venue.example', payrollId: 'UNUSED', role: 'staff', active: false }
+  const staff = await h.cmd('staff.save', p)
+  await h.cmd('staff.erase', { id: staff.id, revision: 1 })
+  const s = await h.state(); assert.ok(!JSON.stringify(s).includes(p.email)); assert.ok(!JSON.stringify(s).includes(p.name))
+  await h.cmd('staff.save', p, h.owner, 409)
+  const csv = 'staff_id,name,email,payroll_id\nunused,Unused,unused@venue.example,UNUSED\n'
+  const preview = await h.cmd('import.preview', { csv })
+  await h.cmd('import.apply', { csv, fingerprint: preview.fingerprint }, h.owner, 409)
+}))

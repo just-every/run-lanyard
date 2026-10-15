@@ -1,0 +1,3 @@
+staff_id,name,email,payroll_id
+staff-001,Alex Example,alex@example.test,EMP001
+staff-002,"Casey, Example",casey@example.test,EMP002
