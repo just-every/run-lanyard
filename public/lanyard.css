@@ -1,15 +1,156 @@
-.rer-themed body{padding:0 16px 24px;max-width:1160px;margin:auto;overflow-wrap:anywhere}
-.rer-themed main{max-width:none;margin:24px 0;padding:0;background:transparent;box-shadow:none;border-radius:0;min-width:0}
-.app-header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px 0 16px}.brand-home{text-decoration:none}.rer-themed .rer-brand{margin:0;font-size:24px}.identity{text-align:right;font-size:14px;color:var(--rer-muted)}.identity span{display:block}
-nav{display:flex;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--rer-border);padding-bottom:12px}nav a{padding:8px 14px;text-decoration:none;border-radius:var(--rer-radius)}nav a[aria-current=page]{background:var(--rer-brand-accent);color:var(--rer-brand-accent-text);font-weight:600}
-.rer-themed h1{margin:0 0 12px}.rer-themed h2{font-size:21px;margin:0 0 16px;line-height:1.3}.rer-themed h3{font-size:18px;margin:0 0 8px;line-height:1.4}.rer-themed h4{font-size:16px;margin:16px 0 8px}.rer-themed p{margin:0 0 14px}.panel{background:var(--rer-surface);padding:24px;border:1px solid color-mix(in srgb,var(--rer-border) 40%,transparent);border-radius:var(--rer-radius);margin:20px 0;min-width:0}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}.record{min-width:0;padding:16px 0;border-top:1px solid color-mix(in srgb,var(--rer-border) 30%,transparent)}.record:first-child{border-top:0}.cards .record{border:1px solid color-mix(in srgb,var(--rer-border) 35%,transparent);border-radius:var(--rer-radius);padding:18px}.status{display:inline-block;font-size:13px;padding:2px 9px;border:1px solid var(--rer-border);border-radius:50px;margin:0 4px 12px 0;color:var(--rer-muted)}
-.rer-themed form{max-width:720px;margin:12px 0}.rer-themed button{width:fit-content;max-width:100%;border-radius:calc(var(--rer-radius)/2)}.rer-themed button.secondary{background:var(--rer-surface);border:1px solid var(--rer-border);color:var(--rer-text)}.rer-themed input:not([type=checkbox]):not([type=hidden]),.rer-themed select,.rer-themed textarea{min-width:0;max-width:100%;border:1px solid var(--rer-border);border-radius:calc(var(--rer-radius)/2);background:var(--rer-surface);color:var(--rer-text);font:inherit;box-sizing:border-box;width:100%;padding:10px 12px;min-height:46px}.rer-themed textarea{resize:vertical;line-height:1.5;min-height:100px}.rer-themed select{appearance:auto}.actions{display:flex;flex-wrap:wrap;gap:12px}.actions form{flex:1 1 180px}.actions button{width:100%}.range{font-variant-numeric:tabular-nums}.empty{padding:12px 0}.note{font-size:14px}.choice{padding:8px 0}.choice span{min-width:0}
-details{border-top:1px solid color-mix(in srgb,var(--rer-border) 30%,transparent);padding:14px 0 0;margin-top:14px}summary{font-weight:500;cursor:pointer;padding:4px 0}.detail-content{margin:12px 0}.shift-input{display:grid;gap:12px;border:1px solid var(--rer-border);padding:16px;border-radius:var(--rer-radius);margin-bottom:12px}.shift-input button{justify-self:start}pre{background:var(--rer-page);padding:16px;border-radius:8px;font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;max-width:100%;box-sizing:border-box}code{font-size:.9em;overflow-wrap:anywhere}.credential{user-select:all}.button-link{display:inline-block;padding:10px 16px;border:1px solid var(--rer-border);border-radius:8px}.notice{background:var(--rer-surface);border:2px solid var(--rer-brand-accent);padding:16px;border-radius:var(--rer-radius);margin:0 0 20px}.notice.error{border-color:#a52a30}footer{font-size:13px;color:var(--rer-muted);padding:20px 0}.skip{position:absolute;left:16px;top:-80px;background:var(--rer-surface);padding:12px;z-index:10}.skip:focus{top:8px}[hidden]{display:none!important}
-@media(min-width:760px){.shift-input{grid-template-columns:1fr 1fr}.shift-input label:first-child{grid-column:1/-1}}
-@media(max-width:480px){.rer-themed body{padding:0 12px 20px}.app-header{align-items:flex-start;gap:12px;padding-top:18px}.rer-themed .rer-brand{font-size:21px;gap:8px}.identity{font-size:12px;max-width:54%}nav{gap:4px}nav a{font-size:14px;padding:8px 10px}.rer-themed main{padding:0;margin-top:20px}.panel{padding:18px}.rer-themed h1{font-size:26px}.rer-themed button{width:100%}.cards{grid-template-columns:1fr}}
-
-.rer-themed dl.command-docs{display:block;margin:16px 0}.command-docs dt{font-weight:600;margin-top:16px}.command-docs dd{margin:4px 0 0!important;color:var(--rer-muted)!important}
-
-.venue-time{margin:14px 0 0!important;font-size:14px}.venue-time strong{color:var(--rer-text)}
-
-.rer-themed .identity .signout{display:block;margin:4px 0 0 auto;padding:2px 0;border:0;background:transparent;color:var(--rer-brand-accent);font:inherit;text-decoration:underline;width:auto}
+/* The app shell and controls use the same rhythm as the picked 12ui roster. */
+*,*::before,*::after{box-sizing:border-box}
+html.rer-themed .lanyard-app{padding:28px 0 0;margin:0;max-width:none;min-height:100vh;background:var(--paper);color:var(--ink);font:16px/1.5 var(--font-sans);overflow-wrap:anywhere}
+.app-band{position:absolute;top:0;left:0;width:100%;height:28px;background:url('/brand/band.svg#strip') left top / 1440px 28px repeat-x}
+.app-header,.navigation,.lanyard-app main,.lanyard-app footer{width:calc(100% - 160px);max-width:1280px;margin-left:auto;margin-right:auto}
+.app-header{min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px;border-bottom:1px solid var(--hairline)}
+.brand-home{text-decoration:none;flex:none}
+html.rer-themed .app-header .rer-brand{margin:0;font:600 28px/1.2 var(--font-serif);gap:12px}
+html.rer-themed .app-header .rer-brand::before{width:28px;height:32px}
+.identity{display:flex;align-items:center;justify-content:flex-end;gap:24px;font-size:16px}
+.identity .role{color:var(--muted)}
+html.rer-themed .identity a{color:var(--ink);text-decoration:none}
+html.rer-themed .identity a:hover{text-decoration:underline;text-underline-offset:4px}
+html.rer-themed .identity .signout{border:1px solid var(--muted);background:transparent;color:var(--ink);min-height:36px;padding:4px 20px;font-size:14px}
+.navigation{display:flex;align-items:center;justify-content:space-between;gap:24px;border-bottom:1px solid var(--hairline);min-height:64px}
+.navigation nav{display:flex;align-self:stretch;gap:24px;min-width:0;overflow-x:auto;scrollbar-width:thin}
+html.rer-themed nav a{position:relative;display:flex;align-items:center;justify-content:center;min-width:72px;min-height:60px;padding:12px 4px;white-space:nowrap;color:var(--ink);font-size:16px;text-decoration:none}
+nav a[aria-current=page]{font-weight:600}
+nav a[aria-current=page]::after{content:'';height:3px;position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:72px;background:var(--kelly);border-radius:3px}
+html.rer-themed .venue-time{margin:0;font-size:14px;white-space:nowrap}
+.venue-time strong{font-weight:400;color:var(--ink)}
+html.rer-themed .lanyard-app main{max-width:1280px;padding:0;margin-top:32px;margin-bottom:48px;background:transparent;border-radius:0;box-shadow:none;min-width:0}
+html.rer-themed .lanyard-app h1{font:600 72px/1 var(--font-serif);letter-spacing:-.02em;margin:0 0 12px;text-wrap:balance}
+html.rer-themed .lanyard-app h2{font:500 30px/1.2 var(--font-serif);letter-spacing:-.015em;margin:0 0 16px;color:var(--ink)}
+html.rer-themed .lanyard-app h3{font:500 24px/1.2 var(--font-serif);letter-spacing:-.015em;margin:0 0 10px;color:var(--ink)}
+html.rer-themed .lanyard-app h4{font-size:16px;font-weight:500;line-height:1.5;margin:0 0 8px}
+html.rer-themed .lanyard-app p{margin:0 0 14px;color:var(--ink)}
+html.rer-themed .lanyard-app main>h1+p{font-size:18px;max-width:1100px;margin-bottom:28px}
+.panel{background:var(--surface);border:1px solid var(--hairline);border-radius:var(--r-card);box-shadow:var(--shadow-card);padding:24px;margin:20px 0;min-width:0}
+.panel>h2+details{border-top:0;padding-top:0}
+.panel>h2{padding-bottom:12px;border-bottom:1px solid var(--hairline)}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.record{position:relative;min-width:0;padding:20px 0;border-top:1px solid var(--hairline)}
+.record:first-of-type{border-top:0}
+.cards .record{border:1px solid var(--hairline);border-radius:var(--r-card);padding:20px;background:var(--surface);box-shadow:0 1px 2px rgb(26 28 26 / .03)}
+.cards .record>h3{padding-right:110px;min-height:29px}
+.cards .record>h3+.status{position:absolute;right:20px;top:20px}
+html.rer-themed .record p{font-size:16px;color:var(--muted);margin-bottom:10px}
+.status{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;margin:0 4px 10px 0;border-radius:var(--r-pill);font:500 14px/1 var(--font-sans);white-space:nowrap}
+.status.positive{background:var(--tint);color:var(--tint-ink)}
+.status.neutral{background:var(--neutral);color:var(--ink)}
+.confirmed{color:var(--kelly)}
+html.rer-themed .lanyard-app form{display:grid;gap:16px;max-width:100%;margin:12px 0}
+html.rer-themed .lanyard-app label{font:500 14px/1.4 var(--font-sans);color:var(--ink);display:grid;gap:6px}
+html.rer-themed .lanyard-app label:has(input[type=checkbox]){display:flex;align-items:flex-start;gap:10px;font-weight:400}
+html.rer-themed .lanyard-app input:not([type=checkbox]):not([type=hidden]),html.rer-themed .lanyard-app select,html.rer-themed .lanyard-app textarea{width:100%;min-width:0;min-height:44px;padding:10px 12px;max-width:100%;border:1px solid var(--hairline);border-radius:var(--r-input);background:var(--surface);color:var(--ink);font:400 16px/1.4 var(--font-sans)}
+html.rer-themed .lanyard-app input[type=checkbox]{width:20px;height:20px;margin:0;accent-color:var(--kelly);flex:none}
+html.rer-themed .lanyard-app textarea{resize:vertical;font:14px/1.6 var(--font-mono);min-height:120px}
+html.rer-themed .lanyard-app button,html.rer-themed .lanyard-app .button-link{display:inline-flex;align-items:center;justify-content:center;width:fit-content;max-width:100%;min-height:44px;padding:10px 24px;border:1px solid var(--ink);border-radius:var(--r-pill);font:500 16px/1.4 var(--font-sans);background:var(--ink);color:var(--surface);cursor:pointer;text-decoration:none;text-align:center}
+html.rer-themed .lanyard-app button:hover{background:#000}
+html.rer-themed .lanyard-app button.secondary,html.rer-themed .lanyard-app .secondary-action button,html.rer-themed .lanyard-app .button-link{background:transparent;color:var(--ink)}
+html.rer-themed .lanyard-app button.secondary:hover,html.rer-themed .lanyard-app .secondary-action button:hover,html.rer-themed .lanyard-app .button-link:hover{background:var(--neutral)}
+.actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+html.rer-themed .actions form{margin:0}
+details{border-top:1px solid var(--hairline);padding:16px 0}
+summary{cursor:pointer;font-weight:500;min-height:28px;list-style:none;display:flex;align-items:center;gap:12px}
+summary::before{content:'›';font-size:24px;line-height:1;display:inline-block;transition:transform .15s}
+details[open]>summary::before{transform:rotate(90deg)}
+summary:hover{text-decoration:underline;text-underline-offset:4px}
+.detail-content{padding-top:16px;min-width:0}
+details.panel{padding:24px;border:1px solid var(--hairline)}
+html.rer-themed details.panel>summary h2{margin:0}
+html.rer-themed .empty{display:flex;min-height:170px;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:24px 8px;text-align:center;color:var(--muted)}
+html.rer-themed .empty p{margin:0;max-width:52ch;color:var(--muted);font-size:16px}
+.empty-icon{width:64px;height:64px;color:var(--ink)}
+.icon-accent{stroke:var(--kelly)}
+html.rer-themed pre{font:14px/1.65 var(--font-mono);white-space:pre;overflow:auto;max-width:100%;padding:16px;background:var(--neutral);border-radius:var(--r-input);margin:8px 0 16px}
+code{font-family:var(--font-mono);font-size:.875em;overflow-wrap:anywhere}
+.credential{user-select:all}
+html.rer-themed .lanyard-app .note{font-size:13px;color:var(--muted);line-height:1.6}
+.choice{padding:12px;border-bottom:1px solid var(--hairline)}
+.notice{padding:16px 20px;margin:0 0 20px;border-radius:var(--r-input);background:var(--tint);color:var(--tint-ink)}
+.notice.error{background:var(--surface);border-left:3px solid var(--danger);color:var(--ink)}
+.shift-input{display:grid;grid-template-columns:1.2fr 1fr 1fr .65fr 1fr auto;align-items:end;gap:12px;padding:16px 0;border-top:1px solid var(--hairline)}
+html.rer-themed .shift-input label{font-size:13px}
+html.rer-themed .shift-input button{padding:10px 12px;font-size:13px}
+.week-row{display:grid;grid-template-columns:1.4fr 1fr .8fr 220px;align-items:center;gap:20px;min-height:56px;padding:6px 0}
+html.rer-themed .week-row h3,html.rer-themed .week-row p,.week-row .status,html.rer-themed .week-row form{margin:0}
+html.rer-themed .week-row h3{font:400 16px/1.5 var(--font-sans)}
+.week-row .status{justify-self:start}
+.leave-row{display:grid;grid-template-columns:1fr auto 1.7fr 1fr auto;align-items:center;gap:20px}
+html.rer-themed .leave-row h3{font:500 16px/1.4 var(--font-sans);margin:0}
+html.rer-themed .leave-row p,.leave-row .status{margin:0}
+html.rer-themed .leave-row button{font-size:14px;padding:8px 20px;white-space:nowrap}
+.person-form{grid-template-columns:1fr 1fr 1.2fr .7fr auto auto;align-items:end}
+.panel-team .record>h3{padding:0}
+.panel-team .record>h3+.status{position:static}
+.panel-team .record details{padding:12px 0 0;margin-top:12px}
+.panel-team .record details+details{border-top:0;margin:0}
+.panel-team .record details:first-of-type>summary{display:inline-flex;border:1px solid var(--muted);padding:6px 16px;min-height:36px;border-radius:var(--r-pill);font-size:14px}
+.panel-team .record details:first-of-type>summary::before{display:none}
+.batch{display:grid;grid-template-columns:.8fr 1.2fr;gap:40px;border:1px solid var(--hairline);border-radius:var(--r-card);padding:24px;margin:16px 0;box-shadow:var(--shadow-card)}
+.batch:first-of-type{border-top:1px solid var(--hairline)}
+.batch-detail{border-left:1px solid var(--hairline);padding-left:32px;min-width:0}
+html.rer-themed .batch-summary h3{display:inline;margin-right:16px;font-size:30px}
+html.rer-themed .batch-summary p{margin-top:10px}
+html.rer-themed .command-docs{display:block;margin:16px 0}
+.command-docs dt{font-weight:600;margin-top:20px}
+html.rer-themed .command-docs dd{margin:6px 0 0;color:var(--muted)}
+html.rer-themed .lanyard-app footer{border-top:1px solid var(--hairline);padding:16px 0 28px;font-size:14px;color:var(--muted)}
+.skip{position:absolute;left:20px;top:-80px;background:var(--surface);padding:12px;z-index:10}
+.skip:focus{top:36px}
+[hidden]{display:none!important}
+.batch-id{display:block;font:13px/1.6 var(--font-mono);letter-spacing:0;overflow-wrap:anywhere;margin-top:8px}
+@media(min-width:701px){
+ [data-clock]{display:grid;grid-template-columns:1fr auto;align-items:center;gap:16px}
+ html.rer-themed [data-clock]>p{margin:0}
+ [data-clock-status]:empty{display:none}
+ html.rer-themed [data-clock]>form{display:flex;gap:16px;align-items:end;margin:0}
+ [data-clock]>.note,[data-clock]>noscript{grid-column:1/-1}
+}
+@media(min-width:900px){
+ main:has(.panel-weeks .empty):has(.panel-shifts .empty){display:grid;grid-template-columns:1.2fr 1fr;gap:0 24px}
+ main:has(.panel-weeks .empty):has(.panel-shifts .empty)>*{grid-column:1/-1}
+ main:has(.panel-weeks .empty):has(.panel-shifts .empty)>.panel-weeks{grid-column:1}
+ main:has(.panel-weeks .empty):has(.panel-shifts .empty)>.panel-shifts{grid-column:2}
+}
+@media(max-width:1200px){.app-header,.navigation,.lanyard-app main,.lanyard-app footer{width:calc(100% - 64px)}.identity{gap:16px}.navigation nav{gap:12px}.shift-input{grid-template-columns:repeat(2,minmax(0,1fr))}.person-form{grid-template-columns:repeat(3,minmax(0,1fr))}.leave-row{grid-template-columns:1fr auto 2fr}.leave-row .actions{grid-column:2/-1}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){
+ .app-header,.navigation,.lanyard-app main,.lanyard-app footer{width:calc(100% - 40px)}
+ .app-header{padding:20px 0 16px;position:relative;align-items:flex-start;min-height:106px;display:block}
+ html.rer-themed .app-header .rer-brand{font-size:26px}
+ .identity{margin-top:12px;justify-content:flex-start;gap:6px;font-size:13px;flex-wrap:wrap;padding-right:0}
+ .identity .role::before{content:'·';margin-right:6px}
+ html.rer-themed .identity a{margin-left:8px}
+ html.rer-themed .identity .signout{position:absolute;right:0;top:18px;min-height:36px;padding:6px 12px;font-size:13px}
+ .navigation{display:block;border:0;min-height:0}
+ .navigation nav{width:100%;gap:12px;border-bottom:1px solid var(--hairline)}
+ html.rer-themed nav a{font-size:14px;min-height:52px;min-width:64px}
+ nav a[aria-current=page]::after{width:64px}
+ html.rer-themed .venue-time{font-size:13px;margin:16px 0 0}
+ html.rer-themed .lanyard-app main{margin-top:24px;margin-bottom:32px}
+ html.rer-themed .lanyard-app h1{font-size:48px;margin-bottom:12px}
+ html.rer-themed .lanyard-app main>h1+p{font-size:16px;margin-bottom:24px}
+ html.rer-themed .lanyard-app h2{font-size:26px}
+ html.rer-themed .lanyard-app h3{font-size:23px}
+ .panel,details.panel{padding:20px;margin:20px 0}
+ .cards{grid-template-columns:1fr}
+ .cards .record{padding:20px}
+ .week-row{grid-template-columns:1fr auto;gap:12px}
+ html.rer-themed .week-row h3{font-size:14px}
+ .week-row form{grid-column:1/-1}
+ html.rer-themed .week-row button{width:100%}
+ .leave-row{grid-template-columns:1fr auto;gap:14px}
+ .leave-row .range,.leave-row>p,.leave-row .actions{grid-column:1/-1}
+ .leave-row .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+ html.rer-themed .leave-row button{white-space:normal;padding:10px 14px;width:100%}
+ .shift-input,.person-form{grid-template-columns:1fr}
+ html.rer-themed .lanyard-app button,html.rer-themed .lanyard-app .button-link{min-height:48px}
+ html.rer-themed .lanyard-app form>button{width:100%}
+ .batch{grid-template-columns:1fr;gap:20px;padding:20px}
+ .batch-detail{border:0;border-top:1px solid var(--hairline);padding:20px 0 0}
+ html.rer-themed .batch-summary h3{font-size:26px}
+ html.rer-themed .empty{min-height:180px;padding:24px 0}
+ html.rer-themed .lanyard-app footer{font-size:13px}
+}

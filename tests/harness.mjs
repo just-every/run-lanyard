@@ -24,9 +24,9 @@ export async function harness(options = {}) {
       try { value = JSON.parse(text) } catch { value = text }
       return { status: response.status, value, text, headers: response.headers, cookie: response.headers.get('set-cookie')?.split(';')[0] }
     }
-    const bootstrap = options.owner ? null : await send('/auth/bootstrap', { token: auth.SETUP_TOKEN, displayName: 'Jordan Venue' })
+    const bootstrap = options.owner || options.unclaimed ? null : await send('/auth/bootstrap', { token: auth.SETUP_TOKEN, displayName: 'Jordan Venue' })
     if (bootstrap) assert.equal(bootstrap.status, 303, bootstrap.text)
-    const owner = options.owner ?? bootstrap.cookie
+    const owner = options.owner ?? bootstrap?.cookie
     const cmd = async (name, input, cookie = owner, status = 200, headers = {}) => {
       const r = await send('/api/lanyard/command', { name, input }, cookie, headers)
       assert.equal(r.status, status, `${name}: ${JSON.stringify(r.value)}`)

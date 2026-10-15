@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { run } from './harness.mjs'
+import { run, harness } from './harness.mjs'
 
 const shift = staffId => ({ staffId, start: '2026-10-11T23:00:00Z', end: '2026-10-12T07:00:00Z', breakMinutes: 30, label: 'Morning service' })
 const missed = staffId => ({ ...shift(staffId), label: undefined, reason: 'Forgot clock at opening' })
@@ -115,3 +115,24 @@ test('unused identity erasure removes personal values and fences recreation; use
   const preview = await h.cmd('import.preview', { csv })
   await h.cmd('import.apply', { csv, fingerprint: preview.fingerprint }, h.owner, 409)
 }))
+
+// The public state changes at owner claim, before the separate first-run review.
+test('installed Lobby follows the durable owner claim before first-run confirmation', async () => {
+  const h = await harness({ unclaimed: true })
+  try {
+    assert.equal((await h.send('/setup/state')).value.state, 'unclaimed')
+    const before = await h.send('/')
+    assert.equal(before.status, 200)
+    assert.equal(before.headers.get('x-rer-document'), 'lobby')
+    assert.ok(before.text.includes('href="/setup"'))
+    const claimed = await h.send('/auth/bootstrap', { token: h.auth.SETUP_TOKEN, displayName: 'Venue owner' })
+    assert.equal(claimed.status, 303)
+    assert.equal((await h.send('/setup/state')).value.state, 'claimed')
+    const after = await h.send('/')
+    assert.ok(after.text.includes('href="/signin"'))
+    assert.equal((await h.send('/setup', undefined, claimed.cookie)).status, 200)
+    const confirmed = await h.mf.dispatchFetch(h.origin + '/setup', { method: 'POST', headers: { origin: h.origin, cookie: claimed.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: 'confirm=yes', redirect: 'manual' })
+    assert.equal(confirmed.status, 303)
+    assert.equal((await h.send('/setup/state')).value.state, 'claimed')
+  } finally { await h.close() }
+})

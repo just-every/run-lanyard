@@ -8,3 +8,7 @@
 - The owner backs up and restores installation data with `rer export` / `rer import`, revokes staff and agent access, and erases an unused, uninvited, never-imported staff identity with an archive restore fence.
 
 Not needed: award interpretation, pay calculation, STP, tips, GPS, biometrics, shift swaps, automatic provider submission, multi-venue scheduling, a custom domain or the next design stage. Employment-history erasure is outside this release; deactivate worked or invited staff and retain their records. The importer is a documented format, not a verified vendor export adapter.
+
+The public run site presents Lanyard, opens `/run` for installation, and builds
+its owner guides at `/docs` from repository Markdown. An installed `/` remains
+the Lobby, reflecting the durable owner claim before first-run confirmation.

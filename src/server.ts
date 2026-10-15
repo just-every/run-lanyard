@@ -4,10 +4,8 @@ import { Hono } from 'hono'
 import { dispatch } from './base/dispatch'
 import { staticAssetResponse } from './base/static-assets'
 import { deploymentHealth } from './base/deployment-health'
-import { lobbyResponse } from './base/lobby'
-import { setupStateResponse } from './base/setup-state'
-import { authResponse, runtimeBindings, type Bindings } from './auth.server'
-import { identity } from './identity'
+import { installedHomeResponse } from './installed-home'
+import { authResponse, type Bindings } from './auth.server'
 import { lanyardResponse } from './lanyard/http'
 
 const api = new Hono<{ Bindings: Bindings }>()
@@ -32,10 +30,8 @@ export default {
     if (app) return app
     // The installed variant: the Lobby at / and the public claim state it reads.
     // Local dev serves the saved origin's data at its own port (RER_DEV_ORIGIN).
-    const state = await setupStateResponse(request, runtimeBindings(env))
-    if (state) return state
-    const lobby = await lobbyResponse(request, runtimeBindings(env), identity)
-    if (lobby) return lobby
+    const home = await installedHomeResponse(request, env)
+    if (home) return home
     return rejectedResponse(request, await dispatch(request, () => api.fetch(request, env, execution), async () => noTransform(await start.fetch(request))))
   },
 } satisfies ExportedHandler<Bindings>

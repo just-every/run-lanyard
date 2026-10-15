@@ -16,7 +16,11 @@ rer dev
 
 RER installs pinned dependencies and Node 22.20.0, prepares local D1, and starts the app. First launch can take several minutes. Open the private `RER_OPEN` link printed in the terminal and confirm the owner at **Finish setup**. Keep that link private. `RER_READY` is the ordinary app address. A compatible second `rer dev` reuses the running app. If interrupted, run it again.
 
-For an installation with your own email, run `rer install`, then `rer setup --owner-email you@example.com`, then `rer dev`. The development outbox sends no email. For ordinary email sign-in, stop the server, run `rer dev --login`, open its outbox, and follow the newest message. If another checkout occupies the saved port, choose an available one explicitly, for example `rer dev --port 8899`; RER intentionally refuses to drift to another port. Stop with `rer dev --stop` or Ctrl-C. Never expose the development server publicly.
+For an installation with your own email, run `rer install`, then `rer setup --owner-email you@example.com`, then `rer dev`. The development outbox sends no email. For ordinary email sign-in, select **Sign out**, enter your email on **Sign in**, then open the development outbox and follow the newest message. If another checkout occupies the saved port, choose an available one explicitly, for example `rer dev --port 8899`; RER intentionally refuses to drift to another port. Stop with `rer dev --stop` or Ctrl-C. Never expose the development server publicly.
+
+## Owner guides
+
+The [Lanyard guide](docs/README.md) is built into the public site's `/docs` pages from the same repository Markdown. Start with [getting started](docs/GETTING-STARTED.md), then follow [roster and leave](docs/ROSTER.md), [clock and timesheets](docs/TIME.md), and [payroll exports](docs/PAYROLL.md). There are also step-by-step guides for [moving in](docs/MOVE-IN.md) and [backup and restore](docs/BACKUP-RESTORE.md).
 
 ## First week
 
@@ -25,7 +29,7 @@ For an installation with your own email, run `rer install`, then `rer setup --ow
 3. **Roster**: staff add availability and request leave. Managers decide leave, prepare shifts for a Monday-starting week, review conflicts, then publish. Choose your venue timezone in **People** before publishing the first roster (default Australia/Brisbane). Forms and weeks use venue time; stored timestamps and payroll CSV use UTC. The timezone is fixed after the first publication. Ambiguous or missing DST wall times are refused; use a clear boundary. Publication refuses shifts outside availability, approved leave or overlapping shifts. Staff see and confirm only their own published shifts.
 4. **Time**: staff clock in and out, entering unpaid break minutes when clocking out. Keep the page open to queue captures during connectivity loss and retry after reconnecting. The same capture retains its identity and cannot duplicate time. This is a page-level retry queue, not a fully offline app. Managers prepare missed time with a reason, approve hours, or correct the latest approved record. Corrections keep the prior record and need fresh approval.
 5. **Payroll**: prepare approved hours, review the exact CSV, and explicitly export. Download and import into payroll once; re-downloads return identical bytes and do not create new batches. Record the provider acknowledgement reference yourself. A correction to exported time carries only the positive or negative difference. This is Lanyard's documented CSV format: map it to your provider before using real data. Lanyard cannot prevent someone uploading a downloaded file twice externally.
-6. **Agents**: the owner creates a revocable, 30-day preparation key. [Agent commands](docs/AGENTS-API.md) prepare work; a native human session approves it. Keep keys out of logs.
+6. **Agent access**: the owner creates a revocable, 30-day preparation key. [Agent commands](docs/AGENTS-API.md) prepare work; a native human session approves it. Keep keys out of logs.
 
 ## Back up, restore and remove access
 
@@ -47,7 +51,7 @@ rer dev
 
 The original owner and staff identities, rosters, hours, payroll files, import originals and journals travel. Sessions, sign-in links, agent keys, credentials and the development outbox do not. Re-enter private configuration and sign in again. Setup must use the archived owner's email. Import rejects damaged archives and populated destinations. After erasure, supply a later archive as the journal: `rer import --input OLD.rer --journal LATER.rer --yes`. A destination or later journal holding the erasure fence refuses the earlier archive. Old offline backups cannot know about later erasure; protect and retire old copies yourself.
 
-Deactivate staff in **People** to revoke app access immediately. Revoke keys in **Agents**. **Erase unused staff** is limited to a record never invited, imported or used in work; it replaces identity details and fences older backups. Employment history remains retained for used staff. `rer reset --yes` destroys local state and settings; export first if needed.
+Deactivate staff in **People** to revoke app access immediately. Revoke keys in **Agent access**. **Erase unused staff** is limited to a record never invited, imported or used in work; it replaces identity details and fences older backups. Employment history remains retained for used staff. `rer reset --yes` destroys local state and settings; export first if needed.
 
 ## Deploy to your Cloudflare account
 
@@ -58,11 +62,14 @@ rer deploy --dry-run
 rer deploy
 ```
 
-Dry run validates/builds without provider requests. Real deploy provisions resources, migrates D1, uploads secrets and checks health. Deployment claims the configured owner and retires its setup token. Open the returned origin and sign in by email. A workers.dev address is sufficient; a custom domain is optional. Local tests do not establish real mail delivery or hosted acceptance. This round requires no run site.
+Dry run validates/builds without provider requests. Real deploy provisions resources, migrates D1, uploads secrets and checks health. Deployment claims the configured owner and retires its setup token. Open the returned origin and sign in by email. A workers.dev address is sufficient; a custom domain is optional. Local tests do not establish real mail delivery or hosted acceptance.
 
 ## Develop
 
-Package mode pins `@runeditrun/rer` to `0.2.19`, which supplies bounded, nonblocking socket ownership inspection and recognizes package pins without local RER patches. Foundation: `runeditrun/base@fc0e1041efa55771142bbb57c4ab4743147e264d`. [Source reuse](docs/SOURCES.md), [operations](RUN-LOCALLY.md), [agent guide](AGENTS.md).
+`rer dev` also prints `RER_SITE`, the local marketing homepage, `/run` and on-site docs. `rer build --site` writes the checked static site to `dist/site`. Run-site publishing is opt-in through `RUN_SITE_DEPLOY_ENABLED`; its domain declaration remains separate from the installed app.
+
+
+Package mode pins `@runeditrun/rer` to `0.2.21`, which supplies bounded, nonblocking socket ownership inspection and recognizes package pins without local RER patches. Foundation: `runeditrun/base@fc0e1041efa55771142bbb57c4ab4743147e264d`. [Source reuse](docs/SOURCES.md), [operations](RUN-LOCALLY.md), [agent guide](AGENTS.md).
 
 ```sh
 pnpm run test:lanyard
