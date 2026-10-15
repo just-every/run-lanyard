@@ -62,7 +62,7 @@ Dry run validates/builds without provider requests. Real deploy provisions resou
 
 ## Develop
 
-Package mode pins `@runeditrun/rer` to `0.2.14`, with committed patches allowing 15 seconds for socket inspection on busy machines and recognizing pnpm patch hashes in the package contract. Foundation: `runeditrun/base@fc0e1041efa55771142bbb57c4ab4743147e264d`. [Source reuse](docs/SOURCES.md), [operations](RUN-LOCALLY.md), [agent guide](AGENTS.md).
+Package mode pins `@runeditrun/rer` to `0.2.19`, which supplies bounded, nonblocking socket ownership inspection and recognizes package pins without local RER patches. Foundation: `runeditrun/base@fc0e1041efa55771142bbb57c4ab4743147e264d`. [Source reuse](docs/SOURCES.md), [operations](RUN-LOCALLY.md), [agent guide](AGENTS.md).
 
 ```sh
 pnpm run test:lanyard

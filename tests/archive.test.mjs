@@ -21,7 +21,7 @@ const command = async (cwd, args, expected = 0) => {
 }
 async function checkout(root) {
   await mkdir(root)
-  for (const name of ['package.json','pnpm-lock.yaml','OPERATIONS.json','RUN-LOCALLY.md','ACCEPTANCE.md','SEED-COMMAND-CONTRACT.md','OPERATIONS.md','patches','.node-version','wrangler.jsonc','deploy.json','rer-setup.json','scripts','src','migrations']) await cp(name, join(root,name), { recursive: true })
+  for (const name of ['package.json','pnpm-lock.yaml','OPERATIONS.json','RUN-LOCALLY.md','ACCEPTANCE.md','SEED-COMMAND-CONTRACT.md','OPERATIONS.md','.node-version','wrangler.jsonc','deploy.json','rer-setup.json','scripts','src','migrations']) await cp(name, join(root,name), { recursive: true })
   await symlink(resolve('node_modules'), join(root,'node_modules'), 'dir')
 }
 test('public CLI archive round trip refuses damaged or populated stores and respects erasure', { timeout: 240_000 }, async () => {
@@ -43,8 +43,9 @@ test('public CLI archive round trip refuses damaged or populated stores and resp
     const rows=text=>text.split('\n').filter(Boolean).map(JSON.parse).filter(r=>r.kind==='part')
     assert.ok(rows(bytes).length>0);assert.deepEqual(rows(await readFile(again,'utf8')),rows(bytes))
     await command(restored,['import','--input',old,'--yes','--no-queue'],4)
-    const corrupt=join(temporary,'corrupt.rer');await writeFile(corrupt,bytes.replace('Temporary joiner','Changed joiner'))
-    await command(erased,['import','--input',corrupt,'--yes','--no-queue'],4)
+    const corrupt=join(temporary,'corrupt.rer');await writeFile(corrupt,bytes.replace('Temporary joiner','Changed joiner'),{mode:0o600})
+    // Checksum damage is a transfer failure (1); restore policy conflicts remain 4.
+    await command(erased,['import','--input',corrupt,'--yes','--no-queue'],1)
     h=await harness({root:source,...identity});await h.cmd('staff.erase',{id:p.id,revision:1},await h.signIn(h.auth.OWNER_EMAIL));await h.close();h=null
     await command(source,['export','--output',later,'--no-queue'])
     await command(erased,['import','--input',old,'--journal',later,'--yes','--no-queue'],4)
