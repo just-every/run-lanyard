@@ -1,5 +1,7 @@
 # Lanyard
 
+The public site is at https://run-lanyard.com.
+
 Weekly rosters, phone clocking and approved timesheets for a small Australian venue. It exports hours to your existing payroll process; it never calculates or pays wages. MIT licensed. [First-release scope](ACCEPTANCE.md).
 
 ## Run from a fresh clone
@@ -66,7 +68,7 @@ Dry run validates/builds without provider requests. Real deploy provisions resou
 
 ## Develop
 
-`rer dev` also prints `RER_SITE`, the local marketing homepage, `/run` and on-site docs. `rer build --site` writes the checked static site to `dist/site`. Run-site publishing is opt-in through `RUN_SITE_DEPLOY_ENABLED`; its domain declaration remains separate from the installed app.
+`rer dev` also prints `RER_SITE`, the local marketing homepage, `/run` and on-site docs. `rer build --site` writes the checked static site to `dist/site`. Run-site publishing is opt-in through `RUN_SITE_DEPLOY`; its domain declaration remains separate from the installed app.
 
 
 Package mode pins `@runeditrun/rer` to `0.2.21`, which supplies bounded, nonblocking socket ownership inspection and recognizes package pins without local RER patches. Foundation: `runeditrun/base@fc0e1041efa55771142bbb57c4ab4743147e264d`. [Source reuse](docs/SOURCES.md), [operations](RUN-LOCALLY.md), [agent guide](AGENTS.md).

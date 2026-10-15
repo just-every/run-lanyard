@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
-    if: vars.RUN_SITE_DEPLOY_ENABLED == 'true'
+    if: vars.RUN_SITE_DEPLOY == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: run-site
