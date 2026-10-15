@@ -18,7 +18,7 @@ First launch installs pinned dependencies, prepares the local database and start
 
 Open the private `RER_OPEN` link printed in the terminal. Review the owner account on **Finish setup**, confirm it is ready, then select **Finish setup**. Keep that link private. `RER_READY` is the ordinary app address.
 
-For a new installation with your own email, run `rer install`, then `rer setup --owner-email you@example.com`, then `rer dev`. Local messages stay in the development outbox; they are not sent as email. To use ordinary local email sign-in, select **Sign out**, enter your email on **Sign in**, then open the development outbox and follow the newest sign-in message.
+For a new installation with your own email, run `rer install`, then `rer setup --owner-email you@example.com`, then `rer dev`. Local messages are silently suppressed. Reopen the private `RER_OPEN` link to sign in locally.
 
 Keep the development server private. Stop it with `rer dev --stop` or Ctrl-C. The repository [README](../README.md) also covers deployment to your own account.
 
@@ -37,7 +37,7 @@ Dates and time entry use this venue timezone on every device. The timezone becom
 
 For a whole team, use [Move in](MOVE-IN.md). Imported people start inactive; review their details, activate them and send invitations separately.
 
-For local invitations on this computer, open the private `RER_OPEN` link in a separate browser profile, then sign out. This unlocks the local development gate in that profile. In the owner's original browser, open the development outbox. Follow the invitation link in the second profile. Hosted invitations do not need a development link.
+Local invitations are silently suppressed. To invite people into a real installation, deploy it with your configured mail provider; recipients follow the emailed invitation link.
 
 ## Who does what
 

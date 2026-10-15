@@ -18,7 +18,7 @@ rer dev
 
 RER installs pinned dependencies and Node 22.20.0, prepares local D1, and starts the app. First launch can take several minutes. Open the private `RER_OPEN` link printed in the terminal and confirm the owner at **Finish setup**. Keep that link private. `RER_READY` is the ordinary app address. A compatible second `rer dev` reuses the running app. If interrupted, run it again.
 
-For an installation with your own email, run `rer install`, then `rer setup --owner-email you@example.com`, then `rer dev`. The development outbox sends no email. For ordinary email sign-in, select **Sign out**, enter your email on **Sign in**, then open the development outbox and follow the newest message. If another checkout occupies the saved port, choose an available one explicitly, for example `rer dev --port 8899`; RER intentionally refuses to drift to another port. Stop with `rer dev --stop` or Ctrl-C. Never expose the development server publicly.
+For an installation with your own email, run `rer install`, then `rer setup --owner-email you@example.com`, then `rer dev`. Development email is silently suppressed. Reopen the private `RER_OPEN` link to sign in locally. If another checkout occupies the saved port, choose an available one explicitly, for example `rer dev --port 8899`; RER intentionally refuses to drift to another port. Stop with `rer dev --stop` or Ctrl-C. Never expose the development server publicly.
 
 ## Owner guides
 
@@ -26,7 +26,7 @@ The [Lanyard guide](docs/README.md) is built into the public site's `/docs` page
 
 ## First week
 
-1. **People**: add people with unique email addresses and payroll IDs, activate, then **Invite**. Only the owner grants access. For local invitations on this computer, first open the private `RER_OPEN` link in a separate browser profile, then **Sign out**. This keeps the local development gate unlocked in that profile. Open the development outbox in the owner's original browser, open the invite, and follow its link in the second profile. Hosted invitations need no development link. Invitations establish real sessions. A manager's own hours need another manager or the owner to approve them.
+1. **People**: add people with unique email addresses and payroll IDs, activate, then **Invite**. Only the owner grants access. Local invitations are silently suppressed; a deployed installation sends them through its configured mail provider. Invitations establish real sessions. A manager's own hours need another manager or the owner to approve them.
 2. **Move in**: paste [Staff CSV v1](docs/STAFF-IMPORT.md), preview, inspect rows, and apply that exact preview. New rows are inactive. Open the journal; undo removes untouched imports and preserves native edits or dependent work. `tests/fixtures/staff.csv` is a synthetic example, not a vendor export.
 3. **Roster**: staff add availability and request leave. Managers decide leave, prepare shifts for a Monday-starting week, review conflicts, then publish. Choose your venue timezone in **People** before publishing the first roster (default Australia/Brisbane). Forms and weeks use venue time; stored timestamps and payroll CSV use UTC. The timezone is fixed after the first publication. Ambiguous or missing DST wall times are refused; use a clear boundary. Publication refuses shifts outside availability, approved leave or overlapping shifts. Staff see and confirm only their own published shifts.
 4. **Time**: staff clock in and out, entering unpaid break minutes when clocking out. Keep the page open to queue captures during connectivity loss and retry after reconnecting. The same capture retains its identity and cannot duplicate time. This is a page-level retry queue, not a fully offline app. Managers prepare missed time with a reason, approve hours, or correct the latest approved record. Corrections keep the prior record and need fresh approval.
@@ -71,7 +71,7 @@ Dry run validates/builds without provider requests. Real deploy provisions resou
 `rer dev` also prints `RER_SITE`, the local marketing homepage, `/run` and on-site docs. `rer build --site` writes the checked static site to `dist/site`. Run-site publishing is opt-in through `RUN_SITE_DEPLOY`; its domain declaration remains separate from the installed app.
 
 
-Package mode pins `@runeditrun/rer` to `0.2.21`, which supplies bounded, nonblocking socket ownership inspection and recognizes package pins without local RER patches. Foundation: `runeditrun/base@fc0e1041efa55771142bbb57c4ab4743147e264d`. [Source reuse](docs/SOURCES.md), [operations](RUN-LOCALLY.md), [agent guide](AGENTS.md).
+Package mode pins `@runeditrun/rer` to `0.2.22`, which supplies bounded, nonblocking socket ownership inspection and recognizes package pins without local RER patches. Foundation: `runeditrun/base@fc0e1041efa55771142bbb57c4ab4743147e264d`. [Source reuse](docs/SOURCES.md), [operations](RUN-LOCALLY.md), [agent guide](AGENTS.md).
 
 ```sh
 pnpm run test:lanyard

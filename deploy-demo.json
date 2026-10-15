@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "domain": "run-lanyard.com",
+  "name": "Lanyard",
+  "instanceType": "basic",
+  "settings": {
+    "MAIL_PROVIDER": "development",
+    "MAIL_FROM": "Lanyard Demo <demo@example.invalid>"
+  }
+}

@@ -11,3 +11,8 @@ MIT patterns copied and adapted:
 - [Dial calendar conflicts](https://github.com/just-every/run-dial/blob/0f17a8522556bcae29cc45e7f1ef15e2647c67f2/src/core/features/bookings/calendar-conflicts.ts): fenced state transitions. Lanyard's availability/overlap rules are new; that source handles calendar restoration conflicts.
 
 Package-mode examples: [Coaster](https://github.com/just-every/run-coaster), [Beam](https://github.com/just-every/run-beam), [Pier](https://github.com/just-every/run-pier). Sibling repositories were not edited. Market research is outside public source.
+
+Demo adoption pins the package and every copied module to Base `rer-v0.2.22`
+(`1ce15dd8cbb7c8cf2d83ebfde2b4a8a130ff9d74`). `base-copies.json`, produced by
+Base’s `record-base` flow, records those copies; historical foundation files and
+applied migrations retain their original `composition.lock.json` provenance.
