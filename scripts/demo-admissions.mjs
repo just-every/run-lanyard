@@ -32,4 +32,8 @@ try {
  socket?.close();
  const deleted = await fetch(`${endpoint}/${tail.id}`, { method: 'DELETE', headers });
  if (!deleted.ok) throw Error(`Tail cleanup failed: ${deleted.status}`);
+ await deleted.body?.cancel();
+ console.log(JSON.stringify({ event: 'demo_observation_tail_removed', status: deleted.status }));
 }
+// The tail WebSocket may retain its closing handle after provider deletion.
+process.exit(0);
