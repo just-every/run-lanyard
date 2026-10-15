@@ -5,6 +5,7 @@
   "instanceType": "basic",
   "settings": {
     "MAIL_PROVIDER": "development",
-    "MAIL_FROM": "Lanyard Demo <demo@example.invalid>"
-  }
+    "MAIL_FROM": "Lanyard Demo <team@riversidevenue.example>"
+  },
+  "ownerEmail": "alex.morgan@riversidevenue.example"
 }

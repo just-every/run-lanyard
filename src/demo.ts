@@ -21,7 +21,7 @@ export async function seedDemo(env: Bindings, { ownerEmail, now }: { ownerEmail:
  }
  team.forEach((name, i) => {
   sql.push(db.prepare('INSERT INTO l_staff(id,name,email,payroll_id,role,active,version) VALUES(?,?,?,?,?,1,1) ON CONFLICT DO NOTHING')
-   .bind(staffId(i), name, i === 0 ? ownerEmail : `${name.toLowerCase().replace(' ', '.')}@example.invalid`, `VEN${String(i + 1).padStart(3, '0')}`, i < 2 ? 'manager' : 'staff'))
+   .bind(staffId(i), name, i === 0 ? ownerEmail : `${name.toLowerCase().replace(' ', '.')}@riversidevenue.example`, `VEN${String(i + 1).padStart(3, '0')}`, i < 2 ? 'manager' : 'staff'))
   add('availability', `demo-availability-${i}`, {staffId:staffId(i), start:day(-7,0), end:day(21,0)})
  })
  for (const [offset, status] of [[0,'published'],[7,'draft']] as const) {

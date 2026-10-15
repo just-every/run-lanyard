@@ -71,7 +71,7 @@ Dry run validates/builds without provider requests. Real deploy provisions resou
 `rer dev` also prints `RER_SITE`, the local marketing homepage, `/run` and on-site docs. `rer build --site` writes the checked static site to `dist/site`. Run-site publishing is opt-in through `RUN_SITE_DEPLOY`; its domain declaration remains separate from the installed app.
 
 
-Package mode pins `@runeditrun/rer` to `0.2.22`, which supplies bounded, nonblocking socket ownership inspection and recognizes package pins without local RER patches. Foundation: `runeditrun/base@fc0e1041efa55771142bbb57c4ab4743147e264d`. [Source reuse](docs/SOURCES.md), [operations](RUN-LOCALLY.md), [agent guide](AGENTS.md).
+Package mode pins `@runeditrun/rer` to `0.2.24`, which supplies reliable hosted demos and silently successful demo invitations and sign-in links. Foundation: `runeditrun/base@fc0e1041efa55771142bbb57c4ab4743147e264d`. [Source reuse](docs/SOURCES.md), [operations](RUN-LOCALLY.md), [agent guide](AGENTS.md).
 
 ```sh
 pnpm run test:lanyard

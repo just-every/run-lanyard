@@ -16,3 +16,7 @@ Demo adoption pins the package and every copied module to Base `rer-v0.2.22`
 (`1ce15dd8cbb7c8cf2d83ebfde2b4a8a130ff9d74`). `base-copies.json`, produced by
 Base’s `record-base` flow, records those copies; historical foundation files and
 applied migrations retain their original `composition.lock.json` provenance.
+
+## Hosted demo runtime refresh
+
+All vendored runtime modules in `src/modules` (ai, d1-transport, demo, dependencies, import-kit, mail, operator-auth and owner-claim) were refreshed together from `runeditrun/base` tag `rer-v0.2.24`, commit `1ee378e41142c673a9098f60af21664c6d8477d1`. Authoring tests and proof scripts are not shipped. The original composition lock records the seed assembly; this refresh uses package-mode `@runeditrun/rer` 0.2.24.

@@ -21,7 +21,7 @@ jobs:
   deploy:
     if: github.event_name == 'workflow_dispatch' || vars.RUN_DEMO_DEPLOY == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     environment: run-demo
     env:
       DEMO_ENVIRONMENT: ${{ inputs.test_only && 'demo-test' || 'production' }}
@@ -81,3 +81,9 @@ jobs:
             sleep 15
           done
           ! curl --silent --show-error --doh-url "$doh" -D - -o /dev/null "https://$domain/" | grep -qi '^set-cookie:'
+      - name: Observe test-host admissions before the start cohort
+        if: ${{ inputs.test_only && !inputs.remove }}
+        run: node scripts/demo-admissions.mjs
+        env:
+          CLOUDFLARE_ACCOUNT_ID: b20c0ca9cab0c2b70e13d7cf724b89bd
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
