@@ -11,3 +11,22 @@ index dfb2b14c154dd7c3b06a0b1b7262ae71bea9e15a..356aa7ba51aa0fad1fa34ac0e1582e65
   catch(error){
    // lsof exits 1 when a selected PID has exited,
    // while still returning the live listeners of other selected PIDs.
+diff --git a/cli/package-mode.mjs b/cli/package-mode.mjs
+--- a/cli/package-mode.mjs
++++ b/cli/package-mode.mjs
+@@ -39,6 +39,15 @@
+   const entries = block(...own, `${group}:`, 4), entry = entries && block(...entries, `'${packageName}':`, 6);
+   if (!entry) continue;
+   const fields = Object.fromEntries(lines.slice(...entry).map(line => /^\s+(specifier|version):\s*'?([^'\s]*)'?\s*$/.exec(line)).filter(Boolean).map(match => [match[1], match[2]]));
++  // pnpm stores patched snapshots with a hash suffix, but the published
++  // package integrity remains under the exact registry version.
++  const patched = fields.version?.match(/^(.+)\(patch_hash=([a-f0-9]{64})\)$/);
++  if (patched) {
++   const patches = block(0, lines.length, 'patchedDependencies:', 0);
++   const patch = patches && block(...patches, `'${packageName}@${patched[1]}':`, 2);
++   if (!patch || !lines.slice(...patch).some(line => line.trim() === `hash: ${patched[2]}`)) return undefined;
++   fields.version = patched[1];
++  }
+   const packages = block(0, lines.length, 'packages:', 0), resolved = packages && block(...packages, `'${packageName}@${fields.version}':`, 2);
+   return { group, specifier: fields.specifier, version: fields.version, locked: Boolean(resolved && lines.slice(...resolved).some(line => /^\s+resolution: \{integrity: sha512-/.test(line))) };
+  }
