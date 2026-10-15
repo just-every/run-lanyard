@@ -2,7 +2,7 @@ import { drawings, heroDrawing } from './drawings'
 import { includedFeatures } from './included'
 import { siteDocument } from './shell'
 
-const actions = () => '<div class="site-actions"><a class="site-button" href="/run">Run Lanyard <span aria-hidden="true">→</span></a><a class="site-text-link" href="/docs">Read the docs</a></div>'
+const actions = () => '<div class="site-actions"><a class="site-button" href="/run">Run Lanyard <span aria-hidden="true">→</span></a><a class="site-button" href="https://demo.run-lanyard.com/">Try the demo</a><a class="site-text-link" href="/docs">Read the docs</a></div>'
 
 const sections: { id: string; eyebrow: string; title: string; body: string; drawing: () => string }[] = [
   { id: 'free', eyebrow: 'Free', title: '100% free, for the whole team.', body: 'Free as in cost and free as in code. MIT licensed, for every person on your roster.', drawing: drawings.free },
