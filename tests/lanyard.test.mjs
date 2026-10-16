@@ -129,7 +129,7 @@ test('installed Lobby follows the durable owner claim before first-run confirmat
     assert.equal(claimed.status, 303)
     assert.equal((await h.send('/setup/state')).value.state, 'claimed')
     const after = await h.send('/')
-    assert.ok(after.text.includes('href="/signin"'))
+    assert.match(after.text, /href="\/signin(\?login_hint=[^"]+)?"/)
     assert.equal((await h.send('/setup', undefined, claimed.cookie)).status, 200)
     const confirmed = await h.mf.dispatchFetch(h.origin + '/setup', { method: 'POST', headers: { origin: h.origin, cookie: claimed.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: 'confirm=yes', redirect: 'manual' })
     assert.equal(confirmed.status, 303)
