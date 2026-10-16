@@ -4,17 +4,13 @@ Lanyard is for a small Australian venue running one weekly roster. Start locally
 
 ## Run Lanyard
 
-Install Git and Node 22 or newer. In a terminal, install the launcher once and clone Lanyard:
+Install Git and Node 22 or newer. In a terminal, one line installs the launcher, clones Lanyard and starts it:
 
 ```sh
-npx -y @runeditrun/rer cli install
-export PATH="$HOME/.local/bin:$PATH"
-git clone https://github.com/just-every/run-lanyard.git
-cd run-lanyard
-rer dev
+npx -y @runeditrun/rer dev just-every/run-lanyard
 ```
 
-First launch installs pinned dependencies, prepares the local database and starts the app. It can take several minutes. If interrupted, run `rer dev` again; it resumes.
+To start it again later, run `cd run-lanyard && rer dev`. First launch installs pinned dependencies, prepares the local database and starts the app. It can take several minutes. If interrupted, run `rer dev` again; it resumes.
 
 Open the private `RER_OPEN` link printed in the terminal. Review the owner account on **Finish setup**, confirm it is ready, then select **Finish setup**. Keep that link private. `RER_READY` is the ordinary app address.
 
