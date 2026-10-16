@@ -19,4 +19,4 @@ applied migrations retain their original `composition.lock.json` provenance.
 
 ## Hosted demo runtime refresh
 
-All vendored runtime modules in `src/modules` (ai, d1-transport, demo, dependencies, import-kit, mail, operator-auth and owner-claim) were refreshed together from `runeditrun/base` tag `rer-v0.2.24`, commit `1ee378e41142c673a9098f60af21664c6d8477d1`. Authoring tests and proof scripts are not shipped. The original composition lock records the seed assembly; this refresh uses package-mode `@runeditrun/rer` 0.2.24.
+All vendored runtime modules in `src/modules` (ai, d1-transport, demo, dependencies, import-kit, mail, operator-auth and owner-claim) were refreshed together from `runeditrun/base` tag `rer-v0.2.30`, commit `d434ea67989fe10b6ddff01daba8bb350975e54a`, with `refresh-base`. Authoring tests and proof scripts are not shipped. `src/modules/dependencies/logout.mjs` keeps Lanyard's claim-key fence check and is held outside `base-copies.json` until Base carries that fix. The original composition lock records the seed assembly; this refresh uses package-mode `@runeditrun/rer` 0.2.30.
