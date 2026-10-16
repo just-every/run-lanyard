@@ -9,8 +9,9 @@ const json = (value: unknown, status = 200) => Response.json(value, { status, he
 const pages = new Set(['/app', '/app/roster', '/app/time', '/app/payroll', '/app/people', '/app/import', '/app/agent'])
 
 async function state(env: Bindings, who: Actor) {
-  const importJobs = who.role === 'owner' ? (await env.DB.prepare("SELECT id,state,checkpoint,total,fingerprint,error FROM ik_jobs WHERE destination='lanyard:staff' AND namespace='lanyard.staff.csv.v1' AND mapping_version='staff-csv-v1' AND principal_id=? ORDER BY rowid DESC LIMIT 30").bind(who.id).all()).results : []
-  return { ...await snapshot(env.DB, who), agentKeys: await agentKeys(env, who), importJobs }
+  // Independent reads go to D1 together, so a page waits for one round trip instead of several in a row.
+  const [snap, keys, jobs] = await Promise.all([snapshot(env.DB, who), agentKeys(env, who), who.role === 'owner' ? env.DB.prepare("SELECT id,state,checkpoint,total,fingerprint,error FROM ik_jobs WHERE destination='lanyard:staff' AND namespace='lanyard.staff.csv.v1' AND mapping_version='staff-csv-v1' AND principal_id=? ORDER BY rowid DESC LIMIT 30").bind(who.id).all() : null])
+  return { ...snap, agentKeys: keys, importJobs: jobs ? jobs.results : [] }
 }
 
 async function execute(request: Request, env: Bindings, who: Actor, name: string, input: Record<string, unknown>) {
