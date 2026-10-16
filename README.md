@@ -6,17 +6,13 @@ Weekly rosters, phone clocking and approved timesheets for a small Australian ve
 
 ## Run from a fresh clone
 
-Install Git and Node 22 or newer. Install the launcher once:
+Install Git and Node 22 or newer, then run one line. It installs the launcher, clones Lanyard and starts it:
 
 ```sh
-npx -y @runeditrun/rer cli install
-export PATH="$HOME/.local/bin:$PATH"
-git clone https://github.com/just-every/run-lanyard.git
-cd run-lanyard
-rer dev
+npx -y @runeditrun/rer dev just-every/run-lanyard
 ```
 
-RER installs pinned dependencies and Node 22.20.0, prepares local D1, and starts the app. First launch can take several minutes. Open the private `RER_OPEN` link printed in the terminal and confirm the owner at **Finish setup**. Keep that link private. `RER_READY` is the ordinary app address. A compatible second `rer dev` reuses the running app. If interrupted, run it again.
+To start it again later, run `cd run-lanyard && rer dev`. RER installs pinned dependencies and Node 22.20.0, prepares local D1, and starts the app. First launch can take several minutes. Open the private `RER_OPEN` link printed in the terminal and confirm the owner at **Finish setup**. Keep that link private. `RER_READY` is the ordinary app address. A compatible second `rer dev` reuses the running app. If interrupted, run it again.
 
 For an installation with your own email, run `rer install`, then `rer setup --owner-email you@example.com`, then `rer dev`. Development email is silently suppressed. Reopen the private `RER_OPEN` link to sign in locally. If another checkout occupies the saved port, choose an available one explicitly, for example `rer dev --port 8899`; RER intentionally refuses to drift to another port. Stop with `rer dev --stop` or Ctrl-C. Never expose the development server publicly.
 
@@ -71,7 +67,7 @@ Dry run validates/builds without provider requests. Real deploy provisions resou
 `rer dev` also prints `RER_SITE`, the local marketing homepage, `/run` and on-site docs. `rer build --site` writes the checked static site to `dist/site`. Run-site publishing is opt-in through `RUN_SITE_DEPLOY`; its domain declaration remains separate from the installed app.
 
 
-Package mode pins `@runeditrun/rer` to `0.2.24`, which supplies reliable hosted demos and silently successful demo invitations and sign-in links. Foundation: `runeditrun/base@fc0e1041efa55771142bbb57c4ab4743147e264d`. [Source reuse](docs/SOURCES.md), [operations](RUN-LOCALLY.md), [agent guide](AGENTS.md).
+Package mode pins `@runeditrun/rer` to `0.2.30`, which supplies native hosted demos and silently successful demo invitations and sign-in links. Foundation: `runeditrun/base@fc0e1041efa55771142bbb57c4ab4743147e264d`. [Source reuse](docs/SOURCES.md), [operations](RUN-LOCALLY.md), [agent guide](AGENTS.md).
 
 ```sh
 pnpm run test:lanyard
