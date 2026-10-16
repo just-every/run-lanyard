@@ -3,8 +3,8 @@
 import {type Actor,type State,type Context,type Staff,kinds,need,fail,sha} from './model'
 export async function actor(db:D1Database,session:{userId:string;email:string;isOwner:boolean}):Promise<Actor> {
  const email=session.email.trim().toLowerCase();need(session.userId&&email,'Sign in required',403)
- const erased=await db.prepare('SELECT 1 FROM l_erasure_journal WHERE identity_hash=?').bind(await sha(email)).first()
- const person=erased?null:await db.prepare('SELECT * FROM l_staff WHERE email=? COLLATE NOCASE AND active=1 AND erased_at IS NULL').bind(email).first<Staff>()
+ const [erased,found]=await Promise.all([db.prepare('SELECT 1 FROM l_erasure_journal WHERE identity_hash=?').bind(await sha(email)).first(),db.prepare('SELECT * FROM l_staff WHERE email=? COLLATE NOCASE AND active=1 AND erased_at IS NULL').bind(email).first<Staff>()])
+ const person=erased?null:found
  need(session.isOwner||person,'Staff access has been revoked or is not granted',403)
  return {id:session.userId,email,role:session.isOwner?'owner':person!.role,staffId:person?.id,isOwner:session.isOwner}
 }

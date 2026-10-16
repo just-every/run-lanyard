@@ -32,7 +32,9 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  return commit(c,before,name,commandId,digest,result)
 }
 export async function snapshot(db:D1Database,identity:Actor):Promise<object> {
- const a0=await live(db,identity),s=await load(db),a=fresh(a0,s),manages=['owner','manager'].includes(a.role),agent=a.role==='agent'
+ // The activity list is read beside the records whenever the signed-in role can see it.
+ const a0=await live(db,identity),events=['owner','manager'].includes(a0.role)?db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at FROM l_events ORDER BY at DESC,id DESC LIMIT 100').all():null
+ const s=await load(db),a=fresh(a0,s),manages=['owner','manager'].includes(a.role),agent=a.role==='agent'
  const staff=s.staff.filter(p=>manages||agent||p.id===a.staffId).map(p=>agent?{id:p.id,name:p.name,active:!!p.active}:{id:p.id,name:p.name,email:p.email,payrollId:p.payroll_id,role:p.role,active:!!p.active,revision:p.version,erasedAt:p.erased_at})
  const result:Record<string,any>={actor:{id:a.id,email:agent?undefined:a.email,role:a.role,staffId:a.staffId},version:s.version,settings:{timezone:s.timezone},staff}
  for(const k of kinds)result[k]=s[k]
@@ -45,7 +47,7 @@ export async function snapshot(db:D1Database,identity:Actor):Promise<object> {
   result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,...r})=>r)
   result.batches=s.batches.map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,...l}:any)=>l)}))
  }
- result.events=manages?(await db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at FROM l_events ORDER BY at DESC,id DESC LIMIT 100').all()).results:[]
+ result.events=manages?(await (events??db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at FROM l_events ORDER BY at DESC,id DESC LIMIT 100').all())).results:[]
  return result
 }
 export async function batchCsv(db:D1Database,identity:Actor,id:string):Promise<string> {
