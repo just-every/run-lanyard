@@ -38,7 +38,9 @@ Run touched product journeys with `pnpm run test:lanyard` and archive journeys w
 
 - **BASE-001 — Maintained installation and operations commands.** **Status: partial.** From a fresh clone use documented command help and structural check, launch and sign in, build and verify, exercise backup/restore, then perform a provider-authorized deployment and health readback. Reset requires explicit confirmation and never removes another installation. **Existing evidence:** `SEED-COMMAND-CONTRACT.md`; `OPERATIONS.json`; `tests/archive.test.mjs`; `tests/runtime.mjs`. **Remaining gap:** Command declarations and local runtime/archive tests exist; full fresh-clone and hosted provider deployment acceptance is not proven here.
 
-## Workforce records and schedule building
+## Target clauses
+
+### Workforce records and schedule building
 
 - **TEAM-001 — Multi-location roles and delegated management.** **Status: partial.** Create two locations with a shared employee and separate managers through organization settings. Use each role to schedule, approve, report and export; reject foreign-site actions and wage reads, then revoke a grant during an active session. **Existing evidence:** `src/lanyard/domain/model.ts`; `src/lanyard/domain/storage.ts`; `tests/lanyard.test.mjs`. **Remaining gap:** Owner/manager/staff authority exists; business/location records, independent payroll roles and site-level permission scopes do not.
 
@@ -76,7 +78,7 @@ Run touched product journeys with `pnpm run test:lanyard` and archive journeys w
 
 - **SCHEDULE-006 — Schedule change history and revision compare.** **Status: partial.** Publish a week, then move one shift, approve a swap and cancel another. Open each shift's history as manager and as the affected employees, compare the first and latest week revisions and export the change log with reasons and notice states. **Existing evidence:** `src/lanyard/domain/roster.ts`; `src/lanyard/domain/storage.ts`. **Remaining gap:** Superseded week revisions and publication events are retained; no per-shift history, change reasons, revision diff or exportable change log.
 
-## Coverage employee experience and follow-up
+### Coverage employee experience and follow-up
 
 - **COVER-001 — Employee shift swaps with final approval.** **Status: missing.** On employee mobile accounts propose and accept a two-person swap, approve as manager and inspect both changed schedules/notices. Refuse an ineligible coworker, stale request and two competing approvals; retain the original assignee until completion. **Remaining gap:** No swap records, employee exchange consent or swap approval workflow.
 
@@ -106,7 +108,7 @@ Run touched product journeys with `pnpm run test:lanyard` and archive journeys w
 
 - **LANG-001 — Spanish staff experience and notices.** **Status: missing.** As a Spanish-preference employee complete the shift-change-to-clock journey on phone and kiosk, receive the change notice by push and SMS in Spanish, acknowledge it and answer clock-out questions in Spanish while an English-preference coworker on the same kiosk sees English. Add an untranslated staff-facing string and see the check fail. **Remaining gap:** All screens and messages are English only; no language preference, Spanish text or translation check.
 
-## Attendance US policy and labor economics
+### Attendance US policy and labor economics
 
 - **CLOCK-001 — Shared kiosk clocks and device authority.** **Status: missing.** Enroll a shared tablet with photo verification on, have two employees (one Spanish-preference) clock consecutive shifts and breaks, attempt identity guessing and cross-person reads, then revoke the tablet during a session. Inspect correctly attributed punches each carrying its photo, the language each employee saw and denied further captures. **Remaining gap:** No enrolled kiosk devices, employee PIN verification, kiosk photo capture, per-employee language or kiosk-scoped authority.
 
@@ -172,7 +174,7 @@ Run touched product journeys with `pnpm run test:lanyard` and archive journeys w
 
 - **EARN-001 — Employee hours and estimated earnings.** **Status: missing.** As an employee with regular, overtime and tip lines mid-period open the earnings view and reconcile hours and estimate to approved records. An unapproved punch shows as pending, turning estimates off hides the amount and the view links to the provider pay statement. **Remaining gap:** Staff see their own timesheets; no period totals, tips or earnings estimate.
 
-## Connected payroll sales HR and automation
+### Connected payroll sales HR and automation
 
 - **PAY-001 — Payroll-ready classified hours and pay codes.** **Status: partial.** Prepare a period with regular/overtime/PTO/tip lines and a late negative adjustment, resolve an unmapped pay code and review totals by W-2/1099 workflow. Export/transfer the exact approved revision and reconcile all classified minutes and amounts. **Existing evidence:** `src/lanyard/domain/payroll.ts`; `tests/lanyard.test.mjs`. **Remaining gap:** Payroll IDs, net minutes and signed-difference CSV exist; pay-code/job/period classification, employee/contractor treatments and provider templates are absent.
 
@@ -240,7 +242,7 @@ Run touched product journeys with `pnpm run test:lanyard` and archive journeys w
 
 - **OPS-001 — Accountable connector operations and recovery.** **Status: missing.** Pause a real connector mid-period, restart and reauthorize it, then inspect recovered cursors, rate-limit handling and deduplicated rows. Leave an ambiguous submission and verify an owner-visible case with no false success or duplicate write. **Remaining gap:** No product connector registry, durable sync queues, health or recovery workflow.
 
-## Migration portability and honest boundaries
+### Migration portability and honest boundaries
 
 - **MIGRATE-001 — Reviewed complete workforce migration and cutover.** **Status: partial.** Preview an authorized incumbent export, map ambiguous employees/time zones and inspect unsupported records. Apply a reviewed batch, reconcile source counts, historical totals and each employee's leave balance (or, where PAYSYNC-004 gives the payroll provider balance authority, list every difference from the provider balance), activate future work deliberately and run a first payroll without resending historical hours. Undo only untouched imports. **Existing evidence:** `src/lanyard/movein/index.ts`; `src/lanyard/movein/csv.ts`; `tests/lanyard.test.mjs`. **Remaining gap:** Only documented inactive Staff CSV import/journal/undo exists; full workforce history, vendor mappings, reconciliation and operational cutover do not.
 
