@@ -6,15 +6,15 @@ Weekly rosters, phone clocking and approved timesheets for a small Australian ve
 
 ## Run from a fresh clone
 
-Install Git and Node 22 or newer, then run one line. It installs the launcher, clones Lanyard and starts it:
+Run one line. It installs the launcher, clones Lanyard and starts it:
 
 ```sh
 npx -y @runeditrun/rer dev just-every/run-lanyard
 ```
 
-To start it again later, run `cd run-lanyard && rer dev`. RER installs pinned dependencies and Node 22.20.0, prepares local D1, and starts the app. First launch can take several minutes. Open the private `RER_OPEN` link printed in the terminal and confirm the owner at **Finish setup**. Keep that link private. `RER_READY` is the ordinary app address. A compatible second `rer dev` reuses the running app. If interrupted, run it again.
+Without Node, `curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-lanyard` does the same. To start it again later, run `cd run-lanyard && rer dev`. RER installs pinned dependencies and Node 22.20.0, prepares local D1, and starts the app. First launch can take several minutes. Open the private `RER_OPEN` link printed in the terminal and confirm the owner at **Finish setup**. Keep that link private. `RER_READY` is the ordinary app address. A compatible second `rer dev` reuses the running app. If interrupted, run it again.
 
-For an installation with your own email, run `rer install`, then `rer setup --owner-email you@example.com`, then `rer dev`. Development email is silently suppressed. Reopen the private `RER_OPEN` link to sign in locally. If another checkout occupies the saved port, choose an available one explicitly, for example `rer dev --port 8899`; RER intentionally refuses to drift to another port. Stop with `rer dev --stop` or Ctrl-C. Never expose the development server publicly.
+For an installation with your own email, run `npx -y @runeditrun/rer install just-every/run-lanyard`, then `rer setup --owner-email you@example.com` and `rer dev` from the checkout. Development email is silently suppressed. Reopen the private `RER_OPEN` link to sign in locally. If another checkout occupies the saved port, choose an available one explicitly, for example `rer dev --port 8899`; RER intentionally refuses to drift to another port. Stop with `rer dev --stop` or Ctrl-C. Never expose the development server publicly.
 
 ## Owner guides
 
@@ -41,7 +41,8 @@ rer export --output exports/lanyard.rer
 Restore into a fresh clone of the same revision, before setup or staff data:
 
 ```sh
-rer install
+npx -y @runeditrun/rer install just-every/run-lanyard
+cd run-lanyard
 rer import --input /private/path/lanyard.rer --yes
 rer setup --owner-email original-owner@example.com
 rer dev

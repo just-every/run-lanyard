@@ -4,17 +4,17 @@ Lanyard is for a small Australian venue running one weekly roster. Start locally
 
 ## Run Lanyard
 
-Install Git and Node 22 or newer. In a terminal, one line installs the launcher, clones Lanyard and starts it:
+In a terminal, one line installs the launcher, clones Lanyard and starts it:
 
 ```sh
 npx -y @runeditrun/rer dev just-every/run-lanyard
 ```
 
-To start it again later, run `cd run-lanyard && rer dev`. First launch installs pinned dependencies, prepares the local database and starts the app. It can take several minutes. If interrupted, run `rer dev` again; it resumes.
+Without Node, `curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-lanyard` does the same. To start it again later, run `cd run-lanyard && rer dev`. First launch installs pinned dependencies, prepares the local database and starts the app. It can take several minutes. If interrupted, run `rer dev` again; it resumes.
 
 Open the private `RER_OPEN` link printed in the terminal. Review the owner account on **Finish setup**, confirm it is ready, then select **Finish setup**. Keep that link private. `RER_READY` is the ordinary app address.
 
-For a new installation with your own email, run `rer install`, then `rer setup --owner-email you@example.com`, then `rer dev`. Local messages are silently suppressed. Reopen the private `RER_OPEN` link to sign in locally.
+For a new installation with your own email, run `npx -y @runeditrun/rer install just-every/run-lanyard`, then `rer setup --owner-email you@example.com` and `rer dev` from the checkout. Local messages are silently suppressed. Reopen the private `RER_OPEN` link to sign in locally.
 
 Keep the development server private. Stop it with `rer dev --stop` or Ctrl-C. The repository [README](../README.md) also covers deployment to your own account.
 

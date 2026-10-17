@@ -18,7 +18,8 @@ Store the archive privately. It contains staff identity details and work records
 Use a fresh clone of the same source revision. Restore before setup or adding staff data:
 
 ```sh
-rer install
+npx -y @runeditrun/rer install just-every/run-lanyard
+cd run-lanyard
 rer import --input /private/path/lanyard.rer --yes
 rer setup --owner-email original-owner@example.com
 rer dev
