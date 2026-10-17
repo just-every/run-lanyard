@@ -4,7 +4,7 @@ import run from './run.json'
 export const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]!))
 
 export function siteHeader(): string {
-  return `<header class="site-header site-width"><a class="site-brand" href="/"><img src="/brand/mark.svg" alt="" width="28" height="32"><span>Lanyard</span></a><nav aria-label="Main navigation"><a href="/docs">Docs</a><a href="${escapeHtml(run.repository)}">Source</a></nav></header>`
+  return `<header class="site-header site-width"><a class="site-brand" href="/"><img src="/brand/mark.svg" alt="" width="28" height="32"><span>Lanyard</span></a><nav aria-label="Main navigation"><a href="/docs">Docs</a><a href="/contract">Contract</a><a href="${escapeHtml(run.repository)}">Source</a></nav></header>`
 }
 
 export function siteFooter(): string {
