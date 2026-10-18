@@ -8,8 +8,8 @@ import site from '../deploy-site.json'
 export const identity: EditionIdentity = {
   product: branding.name,
   deployment: branding.name,
-  purpose: '{deployment} keeps the weekly roster, phone clocking and approved hours together.',
-  tagline: 'Rosters, clock-on and approved timesheets.',
+  purpose: '{deployment} keeps the weekly schedule, phone clocking and approved hours together.',
+  tagline: 'A full crew, paid right. Free, open source scheduling and time clock for US hourly teams.',
   signInPath: '/signin',
   // The run site `rer deploy --site` publishes (deploy-site.json).
   runSite: `https://${site.domain}`,
@@ -17,7 +17,6 @@ export const identity: EditionIdentity = {
   installedHome: 'lobby',
   theme: '/rer-theme.css',
   mark: '/brand/mark.svg',
-  band: '/brand/band.svg',
   fonts: '/fonts/fonts.css',
   accentColor: branding.primaryColor,
 }

@@ -1,12 +1,12 @@
 /* The app shell and controls use the same rhythm as the picked 12ui roster. */
 *,*::before,*::after{box-sizing:border-box}
-html.rer-themed .lanyard-app{padding:28px 0 0;margin:0;max-width:none;min-height:100vh;background:var(--paper);color:var(--ink);font:16px/1.5 var(--font-sans);overflow-wrap:anywhere}
-.app-band{position:absolute;top:0;left:0;width:100%;height:28px;background:url('/brand/band.svg#strip') left top / 1440px 28px repeat-x}
+html.rer-themed .lanyard-app{padding:6px 0 0;margin:0;max-width:none;min-height:100vh;background:var(--paper);color:var(--ink);font:16px/1.5 var(--font-sans);overflow-wrap:anywhere}
+.app-band{position:absolute;top:0;left:0;width:100%;height:6px;background:linear-gradient(90deg,var(--hibiscus) 0 50%,var(--sea) 50% 100%)}
 .app-header,.navigation,.lanyard-app main,.lanyard-app footer{width:calc(100% - 160px);max-width:1280px;margin-left:auto;margin-right:auto}
 .app-header{min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px;border-bottom:1px solid var(--hairline)}
 .brand-home{text-decoration:none;flex:none}
-html.rer-themed .app-header .rer-brand{margin:0;font:600 28px/1.2 var(--font-serif);gap:12px}
-html.rer-themed .app-header .rer-brand::before{width:28px;height:32px}
+html.rer-themed .app-header .rer-brand{margin:0;font:700 26px/1.2 var(--font-sans);letter-spacing:-.02em;gap:12px}
+html.rer-themed .app-header .rer-brand::before{width:46px;height:36px}
 .identity{display:flex;align-items:center;justify-content:flex-end;gap:24px;font-size:16px}
 .identity .role{color:var(--muted)}
 html.rer-themed .identity a{color:var(--ink);text-decoration:none}
@@ -20,7 +20,7 @@ nav a[aria-current=page]::after{content:'';height:3px;position:absolute;bottom:0
 html.rer-themed .venue-time{margin:0;font-size:14px;white-space:nowrap}
 .venue-time strong{font-weight:400;color:var(--ink)}
 html.rer-themed .lanyard-app main{max-width:1280px;padding:0;margin-top:32px;margin-bottom:48px;background:transparent;border-radius:0;box-shadow:none;min-width:0}
-html.rer-themed .lanyard-app h1{font:600 72px/1 var(--font-serif);letter-spacing:-.02em;margin:0 0 12px;text-wrap:balance}
+html.rer-themed .lanyard-app h1{font:italic 760 64px/1.02 var(--font-serif);color:var(--claret);letter-spacing:-.02em;margin:0 0 12px;text-wrap:balance}
 html.rer-themed .lanyard-app h2{font:500 30px/1.2 var(--font-serif);letter-spacing:-.015em;margin:0 0 16px;color:var(--ink)}
 html.rer-themed .lanyard-app h3{font:500 24px/1.2 var(--font-serif);letter-spacing:-.015em;margin:0 0 10px;color:var(--ink)}
 html.rer-themed .lanyard-app h4{font-size:16px;font-weight:500;line-height:1.5;margin:0 0 8px}

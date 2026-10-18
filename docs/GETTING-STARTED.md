@@ -1,16 +1,17 @@
 # Getting started
 
-Lanyard is for a small Australian venue running one weekly roster. Start locally, finish your owner account, then add the people who will use it.
+Lanyard runs one location's weekly roster today: people, availability and leave, published shifts, phone clocking, approved timesheets and payroll CSV exports. Start locally, finish your owner account, then add the people who will use it.
 
 ## Run Lanyard
 
-In a terminal, one line installs the launcher, clones Lanyard and starts it:
+In a terminal, install rer, then start Lanyard. These are the same two lines as the site's [Run page](https://run-lanyard.com/run):
 
 ```sh
-npx -y @runeditrun/rer dev just-every/run-lanyard
+curl -fsSL https://runeditrun.com/install.sh | sh
+rer dev just-every/run-lanyard
 ```
 
-Without Node, `curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-lanyard` does the same. To start it again later, run `cd run-lanyard && rer dev`. First launch installs pinned dependencies, prepares the local database and starts the app. It can take several minutes. If interrupted, run `rer dev` again; it resumes.
+The installer puts rer in your home folder, with its own Node if you have no Node 22 or later. If its last line puts rer on your PATH, run that line before the second command. Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-lanyard` does both steps in one line. To start it again later, run `cd run-lanyard && rer dev`. First launch installs pinned dependencies, prepares the local database and starts the app. It can take several minutes. If interrupted, run `rer dev` again; it resumes.
 
 Open the private `RER_OPEN` link printed in the terminal. Review the owner account on **Finish setup**, confirm it is ready, then select **Finish setup**. Keep that link private. `RER_READY` is the ordinary app address.
 
@@ -18,9 +19,9 @@ For a new installation with your own email, run `npx -y @runeditrun/rer install 
 
 Keep the development server private. Stop it with `rer dev --stop` or Ctrl-C. The repository [README](../README.md) also covers deployment to your own account.
 
-## Set the venue timezone
+## Set the venue time zone
 
-In **People**, choose your venue's timezone and select **Save venue timezone** before publishing the first roster. Australia/Brisbane is the default.
+In **People**, choose your venue's time zone (for example America/Los_Angeles for California) and select **Save venue timezone** before publishing the first roster. A new installation starts on Australia/Brisbane, so set yours first.
 
 Dates and time entry use this venue timezone on every device. The timezone becomes fixed after the first roster publication. If you change it before then, prepare existing drafts again.
 

@@ -1,0 +1,198 @@
+/* 09 labor cost · 10 tip pool · 11 payroll · 12 move-in */
+
+/* 09 · Sales by hour with the overtime card pinned at 12:40, then the three cafes. */
+.sales-card{padding:22px 30px 16px}
+.sales-head{display:flex;align-items:baseline;justify-content:space-between;gap:20px;font-size:19px;color:var(--ink)}
+.sales-total{font:700 30px/1.25 var(--font-sans);color:var(--sea-deep)}
+.sales-plot{position:relative;height:430px}
+.bars{position:absolute;inset:0;display:grid;grid-template-columns:repeat(9,minmax(0,1fr))}
+.bars::after{content:'';position:absolute;left:0;right:0;bottom:34px;height:1px;background:var(--rule-strong)}
+.bar{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:34px}
+.bar-fill{width:72%;height:calc(var(--v) * 220px);border-radius:2px 2px 0 0;background:var(--sea-mid)}
+.bar-peak .bar-fill{background:var(--sea-deep)}
+.bar-value{margin-bottom:8px;font:600 16px/1 var(--font-sans);color:var(--ink)}
+.bar-label{position:absolute;bottom:0;height:34px;display:flex;align-items:center;font-size:16px;color:var(--ink)}
+.bar-note{position:absolute;left:50%;bottom:calc(34px + var(--v) * 220px + 34px);transform:translateX(-50%);width:max-content;padding:2px 6px;text-align:center;font:600 13.5px/1.35 var(--font-sans);color:var(--ink);background:var(--white)}
+.bar-pin{position:absolute;left:calc(14% + 72% * .667 - 6px);bottom:calc(34px + var(--v) * 220px - 6px);width:12px;height:12px;border-radius:50%;background:var(--claret);z-index:2}
+.bar-pin::after{content:'';position:absolute;left:8px;bottom:7px;width:78px;height:2px;background:var(--claret);transform-origin:left center;transform:rotate(-14deg)}
+.risk-card{position:absolute;top:6px;right:0;width:33%;z-index:3;padding:12px 18px 14px;background:var(--white);border:var(--line-card);border-radius:var(--r-card);box-shadow:var(--shadow-card);font-size:14.5px;line-height:1.48;color:var(--ink)}
+.risk-card .pill{margin-bottom:6px;font-size:15px}
+.cafe-table{margin-top:22px;overflow:hidden}
+.cafe-table table{width:100%;border-collapse:collapse;font-size:20px;font-variant-numeric:tabular-nums}
+.cafe-table th,.cafe-table td{padding:13px 32px;text-align:right;font-weight:400;color:var(--ink);white-space:nowrap}
+.cafe-table th:first-child{text-align:left}
+.cafe-table thead th{font-weight:500;font-size:19px;padding-top:18px}
+.cafe-table tbody tr{border-top:1px solid var(--rule)}
+.cafe-table .is-here{background:var(--tint)}
+.cafe-table tfoot tr{border-top:1px solid var(--rule-strong)}
+.cafe-table tfoot th,.cafe-table tfoot td{font-weight:700;padding-block:16px 18px}
+.cafe-table .tick{width:22px;height:22px;margin-right:12px;vertical-align:-4px}
+
+/* 10 · The ledger as a document; the copy and Luis's phone beside it. */
+.tips-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,470px);grid-template-areas:'ledger copy' 'ledger phone';column-gap:44px;row-gap:28px;align-items:start}
+.tips-copy{grid-area:copy;padding-top:6px}
+.tips-copy .lede{font-size:20px;color:var(--ink)}
+.ledger{grid-area:ledger;padding:44px 42px 30px;border-radius:12px;background:var(--white);box-shadow:0 2px 4px rgb(36 17 26 / .04),0 22px 44px -22px rgb(36 17 26 / .22)}
+.ledger h3{padding-bottom:18px;border-bottom:2px solid var(--claret);font:700 34px/1.2 var(--font-sans);letter-spacing:-.01em}
+.ledger-sum{margin:20px 0 26px;font-size:19px;color:var(--ink)}
+.ledger table{width:100%;border-collapse:collapse;font-size:19px;font-variant-numeric:tabular-nums}
+.ledger th,.ledger td{padding:16px 0;text-align:left;font-weight:400;color:var(--ink);border-bottom:1px solid var(--rule)}
+.ledger td{text-align:right;padding-left:16px;white-space:nowrap}
+.ledger thead th{font:600 17px/1.3 var(--font-sans);color:var(--muted)}
+.ledger thead th:not(:first-child){text-align:right}
+.ledger tfoot th,.ledger tfoot td{font-weight:700;border-top:4px double var(--rule-strong);border-bottom:0;padding-top:22px}
+.ledger-note{margin-top:18px;padding-bottom:22px;border-bottom:1px solid var(--rule);font-size:16px;color:var(--muted)}
+.ledger-approved{display:flex;align-items:center;justify-content:space-between;gap:20px;padding-top:18px;font-size:16px;color:var(--muted)}
+.stamp{display:grid;place-items:center;flex:none;width:106px;height:106px;border:3px solid var(--sea-deep);border-radius:50%;transform:rotate(-18deg);font:700 21px/1 var(--font-sans);color:var(--sea-deep)}
+.earn-phone{grid-area:phone;width:340px;padding:9px;border-radius:46px;background:#1D1D21;box-shadow:0 26px 48px -26px rgb(36 17 26 / .55)}
+.earn-screen{padding:30px 16px 22px;border-radius:38px;background:var(--white)}
+.earn-title{font:700 20px/1.3 var(--font-sans)}
+.earn-sub{font-size:15px;margin:2px 0 14px}
+.earn-total{display:flex;flex-direction:column;gap:3px;padding:12px;border-radius:10px;background:#EEF1F3;font-size:14px}
+.earn-total span{font-size:12.5px;color:var(--muted)}
+.earn-screen ul{display:grid;gap:6px;margin-top:10px}
+.earn-screen li{display:flex;justify-content:space-between;gap:8px;padding:9px 12px;border-radius:8px;background:#F4F6F7;font-size:13px;white-space:nowrap}
+.earn-screen li.is-cover{background:var(--sea-pale);font-weight:600}
+
+/* 11 · Exceptions cleared by name, then the send and the readback. */
+.payroll-layout{display:grid;grid-template-columns:minmax(0,1.32fr) 56px minmax(0,1fr);align-items:start}
+.clean-bar{display:block;margin-bottom:14px;padding:13px 22px;border:1px solid var(--sea);border-radius:8px;background:#E0F2EC;font:600 19px/1.3 var(--font-sans);color:var(--sea-ink)}
+.agent-card{padding:20px 24px 20px}
+.agent-head{padding-bottom:14px;border-bottom:1px solid var(--rule);font-size:17px}
+.agent-head strong{font-size:22px}
+.exceptions{counter-reset:item}
+.exceptions>li{counter-increment:item;display:grid;grid-template-columns:40px minmax(0,1fr) 28px;gap:0 2px;padding:13px 0;border-bottom:1px solid var(--rule);font-size:15.5px;line-height:1.5}
+.exceptions>li::before{content:counter(item) '.';color:var(--ink);padding-top:1px;padding-left:8px}
+.exceptions>li>.tick{width:22px;height:22px;margin-top:4px}
+.thread{display:grid;gap:8px;margin:10px 0 8px}
+.bubble{width:fit-content;max-width:92%;padding:7px 14px;border-radius:12px;font-size:13.5px;line-height:1.45}
+.bubble-agent{background:#ECECEF}
+.bubble-staff{background:var(--sea-pale)}
+.thread-done{font-size:15px}
+.agent-foot{padding-top:14px;font:700 19px/1.3 var(--font-sans)}
+.payroll-arrow{align-self:center;justify-self:center;font:500 46px/1.3 var(--font-sans);color:var(--claret)}
+.gusto-card{padding:24px 28px 22px;margin-top:0}
+.gusto-name{font:700 33px/1.1 var(--font-sans);letter-spacing:-.01em}
+.gusto-sent{margin:10px 0 14px;font-size:16px}
+.gusto-card table{width:100%;border-collapse:collapse;font-size:17px;font-variant-numeric:tabular-nums}
+.gusto-card th,.gusto-card td{padding:15px 0;text-align:left;font-weight:400;border-top:1px solid var(--rule)}
+.gusto-card thead th{font-size:15.5px;font-weight:500;color:var(--muted)}
+.gusto-card tbody th{font-weight:500}
+.gusto-card td:last-child{text-align:right;width:30px}
+.gusto-card .tick{width:22px;height:22px}
+.gusto-foot{display:flex;align-items:center;gap:16px;padding-top:18px;border-top:1px solid var(--rule)}
+.gusto-foot p{display:flex;flex-direction:column;gap:4px;font-size:14.5px}
+.gusto-foot strong{font:700 20px/1.3 var(--font-sans);letter-spacing:-.01em}
+.gusto-foot .icon{width:58px;height:58px}
+
+/* 12 · The import review left; copy, totals and Gusto right; the one line under both. */
+.movein-layout{display:grid;grid-template-columns:minmax(0,1.62fr) minmax(0,1fr);grid-template-areas:'review copy' 'review side' 'term term';gap:20px 32px;align-items:start}
+.movein-copy{grid-area:copy}
+.movein-copy .lede{font-size:19px}
+.import-card{grid-area:review;align-self:stretch;display:flex;flex-direction:column;padding:28px 26px 22px}
+.import-card h3{font:700 30px/1.2 var(--font-sans);letter-spacing:-.01em}
+.import-who{font-size:18px;margin:4px 0 14px;color:var(--body)}
+.import-rows{flex:1;display:flex;flex-direction:column;gap:4px}
+.import-rows li{display:flex;align-items:flex-start;gap:18px;padding:12px 0;font-size:18px;line-height:1.45}
+.import-rows .icon{width:31px;height:31px;margin-top:-2px}
+.cutover{margin-top:10px;padding-top:18px;border-top:1px solid var(--rule);font:600 18px/1.4 var(--font-sans);color:var(--sea-deep)}
+.movein-side{grid-area:side;display:grid;gap:16px}
+.side-card{padding:20px 22px}
+.side-card h3{font:700 26px/1.2 var(--font-sans);letter-spacing:-.01em;margin-bottom:8px}
+.side-card p{font-size:16.5px;margin-top:6px}
+.side-big{font-weight:700;font-size:19px!important;margin-top:12px!important}
+.side-count{display:flex;align-items:center;gap:8px;font:700 34px/1.3 var(--font-sans)!important;margin-top:12px!important}
+.side-count svg{width:30px;height:30px}
+.terminal{grid-area:term;margin-top:12px;padding:20px 28px;border-radius:10px;background:#1E1A1D;color:#F2ECEE;font:400 18px/1.6 var(--font-mono)}
+.terminal-line{display:flex;gap:16px}
+.terminal-line::before{content:'›';color:var(--night-sea)}
+.terminal code{font:inherit}
+.terminal code span{white-space:nowrap}
+.terminal-comment{color:#A9A3A7;padding-left:28px}
+
+@media (max-width:1380px){
+ .risk-card{position:static;width:auto;margin:14px 0 6px}
+ .sales-plot{height:auto}
+ .bars{position:relative;height:380px}
+ .bar-pin{display:none}
+}
+@media (max-width:1180px){
+ .tips-layout{grid-template-columns:1fr;grid-template-areas:'copy' 'ledger' 'phone'}
+ .earn-phone{justify-self:center}
+ .payroll-layout{grid-template-columns:1fr;gap:16px}
+ .payroll-arrow{transform:rotate(90deg)}
+ .movein-layout{grid-template-columns:1fr;grid-template-areas:'copy' 'review' 'side' 'term'}
+ .movein-side{grid-template-columns:1fr 1fr}
+}
+@media (max-width:900px){
+ .cafe-table table{font-size:13.5px}
+ .cafe-table th,.cafe-table td{padding:10px 4px}
+ .cafe-table td .tick{display:none}
+ .cafe-table th,.cafe-table td{white-space:normal}
+ .cafe-table td{white-space:nowrap}
+}
+@media (max-width:420px){
+ .cafe-table table{font-size:12.5px}
+ .cafe-table th,.cafe-table td{padding:9px 3px}
+}
+@media (max-width:760px){
+ .bars{height:auto}
+ .sales-card{padding:16px}
+ .sales-head{flex-direction:column;gap:6px;font-size:16px}
+ .sales-total{font-size:26px}
+ .sales-plot{height:auto;display:flex;flex-direction:column-reverse;gap:16px;margin-top:12px}
+ .bars{position:static;display:grid;grid-template-columns:1fr;gap:6px}
+ .bars::after{display:none}
+ .bar{display:grid;grid-template-columns:44px minmax(0,1fr) 56px;align-items:center;gap:8px;padding:0}
+ .bar-label{position:static;height:auto;grid-column:1;grid-row:1;font-size:14px}
+ .bar-fill{grid-column:2;grid-row:1;height:22px;width:calc(var(--v) * 100%);border-radius:0 2px 2px 0}
+ .bar-value{grid-column:3;grid-row:1;margin:0;font-size:14px;text-align:right}
+ .bar-note{position:static;transform:none;grid-column:2 / 4;grid-row:2;width:auto;padding:0;text-align:left;font-size:13px;color:var(--claret);background:none}
+ .bar-note br{display:none}
+ .bar-pin{display:none}
+ .risk-card{position:static;width:auto;font-size:14px}
+ .cafe-table th:first-child{padding-left:12px}
+ .cafe-table th:last-child,.cafe-table td:last-child{padding-right:12px}
+ .cafe-table thead th{font-size:13px}
+ .ledger{padding:24px 16px 18px}
+ .ledger h3{font-size:23px}
+ .ledger-sum{font-size:15.5px;margin:14px 0 16px}
+ .ledger table{font-size:15px}
+ .ledger thead th{font-size:14px}
+ .ledger th,.ledger td{padding:11px 0}
+ .ledger td{padding-left:12px}
+ .ledger-approved{font-size:14.5px}
+ .stamp{width:84px;height:84px;font-size:14.5px}
+ .tips-copy .lede{font-size:17px}
+ .earn-phone{width:min(310px,100%)}
+ .clean-bar{font-size:16px;padding:12px 14px}
+ .agent-card{padding:16px}
+ .agent-head{font-size:15px}
+ .agent-head strong{font-size:19px}
+ .exceptions>li{grid-template-columns:26px minmax(0,1fr) 24px;font-size:14.5px}
+ .exceptions>li::before{padding-left:0}
+ .bubble{max-width:100%;font-size:13px}
+ .agent-foot{font-size:16.5px}
+ .gusto-card{padding:18px 16px}
+ .gusto-name{font-size:28px}
+ .gusto-sent{font-size:14.5px}
+ .gusto-card table{font-size:14.5px}
+ .gusto-card th,.gusto-card td{padding:11px 0}
+ .gusto-card td{padding-left:6px}
+ .gusto-foot strong{font-size:18px}
+ .gusto-foot .icon{width:44px;height:44px}
+ .movein-copy .lede{font-size:17px}
+ .import-card{padding:18px 16px}
+ .import-card h3{font-size:23px}
+ .import-who{font-size:15.5px}
+ .import-rows li{gap:12px;font-size:15.5px;padding:9px 0}
+ .import-rows .icon{width:26px;height:26px;margin-top:0}
+ .cutover{font-size:15.5px}
+ .movein-side{grid-template-columns:1fr}
+ .side-card h3{font-size:22px}
+ .side-card p{font-size:15px}
+ .terminal{padding:16px;font-size:14px}
+ .terminal-line{gap:10px}
+ .terminal code{display:flex;flex-wrap:wrap;column-gap:.6em}
+ .terminal-comment{padding-left:0;margin-top:6px}
+}

@@ -12,7 +12,7 @@
   const wallFormat = new Intl.DateTimeFormat('en-GB-u-ca-gregory-nu-latn', {
     timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23',
   })
-  const displayFormat = new Intl.DateTimeFormat('en-AU', {timeZone:timezone,dateStyle:'medium',timeStyle:'short'})
+  const displayFormat = new Intl.DateTimeFormat('en-US', {timeZone:timezone,dateStyle:'medium',timeStyle:'short'})
   const wallAt = instant => {
     const parts = Object.fromEntries(wallFormat.formatToParts(new Date(instant)).filter(p => p.type !== 'literal').map(p => [p.type,p.value]))
     return `${parts.year.padStart(4,'0')}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`

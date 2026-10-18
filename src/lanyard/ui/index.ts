@@ -6,7 +6,7 @@ import {payroll} from './payroll'
 import {people} from './people'
 import {movein,agent} from './admin'
 // Both faces are on every screen; preloading them starts the downloads with the stylesheets instead of after them.
-const fontPreloads=['/fonts/work-sans/work-sans-latin-wght-normal.woff2','/fonts/piazzolla/piazzolla-latin-standard-normal.woff2'].map(href=>`<link rel="preload" href="${href}" as="font" type="font/woff2" crossorigin>`).join('')
+const fontPreloads=['/fonts/inter/inter-latin-wght-normal.woff2','/fonts/source-serif-4/source-serif-4-latin-opsz-italic.woff2'].map(href=>`<link rel="preload" href="${href}" as="font" type="font/woff2" crossorigin>`).join('')
 export async function renderApp(state:any,path:string,extras:{message?:string,error?:string,result?:any}={}):Promise<Response> {
  const tab=path.split('?')[0].split('/')[2] || 'roster'
  const tabs=[['roster','Roster'],['time','Time'],...(manager(state)?[['payroll','Payroll'],['people','People']]:[]),...(owner(state)?[['import','Import'],['agent','Agent access']]:[])]

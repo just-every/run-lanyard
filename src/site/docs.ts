@@ -15,6 +15,8 @@ const guides = [
   { slug: 'agents-api', file: 'AGENTS-API.md', title: 'Agent API', group: 'Reference' },
   { slug: 'sources', file: 'SOURCES.md', title: 'Source and reuse', group: 'Reference' },
 ] as const
+// Code cards get their Copy button only when script runs; without it the command is still there to select.
+const COPY = "document.querySelectorAll('.docs-copy').forEach(b=>{b.hidden=false;b.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(b.closest('.docs-code').querySelector('code').textContent);b.textContent='Copied';setTimeout(()=>{b.textContent='Copy'},1600)}catch{}})})"
 const pathFor = (slug: string) => `/docs${slug ? `/${slug}` : ''}`
 const escape = (value: string) => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!)
 
@@ -40,7 +42,8 @@ function inline(source: string): string {
   let html = '', cursor = 0
   for (const match of source.matchAll(tokens)) {
     html += escape(source.slice(cursor, match.index))
-    if (match[1] !== undefined) html += `<code>${escape(match[1])}</code>`
+    // Inline commands wrap only between words, never inside a token such as just-every/run-lanyard.
+    if (match[1] !== undefined) html += `<code>${match[1].split(' ').map(token => `<span>${escape(token)}</span>`).join(' ')}</code>`
     else if (match[2] !== undefined) {
       const href = hrefFor(match[3])
       html += href ? `<a href="${escape(href)}">${inline(match[2])}</a>` : inline(match[2])
@@ -68,7 +71,7 @@ function renderMarkdown(source: string): string {
       index++
       while (index < lines.length && !/^```\s*$/.test(lines[index])) code.push(lines[index++])
       if (index < lines.length) index++
-      blocks.push(`<pre><code${fence[1] ? ` class="language-${escape(fence[1])}"` : ''}>${escape(code.join('\n'))}</code></pre>`)
+      blocks.push(`<div class="docs-code"><pre><code${fence[1] ? ` class="language-${escape(fence[1])}"` : ''}>${escape(code.join('\n'))}</code></pre><button class="docs-copy" type="button" hidden>Copy</button></div>`)
       continue
     }
     const heading = /^(#{1,6})\s+(.+)$/.exec(line)
@@ -120,6 +123,6 @@ export function docsPages(): Array<{ path: string; html: string }> {
     if (!source) throw new Error(`Missing documentation source: ${guide.file}`)
     const previous = guides[index - 1], next = guides[index + 1]
     const body = `<main id="main" class="docs-layout"><aside class="docs-sidebar"><a class="docs-overview" href="/docs">Lanyard docs</a><details class="docs-mobile-nav"><summary>Browse the guide</summary>${navigation(guide.slug)}</details><div class="docs-desktop-nav">${navigation(guide.slug)}</div></aside><article class="docs-article"><p class="docs-eyebrow">${escape(guide.group)}</p>${renderMarkdown(source)}<footer class="docs-article-footer"><a href="${repository}/blob/main/docs/${guide.file}">Read this guide on GitHub ↗</a><nav class="docs-pagination" aria-label="Continue reading">${previous ? `<a href="${pathFor(previous.slug)}"><span>Previous</span>${escape(previous.title)}</a>` : '<span></span>'}${next ? `<a href="${pathFor(next.slug)}"><span>Next</span>${escape(next.title)} →</a>` : ''}</nav></footer></article></main>`
-    return { path: pathFor(guide.slug), html: siteDocument({ title: `${guide.title} — Lanyard`, description: `Lanyard documentation: ${guide.title.toLowerCase()}. Practical guides for your team, roster, hours and payroll exports.`, body, styles: ['/docs.css'], bodyClass: 'docs-page' }) }
+    return { path: pathFor(guide.slug), html: siteDocument({ title: `${guide.title} — Lanyard`, description: `Lanyard documentation: ${guide.title.toLowerCase()}. Practical guides for your team, schedule, hours and payroll exports.`, body, styles: ['/docs.css'], bodyClass: 'docs-page', script: COPY }) }
   })
 }

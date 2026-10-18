@@ -1,8 +1,8 @@
 // Shared by the root renderer and the no-JavaScript first-run document.
 // Edition owners can replace these self-hosted URLs with their brand assets.
 export const fontLinks = [
-  { rel: 'preload', href: '/fonts/piazzolla/piazzolla-latin-standard-normal.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' },
-  { rel: 'preload', href: '/fonts/work-sans/work-sans-latin-wght-normal.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' },
+  { rel: 'preload', href: '/fonts/inter/inter-latin-wght-normal.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' },
+  { rel: 'preload', href: '/fonts/source-serif-4/source-serif-4-latin-opsz-italic.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' },
   { rel: 'stylesheet', href: '/fonts/fonts.css' },
 ] as const
 

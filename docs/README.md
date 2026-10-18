@@ -20,4 +20,4 @@ Publish the roster, let staff clock on by phone, and export approved hours to pa
 - [Agent API](AGENTS-API.md): give an assistant preparation access while people retain decisions.
 - [Source and reuse](SOURCES.md): the foundation and open-source patterns used by Lanyard.
 
-Lanyard exports hours to your existing payroll process. It does not calculate wages, interpret awards, submit STP or pay staff. Map its documented CSV to your payroll provider before using real data.
+Lanyard exports hours to your existing payroll process. It does not calculate wages, overtime or premiums, submit payroll to a provider or pay staff. Map its documented CSV to your payroll provider before using real data.
