@@ -21,7 +21,7 @@ For an installation with your own email, run `npx -y @runeditrun/rer install jus
 
 ## Owner guides
 
-The [Lanyard guide](docs/README.md) is built into the public site's `/docs` pages from the same repository Markdown. Start with [getting started](docs/GETTING-STARTED.md), then follow [schedule and time off](docs/SCHEDULE.md), [clock and timesheets](docs/TIME.md), and [payroll exports](docs/PAYROLL.md). There are also step-by-step guides for [moving in](docs/MOVE-IN.md) and [backup and restore](docs/BACKUP-RESTORE.md).
+The [Lanyard guide](docs/README.md) is built into the public site's `/docs` pages from the same repository Markdown. Start with [getting started](docs/GETTING-STARTED.md), then follow [schedule, call-outs and time off](docs/SCHEDULE.md), [clock and timesheets](docs/TIME.md), and [payroll exports](docs/PAYROLL.md). There are also step-by-step guides for [moving in](docs/MOVE-IN.md) and [backup and restore](docs/BACKUP-RESTORE.md).
 
 ## First week
 

@@ -20,7 +20,8 @@ export function time(s:any,w:Week,now:number,back:string) {
  const all=rows(s,'timesheets').filter(inSite),week=all.filter(r=>w.days.includes(dateKey(r.start,tz)))
  const worked=week.filter(r=>r.status!=='superseded').reduce((n,r)=>n+r.minutes,0)
  const title=canManage?`${w.site||'All cafes'} · ${hours(worked)} hrs worked`:'My time'
- const waiting=canManage?all.filter(r=>r.status==='submitted'&&r.staffId!==s.actor.staffId):[]
+ // Approvals are never hidden by the cafe filter: a cover may be someone else's home cafe.
+ const waiting=canManage?rows(s,'timesheets').filter(r=>r.status==='submitted'&&r.staffId!==s.actor.staffId):[]
  const toApprove=waiting.length?card('To approve',`<table class="list">${head(true)}<tbody>${waiting.map(r=>line(s,r,tz,back,canManage,true)).join('')}</tbody></table>`,`<p class="card-note">${h(waiting.length)} waiting</p>`,'approve'):''
  const days=w.days.map(d=>({d,list:week.filter(r=>dateKey(r.start,tz)===d)})).filter(v=>v.list.length)
  const table=days.length?`<table class="list banded">${head()}${days.map(v=>`<tbody><tr class="band"><th colspan="7">${h(day(v.d))}<span>${h(hours(v.list.filter(r=>r.status!=='superseded').reduce((n,r)=>n+r.minutes,0)))} hrs</span></th></tr>${v.list.map(r=>line(s,r,tz,back,canManage)).join('')}</tbody>`).join('')}</table>`:empty(canManage?`No time recorded for the week of ${day(w.week)}. Staff clock in from their phones, or record worked time below.`:'No time recorded this week. Use the clock to record your work.')

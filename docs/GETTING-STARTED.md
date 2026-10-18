@@ -21,15 +21,15 @@ Keep the development server private. Stop it with `rer dev --stop` or Ctrl-C. Th
 
 ## Set the venue time zone
 
-In **People**, check the venue time zone, choose yours if it differs (for example America/Los_Angeles for California, America/New_York for the East Coast) and select **Save venue timezone** before you publish your first schedule.
+Setup asks for the venue time zone and offers US Pacific (Los Angeles). To change it later, open **People**, choose yours in **Venue time zone** (for example Eastern (New York) for the East Coast) and select **Save time zone** before you publish your first schedule.
 
 Dates and time entry use the venue time zone on every device. It becomes fixed once the first schedule is published. If you change it before then, prepare existing drafts again.
 
 ## Add and invite people
 
-1. Open **People** and enter a person's full name, unique email and payroll ID.
+1. Open **People** and, in **Add a person**, enter a person's full name, unique email, position, hourly rate, home cafe and payroll ID.
 2. Choose **Staff** or **Manager**, review **Active**, then select **Add person**.
-3. Open **Invite to Lanyard** on their card and select **Send invitation**. Only the owner grants access.
+3. Select **Edit** on their row, open **Invite to Lanyard** and select **Send invitation**. Only the owner grants access.
 4. Have the person follow the invitation using their own email identity.
 
 For a whole team, use [Move in](MOVE-IN.md). Imported people start inactive; review their details, activate them and send invitations separately.
@@ -41,12 +41,12 @@ Local invitations are silently suppressed. To invite people into a real installa
 | Role | Main work |
 | --- | --- |
 | Owner | Set up the team, grant and revoke access, import staff, manage agent credentials, and manage schedules, time and payroll. |
-| Manager | Prepare and publish schedules, decide another person's time off, review and approve another person's hours, and export payroll hours. |
-| Staff | Record their availability, request time off, see and confirm their own published shifts, and clock in and out. |
+| Manager | Prepare and publish schedules, set the sales forecast, record and cover call-outs, decide another person's time off, review and approve another person's hours, and export payroll hours. |
+| Staff | Record their availability, request time off, see and confirm their own published shifts, call out of a shift, answer cover offers, and clock in and out. |
 | Agent | Prepare schedule, timesheet and payroll drafts with a scoped credential. A person publishes, approves or exports. |
 
 A manager cannot approve their own hours. Arrange for the owner or another manager to review them. Time-off requests also need a different person to decide them.
 
 ## Your first week
 
-Start with [Schedule and time off](SCHEDULE.md), then [Clock and timesheets](TIME.md), then [Payroll exports](PAYROLL.md). Keep a [private backup](BACKUP-RESTORE.md) before moving installations or removing local data.
+Start with [Schedule, call-outs and time off](SCHEDULE.md), then [Clock and timesheets](TIME.md), then [Payroll exports](PAYROLL.md). Keep a [private backup](BACKUP-RESTORE.md) before moving installations or removing local data.

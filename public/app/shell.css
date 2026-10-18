@@ -58,7 +58,7 @@ html.rer-themed .lanyard-app button.primary:hover,.lanyard-app .button.primary:h
 html.rer-themed .lanyard-app button.secondary:hover,.lanyard-app .button.secondary:hover{background:var(--head)}
 html.rer-themed .lanyard-app button.small,.lanyard-app .button.small{min-height:34px;padding:6px 12px;font-size:14px}
 html.rer-themed .lanyard-app button.quiet{background:transparent;border-color:var(--alert-line);color:var(--claret)}
-html.rer-themed .lanyard-app button.link{border:0;background:none;min-height:0;font-weight:400;width:100%;justify-content:flex-start}
+html.rer-themed .lanyard-app button.link{border:0;background:none;min-height:0;padding:9px 12px;font-weight:400;font-size:15px;width:100%;justify-content:flex-start}
 html.rer-themed .lanyard-app button:disabled{opacity:.55;cursor:default}
 html.rer-themed .lanyard-app a{color:var(--claret)}
 .text-link{font-weight:600;text-decoration:none}

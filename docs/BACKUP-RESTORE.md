@@ -45,7 +45,7 @@ A destination or later journal holding the erasure fence refuses the earlier arc
 
 ## Remove access
 
-In **People**, open **Edit details**, clear **Active** and select **Save person**. Deactivation revokes that person's app access immediately while retaining employment records. In **Agent access**, select **Revoke credential** to revoke a preparation key.
+In **People**, select **Edit** on the person's row, clear **Active** and select **Save person**. Deactivation revokes that person's app access immediately while retaining employment records. In **Agent access**, select **Revoke credential** to revoke a preparation key.
 
 **Erase unused staff** applies only to unused, never-invited, manually created people. It replaces identity details and records a restore fence. It does not erase employment history or imported identities. Deactivate people whose records must be retained.
 

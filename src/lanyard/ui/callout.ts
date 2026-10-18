@@ -1,6 +1,6 @@
 // The call-out, handled where it happens: the note under the uncovered block, the
 // shortlist popover anchored in that cell, and the offer card a teammate answers.
-import {h,avatar,rows,staffOf,person,form,exact,hidden,field} from './shared'
+import {h,avatar,rows,staffOf,person,form,exact,field} from './shared'
 import {type Week} from './week'
 import {clock,dateKey,day,hours,span} from './format'
 
@@ -43,7 +43,8 @@ export function offerCards(s:any,tz:string,back:string) {
  const mine=rows(s,'offers').filter(o=>o.staffId===s.actor.staffId&&o.status==='sent')
  return mine.map(o=>{
   const x=rows(s,'shifts').find(v=>v.id===o.shiftId);if(!x)return ''
-  const answer=(decision:string,label:string,cls:string)=>form('cover.respond',back,exact(o)+hidden('decision',decision)+field('note','Message (optional)','','text','maxlength="280"'),label,'',cls)
-  return `<section class="offer"><div><p class="eyebrow">Cover a shift?</p><h2>${h(day(dateKey(x.start,tz)))} · ${h(span(x.start,x.end,tz))}${x.label?` · ${h(x.label)}`:''}</h2><p>${x.site?`${h(x.site)} · `:''}Your week ${h(hours(o.before))} → ${h(hours(o.after))} hrs, no overtime. A manager approves the cover.</p></div><div class="offer-actions">${answer('accepted','Accept','primary')}${answer('declined','Decline','secondary')}</div></section>`
+  // One answer form: the message goes with whichever button is pressed (its decision).
+  const answer=`<form class="offer-actions" method="post" action="/app/action?name=cover.respond&amp;returnTo=${encodeURIComponent(back)}">${exact(o)}${field('note','Message (optional)','','text','maxlength="280"')}<button type="submit" name="decision" value="accepted" class="primary">Accept</button><button type="submit" name="decision" value="declined" class="secondary">Decline</button></form>`
+  return `<section class="offer"><div><p class="eyebrow">Cover a shift?</p><h2>${h(day(dateKey(x.start,tz)))} · ${h(span(x.start,x.end,tz))}${x.label?` · ${h(x.label)}`:''}</h2><p>${x.site?`${h(x.site)} · `:''}Your week ${h(hours(o.before))} → ${h(hours(o.after))} hrs, no overtime. A manager approves the cover.</p></div>${answer}</section>`
  }).join('')
 }

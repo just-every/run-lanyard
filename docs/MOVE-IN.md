@@ -16,7 +16,7 @@ Read the [Staff CSV reference](STAFF-IMPORT.md) for quoting, limits and validati
 
 ## Preview before applying
 
-1. Sign in as the owner and open **Import**.
+1. Sign in as the owner and open **Import staff** from your account menu (top right), or **Import a staff CSV** in **People**.
 2. Paste your CSV into **Staff CSV**, then select **Preview import**.
 3. Review the counts, diagnostics, conflicts and **People in this file**. Preview does not change staff records.
 4. Fix the source and preview again if anything is wrong.
@@ -30,7 +30,7 @@ Open **Import jobs** and inspect the job's state and checkpoint. A request proce
 
 Open **View job journal** to inspect originals, batches and effects. The journal contains personal data and the retained source CSV; keep it private. Operations stay with the owner identity that created the job.
 
-Imported people begin inactive with the staff role. In **People**, review each card, use **Edit details** to activate the person and set any missing payroll ID, then **Invite to Lanyard** → **Send invitation**. Import itself grants no access and sends no invitation.
+Imported people begin inactive with the staff role. In **People**, review each row, select **Edit** to activate the person and set any missing payroll ID, position, rate and home cafe, then **Invite to Lanyard** → **Send invitation**. Import itself grants no access and sends no invitation.
 
 ## Undo or roll back
 

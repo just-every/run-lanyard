@@ -6,9 +6,9 @@ Staff capture worked time on their phone. A manager reviews each timesheet revis
 
 1. Sign in with your own staff identity and open **Time**.
 2. Select **Clock in** when work starts.
-3. When work finishes, enter your unpaid **Break minutes**, then select **Clock out**.
+3. When work finishes, enter your unpaid **Meal minutes**, then select **Clock out**.
 
-Clocking out creates a submitted timesheet. You can review it in **Timesheets**. The app displays dates in the venue timezone, including when your phone is in another timezone.
+Clocking out creates a submitted timesheet. It appears under the week in **Time**. The app displays dates in the venue time zone, including when your phone is in another time zone.
 
 ## If the connection drops
 
@@ -18,19 +18,19 @@ Read the clock status before starting another event. This is a retry queue for c
 
 ## Record missed time
 
-A manager or the owner opens **Time**, then **Manual timesheet** → **Record worked time**. Choose the person, work start and end, break minutes and a reason. Select **Prepare timesheet**.
+A manager or the owner opens **Time**, then **Record worked time**. Choose the person, work start and end, meal minutes and a reason. Select **Prepare timesheet**.
 
 The entry becomes submitted and still needs approval. Worked time cannot end in the future or overlap another current submitted or approved entry for the same person.
 
 ## Review and approve
 
-Review the person's dates, minutes, break and reason in **Timesheets**. Select **Approve this revision** only after checking the displayed record. Approval applies to that exact revision; a changed record needs a fresh review.
+Submitted time from every cafe waits in **To approve** at the top of **Time**. Check the person's day, clocked times, meal and source, then select **Approve**. Approval applies to that exact revision; a changed record needs a fresh review.
 
 You cannot approve your own hours, including when you are a manager. Another manager or the owner must approve them.
 
 ## Correct approved hours
 
-On the latest approved entry, open **Prepare a correction**. Enter the corrected full work period and break, explain the change, then select **Prepare correction**. Keep the same person.
+On the latest approved entry, open **Correct**. Enter the corrected full work period and break, explain the change, then select **Prepare correction**. Keep the same person.
 
 The correction needs its own approval. After approval, the earlier entry remains in history as superseded. Only one correction can be prepared against a revision; review an existing correction before preparing further changes.
 

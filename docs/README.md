@@ -9,7 +9,7 @@ Publish the week's schedule, let staff clock in by phone, and export approved ho
 
 ## Run the week
 
-- [Schedule and time off](SCHEDULE.md): record availability, decide time off, publish a week of shifts and confirm them.
+- [Schedule, call-outs and time off](SCHEDULE.md): record availability, decide time off, build and publish a week against its forecast, confirm shifts and cover call-outs.
 - [Clock and timesheets](TIME.md): capture hours, review a timesheet and prepare a correction.
 - [Payroll exports](PAYROLL.md): review the exact CSV, export approved hours and record acknowledgement.
 
