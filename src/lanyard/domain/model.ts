@@ -1,8 +1,8 @@
 export type Actor = { id: string; email: string; role: 'owner'|'manager'|'staff'|'agent'; staffId?: string; isOwner?: boolean }
 export type Row = { id: string; revision: number; [key: string]: any }
-export const kinds = ['availability','leave','rosters','shifts','clocks','timesheets','batches'] as const
+export const kinds = ['availability','leave','rosters','shifts','clocks','timesheets','batches','forecasts','offers'] as const
 export type Kind = typeof kinds[number]
-export type Staff = { id:string; name:string; email:string; payroll_id:string|null; role:'staff'|'manager'; active:number; version:number; erased_at:string|null }
+export type Staff = { id:string; name:string; email:string; payroll_id:string|null; role:'staff'|'manager'; active:number; version:number; erased_at:string|null; position:string|null; rate_cents:number|null; site:string|null }
 export type State = {version:number;timezone:string;staff:Staff[];claims:any[]} & Record<Kind,Row[]>
 export type Context = { a:Actor; s:State; now:string; sql:D1PreparedStatement[]; db:D1Database; entity:string }
 export function fail(message:string,status=400):never { throw Object.assign(new Error(message),{status}) }

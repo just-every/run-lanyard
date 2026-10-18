@@ -1,0 +1,169 @@
+/* Lanyard app shell: the one white top bar, page width, controls, cards and tables.
+   Tokens live in /rer-theme.css; this file only uses them. */
+*,*::before,*::after{box-sizing:border-box}
+html.rer-themed .lanyard-app{margin:0;padding:0;max-width:none;min-height:100vh;background:var(--white);color:var(--ink);font:15px/1.45 var(--font-sans);overflow-wrap:anywhere}
+html.rer-themed .lanyard-app main{padding:18px 32px 40px;max-width:1600px;margin:0 auto;background:transparent;border:0;border-radius:0;box-shadow:none}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.skip{position:absolute;left:16px;top:-80px;background:var(--white);padding:10px 14px;z-index:20;border-radius:var(--r-input)}
+.skip:focus{top:12px}
+[hidden]{display:none!important}
+
+/* Top bar */
+.topbar{display:flex;align-items:center;gap:28px;min-height:72px;padding:10px 32px;border-bottom:1px solid var(--rule);background:var(--white);position:relative;z-index:10}
+html.rer-themed .lanyard-app .brand{display:flex;align-items:center;gap:12px;color:var(--ink);text-decoration:none;flex:none;margin-right:auto}
+.brand img{width:50px;height:38px;display:block}
+.brand span{font:800 28px/1 var(--font-sans);letter-spacing:-.02em}
+.tabs{display:flex;align-items:stretch;gap:30px;align-self:stretch}
+html.rer-themed .lanyard-app .tabs a{position:relative;display:flex;align-items:center;color:var(--muted);text-decoration:none;font-size:16px;white-space:nowrap;padding:0 2px}
+html.rer-themed .lanyard-app .tabs a:hover{color:var(--ink)}
+html.rer-themed .lanyard-app .tabs a[aria-current=page]{color:var(--ink);font-weight:600}
+.tabs a[aria-current=page]::after{content:'';position:absolute;left:0;right:0;bottom:-10px;height:3px;border-radius:3px;background:var(--claret)}
+.site-pick{font-size:16px;color:var(--body);white-space:nowrap}
+html.rer-themed .lanyard-app .site-pick .menu-list a{color:var(--ink)}
+.site-pick summary{display:flex;align-items:center;gap:8px;min-height:40px}
+.week-nav{display:flex;align-items:center;gap:14px;font-size:17px;color:var(--body);white-space:nowrap;margin-left:12px}
+html.rer-themed .lanyard-app .week-nav a{display:grid;place-items:center;width:32px;height:32px;border-radius:var(--r-pill);color:var(--ink)}
+.week-nav a:hover{background:var(--head)}
+.pub-state{margin:0;font-size:14px;color:var(--muted);white-space:nowrap}
+.pub-state.done{color:var(--sea-ink)}
+.chev{display:inline-block;width:8px;height:8px;border:solid currentColor;border-width:0 1.6px 1.6px 0;transform:translateY(-2px) rotate(45deg);flex:none}
+.chev.left{transform:rotate(135deg)}.chev.right{transform:rotate(-45deg)}
+/* Menus are details elements, so they open without JavaScript. */
+.menu{position:relative}
+.menu>summary{list-style:none;cursor:pointer}
+.menu>summary::-webkit-details-marker{display:none}
+.menu-list{position:absolute;top:calc(100% + 8px);left:0;min-width:200px;padding:6px;background:var(--white);border:1px solid var(--rule-strong);border-radius:var(--r-card);box-shadow:var(--shadow-pop);z-index:30;display:grid}
+.menu-list.right{left:auto;right:0;min-width:240px}
+html.rer-themed .lanyard-app .menu-list a,.menu-list .link{display:block;padding:9px 12px;border-radius:6px;color:var(--ink);text-decoration:none;font-size:15px;text-align:left}
+.menu-list a:hover,.menu-list .link:hover,.menu-list a[aria-current]{background:var(--head)}
+.menu-head{margin:0;padding:8px 12px 10px;border-bottom:1px solid var(--rule);margin-bottom:4px;display:grid;gap:2px}
+.menu-head span{font-size:13px;color:var(--muted)}
+.me summary{display:block;border-radius:var(--r-pill)}
+.me .avatar{width:40px;height:40px;font-size:14px}
+
+/* Initials stand in for faces: Lanyard keeps no profile photos. */
+.avatar{display:inline-grid;place-items:center;flex:none;width:38px;height:38px;border-radius:50%;background:var(--sea-pale);color:var(--sea-ink);font:700 13px/1 var(--font-sans);letter-spacing:.02em}
+.avatar.cross{background:var(--hibiscus-wash);color:var(--claret-deep)}
+
+/* Title row: the claret italic serif is the only serif on a screen. */
+.title-row{display:flex;align-items:baseline;justify-content:space-between;gap:20px;margin:6px 0 14px}
+html.rer-themed .lanyard-app .title-row h1{margin:0;font:italic 760 46px/1.08 var(--font-serif);letter-spacing:-.02em;color:var(--claret);text-wrap:balance}
+.now{margin:0;color:var(--muted);font-size:16px;white-space:nowrap}
+.lede{margin:-4px 0 18px;color:var(--body);max-width:70ch}
+
+/* Buttons and links */
+html.rer-themed .lanyard-app button,.lanyard-app .button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:9px 18px;border-radius:var(--r-input);border:1px solid var(--rule-strong);background:var(--white);color:var(--ink);font:600 15px/1.2 var(--font-sans);cursor:pointer;text-decoration:none;white-space:nowrap}
+html.rer-themed .lanyard-app button.primary,.lanyard-app .button.primary{background:var(--claret-button);border-color:var(--claret-button);color:#fff}
+html.rer-themed .lanyard-app button.primary:hover,.lanyard-app .button.primary:hover{background:var(--claret-deep)}
+html.rer-themed .lanyard-app button.secondary:hover,.lanyard-app .button.secondary:hover{background:var(--head)}
+html.rer-themed .lanyard-app button.small,.lanyard-app .button.small{min-height:34px;padding:6px 12px;font-size:14px}
+html.rer-themed .lanyard-app button.quiet{background:transparent;border-color:var(--alert-line);color:var(--claret)}
+html.rer-themed .lanyard-app button.link{border:0;background:none;min-height:0;font-weight:400;width:100%;justify-content:flex-start}
+html.rer-themed .lanyard-app button:disabled{opacity:.55;cursor:default}
+html.rer-themed .lanyard-app a{color:var(--claret)}
+.text-link{font-weight:600;text-decoration:none}
+.text-link:hover{text-decoration:underline;text-underline-offset:3px}
+html.rer-themed .lanyard-app :focus-visible{outline:2px solid var(--sea-deep);outline-offset:2px}
+
+/* Forms: thin, quiet borders; focus in sea-glass. */
+html.rer-themed .lanyard-app form{display:grid;gap:14px;margin:10px 0}
+html.rer-themed .lanyard-app label{display:grid;gap:6px;font:500 14px/1.35 var(--font-sans);color:var(--ink)}
+html.rer-themed .lanyard-app label.check{display:flex;align-items:flex-start;gap:10px;font-weight:400}
+html.rer-themed .lanyard-app input:not([type=checkbox]):not([type=hidden]),html.rer-themed .lanyard-app select,html.rer-themed .lanyard-app textarea{width:100%;min-width:0;min-height:42px;padding:9px 12px;border:1px solid var(--rule-strong);border-radius:var(--r-input);background:var(--white);color:var(--ink);font:400 15px/1.35 var(--font-sans)}
+html.rer-themed .lanyard-app input:focus,html.rer-themed .lanyard-app select:focus,html.rer-themed .lanyard-app textarea:focus{border-color:var(--sea-deep);outline:2px solid color-mix(in srgb,var(--sea) 45%,transparent);outline-offset:0}
+/* Every single-choice select draws its chevron 14px in from the right border: two gradient strokes in the muted ink (the theme CSP allows no data: images). */
+html.rer-themed .lanyard-app select:not([multiple]):not([size]),html.rer-themed .lanyard-app select[size="1"]:not([multiple]){-webkit-appearance:none;appearance:none;padding-inline-end:40px;background-image:linear-gradient(to top right,transparent calc(50% - 1.1px),var(--rer-muted) calc(50% - .55px),var(--rer-muted) calc(50% + .55px),transparent calc(50% + 1.1px)),linear-gradient(to top left,transparent calc(50% - 1.1px),var(--rer-muted) calc(50% - .55px),var(--rer-muted) calc(50% + .55px),transparent calc(50% + 1.1px));background-repeat:no-repeat;background-position:right 20px center,right 14px center;background-size:6px 6px;text-overflow:ellipsis;line-height:normal}
+html.rer-themed .lanyard-app input[type=checkbox]{width:18px;height:18px;margin:1px 0 0;accent-color:var(--sea-deep);flex:none}
+html.rer-themed .lanyard-app textarea{resize:vertical;font:13px/1.6 var(--font-mono);min-height:110px}
+.note{font-size:13px;color:var(--muted);line-height:1.5;margin:0}
+.quiet{color:var(--faint)}
+.done{color:var(--sea-ink)}
+
+/* Cards: white, hairline, soft shadow; headings in the sans. */
+.card{background:var(--white);border:1px solid var(--rule);border-radius:var(--r-card);box-shadow:0 1px 2px rgb(36 17 26 / .04);padding:20px 22px;margin:0 0 18px;min-width:0}
+.card-head,.card.fold>summary{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:-2px 0 12px}
+html.rer-themed .lanyard-app .card h2{margin:0;font:700 18px/1.3 var(--font-sans);font-style:normal;color:var(--ink);letter-spacing:-.005em}
+html.rer-themed .lanyard-app h3{margin:14px 0 8px;font:600 15px/1.3 var(--font-sans);color:var(--ink)}
+.card-note{margin:0;color:var(--muted);font-size:14px}
+.card-head>a,.card-head>.card-note:last-child{margin-left:auto}
+.card.fold>summary{cursor:pointer;list-style:none;margin:-2px 0 0}
+.card.fold>summary::-webkit-details-marker{display:none}
+.card.fold>summary::after{content:'';margin-left:auto;width:8px;height:8px;border:solid var(--muted);border-width:0 1.6px 1.6px 0;transform:rotate(45deg)}
+.card.fold[open]>summary{margin-bottom:12px}
+.card.fold[open]>summary::after{transform:rotate(-135deg)}
+details:not(.menu):not(.card):not(.shift)>summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--ink);list-style:none;display:inline-flex;align-items:center;gap:8px;min-height:32px}
+details:not(.menu):not(.card):not(.shift)>summary::-webkit-details-marker{display:none}
+details:not(.menu):not(.card):not(.shift)>summary::before{content:'';width:6px;height:6px;border:solid var(--muted);border-width:0 1.5px 1.5px 0;transform:rotate(-45deg);transition:transform .15s}
+details:not(.menu):not(.card):not(.shift)[open]>summary::before{transform:rotate(45deg)}
+.detail-content{padding:8px 0 4px;min-width:0}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px}
+
+/* Tables: the grid's density, hairlines, pale header. */
+table.list{width:100%;border-collapse:collapse;font-size:14px}
+table.list th{text-align:left;font-weight:600;font-size:13px;color:var(--muted);background:var(--head);padding:10px 12px;border-bottom:1px solid var(--rule);white-space:nowrap}
+table.list td{padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:middle}
+table.list td small{display:block;color:var(--muted);font-size:12px}
+table.list .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.list tr.band th{background:var(--band);color:var(--sea-ink);font-size:14px;font-weight:700}
+table.list tr.band th span{float:right;font-weight:600}
+table.list tr.superseded td{color:var(--faint)}
+.who{display:flex;align-items:center;gap:10px;min-width:0}
+td.who{display:table-cell}
+td.who>.avatar{margin-right:10px;vertical-align:middle}
+td.who>span{display:inline-grid;vertical-align:middle}
+.who strong{font-weight:600}
+.row-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+html.rer-themed .lanyard-app .row-actions form{margin:0}
+.inline-menu{position:relative}
+code{font-family:var(--font-mono);font-size:.88em}
+html.rer-themed .lanyard-app pre{font:13px/1.6 var(--font-mono);white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;padding:14px;background:var(--head);border:1px solid var(--rule);border-radius:var(--r-input);margin:8px 0 12px}
+
+.status{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:var(--r-pill);font:600 12px/1 var(--font-sans);white-space:nowrap;background:var(--neutral);color:var(--body)}
+.status.positive{background:var(--sea-pale);color:var(--sea-ink)}
+.status.negative{background:var(--alert-wash);color:var(--claret)}
+.notice{padding:12px 16px;margin:0 0 14px;border-radius:var(--r-input);background:var(--sea-pale);color:var(--sea-ink);font-weight:500}
+.notice.error{background:var(--alert-wash);color:var(--claret);border-left:3px solid var(--claret)}
+.banner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;margin:0 0 14px;border:1px solid var(--shift-line);border-radius:var(--r-card);background:var(--tint)}
+.banner p{margin:0}
+.banner.warn{border-color:var(--alert-line);background:var(--alert-wash)}
+html.rer-themed .lanyard-app .banner form{margin:0}
+.banner-sub{font-weight:600;margin-top:8px!important}
+.conflicts{margin:6px 0 0;padding-left:18px}
+.empty{display:grid;justify-items:center;gap:12px;padding:28px 12px;text-align:center;color:var(--muted)}
+.empty p{margin:0;max-width:56ch}
+.empty-icon{width:56px;height:56px;color:var(--sea-deep)}
+.icon-accent{stroke:var(--claret)}
+
+@media(max-width:1200px){
+ .topbar{gap:18px;padding:10px 20px;flex-wrap:wrap}
+ html.rer-themed .lanyard-app main{padding:16px 20px 32px}
+ .pub-state{order:6;width:100%;text-align:right}
+}
+@media(max-width:760px){
+ .topbar{display:grid;grid-template-columns:1fr auto;gap:10px 12px;padding:10px 16px 0}
+ .brand span{font-size:24px}
+ .brand img{width:42px;height:32px}
+ .me{grid-column:2;grid-row:1}
+ .site-pick{grid-column:1/-1;grid-row:2;font-size:15px}
+ .tabs{grid-column:1/-1;grid-row:3;gap:0;justify-content:space-between;border-top:1px solid var(--rule);min-height:46px}
+ html.rer-themed .lanyard-app .tabs a{font-size:15px;padding:0 4px}
+ .tabs a[aria-current=page]::after{bottom:0}
+ .week-nav{grid-column:1/-1;margin:0;justify-content:space-between;font-size:15px;border-top:1px solid var(--rule);padding:4px 0}
+ .pub-state{grid-column:1/-1;text-align:left;font-size:13px;white-space:normal;padding-bottom:8px}
+ html.rer-themed .lanyard-app main{padding:14px 16px 28px}
+ .title-row{display:grid;gap:4px}
+ html.rer-themed .lanyard-app .title-row h1{font-size:32px}
+ .now{font-size:13px}
+ .card{padding:16px}
+ .split{grid-template-columns:1fr}
+ table.list thead{display:none}
+ table.list,table.list tbody,table.list tr,table.list td{display:block;width:100%}
+ table.list tr{padding:10px 0;border-bottom:1px solid var(--rule)}
+ table.list td{border:0;padding:3px 0}
+ table.list .num{text-align:left}
+ table.list tr.band th{display:block;margin-top:8px;border-radius:6px}
+ td.who{display:flex}
+ td.who>.avatar{margin:0}
+ html.rer-themed .lanyard-app form>button,.banner .button{width:100%}
+ .banner{display:grid}
+}

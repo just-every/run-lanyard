@@ -3,12 +3,21 @@ import { batchCsv, command, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
+import { timezone as zone } from './domain/settings'
 
 const headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin' }
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers })
-const pages = new Set(['/app', '/app/roster', '/app/time', '/app/payroll', '/app/people', '/app/import', '/app/agent'])
+const pages = new Set(['/app', '/app/schedule', '/app/time', '/app/payroll', '/app/people', '/app/import', '/app/agent'])
+// The screen a form returns to, with its own query (week, cafe, day) but never another origin or path.
+function returnTo(value: string | null): string {
+  if (!value?.startsWith('/app')) return '/app'
+  const url = new URL(value, 'http://app.invalid')
+  return pages.has(url.pathname) ? url.pathname + url.search : '/app'
+}
 
 async function state(env: Bindings, who: Actor) {
+  // A new installation takes the time zone its owner gave at setup until anything is saved.
+  if (env.VENUE_TIMEZONE) await env.DB.prepare('UPDATE l_meta SET timezone=? WHERE id=1 AND version=0 AND timezone<>?').bind(zone(env.VENUE_TIMEZONE), zone(env.VENUE_TIMEZONE)).run()
   // Independent reads go to D1 together, so a page waits for one round trip instead of several in a row.
   const [snap, keys, jobs] = await Promise.all([snapshot(env.DB, who), agentKeys(env, who), who.role === 'owner' ? env.DB.prepare("SELECT id,state,checkpoint,total,fingerprint,error FROM ik_jobs WHERE destination='lanyard:staff' AND namespace='lanyard.staff.csv.v1' AND mapping_version='staff-csv-v1' AND principal_id=? ORDER BY rowid DESC LIMIT 30").bind(who.id).all() : null])
   return { ...snap, agentKeys: keys, importJobs: jobs ? jobs.results : [] }
@@ -29,7 +38,8 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
     return input
   }
   if (!request.headers.get('content-type')?.includes('application/x-www-form-urlencoded')) fail('Use JSON or a form', 415)
-  const input: Record<string, unknown> = Object.fromEntries(new URLSearchParams(raw))
+  const params = new URLSearchParams(raw), input: Record<string, unknown> = Object.fromEntries(params)
+  if (params.has('days')) input.days = params.getAll('days')
   for (const key of ['revision', 'breakMinutes']) if (key in input) input[key] = Number(input[key])
   for (const key of ['shifts', 'ids']) if (input[key]) { try { input[key] = JSON.parse(String(input[key])) } catch { fail(`Invalid ${key}`) } }
   if ('active' in input) input.active = input.active === 'on' || input.active === 'true' || input.active === '1'
@@ -41,15 +51,17 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
   if (!path.startsWith('/api/lanyard/') && path !== '/app' && !path.startsWith('/app/')) return null
   const env = runtimeBindings(original), isAgent = path.startsWith('/api/lanyard/agent/')
   let who: Actor | undefined
-  const back = pages.has(url.searchParams.get('returnTo') ?? '') ? url.searchParams.get('returnTo')! : '/app'
+  const back = returnTo(url.searchParams.get('returnTo'))
   try {
     if (url.origin !== env.AUTH_ORIGIN || (request.headers.has('host') && request.headers.get('host') !== url.host)) fail('Wrong application origin', 403)
     if (!['GET', 'POST'].includes(request.method)) return json({ error: 'Method not allowed' }, 405)
     // Bearer-only agent routes have no ambient browser authority. Human mutations require Origin.
     if (request.method === 'POST' && !isAgent && (request.headers.get('origin') !== env.AUTH_ORIGIN || request.headers.get('sec-fetch-site') === 'cross-site')) fail('Cross-site request refused', 403)
+    // The schedule was called the roster; old links keep working.
+    if (path === '/app/roster' && request.method === 'GET') return new Response(null, { status: 301, headers: { ...headers, location: '/app/schedule' + url.search } })
     who = await principal(request, env, isAgent)
     if (request.method === 'GET') {
-      if (pages.has(path)) return renderApp(await state(env, who), path)
+      if (pages.has(path)) return renderApp(await state(env, who), path + url.search)
       if (path === '/api/lanyard/state' || path === '/api/lanyard/agent/context') return json(await state(env, who))
       const file = path.match(/^\/api\/lanyard\/batches\/([\w-]+)\.csv$/)
       if (file) return new Response(await batchCsv(env.DB, who, file[1]), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-${file[1]}.csv"` } })

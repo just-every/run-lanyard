@@ -1,0 +1,52 @@
+/* Time, Payroll, People, Import and Agent access in the schedule's look. */
+.clock{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px 20px}
+.clock-state{display:flex;align-items:center;gap:14px}
+.clock-state p{margin:0;display:grid;gap:2px}
+[data-clock-status]{font-size:14px;color:var(--muted)}
+[data-clock-status]:empty{display:none}
+html.rer-themed .lanyard-app .clock form{display:flex;align-items:end;gap:12px;margin:0}
+.clock>.note,.clock>noscript,.clock>[data-clock-retry]{grid-column:1/-1}
+
+.batch-body{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,1fr);gap:24px}
+.batch-side{border-left:1px solid var(--rule);padding-left:22px;min-width:0}
+html.rer-themed .lanyard-app .batch-side h3{margin-top:0}
+.batch .card-head .status{align-self:center}
+.ledger tfoot td{font-weight:700;border-bottom:0;padding:10px 12px}
+.ledger .margin{color:var(--muted);font-size:13px;border-left:1px dashed var(--rule-strong)}
+html.rer-themed .lanyard-app pre.csv{white-space:pre-wrap;overflow-wrap:anywhere;overflow:visible;font-size:12px}
+
+.filter{display:flex;align-items:center;gap:12px;margin:0 0 12px!important}
+.filter label{flex:1;max-width:420px}
+.people .edit-row{display:none}
+.people .edit-row:target{display:table-row}
+.people .edit-row>td{padding:4px 0 14px;background:var(--tint)}
+.edit-panel{margin:0 12px;padding:14px 16px;background:var(--white);border:1px solid var(--rule);border-radius:var(--r-card)}
+.pay-week td.num.quiet{color:var(--faint)}
+.fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.person-form{max-width:none}
+
+.counts{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin:0 0 12px}
+.counts div{border:1px solid var(--rule);border-radius:var(--r-input);padding:8px 12px;background:var(--head)}
+.counts dt{font-size:12px;color:var(--muted)}
+.counts dd{margin:0;font-weight:700;font-size:18px}
+.credential{user-select:all}
+.command-docs dt{font-weight:600;margin-top:14px}
+.command-docs dd{margin:4px 0 0;color:var(--muted)}
+
+@media(max-width:1100px){
+ .fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .batch-body{grid-template-columns:1fr}
+ .batch-side{border-left:0;border-top:1px solid var(--rule);padding:16px 0 0}
+}
+@media(max-width:760px){
+ .clock{grid-template-columns:1fr}
+ html.rer-themed .lanyard-app .clock form{display:grid}
+ .fields{grid-template-columns:1fr}
+ .people .edit-row:target{display:block}
+ .edit-panel{margin:0}
+ .people tbody.person{display:block;border-bottom:1px solid var(--rule)}
+ .people tbody.person>tr{border:0}
+ .ledger tfoot{display:block}
+ .ledger .margin{border:0}
+ .filter{display:grid}
+}

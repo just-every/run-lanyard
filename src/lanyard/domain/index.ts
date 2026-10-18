@@ -5,9 +5,11 @@ import {roster} from './roster'
 import {time} from './time'
 import {payroll} from './payroll'
 import {settings} from './settings'
+import {cover} from './cover'
+import {forecast} from './forecast'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -24,6 +26,8 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=roster(c,name,p)
  if(result===undefined)result=time(c,name,p)
  if(result===undefined)result=await payroll(c,name,p)
+ if(result===undefined)result=cover(c,name,p)
+ if(result===undefined)result=forecast(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
@@ -35,12 +39,15 @@ export async function snapshot(db:D1Database,identity:Actor):Promise<object> {
  // The activity list is read beside the records whenever the signed-in role can see it.
  const a0=await live(db,identity),events=['owner','manager'].includes(a0.role)?db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at FROM l_events ORDER BY at DESC,id DESC LIMIT 100').all():null
  const s=await load(db),a=fresh(a0,s),manages=['owner','manager'].includes(a.role),agent=a.role==='agent'
- const staff=s.staff.filter(p=>manages||agent||p.id===a.staffId).map(p=>agent?{id:p.id,name:p.name,active:!!p.active}:{id:p.id,name:p.name,email:p.email,payrollId:p.payroll_id,role:p.role,active:!!p.active,revision:p.version,erasedAt:p.erased_at})
+ const staff=s.staff.filter(p=>manages||agent||p.id===a.staffId).map(p=>agent?{id:p.id,name:p.name,active:!!p.active,position:p.position,site:p.site}:{id:p.id,name:p.name,email:p.email,payrollId:p.payroll_id,role:p.role,active:!!p.active,revision:p.version,erasedAt:p.erased_at,position:p.position,site:p.site,...(manages?{hourlyRateCents:p.rate_cents}:{})})
  const result:Record<string,any>={actor:{id:a.id,email:agent?undefined:a.email,role:a.role,staffId:a.staffId},version:s.version,settings:{timezone:s.timezone},staff}
  for(const k of kinds)result[k]=s[k]
  if(!manages&&!agent) {
   for(const k of ['availability','leave','clocks','timesheets'] as const)result[k]=s[k].filter(r=>r.staffId===a.staffId)
-  result.shifts=s.shifts.filter(r=>r.staffId===a.staffId&&r.status==='published');const ids=new Set(result.shifts.map((r:any)=>r.rosterId));result.rosters=s.rosters.filter(r=>ids.has(r.id));result.batches=[]
+  // Staff see their own published shifts, the ones they called out of and the ones offered to them, never others' hours.
+  result.offers=s.offers.filter(o=>o.staffId===a.staffId);const offered=new Set(result.offers.map((o:any)=>o.shiftId))
+  result.shifts=s.shifts.filter(r=>r.status==='published'&&(r.staffId===a.staffId||r.callout?.staffId===a.staffId||offered.has(r.id))).map(({callout,...r})=>callout?{...r,callout:{staffId:callout.staffId===a.staffId?callout.staffId:undefined,note:callout.staffId===a.staffId?callout.note:undefined,at:callout.at,covered:Boolean(callout.coveredBy)}}:r)
+  const ids=new Set(result.shifts.map((r:any)=>r.rosterId));result.rosters=s.rosters.filter(r=>ids.has(r.id));result.batches=[];result.forecasts=[]
  }
  if(agent) {
   result.clocks=[];result.leave=s.leave.filter(r=>r.status==='approved').map(r=>({id:r.id,staffId:r.staffId,start:r.start,end:r.end,status:r.status,revision:r.revision}))

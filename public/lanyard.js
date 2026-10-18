@@ -38,10 +38,24 @@
     return new Date(candidates[0]).toISOString()
   }
   const toAPI = input => input.dataset.utc && input.value === input.dataset.initialLocal ? new Date(input.dataset.utc).toISOString() : localToUTC(input.value)
-  document.querySelectorAll('time[datetime]').forEach(time => {
-    time.textContent = displayFormat.format(new Date(time.dateTime))
-    time.title = `${timezone} · ${time.dateTime}`
+  // Menus (cafe, account, shift) close when another opens, on Escape and on an outside click.
+  const menus = [...document.querySelectorAll('details.menu, details.shift')]
+  menus.forEach(menu => menu.addEventListener('toggle', () => { if (menu.open) menus.forEach(other => { if (other !== menu && !other.contains(menu)) other.open = false }) }))
+  document.addEventListener('click', event => menus.forEach(menu => { if (menu.open && !menu.contains(event.target)) menu.open = false }))
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') menus.forEach(menu => { menu.open = false })
+    const find = document.querySelector('[data-find]')
+    if (find && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); find.focus() }
   })
+  // Phones show one day of the week; switching days needs no reload.
+  const week = document.querySelector('.week[data-show]')
+  document.querySelectorAll('.day-picker a[data-show]').forEach(link => link.addEventListener('click', event => {
+    if (!week) return
+    event.preventDefault()
+    week.dataset.show = link.dataset.show
+    document.querySelectorAll('.day-picker a').forEach(other => other.toggleAttribute('aria-current', other === link))
+    history.replaceState(null, '', link.href)
+  }))
   document.querySelectorAll('input[data-utc]').forEach(input => {
     if (input.dataset.utc) input.value = wallAt(Date.parse(input.dataset.utc))
     input.dataset.initialLocal = input.value
@@ -92,7 +106,8 @@
             input.reportValidity(); event.preventDefault(); return
           }
         }
-        const shift = {staffId:value('staffId'),breakMinutes:Number(value('breakMinutes')),...(value('label') ? {label:value('label')} : {})}
+        const site = control('site') ? value('site') : ''
+        const shift = {staffId:value('staffId'),breakMinutes:Number(value('breakMinutes')),...(value('label') ? {label:value('label')} : {}),...(site ? {site} : {})}
         for (const key of ['start','end']) {
           const input = control(key)
           try { shift[key] = localToUTC(input.value) } catch (error) {
@@ -102,13 +117,19 @@
         }
         shifts.push(shift)
       }
-      if (shifts.length) output.value = JSON.stringify(shifts)
+      // New rows join the week's current shifts unless the manager chose to replace them.
+      const keep = roster.querySelector('[data-keep]')
+      if (shifts.length) {
+        let current = []
+        if (keep?.checked) { try { current = JSON.parse(output.value || '[]') } catch { output.focus(); event.preventDefault(); return } }
+        output.value = JSON.stringify([...current, ...shifts])
+      }
       if (!output.value.trim()) { event.preventDefault(); output.focus() }
     })
   }
   const payroll = document.querySelector('[data-payroll-form]')
   if (payroll) payroll.addEventListener('submit', () => {
-    payroll.querySelector('[data-payroll-ids]').value = JSON.stringify([...payroll.querySelectorAll('[data-payroll-id]:checked')].map(input => input.dataset.payrollId))
+    payroll.querySelector('[data-payroll-ids]').value = JSON.stringify([...payroll.querySelectorAll('[data-payroll-id]:checked')].flatMap(input => input.dataset.payrollId.split(',')))
   })
   const clock = document.querySelector('[data-clock]')
   if (!clock) return

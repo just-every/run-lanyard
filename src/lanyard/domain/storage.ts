@@ -29,7 +29,7 @@ export async function commit(c:Context,before:State,name:string,commandId:string
  guard('EXISTS(SELECT 1 FROM l_meta WHERE id=1 AND version=? AND timezone=?)',before.version,before.timezone)
  // Fence imports and live grants too: imports may not advance l_meta.
  guard('(SELECT COUNT(*) FROM l_staff)=?',before.staff.length)
- for(const s of before.staff)guard('EXISTS(SELECT 1 FROM l_staff WHERE id=? AND version=? AND active=? AND role=? AND email=? AND name=? AND payroll_id IS ? AND erased_at IS ?)',s.id,s.version,s.active,s.role,s.email,s.name,s.payroll_id,s.erased_at)
+ for(const s of before.staff)guard('EXISTS(SELECT 1 FROM l_staff WHERE id=? AND version=? AND active=? AND role=? AND email=? AND name=? AND payroll_id IS ? AND erased_at IS ? AND position IS ? AND rate_cents IS ? AND site IS ?)',s.id,s.version,s.active,s.role,s.email,s.name,s.payroll_id,s.erased_at,s.position,s.rate_cents,s.site)
  if(c.a.role==='staff'||c.a.role==='manager')guard('EXISTS(SELECT 1 FROM l_staff WHERE id=? AND email=? COLLATE NOCASE AND active=1 AND erased_at IS NULL AND role=?)',c.a.staffId,c.a.email,c.a.role)
  if(c.a.role==='owner'||c.a.role==='agent')guard("EXISTS(SELECT 1 FROM oa_operators WHERE id=? AND role='owner' AND status='active')",c.a.id)
  else guard("EXISTS(SELECT 1 FROM oa_operators WHERE id=? AND status='active')",c.a.id)

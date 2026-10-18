@@ -30,6 +30,15 @@
       "group": "application"
     },
     {
+      "name": "VENUE_TIMEZONE",
+      "label": "Venue time zone",
+      "help": "Shifts and clock times use this zone. You can change it in People until you publish the first week.",
+      "kind": "timezone",
+      "required": true,
+      "default": "America/Los_Angeles",
+      "group": "application"
+    },
+    {
       "name": "OWNER_EMAIL",
       "label": "Owner email",
       "help": "Sign-in links for this address appear in the local development outbox; no email is sent.",

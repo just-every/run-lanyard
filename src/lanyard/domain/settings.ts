@@ -1,6 +1,6 @@
 import {type Context,keys,text,need,fail} from './model'
 
-function timezone(value:unknown):string {
+export function timezone(value:unknown):string {
  const name=text(value,'timezone',80)
  // Named IANA zones (including UTC and Etc/GMT aliases), never numeric offsets.
  need(/^[A-Za-z][A-Za-z0-9_+.-]*(?:\/[A-Za-z0-9_+.-]+)*$/.test(name),'Use a supported IANA timezone')

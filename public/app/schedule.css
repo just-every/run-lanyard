@@ -1,0 +1,165 @@
+/* The week shift calendar (the owner-picked screen): people rows by Mon–Sun under one
+   pale header, position bands, soft sea-glass shift blocks, the one claret call-out with
+   its shortlist anchored in place, the labor footer and the find bar. */
+.schedule{position:relative}
+.week{display:grid;grid-template-columns:minmax(150px,12%) repeat(7,minmax(0,1fr)) minmax(124px,10%);border:1px solid var(--rule);border-radius:var(--r-card);background:var(--white)}
+.wk-row{display:contents}
+.wk-cell{min-width:0;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:5px 4px}
+.wk-cell:last-child{border-right:0}
+.wk-cell.today{background:var(--today)}
+.head .wk-cell{background:var(--head);display:grid;align-content:center;justify-items:center;gap:1px;padding:10px 6px 9px;min-height:56px;font-size:15px}
+.head .wk-cell:first-child{justify-items:start;padding-left:14px;font-weight:600;border-top-left-radius:var(--r-card)}
+.head .wk-cell:last-child{border-top-right-radius:var(--r-card)}
+.head .wk-cell.today{background:var(--today-head)}
+.head strong{font-weight:600}
+.head small{font-size:13px;color:var(--muted)}
+.head em{font-style:normal;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--sea-ink)}
+.band .wk-cell{grid-column:1/-1;background:var(--band);border-right:0;padding:7px 14px;font-size:15px;color:var(--sea-ink);display:flex;align-items:baseline;gap:14px}
+.band strong{font-weight:700}
+.band .rate{font-size:13px;color:var(--muted)}
+.wk-cell.who{display:flex;align-items:center;gap:10px;padding:6px 8px 6px 10px}
+.wk-cell.who .name{display:grid;min-width:0}
+.wk-cell.who strong{font-size:15px;font-weight:600;line-height:1.25}
+.wk-cell.who small{font-size:12.5px;color:var(--muted);line-height:1.3}
+.wk-cell.who small.from{color:var(--hibiscus);font-weight:600}
+.wk-cell.total{display:grid;place-items:center;font-size:15px;font-variant-numeric:tabular-nums}
+.wk-cell.total.note{font-size:12.5px;line-height:1.35;color:var(--body);place-items:center start;padding:6px 10px}
+.wk-row.extra .wk-cell{display:none!important}
+
+/* Shift blocks */
+.shift{position:relative;display:block;border-radius:8px;background:var(--shift);color:var(--shift-ink);font-size:13px;line-height:1.35;min-height:48px}
+.shift+.shift{margin-top:4px}
+.shift>summary,div.shift{display:grid;align-content:center;padding:6px 10px;min-height:48px;list-style:none;cursor:pointer;border-radius:8px}
+div.shift{cursor:default}
+.shift>summary::-webkit-details-marker{display:none}
+.shift>summary:hover{box-shadow:inset 0 0 0 1px var(--shift-line)}
+.shift .t{color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.shift .l,.shift .where,.shift .note-line{color:var(--shift-ink);font-size:12.5px}
+.shift .where{color:var(--hibiscus)}
+.shift.draft{background:var(--white);box-shadow:inset 0 0 0 1px var(--shift-line);border:0}
+.shift.draft>summary{border:1px dashed var(--shift-line)}
+.shift.cross{background:var(--white);box-shadow:inset 3px 0 0 var(--hibiscus),inset 0 0 0 1px var(--hibiscus-wash)}
+.shift.alert{background:var(--alert-wash);box-shadow:inset 4px 0 0 var(--claret),inset 0 0 0 1px var(--alert-line)}
+.shift.alert>summary{padding-right:26px}
+.shift.alert .t,.shift.alert .l{color:var(--claret);font-weight:700}
+.shift.alert .state{color:var(--claret);font-size:12.5px}
+.shift.alert .mark{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;background:var(--claret);color:#fff;font:700 11px/16px var(--font-sans);text-align:center}
+.shift.ghost{background:transparent;box-shadow:inset 0 0 0 1px var(--rule);color:var(--muted)}
+.shift.ghost .t{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--faint)}
+.shift.ghost .l{color:var(--claret)}
+.shift.ghost .done{color:var(--sea-ink);font-weight:600}
+.slot{min-height:48px;border:1px dashed var(--shift-line);border-radius:8px}
+.guest .wk-cell{border-top:1px dashed var(--hibiscus);border-bottom:1px dashed var(--hibiscus);background:color-mix(in srgb,var(--hibiscus-wash) 35%,transparent)}
+.guest .wk-cell.today{background:color-mix(in srgb,var(--hibiscus-wash) 35%,var(--today))}
+.guest .slot{border-color:color-mix(in srgb,var(--hibiscus) 30%,var(--rule))}
+.shift-menu{position:absolute;z-index:25;top:calc(100% + 6px);left:0;width:280px;padding:12px 14px;background:var(--white);border:1px solid var(--rule-strong);border-radius:var(--r-card);box-shadow:var(--shadow-pop);color:var(--ink);font-size:14px}
+.shift-menu p{margin:0 0 6px}
+.shift-menu .menu-head{padding:0 0 6px;border:0;font-weight:600}
+html.rer-themed .lanyard-app .shift-menu form{margin:8px 0 0;gap:8px}
+.wk-cell[data-day=sat] .shift-menu,.wk-cell[data-day=sun] .shift-menu{left:auto;right:0}
+
+/* The call-out: its note under the block, the shortlist anchored over the past days. */
+.callout-note{display:flex;align-items:center;gap:8px;margin:4px 0 0;font-size:12px;color:var(--muted);white-space:nowrap;width:max-content;position:relative;z-index:2}
+.callout-note .said{background:var(--alert-wash);color:var(--claret);border-radius:6px;padding:3px 8px}
+.has-cover{position:relative}
+.cover{position:absolute;z-index:20;top:calc(100% - 64px);right:calc(100% + 10px);width:min(360px,calc(300% - 10px));background:var(--white);border:1px solid var(--rule-strong);border-radius:var(--r-card);box-shadow:var(--shadow-pop);padding:12px 14px 14px;font-size:14px;color:var(--ink)}
+.cover.to-right{right:auto;left:calc(100% + 10px)}
+.cover-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+html.rer-themed .lanyard-app .cover .close{font-size:22px;line-height:1;color:var(--muted);text-decoration:none;padding:0 4px}
+.cover ul{list-style:none;margin:0;padding:0}
+.candidate{display:grid;grid-template-columns:34px minmax(0,1fr) auto 52px;gap:2px 10px;align-items:start;padding:7px 0;border-bottom:1px solid var(--rule)}
+.candidate .avatar{width:34px;height:34px;font-size:12px}
+.candidate .who{display:grid;padding:1px 0 0;gap:0}
+.candidate .who strong{font-size:14px}
+.candidate .from{font-size:12.5px;color:var(--hibiscus)}
+.candidate .hrs{font-size:13px;padding-top:2px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.candidate .reply{display:grid;justify-items:end;gap:3px;font-size:12px;color:var(--muted)}
+.candidate .quote{grid-column:2/-1;font-size:13.5px;color:var(--body)}
+.candidate .waiting{color:var(--muted)}
+.badge{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;color:#fff;font:700 14px/1 var(--font-sans)}
+.badge.yes{background:var(--sea-deep)}
+.badge.no{background:var(--claret)}
+.badge.wait{background:var(--neutral);color:var(--muted);font-size:11px;letter-spacing:.05em}
+.left-out{margin:8px 0 0;font-size:12.5px;color:var(--muted);line-height:1.45}
+.left-out strong{font-weight:600;color:var(--body)}
+.cover-actions{display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--rule)}
+.cover-actions>*{flex:1}
+html.rer-themed .lanyard-app .cover-actions form{margin:0}
+html.rer-themed .lanyard-app .cover-actions button,.cover-actions .button{width:100%}
+
+/* Footer band and folds */
+.more .wk-cell{grid-column:1/-1;border-right:0;padding:9px 14px}
+html.rer-themed .lanyard-app .more a{display:inline-flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;font-size:15px}
+.more .chev{transform:translateY(-2px) rotate(45deg)}
+.foot .wk-cell{display:grid;align-content:center;justify-items:center;gap:2px;padding:12px 6px;border-bottom:0;font-size:14px;line-height:1.55;font-variant-numeric:tabular-nums}
+.foot .wk-cell:first-child{justify-items:start;padding-left:28px;font-size:13px;color:var(--body)}
+.foot .wk-cell.today{font-weight:700;color:var(--sea-ink)}
+.foot .wk-cell.total{justify-items:start;place-items:center start;padding-left:12px;box-shadow:inset 1px 0 0 var(--sea-mid);font-size:13.5px;line-height:1.5;white-space:nowrap}
+.foot .wk-cell span{display:block}
+.wk-cell.blank{grid-column:1/-1;border-right:0;display:grid;justify-items:center;gap:6px;padding:40px 12px;color:var(--muted)}
+.wk-cell.blank p{margin:0}
+.wk-aside{margin:8px 2px 0;font-size:13px;color:var(--muted)}
+.day-picker{display:none}
+
+/* Find bar: stays at the bottom while the week scrolls. */
+.askbar{position:relative;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:16px 0 0;padding:9px 12px 9px 20px;min-height:62px;border:1px solid var(--rule-strong);border-radius:16px;background:color-mix(in srgb,var(--white) 94%,transparent);backdrop-filter:blur(6px);box-shadow:0 8px 24px -14px rgb(36 17 26 / .25)}
+html.rer-themed .lanyard-app .ask{display:flex;align-items:center;gap:14px;margin:0;flex:1;min-width:0}
+.ask label{flex:1;min-width:0}
+.spark{color:var(--claret);font-size:24px;line-height:1}
+html.rer-themed .lanyard-app .ask input{border:0;min-height:40px;padding:6px 0;font-size:16px;background:transparent}
+html.rer-themed .lanyard-app .ask input:focus{outline:0}
+.ask kbd{font:500 14px/1 var(--font-sans);color:var(--muted)}
+.ask:focus-within{box-shadow:0 0 0 2px color-mix(in srgb,var(--sea) 45%,transparent);border-radius:10px}
+html.rer-themed .lanyard-app .drafted{display:flex;align-items:center;gap:12px;min-height:44px;padding:8px 16px;border:1px solid var(--rule-strong);border-radius:var(--r-pill);color:var(--body);text-decoration:none;font-size:14px;max-width:56%}
+.drafted span:not(.chev){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.drafted svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linejoin:round}
+.drafted .chev{margin-left:18px}
+.drafted:hover{background:var(--head)}
+.below{margin-top:28px;display:grid;gap:0}
+
+/* Offers a teammate answers */
+.offer{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:16px 20px;margin:0 0 16px;border:1px solid var(--alert-line);border-radius:var(--r-card);background:var(--alert-wash)}
+.eyebrow{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--claret)}
+html.rer-themed .lanyard-app .offer h2{margin:2px 0 4px;font:700 18px/1.3 var(--font-sans);font-style:normal}
+.offer p{margin:0}
+.offer-actions{display:flex;gap:12px;align-items:end}
+html.rer-themed .lanyard-app .offer-actions form{margin:0}
+.shift-input{display:grid;grid-template-columns:1.3fr 1fr 1fr .6fr .9fr .9fr auto;align-items:end;gap:10px;padding:12px 0;border-top:1px solid var(--rule)}
+.forecast-days{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px}
+.forecast-days label span{color:var(--muted);font-weight:400}
+
+@media(max-width:1200px){
+ .shift>summary,div.shift{padding:6px 7px}
+ .shift .t{white-space:normal}
+ .shift-input{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .forecast-days{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+/* Phones: one day at a time. Pick the day above; each person's block spans the width. */
+@media(max-width:760px){
+ .day-picker{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin:0 0 10px}
+ html.rer-themed .lanyard-app .day-picker a{display:grid;justify-items:center;padding:6px 0;border:1px solid var(--rule);border-radius:var(--r-input);color:var(--ink);text-decoration:none;font-size:13px}
+ .day-picker small{font-size:11px;color:var(--muted)}
+ html.rer-themed .lanyard-app .day-picker a[aria-current]{background:var(--claret-button);border-color:var(--claret-button);color:#fff}
+ .day-picker a[aria-current] small{color:#fff}
+ .week{grid-template-columns:minmax(0,1fr) auto;grid-auto-flow:row dense}
+ .head{display:none}
+ .wk-cell.day{display:none;grid-column:1/-1;border-right:0;padding:0 8px 8px}
+ .wk-cell{border-right:0}
+ .wk-row:not(.band):not(.more):not(.foot)>.wk-cell.who{border-bottom:0}
+ .wk-cell.total{display:block;align-self:center;border-bottom:0;padding:6px 12px 0 0;font-size:14px;white-space:nowrap;text-align:right}
+ .wk-cell.total:not(.note)::after{content:' hrs';color:var(--muted);white-space:pre}
+ .week[data-show=mon] .wk-cell.day[data-day=mon],.week[data-show=tue] .wk-cell.day[data-day=tue],.week[data-show=wed] .wk-cell.day[data-day=wed],.week[data-show=thu] .wk-cell.day[data-day=thu],.week[data-show=fri] .wk-cell.day[data-day=fri],.week[data-show=sat] .wk-cell.day[data-day=sat],.week[data-show=sun] .wk-cell.day[data-day=sun]{display:block;order:0}
+ .foot .wk-cell:first-child{padding-left:12px;border-bottom:1px solid var(--rule)}
+ .foot .wk-cell.day{grid-column:auto;padding:10px 12px;justify-items:end;border-bottom:1px solid var(--rule)}
+ .foot .wk-cell.total{grid-column:1/-1;box-shadow:none;padding:10px 12px}
+ .foot .wk-cell.total::after{content:none}
+ .cover{position:static;width:auto;margin-top:8px}
+ .callout-note{white-space:normal;width:auto}
+ .shift-menu{position:static;width:auto;margin:6px 0 0;box-shadow:none}
+ .askbar{position:static;flex-wrap:wrap;padding:8px 12px;gap:8px}
+ html.rer-themed .lanyard-app .drafted{max-width:100%;width:100%;font-size:13px;padding:8px 12px}
+ .drafted span:not(.chev){white-space:normal}
+ .offer{display:grid}
+ .offer-actions{display:grid;grid-template-columns:1fr 1fr}
+ .shift-input,.forecast-days{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

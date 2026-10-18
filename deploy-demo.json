@@ -4,7 +4,7 @@
   "name": "Lanyard",
   "settings": {
     "MAIL_PROVIDER": "development",
-    "MAIL_FROM": "Lanyard Demo <team@riversidevenue.example>"
+    "MAIL_FROM": "Lanyard Demo <team@treshornos.example>"
   },
-  "ownerEmail": "alex.morgan@riversidevenue.example"
+  "ownerEmail": "ana.reyes@treshornos.example"
 }

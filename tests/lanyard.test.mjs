@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { run, harness } from './harness.mjs'
 
-const shift = staffId => ({ staffId, start: '2026-10-11T23:00:00Z', end: '2026-10-12T07:00:00Z', breakMinutes: 30, label: 'Morning service' })
+// A new installation runs on US Pacific time: 7:00 am – 3:00 pm PDT on Mon Oct 12, 2026.
+const shift = staffId => ({ staffId, start: '2026-10-12T14:00:00Z', end: '2026-10-12T22:00:00Z', breakMinutes: 30, label: 'Morning service' })
 const missed = staffId => ({ ...shift(staffId), label: undefined, reason: 'Forgot clock at opening' })
 const timeInput = staffId => { const { label, ...p } = missed(staffId); return p }
 
@@ -33,11 +34,40 @@ test('availability, approved leave, conflicts, exact roster publication and pers
   const good = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [shift(alex.id)] })
   await h.cmd('roster.publish', { id: good.id, revision: bad.revision }, manager.cookie, 409)
   await h.cmd('roster.publish', { id: good.id, revision: good.revision }, manager.cookie)
-  await h.cmd('settings.save', { timezone: 'Australia/Perth' }, h.owner, 409)
+  await h.cmd('settings.save', { timezone: 'America/Chicago' }, h.owner, 409)
   const visible = (await h.state(alex.cookie)).shifts
   assert.equal(visible.length, 1)
   await h.cmd('shift.confirm', { id: visible[0].id, revision: visible[0].revision }, alex.cookie)
   assert.ok((await h.state()).events.some(e => e.action === 'roster.publish' && e.actorRole === 'manager'))
+}))
+
+test('a call-out is offered to qualified teammates within overtime, and a manager approves one accept onto the shift', () => run(async h => {
+  const team = { position: 'Baristas and counter', hourlyRate: '19.00', site: 'Ocean Beach' }
+  const jess = await h.person('Jess'), luis = await h.person('Luis'), andrea = await h.person('Andrea')
+  for (const p of [jess, luis, andrea]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: 'staff', active: true, ...team })
+  // Saturday Oct 24, 2026, 7:00 am – 3:00 pm PDT; Andrea already has 36.0 hours that week.
+  const sat = { start: '2026-10-24T14:00:00Z', end: '2026-10-24T22:00:00Z', breakMinutes: 30, label: 'Barista' }
+  const days = [19, 20, 21, 22].map(d => ({ staffId: andrea.id, start: `2026-10-${d}T14:00:00Z`, end: `2026-10-${d}T23:30:00Z`, breakMinutes: 30 }))
+  for (const p of [jess, luis, andrea]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-19T07:00:00Z', end: '2026-10-26T07:00:00Z' })
+  const week = await h.cmd('roster.prepare', { week: '2026-10-19', shifts: [{ staffId: jess.id, ...sat }, ...days] })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision })
+  const same = x => Date.parse(x.start) === Date.parse(sat.start), called = (await h.state(jess.cookie)).shifts.find(same)
+  await h.cmd('shift.callout', { id: called.id, revision: called.revision, note: 'I can’t come in this morning.' }, luis.cookie, 403)
+  const { shift, offers } = await h.cmd('shift.callout', { id: called.id, revision: called.revision, note: 'I can’t come in this morning.' }, jess.cookie)
+  assert.deepEqual(shift.callout.qualified.map(f => [f.staffId, f.before, f.after]), [[luis.id, 0, 450]])
+  assert.deepEqual(shift.callout.leftOut.map(f => [f.staffId, f.reason, f.after]), [[andrea.id, 'overtime', 2610]])
+  const offer = (await h.state(luis.cookie)).offers[0]
+  assert.equal(offer.id, offers[0].id)
+  await h.cmd('cover.approve', { id: offer.id, revision: offer.revision }, h.owner, 409)
+  const yes = await h.cmd('cover.respond', { id: offer.id, revision: offer.revision, decision: 'accepted', note: 'I can be there by 7.' }, luis.cookie)
+  await h.cmd('cover.approve', { id: yes.id, revision: yes.revision }, jess.cookie, 403)
+  const moved = await h.cmd('cover.approve', { id: yes.id, revision: yes.revision })
+  assert.equal(moved.staffId, luis.id); assert.equal(moved.callout.coveredBy, luis.id)
+  assert.ok(!(await h.state(jess.cookie)).shifts.some(x => x.staffId === jess.id && same(x)))
+  await h.mf.dispatchFetch(h.origin + '/setup', { method: 'POST', headers: { origin: h.origin, cookie: h.owner, 'content-type': 'application/x-www-form-urlencoded' }, body: 'confirm=yes', redirect: 'manual' })
+  assert.equal((await h.send('/app/schedule?week=2026-10-19&site=Ocean%20Beach', undefined, h.owner)).status, 200)
+  const old = await h.send('/app/roster?week=2026-10-19', undefined, h.owner)
+  assert.equal(old.status, 301); assert.equal(old.headers.get('location'), '/app/schedule?week=2026-10-19')
 }))
 
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {

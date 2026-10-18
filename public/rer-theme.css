@@ -24,9 +24,11 @@
   --line-card:1.5px solid var(--claret-line);
   --shadow-card:0 1px 2px rgb(36 17 26 / .04),0 10px 28px -12px rgb(36 17 26 / .14);
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px; --s9:96px;
-  /* The app's names for the same tokens (public/lanyard.css). */
-  --paper:var(--white); --surface:var(--white); --hairline:var(--rule); --kelly:var(--sea-deep);
-  --tint-ink:var(--sea-ink); --neutral:#EEF1F0; --danger:var(--claret);
+  /* The app (public/app/*.css): the week grid's surfaces, shift blocks and the one failure. */
+  --head:#F3F8F7; --band:#E7F3EE; --today:#EAF6F2; --today-head:#DFF1EB;
+  --shift:#E6F3EF; --shift-line:#CFE6DE; --shift-ink:#2B5F53;
+  --alert-wash:#FCE9EE; --alert-line:#E79AAE; --hibiscus-wash:#FDE7EF;
+  --neutral:#EEF1F0; --shadow-pop:0 2px 6px rgb(36 17 26 / .06),0 18px 40px -16px rgb(36 17 26 / .28);
   /* Base pages */
   --rer-font-body:var(--font-sans); --rer-font-heading:var(--font-serif); --rer-font-mono:var(--font-mono);
   --rer-page:var(--white); --rer-surface:var(--white); --rer-text:var(--ink); --rer-muted:var(--muted);
@@ -47,31 +49,31 @@ h1,h2,.word{font-style:italic}
 .word,.rer-brand,.brand{font-style:normal}
 html.rer-themed .rer-brand,html.rer-themed .brand,.word{font-family:var(--font-sans)!important;font-weight:700}
 /* Base owns the auth/setup markup. The edition supplies its presentation here. */
-html.rer-themed body:not(:has(.app-header)){padding:96px 20px 64px;display:grid;place-items:center;min-height:100dvh;background:var(--tint)}
-html.rer-themed body:not(:has(.app-header))::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,var(--hibiscus) 0 50%,var(--sea) 50% 100%)}
-html.rer-themed body:not(:has(.app-header)) main{max-width:584px;margin:auto;width:100%;padding:40px;border:var(--line-card);border-radius:var(--r-card);box-shadow:var(--shadow-card)}
-html.rer-themed body:not(:has(.app-header)) h1{font-family:var(--font-serif);font-size:56px;line-height:1.05;letter-spacing:-.015em;word-spacing:.04em;font-weight:760;color:var(--claret);margin:0 0 24px;text-wrap:balance}
-html.rer-themed body:not(:has(.app-header)) .brand,html.rer-themed body:not(:has(.app-header)) .rer-brand{font-size:26px;line-height:1.2;margin:0 0 40px;color:var(--ink)}
-html.rer-themed body:not(:has(.app-header)) .brand::before,html.rer-themed body:not(:has(.app-header)) .rer-brand::before{width:46px;height:36px}
+html.rer-themed body:not(.lanyard-app){padding:96px 20px 64px;display:grid;place-items:center;min-height:100dvh;background:var(--tint)}
+html.rer-themed body:not(.lanyard-app)::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,var(--hibiscus) 0 50%,var(--sea) 50% 100%)}
+html.rer-themed body:not(.lanyard-app) main{max-width:584px;margin:auto;width:100%;padding:40px;border:var(--line-card);border-radius:var(--r-card);box-shadow:var(--shadow-card)}
+html.rer-themed body:not(.lanyard-app) h1{font-family:var(--font-serif);font-size:56px;line-height:1.05;letter-spacing:-.015em;word-spacing:.04em;font-weight:760;color:var(--claret);margin:0 0 24px;text-wrap:balance}
+html.rer-themed body:not(.lanyard-app) .brand,html.rer-themed body:not(.lanyard-app) .rer-brand{font-size:26px;line-height:1.2;margin:0 0 40px;color:var(--ink)}
+html.rer-themed body:not(.lanyard-app) .brand::before,html.rer-themed body:not(.lanyard-app) .rer-brand::before{width:46px;height:36px}
 html.rer-themed body:has(#signin-email) .brand{flex-direction:column;gap:12px;margin-bottom:32px}
 html.rer-themed body:has(#signin-email) .brand::before{width:72px;height:56px}
 html.rer-themed body:has(#signin-email) h1{text-align:center;font-size:44px;margin-bottom:32px}
-html.rer-themed body:not(:has(.app-header)) button,html.rer-themed body:not(:has(.app-header)) .action{border-radius:var(--r-button);font:600 16px/1.5 var(--font-sans);min-height:48px;background:var(--claret-button);color:#fff;border:1px solid transparent}
-html.rer-themed body:not(:has(.app-header)) button:hover{background:var(--claret-deep);box-shadow:none}
-html.rer-themed body:not(:has(.app-header)) button.secondary{background:transparent;color:var(--ink);border-color:var(--rule-strong)}
-html.rer-themed body:not(:has(.app-header)) input:not([type=checkbox]){border:1px solid var(--rule-strong);border-radius:var(--r-input);min-height:44px;background:var(--white);color:var(--ink)}
-html.rer-themed body:not(:has(.app-header)) input[type=checkbox]{accent-color:var(--sea-deep)}
-html.rer-themed body:not(:has(.app-header)) label{font-size:14px;font-weight:500}
-html.rer-themed body:not(:has(.app-header)) dl{display:grid;grid-template-columns:100px 1fr;gap:0;margin:28px 0}
-html.rer-themed body:not(:has(.app-header)) dt,html.rer-themed body:not(:has(.app-header)) dd{padding:16px 0;border-top:1px solid var(--rule);margin:0}
-html.rer-themed body:not(:has(.app-header)) .notice{border:0;border-radius:var(--r-input);background:var(--sea-pale);color:var(--sea-ink);padding:16px}
-html.rer-themed body:not(:has(.app-header)) [role=alert]{border-left:3px solid var(--claret);background:var(--white);color:var(--ink)}
+html.rer-themed body:not(.lanyard-app) button,html.rer-themed body:not(.lanyard-app) .action{border-radius:var(--r-button);font:600 16px/1.5 var(--font-sans);min-height:48px;background:var(--claret-button);color:#fff;border:1px solid transparent}
+html.rer-themed body:not(.lanyard-app) button:hover{background:var(--claret-deep);box-shadow:none}
+html.rer-themed body:not(.lanyard-app) button.secondary{background:transparent;color:var(--ink);border-color:var(--rule-strong)}
+html.rer-themed body:not(.lanyard-app) input:not([type=checkbox]){border:1px solid var(--rule-strong);border-radius:var(--r-input);min-height:44px;background:var(--white);color:var(--ink)}
+html.rer-themed body:not(.lanyard-app) input[type=checkbox]{accent-color:var(--sea-deep)}
+html.rer-themed body:not(.lanyard-app) label{font-size:14px;font-weight:500}
+html.rer-themed body:not(.lanyard-app) dl{display:grid;grid-template-columns:100px 1fr;gap:0;margin:28px 0}
+html.rer-themed body:not(.lanyard-app) dt,html.rer-themed body:not(.lanyard-app) dd{padding:16px 0;border-top:1px solid var(--rule);margin:0}
+html.rer-themed body:not(.lanyard-app) .notice{border:0;border-radius:var(--r-input);background:var(--sea-pale);color:var(--sea-ink);padding:16px}
+html.rer-themed body:not(.lanyard-app) [role=alert]{border-left:3px solid var(--claret);background:var(--white);color:var(--ink)}
 html.rer-themed :focus-visible{outline:2px solid var(--sea-deep);outline-offset:2px}
 @media(max-width:600px){
- html.rer-themed body:not(:has(.app-header)){padding:76px 12px 40px}
- html.rer-themed body:not(:has(.app-header)) main{padding:28px 20px}
- html.rer-themed body:not(:has(.app-header)) h1{font-size:44px}
+ html.rer-themed body:not(.lanyard-app){padding:76px 12px 40px}
+ html.rer-themed body:not(.lanyard-app) main{padding:28px 20px}
+ html.rer-themed body:not(.lanyard-app) h1{font-size:44px}
  html.rer-themed body:has(#signin-email) h1{font-size:34px}
- html.rer-themed body:not(:has(.app-header)) dl{grid-template-columns:64px minmax(0,1fr);font-size:14px}
+ html.rer-themed body:not(.lanyard-app) dl{grid-template-columns:64px minmax(0,1fr);font-size:14px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
