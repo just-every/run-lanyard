@@ -1,6 +1,6 @@
 # Getting started
 
-Lanyard runs one location's weekly roster today: people, availability and leave, published shifts, phone clocking, approved timesheets and payroll CSV exports. Start locally, finish your owner account, then add the people who will use it.
+Lanyard runs one location's weekly schedule today: people, availability and time off, published shifts, clocking in by phone, approved timesheets and payroll CSV exports. Start locally, finish your owner account, then add the people who will use it.
 
 ## Run Lanyard
 
@@ -21,9 +21,9 @@ Keep the development server private. Stop it with `rer dev --stop` or Ctrl-C. Th
 
 ## Set the venue time zone
 
-In **People**, choose your venue's time zone (for example America/Los_Angeles for California) and select **Save venue timezone** before publishing the first roster. A new installation starts on Australia/Brisbane, so set yours first.
+In **People**, check the venue time zone, choose yours if it differs (for example America/Los_Angeles for California, America/New_York for the East Coast) and select **Save venue timezone** before you publish your first schedule.
 
-Dates and time entry use this venue timezone on every device. The timezone becomes fixed after the first roster publication. If you change it before then, prepare existing drafts again.
+Dates and time entry use the venue time zone on every device. It becomes fixed once the first schedule is published. If you change it before then, prepare existing drafts again.
 
 ## Add and invite people
 
@@ -40,13 +40,13 @@ Local invitations are silently suppressed. To invite people into a real installa
 
 | Role | Main work |
 | --- | --- |
-| Owner | Set up the team, grant and revoke access, import staff, manage agent credentials, and manage rosters, time and payroll. |
-| Manager | Prepare and publish rosters, decide another person's leave, review and approve another person's hours, and export payroll hours. |
-| Staff | Record their availability, request leave, see and confirm their own published shifts, and clock in and out. |
-| Agent | Prepare roster, timesheet and payroll drafts with a scoped credential. A person publishes, approves or exports. |
+| Owner | Set up the team, grant and revoke access, import staff, manage agent credentials, and manage schedules, time and payroll. |
+| Manager | Prepare and publish schedules, decide another person's time off, review and approve another person's hours, and export payroll hours. |
+| Staff | Record their availability, request time off, see and confirm their own published shifts, and clock in and out. |
+| Agent | Prepare schedule, timesheet and payroll drafts with a scoped credential. A person publishes, approves or exports. |
 
-A manager cannot approve their own hours. Arrange for the owner or another manager to review them. Leave requests also need a different person to decide them.
+A manager cannot approve their own hours. Arrange for the owner or another manager to review them. Time-off requests also need a different person to decide them.
 
 ## Your first week
 
-Start with [Roster and leave](ROSTER.md), then [Clock and timesheets](TIME.md), then [Payroll exports](PAYROLL.md). Keep a [private backup](BACKUP-RESTORE.md) before moving installations or removing local data.
+Start with [Schedule and time off](SCHEDULE.md), then [Clock and timesheets](TIME.md), then [Payroll exports](PAYROLL.md). Keep a [private backup](BACKUP-RESTORE.md) before moving installations or removing local data.

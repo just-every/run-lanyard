@@ -27,11 +27,11 @@ rer dev
 
 Use the archived owner's email during setup. Import refuses a populated destination and rejects damaged archives. Do not reset a working installation merely to try a restore; use a separate fresh checkout.
 
-The archive includes owner and staff identities, rosters, hours, payroll files, import originals and journals. Sessions, sign-in links, agent keys, credentials and the development outbox do not travel. Re-enter private configuration, sign in again and create new agent credentials if needed.
+The archive includes owner and staff identities, schedules, hours, payroll files, import originals and journals. Sessions, sign-in links, agent keys, credentials and the development outbox do not travel. Re-enter private configuration, sign in again and create new agent credentials if needed.
 
 ## Check the restored installation
 
-Sign in as the original owner. Check **People**, the published roster, timesheet history and payroll batches. Confirm that an exported batch is still downloadable, and that import jobs and their journals are present. Invite or sign in staff again as needed; an old session is not restored.
+Sign in as the original owner. Check **People**, the published schedule, timesheet history and payroll batches. Confirm that an exported batch is still downloadable, and that import jobs and their journals are present. Invite or sign in staff again as needed; an old session is not restored.
 
 ## Preserve erasure decisions
 

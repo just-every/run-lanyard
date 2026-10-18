@@ -5,13 +5,12 @@ import { runPageHtml, siteNotFoundHtml, type RunData, type SiteBuild, type SiteC
 import { identity } from '../identity'
 import { docsPages } from './docs'
 import { homePageHtml } from './home'
-import { iconLinks } from './shell'
 import run from './run.json'
 
-// Base's shared pages link the full mark as their tab icon and print British
-// "licence"; Lanyard's heads carry its small icons and the site's stylesheet, in US English.
+// Base's shared pages print British "licence"; Lanyard's heads add the site's stylesheet, in US English.
+// Their tab icons are the small ones seedIcons() freezes into every Base head.
 const lanyardHead = (html: string) => html
-  .replace(`<link rel="icon" href="${identity.mark}">`, `${iconLinks}<link rel="stylesheet" href="/site.css">`)
+  .replace(`<link rel="stylesheet" href="${identity.theme}">`, `<link rel="stylesheet" href="/site.css"><link rel="stylesheet" href="${identity.theme}">`)
   .replace(`${run.licence} licence<`, `${run.licence} license<`)
 
 export function sitePages({ contract }: Partial<SiteContext> = {}): SiteBuild {

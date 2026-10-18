@@ -12,7 +12,7 @@ Envelope: `{"name":"COMMAND","input":{...}}`.
 
 | Command | Input | Human decision |
 | --- | --- | --- |
-| `roster.prepare` | `week` (Monday YYYY-MM-DD), `shifts` array of `staffId,start,end,breakMinutes,label` | `roster.publish` with exact `id,revision` |
+| `roster.prepare` (a week's schedule) | `week`, the Monday that starts it as YYYY-MM-DD (`2026-10-19` for the week of Oct 19, 2026); `shifts` array of `staffId,start,end,breakMinutes,label` | `roster.publish` with exact `id,revision` |
 | `time.prepare` | `staffId,start,end,breakMinutes,reason`; optional `corrects` ID | `time.approve` with exact `id,revision` |
 | `payroll.prepare` | optional `ids` array of approved timesheet IDs; omit for all eligible | `payroll.export` with exact `id,revision` |
 

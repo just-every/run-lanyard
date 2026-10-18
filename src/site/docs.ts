@@ -7,7 +7,7 @@ const guides = [
   { slug: '', file: 'README.md', title: 'The Lanyard guide', group: 'Start here' },
   { slug: 'getting-started', file: 'GETTING-STARTED.md', title: 'Getting started', group: 'Start here' },
   { slug: 'move-in', file: 'MOVE-IN.md', title: 'Move in', group: 'Start here' },
-  { slug: 'roster', file: 'ROSTER.md', title: 'Roster and leave', group: 'Run the week' },
+  { slug: 'schedule', file: 'SCHEDULE.md', title: 'Schedule and time off', group: 'Run the week' },
   { slug: 'time', file: 'TIME.md', title: 'Clock and timesheets', group: 'Run the week' },
   { slug: 'payroll', file: 'PAYROLL.md', title: 'Payroll exports', group: 'Run the week' },
   { slug: 'backup-restore', file: 'BACKUP-RESTORE.md', title: 'Backup and restore', group: 'Look after Lanyard' },

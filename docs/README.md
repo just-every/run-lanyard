@@ -1,6 +1,6 @@
 # The Lanyard guide
 
-Publish the roster, let staff clock on by phone, and export approved hours to payroll. These guides take you through the work in your own Lanyard installation.
+Publish the week's schedule, let staff clock in by phone, and export approved hours to payroll. These guides take you through the work in your own Lanyard installation.
 
 ## Start with your team
 
@@ -9,7 +9,7 @@ Publish the roster, let staff clock on by phone, and export approved hours to pa
 
 ## Run the week
 
-- [Roster and leave](ROSTER.md): record availability, decide leave, publish a week and confirm shifts.
+- [Schedule and time off](SCHEDULE.md): record availability, decide time off, publish a week of shifts and confirm them.
 - [Clock and timesheets](TIME.md): capture hours, review a timesheet and prepare a correction.
 - [Payroll exports](PAYROLL.md): review the exact CSV, export approved hours and record acknowledgement.
 
