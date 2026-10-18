@@ -56,6 +56,24 @@
     document.querySelectorAll('.day-picker a').forEach(other => other.toggleAttribute('aria-current', other === link))
     history.replaceState(null, '', link.href)
   }))
+  // The open shortlist ends above the labor footer: it rises no higher than just under the
+  // shifts in the call-out's row, and only a week too short for it makes room above the footer.
+  const cover = week?.querySelector('.cover')
+  const fitCover = () => {
+    if (!cover) return
+    cover.style.translate = ''; week.style.removeProperty('--cover-room')
+    if (getComputedStyle(cover).position !== 'absolute') return
+    const foot = week.querySelector('.foot .wk-cell'), row = [...cover.parentElement.parentElement.querySelectorAll('.wk-cell.day:not(.has-cover) .shift')]
+    const box = cover.getBoundingClientRect(), limit = foot ? foot.getBoundingClientRect().top - 8 : week.getBoundingClientRect().bottom - 8
+    const over = box.bottom - limit
+    if (over <= 0) return
+    const rise = Math.max(0, Math.min(over, box.top - Math.max(week.querySelector('.head .wk-cell')?.getBoundingClientRect().bottom ?? 0, ...row.map(x => x.getBoundingClientRect().bottom)) - 6))
+    if (rise) cover.style.translate = `0 ${-rise}px`
+    if (over > rise && foot) week.style.setProperty('--cover-room', `${Math.ceil(over - rise)}px`)
+  }
+  fitCover()
+  document.fonts?.ready.then(fitCover)
+  window.addEventListener('resize', fitCover)
   document.querySelectorAll('input[data-utc]').forEach(input => {
     if (input.dataset.utc) input.value = wallAt(Date.parse(input.dataset.utc))
     input.dataset.initialLocal = input.value
@@ -77,33 +95,37 @@
       for (const input of form.querySelectorAll('input[data-utc]')) event.formData.set(input.name,toAPI(input))
     })
   })
+  // Shift rows are convenience controls with no submitted names: on submit they become the
+  // hidden `shifts` field (UTC instants), the same input agents send to roster.prepare.
   const roster = document.querySelector('[data-roster-form]')
   if (roster) {
     const container = roster.querySelector('[data-shift-rows]')
+    const current = roster.querySelector('[data-current-rows]')
     const template = container.firstElementChild.cloneNode(true)
     const output = roster.querySelector('[data-shifts-output]')
-    // JSON remains available without JavaScript; convenience controls have no submitted names.
-    container.querySelectorAll('select').forEach(select => select.required = false)
     roster.querySelector('[data-add-shift]').addEventListener('click', () => {
       const row = template.cloneNode(true)
-      row.querySelectorAll('select').forEach(select => select.required = false)
       container.append(row)
       row.querySelector('select').focus()
     })
-    container.addEventListener('click', event => {
+    roster.addEventListener('click', event => {
       if (event.target.closest('[data-remove-shift]')) event.target.closest('.shift-input').remove()
     })
+    const refuse = (input, message, event) => { input.setCustomValidity(message); input.reportValidity(); event.preventDefault() }
     roster.addEventListener('submit', event => {
       const shifts = []
-      for (const row of container.querySelectorAll('.shift-input')) {
+      // New rows join the week's current shifts unless the manager chose to replace them.
+      const keep = roster.querySelector('[data-keep]')
+      const rows = [...container.querySelectorAll('.shift-input'), ...(current && keep?.checked ? current.querySelectorAll('.shift-input') : [])]
+      for (const row of rows) {
         const control = key => row.querySelector(`[data-shift="${key}"]`)
         const value = key => control(key).value.trim()
         if (![value('staffId'),value('start'),value('end'),value('label')].some(Boolean)) continue
         for (const key of ['staffId','start','end']) {
           const input = control(key)
           if (!input.value) {
-            input.setCustomValidity('Complete this shift or remove it before preparing the roster.')
-            input.reportValidity(); event.preventDefault(); return
+            if (input.closest('details')) input.closest('details').open = true
+            return refuse(input, 'Complete this shift or remove it before preparing the draft.', event)
           }
         }
         const site = control('site') ? value('site') : ''
@@ -111,26 +133,29 @@
         for (const key of ['start','end']) {
           const input = control(key)
           try { shift[key] = localToUTC(input.value) } catch (error) {
-            input.setCustomValidity(error.message)
-            input.reportValidity(); event.preventDefault(); return
+            if (input.closest('details')) input.closest('details').open = true
+            return refuse(input, error.message, event)
           }
         }
         shifts.push(shift)
       }
-      // New rows join the week's current shifts unless the manager chose to replace them.
-      const keep = roster.querySelector('[data-keep]')
-      if (shifts.length) {
-        let current = []
-        if (keep?.checked) { try { current = JSON.parse(output.value || '[]') } catch { output.focus(); event.preventDefault(); return } }
-        output.value = JSON.stringify([...current, ...shifts])
-      }
-      if (!output.value.trim()) { event.preventDefault(); output.focus() }
+      if (!shifts.length) return refuse(container.querySelector('[data-shift="staffId"]') || roster.querySelector('[data-add-shift]'), 'Add at least one shift.', event)
+      output.value = JSON.stringify(shifts)
     })
   }
+  // The pay-week checkboxes choose the timesheets; the hidden `ids` field carries them.
   const payroll = document.querySelector('[data-payroll-form]')
-  if (payroll) payroll.addEventListener('submit', () => {
-    payroll.querySelector('[data-payroll-ids]').value = JSON.stringify([...payroll.querySelectorAll('[data-payroll-id]:checked')].flatMap(input => input.dataset.payrollId.split(',')))
-  })
+  if (payroll) {
+    const boxes = [...payroll.querySelectorAll('[data-payroll-id]')]
+    const ids = payroll.querySelector('[data-payroll-ids]')
+    const write = () => { ids.value = JSON.stringify(boxes.filter(box => box.checked).flatMap(box => box.dataset.payrollId.split(','))); boxes[0]?.setCustomValidity('') }
+    boxes.forEach(box => { box.disabled = false; box.addEventListener('change', write) })
+    write()
+    payroll.addEventListener('submit', event => {
+      write()
+      if (!boxes.some(box => box.checked)) { boxes[0].setCustomValidity('Choose at least one row to include.'); boxes[0].reportValidity(); event.preventDefault() }
+    })
+  }
   const clock = document.querySelector('[data-clock]')
   if (!clock) return
   const form = clock.querySelector('[data-clock-form]')

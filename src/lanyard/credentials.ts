@@ -15,7 +15,8 @@ export async function principal(request: Request, env: Bindings, agent = false):
   }
   const session = await operatorAuth(env).getSession(request)
   if (!session) fail('Sign in to continue', 401)
-  return actor(env.DB, { userId: session!.operator.id, email: session!.operator.email, isOwner: session!.operator.role === 'owner' })
+  // The account's own name (set at /setup or in sign-in settings) names the top bar's avatar when no staff record does.
+  return { ...await actor(env.DB, { userId: session!.operator.id, email: session!.operator.email, isOwner: session!.operator.role === 'owner' }), name: session!.operator.displayName }
 }
 
 export async function agentKeys(env: Bindings, who: Actor) {

@@ -39,3 +39,7 @@ export const percent=(part:number,whole:number)=>whole>0?(part/whole*100).toFixe
 /** The short zone name, such as "PT". */
 export const zoneName=(tz:string)=>parts(tz,Date.now(),{timeZoneName:'shortGeneric'}).timeZoneName??tz
 export const initials=(name:string)=>name.split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?'
+/** An instant as the venue wall time a datetime-local input holds ("2026-10-24T07:00"). */
+export function wallInput(v:string|number|Date,tz:string) {
+ const p=parts(tz,v,{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`
+}

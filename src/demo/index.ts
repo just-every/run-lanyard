@@ -2,7 +2,7 @@ import type { Bindings } from '../auth.server'
 import { csv } from '../lanyard/domain/payroll'
 import { sha, type Kind, type Row, type State, type Staff } from '../lanyard/domain/model'
 import { shortlist } from '../lanyard/domain/cover'
-import { addDays, dateKey, mondayOf } from '../lanyard/ui/format'
+import { addDays, dateKey, day, mondayOf } from '../lanyard/ui/format'
 import { team, forecast, email, OCEAN_BEACH, type Shift } from './team'
 
 const TZ = 'America/Los_Angeles'
@@ -77,7 +77,8 @@ export async function seedDemo(env: Bindings, { ownerEmail, now }: { ownerEmail:
   const answer = answers[staff.find(p => p.id === f.staffId)!.name]
   add('offers', `demo-offer-${f.staffId}`, { shiftId: call.id, staffId: f.staffId, before: f.before, after: f.after, status: answer?.[0] ?? 'sent', sentAt: offerAt, ...(answer ? { note: answer[2], respondedAt: minus(calledAt, -answer[1]) } : {}) }, answer ? 2 : 1)
  }
- add('forecasts', 'demo-forecast-ocean-beach', { week, site: OCEAN_BEACH, days: forecast.days, budgetPercent: forecast.budgetPercent, savedBy: owner.id, savedAt: wall(addDays(week, -4), '17:45') }, 2)
+ // Every seeded week has its sales forecast, so stepping between weeks keeps the labor footer whole.
+ for (const monday of [earliest, last, week, next]) add('forecasts', `demo-forecast-ocean-beach-${monday}`, { week: monday, site: OCEAN_BEACH, days: forecast.days, budgetPercent: forecast.budgetPercent, savedBy: owner.id, savedAt: wall(addDays(monday, -4), '17:45') }, 2)
  const priya = `demo-staff-${team.findIndex(m => m.name === 'Priya Desai') + 1}`, hannah = `demo-staff-${team.findIndex(m => m.name === 'Hannah Park') + 1}`
  add('leave', 'demo-leave-priya', { staffId: priya, start: wall(addDays(next, 6), '00:00'), end: wall(addDays(next, 7), '00:00'), reason: 'Family birthday', status: 'pending', requestedBy: priya, requestedAt: minus(at, 180) })
  add('leave', 'demo-leave-hannah', { staffId: hannah, start: wall(addDays(next, 14), '00:00'), end: wall(addDays(next, 16), '00:00'), reason: 'Visiting family in Fresno', status: 'approved', requestedBy: hannah, requestedAt: wall(addDays(week, -6), '10:15'), decidedBy: owner.id, decidedAt: wall(addDays(week, -6), '11:02') }, 2)
@@ -85,7 +86,7 @@ export async function seedDemo(env: Bindings, { ownerEmail, now }: { ownerEmail:
  const sent = timesheets.filter(t => t.status === 'approved' && dateKey(t.start, TZ) < last)
  if (sent.length) {
   const lines = sent.map(t => ({ timeId: t.id, revision: t.revision, staffId: t.staffId, payrollId: staff.find(p => p.id === t.staffId)!.payroll_id, start: t.start, end: t.end, minutes: t.minutes, corrects: null, rootId: t.rootId })), preview = csv(lines)
-  add('batches', 'demo-payroll-last-week', { status: 'acknowledged', lines, csvPreview: preview, csv: preview, sha256: await sha(preview), preparedBy: owner.id, preparedAt: minus(at, 150), exportedBy: owner.id, exportedAt: minus(at, 120), reference: `Payroll run ${earliest} to ${addDays(earliest, 6)}`, acknowledgedBy: owner.id, acknowledgedAt: minus(at, 60) }, 3)
+  add('batches', crypto.randomUUID(), { status: 'acknowledged', lines, csvPreview: preview, csv: preview, sha256: await sha(preview), preparedBy: owner.id, preparedAt: minus(at, 150), exportedBy: owner.id, exportedAt: minus(at, 120), reference: `Payroll run ${day(earliest)} – ${day(addDays(earliest, 6))}`, acknowledgedBy: owner.id, acknowledgedAt: minus(at, 60) }, 3)
  }
  const sql: D1PreparedStatement[] = [db.prepare('INSERT INTO oa_first_run(singleton,completed_by,completed_at) VALUES(1,?,?) ON CONFLICT DO NOTHING').bind(owner.id, now.getTime()), db.prepare('UPDATE l_meta SET timezone=?,version=version+1 WHERE id=1').bind(TZ)]
  for (const p of staff) sql.push(db.prepare('INSERT INTO l_staff(id,name,email,payroll_id,role,active,version,position,rate_cents,site) VALUES(?,?,?,?,?,1,1,?,?,?) ON CONFLICT DO NOTHING').bind(p.id, p.name, p.email, p.payroll_id, p.role, p.position, p.rate_cents, p.site))

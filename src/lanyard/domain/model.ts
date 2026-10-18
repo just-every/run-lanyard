@@ -1,4 +1,4 @@
-export type Actor = { id: string; email: string; role: 'owner'|'manager'|'staff'|'agent'; staffId?: string; isOwner?: boolean }
+export type Actor = { id: string; email: string; role: 'owner'|'manager'|'staff'|'agent'; staffId?: string; isOwner?: boolean; name?: string }
 export type Row = { id: string; revision: number; [key: string]: any }
 export const kinds = ['availability','leave','rosters','shifts','clocks','timesheets','batches','forecasts','offers'] as const
 export type Kind = typeof kinds[number]

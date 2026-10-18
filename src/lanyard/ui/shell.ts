@@ -21,7 +21,7 @@ function publishState(w:Week) {
  return '<p class="pub-state quiet">Not scheduled yet</p>'
 }
 function me(s:any) {
- const name=staffOf(s,s.actor.staffId)?.name??String(s.actor.email).split('@')[0].split(/[._-]+/).map((w:string)=>w.charAt(0).toUpperCase()+w.slice(1)).join(' '),links=[...(owner(s)?[['/app/import','Import staff'],['/app/agent','Agent access'],['/auth/settings/identity','Sign-in settings']]:[])]
+ const name=staffOf(s,s.actor.staffId)?.name??(s.actor.name||String(s.actor.email).split('@')[0].split(/[._-]+/).map((w:string)=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ')),links=[...(owner(s)?[['/app/import','Import staff'],['/app/agent','Agent access'],['/auth/settings/identity','Sign-in settings']]:[])]
  return `<details class="me menu"><summary aria-label="Account">${avatar(name)}</summary><div class="menu-list right"><p class="menu-head"><strong>${h(name)}</strong><span>${h(s.actor.email)} · ${h(s.actor.role)}</span></p>${links.map(([href,label])=>`<a href="${href}">${h(label)}</a>`).join('')}<button type="button" data-signout class="link">Sign out</button></div></details>`
 }
 export function topbar(s:any,tabs:Tab[],tab:string,w:Week,q:URLSearchParams) {

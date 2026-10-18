@@ -5,7 +5,7 @@ owner (Ana Reyes) of Tres Hornos Bakery's Ocean Beach cafe in San Diego, on
 Pacific time: the published week with its sales forecast and labor cost, Jess
 Morales's Saturday call-out with Luis Ortega's accepted cover waiting for
 approval, worked time awaiting approval, an acknowledged payroll batch and next
-week's draft. Dates are relative to the visit. Approve the cover, approve hours,
+week's draft. Dates are relative to the visit: Schedule opens on the week with the call-out (next week, once Saturday's shift is over), with a sales forecast in every seeded week. Approve the cover, approve hours,
 publish next week's draft, export reviewed payroll or invite a teammate. Invitations and sign-in emails succeed silently;
 no email leaves the demo. There is no bar or outbox.
 

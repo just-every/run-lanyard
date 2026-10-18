@@ -1,18 +1,20 @@
 // Under the week: how a manager builds and publishes it (shift rows, the forecast and
 // budget), and the availability and time off the schedule is checked against.
-import {h,rows,manager,self,form,field,hidden,utc,exact,staffSelect,textarea,disclosure,card,status,empty,person,venue} from './shared'
+import {h,rows,manager,self,form,field,hidden,utc,exact,staffSelect,disclosure,card,status,empty,person,venue} from './shared'
 import {type Week} from './week'
-import {day,dollars,when,weekday} from './format'
+import {day,dollars,wallInput,when,weekday} from './format'
 
 const range=(r:any,tz:string)=>`${h(when(r.start,tz))} – ${h(when(r.end,tz))}`
-function shiftRows(s:any,w:Week) {
- const sites=w.sites.length?`<datalist id="cafes">${w.sites.map(v=>`<option value="${h(v)}">`).join('')}</datalist>`:''
- return `<div data-shift-rows><div class="shift-input">${staffSelect(s).replace('name="staffId"','data-shift="staffId"').replace(' required','')}<label>Starts<input type="datetime-local" step="60" data-shift="start"></label><label>Ends<input type="datetime-local" step="60" data-shift="end"></label><label>Meal minutes<input type="number" data-shift="breakMinutes" min="0" max="1440" value="30"></label><label>Position<input data-shift="label" maxlength="120" placeholder="Barista"></label>${w.sites.length?`<label>Cafe<input data-shift="site" maxlength="80" list="cafes" value="${h(w.site)}"></label>`:''}<button type="button" data-remove-shift class="secondary small">Remove</button></div></div>${sites}`
+/** One shift as editable fields; the browser serializes every row into the hidden `shifts` field. */
+function shiftRow(s:any,w:Week,x?:any) {
+ const at=(v:string)=>x?h(wallInput(v,w.tz)):''
+ return `<div class="shift-input">${staffSelect(s,x?.staffId??'').replace('name="staffId"','data-shift="staffId"').replace(' required','')}<label>Starts<input type="datetime-local" step="60" data-shift="start" value="${at(x?.start)}"></label><label>Ends<input type="datetime-local" step="60" data-shift="end" value="${at(x?.end)}"></label><label>Meal minutes<input type="number" data-shift="breakMinutes" min="0" max="1440" value="${h(x?x.breakMinutes:30)}"></label><label>Position<input data-shift="label" maxlength="120" placeholder="Barista" value="${h(x?.label??'')}"></label>${w.sites.length?`<label>Cafe<input data-shift="site" maxlength="80" list="cafes" value="${h(x?x.site??'':w.site)}"></label>`:''}<button type="button" data-remove-shift class="secondary small">Remove</button></div>`
 }
 function build(s:any,w:Week,back:string) {
- const current=w.shifts.map(x=>({staffId:x.staffId,start:x.start,end:x.end,breakMinutes:x.breakMinutes,...(x.label?{label:x.label}:{}),...(x.site?{site:x.site}:{})}))
- const keep=current.length?`<label class="check"><input type="checkbox" data-keep checked> Keep this week’s ${h(current.length)} shifts and add the rows above</label>`:''
- const body=form('roster.prepare',back,`${field('week','Week starting Monday',w.week,'date','required')}<p class="note">Times are ${h(venue(s))} wall time. Each draft is a new revision; nothing reaches staff until you publish it.</p>${shiftRows(s,w)}<button type="button" data-add-shift class="secondary small">Add another shift</button>${keep}${disclosure('Shift data (JSON)',textarea('shifts','Shifts (UTC timestamps, for agents and bulk edits)',JSON.stringify(current),'data-shifts-output rows="5" spellcheck="false"'))}`,'Prepare draft','data-roster-form','primary')
+ const current=[...w.shifts].sort((a,b)=>a.start.localeCompare(b.start)||String(a.staffId).localeCompare(String(b.staffId)))
+ const sites=w.sites.length?`<datalist id="cafes">${w.sites.map(v=>`<option value="${h(v)}">`).join('')}</datalist>`:''
+ const keep=current.length?`<label class="check"><input type="checkbox" data-keep checked> Keep this week’s ${h(current.length)} shifts and add the rows above</label><details class="current-shifts"><summary>Edit or remove this week’s ${h(current.length)} shifts</summary><div data-current-rows>${current.map(x=>shiftRow(s,w,x)).join('')}</div></details>`:''
+ const body=form('roster.prepare',back,`${field('week','Week starting Monday',w.week,'date','required')}<p class="note">Times are ${h(venue(s))} wall time. Each draft is a new revision; nothing reaches staff until you publish it.</p><noscript><p class="note">Building a week on this screen needs JavaScript. Agents prepare weeks with roster.prepare (Agent access).</p></noscript><div data-shift-rows>${shiftRow(s,w)}</div>${sites}<button type="button" data-add-shift class="secondary small">Add another shift</button>${keep}<input type="hidden" name="shifts" value="" data-shifts-output>`,'Prepare draft','data-roster-form','primary')
  return card(w.roster?'Edit this week':'Build this week',body,`<p class="card-note">${w.roster?`${h(w.shifts.length)} shifts in the ${h(w.view)} revision`:'No revision yet'}</p>`,'plan')
 }
 function forecastCard(s:any,w:Week,back:string) {

@@ -15,8 +15,8 @@ Availability must cover the whole shift. Back-to-back availability windows can c
 ## Build the week
 
 1. Check the venue time zone. New installations start on the zone given at setup (US Pacific unless you chose another); the owner can change it in **People** before the first schedule is published.
-2. Use the arrows in the top bar to reach the week, for example the week of Mon Oct 19, 2026.
-3. In **Build this week** (or **Edit this week**), add the person, start, end, unpaid meal minutes, position label and cafe for each shift. Use **Add another shift** as needed. Leave **Keep this week's shifts** ticked to add to the current week, or clear it to start the week over.
+2. Use the arrows in the top bar to reach the week, for example the week of Mon Oct 19, 2026. **Schedule** opens on this week, or on next week when only next week has a call-out still waiting for cover. On a phone it opens on the day of that call-out, and its day is marked in the day picker.
+3. In **Build this week** (or **Edit this week**), add the person, start, end, unpaid meal minutes, position label and cafe for each shift. Use **Add another shift** as needed. Leave **Keep this week's shifts** ticked to add to the current week, or clear it to start the week over. To change or drop a shift already in the week, open **Edit or remove this week's shifts**, change its fields or select **Remove**, then prepare the draft. Building the week on this screen needs JavaScript; agents send the same shifts to `roster.prepare` (see **Agent access**).
 4. Select **Prepare draft**. The draft shows in the calendar with dashed blocks, and any conflicts are named above it.
 
 Enter dates and times in the venue's local time. A shift must start within the selected week. Times that are skipped or repeated when daylight saving time starts or ends are refused; choose a time that happens once.

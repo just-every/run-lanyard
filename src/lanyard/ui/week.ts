@@ -1,6 +1,6 @@
 // The schedule week as data: which revision is shown, the cafe, its people grouped by
 // position, each person's shifts by day and week hours, and the labor footer's figures.
-import {rows,staffOf,venue} from './shared'
+import {manager,rows,staffOf,venue} from './shared'
 import {addDays,dateKey,isMonday,mondayOf} from './format'
 
 export const VISIBLE_ROWS=7
@@ -22,8 +22,12 @@ export function siteOf(s:any,q:URLSearchParams,sites=sitesOf(s)) {
  const asked=q.get('site')??''
  return asked==='all'?'':sites.includes(asked)?asked:defaultSite(s,sites)
 }
-export function weekModel(s:any,now:number,q:URLSearchParams) {
- const tz=venue(s),today=dateKey(now,tz),week=isMonday(q.get('week'))?q.get('week')!:mondayOf(today)
+/** `focus` (the Schedule) lets the default week follow an open call-out; other screens stay on this week. */
+export function weekModel(s:any,now:number,q:URLSearchParams,focus=false) {
+ const tz=venue(s),today=dateKey(now,tz),thisWeek=mondayOf(today),at=new Date(now).toISOString()
+ // The Schedule opens on this week, or on next week when only next week holds a call-out still waiting for cover.
+ const waiting=(monday:string)=>rows(s,'shifts').some(x=>x.status==='published'&&x.callout&&!x.callout.coveredBy&&x.end>at&&mondayOf(dateKey(x.start,tz))===monday)
+ const week=isMonday(q.get('week'))?q.get('week')!:focus&&manager(s)&&!waiting(thisWeek)&&waiting(addDays(thisWeek,7))?addDays(thisWeek,7):thisWeek
  const days=[0,1,2,3,4,5,6].map(i=>addDays(week,i)),sites=sitesOf(s)
  const site=siteOf(s,q,sites)
  const rosters=rows(s,'rosters').filter(r=>r.week===week),published=rosters.find(r=>r.status==='published'),draft=rosters.find(r=>r.status==='draft')
@@ -39,8 +43,9 @@ export function weekModel(s:any,now:number,q:URLSearchParams) {
  const accepted=rows(s,'offers').filter(o=>o.status==='accepted'&&callouts.some(x=>x.id===o.shiftId))
  const members=rows(s,'staff').filter(p=>(p.active&&(!site||p.site===site))||shifts.some(x=>x.staffId===p.id&&here(x)&&(!site||p.site===site)))
  const guests=rows(s,'staff').filter(p=>!members.includes(p)&&(shifts.some(x=>x.staffId===p.id&&here(x))||accepted.some(o=>o.staffId===p.id)))
- // The people a call-out names (the caller, the qualified, and the two the shortlist names as left out) stay in view.
- const involved=new Set<string>(callouts.flatMap(x=>[x.staffId,...(x.callout.qualified??[]).map((f:any)=>f.staffId),...(x.callout.leftOut??[]).filter((f:any)=>f.reason==='overtime'||f.reason==='already on').slice(0,2).map((f:any)=>f.staffId)]))
+ // The people an open call-out names (the caller, the qualified, and the two the shortlist names as left out) stay in view.
+ // So do the caller and the cover of a call-out decided this week, so the decision stays on screen.
+ const involved=new Set<string>([...ghosts.filter(here).flatMap(x=>[x.callout.staffId,x.callout.coveredBy]),...callouts.flatMap(x=>[x.staffId,...(x.callout.qualified??[]).map((f:any)=>f.staffId),...(x.callout.leftOut??[]).filter((f:any)=>f.reason==='overtime'||f.reason==='already on').slice(0,2).map((f:any)=>f.staffId)])])
  const build=(p:any,guest:boolean):Row=>{
   const own=shifts.filter(x=>x.staffId===p.id&&(!guest||here(x)))
   const cells=days.map((_,i)=>[...own.filter(x=>dayOf(x)===i),...ghosts.filter(x=>x.callout.staffId===p.id&&dayOf(x)===i).map(x=>({...x,ghost:true}))])

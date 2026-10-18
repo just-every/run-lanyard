@@ -72,7 +72,10 @@ export function grid(s:any,w:Week,now:number,back:string,q:URLSearchParams) {
  if(!w.groups.length)parts.push(`<div class="wk-row" role="row"><div class="wk-cell blank" role="cell">${w.roster?`<p>No one is scheduled${w.site?` at ${h(w.site)}`:''} this week.</p>`:`<p>No schedule yet for the week of ${h(day(w.week))}.</p>`}${manager(s)?`<a class="text-link" href="#plan">${w.roster?'Edit this week':'Build this week'}</a>`:''}</div></div>`)
  if(w.extraCount||q.has('all'))parts.push(`<div class="wk-row more" role="row"><div class="wk-cell" role="cell"><a href="${h(link(w,{all:q.has('all')?null:'1'}))}" data-more="${w.extraCount}"><span class="chev" aria-hidden="true"></span>${q.has('all')?'Show fewer staff':`+ ${h(w.extraCount)} more staff`}</a></div></div>`)
  if(manager(s)&&w.roster)parts.push(footer(w))
- const show=keyOf(w.days.includes(q.get('day')??'')?q.get('day')!:w.days.includes(w.today)?w.today:w.week)
- const picker=`<nav class="day-picker" aria-label="Day">${w.days.map(d=>`<a href="${h(link(w,{day:d}))}" data-show="${keyOf(d)}"${keyOf(d)===show?' aria-current="true"':''}><strong>${h(weekday(d))}</strong><small>${h(day(d,false))}</small></a>`).join('')}</nav>`
+ // Phones open on the day an uncovered call-out needs a decision, else today, else Monday; that day's tab is marked.
+ const uncovered=(d:string)=>w.callouts.filter(x=>dateKey(x.start,w.tz)===d).length
+ const asked=q.get('day')??'',first=w.days.find(uncovered)
+ const show=keyOf(w.days.includes(asked)?asked:first??(w.days.includes(w.today)?w.today:w.week))
+ const picker=`<nav class="day-picker" aria-label="Day">${w.days.map(d=>{const n=uncovered(d);return `<a href="${h(link(w,{day:d}))}" data-show="${keyOf(d)}"${keyOf(d)===show?' aria-current="true"':''}${n?` class="uncovered" aria-label="${h(day(d))}, ${h(n)} uncovered"`:''}><strong>${h(weekday(d))}</strong><small>${h(day(d,false))}</small>${n?'<i class="flag" aria-hidden="true"></i>':''}</a>`}).join('')}</nav>`
  return `${picker}<div class="week${w.view==='draft'?' is-draft':''}" role="table" aria-label="Week of ${h(day(w.week))}" data-show="${show}">${parts.join('')}</div>`
 }

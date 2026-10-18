@@ -6,7 +6,7 @@ Lanyard exports approved hours as CSV for your existing payroll process. Review 
 
 1. In **People**, check every included person's payroll ID. Each person needs one before their hours can be exported.
 2. In **Time**, approve the timesheet revisions you intend to include.
-3. Open **Payroll**. **Prepare payroll** lists approved, unexported hours as a pay-week ledger: one row per person and week with hours by day. Keep the rows you intend to include ticked and select **Prepare batch**.
+3. Open **Payroll**. **Prepare payroll** lists approved, unexported hours as a pay-week ledger: one row per person and week with hours by day. Keep the rows you intend to include ticked and select **Prepare batch**. The newest batch is listed first.
 4. Review the batch's ledger of included time and open its **CSV** to read the exact file.
 
 Preparing a batch does not export or submit it. If the source timesheet, payroll ID or correction changes before export, prepare a new batch and review it again.

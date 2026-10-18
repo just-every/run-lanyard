@@ -71,6 +71,17 @@ html.rer-themed body:not(.lanyard-app) dt,html.rer-themed body:not(.lanyard-app)
 html.rer-themed body:not(.lanyard-app) .notice{border:0;border-radius:var(--r-input);background:var(--sea-pale);color:var(--sea-ink);padding:16px}
 html.rer-themed body:not(.lanyard-app) [role=alert]{border-left:3px solid var(--claret);background:var(--white);color:var(--ink)}
 html.rer-themed :focus-visible{outline:2px solid var(--sea-deep);outline-offset:2px}
+/* The Lobby (Base markup, unthemed html): the same ground, top-bar strip, hairline card and flat claret button as sign-in. */
+body:has(>main.door){background:var(--tint)}
+body:has(>main.door)::before{content:'';position:absolute;top:0;left:0;right:0;height:68px;background:var(--white);border-bottom:1px solid var(--rule)}
+main.door{padding:20vh 20px 64px}
+main.door .door-card{width:100%;max-width:584px;padding:44px 40px 40px;border:1px solid var(--rule);border-radius:var(--r-card);box-shadow:var(--shadow-card);background:var(--white)}
+main.door h1{font-size:44px}
+main.door .word{color:var(--ink)}
+main.door .line{margin-top:24px;font-size:20px;color:var(--body)}
+main.door .btn{margin-top:28px;min-height:48px;padding:0 28px;border-radius:var(--r-button);background:var(--claret-button);color:#fff;box-shadow:none;font:600 16px/1.5 var(--font-sans)}
+main.door .btn:hover{background:var(--claret-deep)}
+main.door .credit{margin-top:22px;font-size:14px;color:var(--muted)}
 @media(max-width:600px){
  html.rer-themed body:not(.lanyard-app){padding:88px 16px 40px}
  html.rer-themed body:not(.lanyard-app)::before{height:56px}
@@ -78,5 +89,10 @@ html.rer-themed :focus-visible{outline:2px solid var(--sea-deep);outline-offset:
  html.rer-themed body:not(.lanyard-app) h1{font-size:36px}
  html.rer-themed body:has(#signin-email) h1{font-size:34px}
  html.rer-themed body:not(.lanyard-app) dl{grid-template-columns:64px minmax(0,1fr);font-size:14px}
+ body:has(>main.door)::before{height:56px}
+ main.door{padding:120px 16px 40px}
+ main.door .door-card{padding:32px 20px}
+ main.door h1{font-size:36px}
+ main.door .line{font-size:18px}
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}

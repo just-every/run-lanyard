@@ -40,7 +40,7 @@ export async function snapshot(db:D1Database,identity:Actor):Promise<object> {
  const a0=await live(db,identity),events=['owner','manager'].includes(a0.role)?db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at FROM l_events ORDER BY at DESC,id DESC LIMIT 100').all():null
  const s=await load(db),a=fresh(a0,s),manages=['owner','manager'].includes(a.role),agent=a.role==='agent'
  const staff=s.staff.filter(p=>manages||agent||p.id===a.staffId).map(p=>agent?{id:p.id,name:p.name,active:!!p.active,position:p.position,site:p.site}:{id:p.id,name:p.name,email:p.email,payrollId:p.payroll_id,role:p.role,active:!!p.active,revision:p.version,erasedAt:p.erased_at,position:p.position,site:p.site,...(manages?{hourlyRateCents:p.rate_cents}:{})})
- const result:Record<string,any>={actor:{id:a.id,email:agent?undefined:a.email,role:a.role,staffId:a.staffId},version:s.version,settings:{timezone:s.timezone},staff}
+ const result:Record<string,any>={actor:{id:a.id,email:agent?undefined:a.email,name:agent?undefined:identity.name,role:a.role,staffId:a.staffId},version:s.version,settings:{timezone:s.timezone},staff}
  for(const k of kinds)result[k]=s[k]
  if(!manages&&!agent) {
   for(const k of ['availability','leave','clocks','timesheets'] as const)result[k]=s[k].filter(r=>r.staffId===a.staffId)
