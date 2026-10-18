@@ -2,29 +2,29 @@
    Tokens live in /rer-theme.css; this file only uses them. */
 *,*::before,*::after{box-sizing:border-box}
 html.rer-themed .lanyard-app{margin:0;padding:0;max-width:none;min-height:100vh;background:var(--white);color:var(--ink);font:15px/1.45 var(--font-sans);overflow-wrap:anywhere}
-html.rer-themed .lanyard-app main{padding:18px 32px 40px;max-width:1600px;margin:0 auto;background:transparent;border:0;border-radius:0;box-shadow:none}
+html.rer-themed .lanyard-app main{padding:16px 30px 32px;max-width:1600px;margin:0 auto;background:transparent;border:0;border-radius:0;box-shadow:none}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .skip{position:absolute;left:16px;top:-80px;background:var(--white);padding:10px 14px;z-index:20;border-radius:var(--r-input)}
 .skip:focus{top:12px}
 [hidden]{display:none!important}
 
 /* Top bar */
-.topbar{display:flex;align-items:center;gap:28px;min-height:72px;padding:10px 32px;border-bottom:1px solid var(--rule);background:var(--white);position:relative;z-index:10}
+.topbar{display:flex;align-items:center;gap:24px;min-height:68px;padding:10px 30px;border-bottom:1px solid var(--rule);background:var(--white);position:relative;z-index:10}
 html.rer-themed .lanyard-app .brand{display:flex;align-items:center;gap:12px;color:var(--ink);text-decoration:none;flex:none;margin-right:auto}
 .brand img{width:50px;height:38px;display:block}
 .brand span{font:800 28px/1 var(--font-sans);letter-spacing:-.02em}
-.tabs{display:flex;align-items:stretch;gap:30px;align-self:stretch}
+.tabs{display:flex;align-items:stretch;gap:26px;align-self:stretch}
 html.rer-themed .lanyard-app .tabs a{position:relative;display:flex;align-items:center;color:var(--muted);text-decoration:none;font-size:16px;white-space:nowrap;padding:0 2px}
 html.rer-themed .lanyard-app .tabs a:hover{color:var(--ink)}
 html.rer-themed .lanyard-app .tabs a[aria-current=page]{color:var(--ink);font-weight:600}
-.tabs a[aria-current=page]::after{content:'';position:absolute;left:0;right:0;bottom:-10px;height:3px;border-radius:3px;background:var(--claret)}
+.tabs a[aria-current=page]::after{content:'';position:absolute;left:0;right:0;bottom:4px;height:3px;border-radius:3px;background:var(--claret)}
 .site-pick{font-size:16px;color:var(--body);white-space:nowrap}
 html.rer-themed .lanyard-app .site-pick .menu-list a{color:var(--ink)}
 .site-pick summary{display:flex;align-items:center;gap:8px;min-height:40px}
-.week-nav{display:flex;align-items:center;gap:14px;font-size:17px;color:var(--body);white-space:nowrap;margin-left:12px}
+.week-nav{display:flex;align-items:center;gap:12px;font-size:16px;color:var(--body);white-space:nowrap;margin-left:12px}
 html.rer-themed .lanyard-app .week-nav a{display:grid;place-items:center;width:32px;height:32px;border-radius:var(--r-pill);color:var(--ink)}
 .week-nav a:hover{background:var(--head)}
-.pub-state{margin:0;font-size:14px;color:var(--muted);white-space:nowrap}
+.pub-state{margin:0;font-size:13px;color:var(--muted);white-space:nowrap}
 .pub-state.done{color:var(--sea-ink)}
 .chev{display:inline-block;width:8px;height:8px;border:solid currentColor;border-width:0 1.6px 1.6px 0;transform:translateY(-2px) rotate(45deg);flex:none}
 .chev.left{transform:rotate(135deg)}.chev.right{transform:rotate(-45deg)}
@@ -46,9 +46,9 @@ html.rer-themed .lanyard-app .menu-list a,.menu-list .link{display:block;padding
 .avatar.cross{background:var(--hibiscus-wash);color:var(--claret-deep)}
 
 /* Title row: the claret italic serif is the only serif on a screen. */
-.title-row{display:flex;align-items:baseline;justify-content:space-between;gap:20px;margin:6px 0 14px}
-html.rer-themed .lanyard-app .title-row h1{margin:0;font:italic 760 46px/1.08 var(--font-serif);letter-spacing:-.02em;color:var(--claret);text-wrap:balance}
-.now{margin:0;color:var(--muted);font-size:16px;white-space:nowrap}
+.title-row{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:4px 0 12px}
+html.rer-themed .lanyard-app .title-row h1{margin:0;padding:0;font:italic 760 46px/1.08 var(--font-serif);letter-spacing:-.02em;color:var(--claret);text-wrap:balance}
+.now{margin:0;color:var(--muted);font-size:14px;white-space:nowrap}
 .lede{margin:-4px 0 18px;color:var(--body);max-width:70ch}
 
 /* Buttons and links */
