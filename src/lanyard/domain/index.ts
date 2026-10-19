@@ -40,9 +40,10 @@ import {dashboard} from './dashboard'
 import {contacts,mayRead,contactCard} from './contacts'
 import {sales,salesSite,salesWeek} from './sales'
 import {dayparts,intervalReport} from './intervals'
+import {autoRules,autoApprove,preview as autoPreview} from './autorules'
 export {actor}
 export type {Actor} from './model'
-const commands=['daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
+const commands=['autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -88,7 +89,10 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=contacts(c,name,p)
  if(result===undefined)result=await sales(c,name,p)
  if(result===undefined)result=dayparts(c,name,p)
+ if(result===undefined)result=await autoRules(c,name,p)
  need(result!==undefined,'Unknown command',404)
+ // AUTO-001: an active rule approves the clean punched time this command submitted.
+ autoApprove(c,before)
  // TIME-004: whatever the command, time in a locked or closed pay period is rechecked before the write.
  guardPeriods(c,before)
  if(a.role==='agent'&&name==='payroll.prepare') {
@@ -167,6 +171,9 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  // SALES-001: the owner reads every cafe's entered sales, a manager their home cafe's; staff and agents none.
  result.sales=manages?s.sales.filter(r=>salesSite(s,a,r.site)):[]
  // REPORT-003: dayparts and their targets with the same readers as sales.
+ // AUTO-001: rules are the owner's; managers see them to know which time a rule may approve.
+ if(!manages)result.autorules=[]
+ if(a.role==='owner'){const now=new Date().toISOString();result.autorulePreviews=await Promise.all(s.autorules.filter(r=>r.status!=='revoked').map(r=>autoPreview(s,r,now)))}
  result.dayparts=manages?s.dayparts.filter(r=>!r.removed&&salesSite(s,a,r.site)):[]
  // AUDIT-001: each role reads only its own slice of the activity list.
  result.events=events?readable(s,a,(await events).results):[]
@@ -233,4 +240,9 @@ export async function intervalsRead(db:D1Database,identity:Actor,site:string,dat
  const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
  const cafe=f.role==='owner'?site:s.staff.find(p=>p.id===f.staffId)?.site??'';need(salesSite(s,f,cafe),'Not found',404)
  return intervalReport(s,cafe,date,size,new Date().toISOString())
+}
+/** AUTO-001: what a rule would approve now and why the rest stays for a human; it writes nothing. */
+export async function autoRulePreview(db:D1Database,identity:Actor,id:string) {
+ const a=await live(db,identity);need(a.role==='owner','Owner required',403);const s=await load(db)
+ return autoPreview(s,get(s,'autorules',id),new Date().toISOString())
 }

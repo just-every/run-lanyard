@@ -1515,3 +1515,63 @@ test('REPORT-003: a day of hourly sales with scheduled and actual hours at two c
   const page = (await h.send('/app/intervals?site=Ocean%20Beach&date=2026-10-05&size=60', undefined, priya.cookie)).text
   for (const part of ['id="intervals"', '2 over target', 'incomplete', '16.0%', 'Dinner 9.0%']) assert.ok(page.includes(part), part)
 }))
+
+test('AUTO-001: the owner previews and authorizes a cafe rule that approves only clean schedule-matching punched time; exception-bearing, off-schedule, unattested, edited and managers’ time stays for a person; a stale preview is refused; a paused rule approves nothing and payroll carries only approved time', () => run(async h => {
+  const team = ['Ana', 'Ben', 'Cy', 'Dee', 'Eve', 'Fay', 'Gus']
+  const people = {}; for (const n of team) people[n] = await h.person(n)
+  const priya = await h.person('Priya', 'manager')
+  for (const p of [...Object.values(people), priya]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site: 'Ocean Beach', hourlyRate: '20.00' })
+  // Mon Oct 5, 2026: everyone 9 am – 5 pm PDT with a 30-minute meal.
+  const all = [...Object.values(people), priya]
+  for (const p of all) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-05T07:00:00Z', end: '2026-10-12T07:00:00Z' })
+  const week = await h.cmd('roster.prepare', { week: '2026-10-05', shifts: all.map(p => ({ staffId: p.id, start: '2026-10-05T16:00:00Z', end: '2026-10-06T00:00:00Z', breakMinutes: 30 })) })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
+  const punch = async (p, inAt, outAt, extra = {}) => { await h.cmd('clock.in', { commandId: `${p.name}-in`, capturedAt: inAt }, p.cookie); return (await h.cmd('clock.out', { commandId: `${p.name}-out`, capturedAt: outAt, breakMinutes: 30, breakNote: 'Took my meal at noon', ...extra }, p.cookie)).timesheet }
+  await h.cmd('clockrule.save', { site: 'Ocean Beach', position: '', early: 'flag', earlyMinutes: 10, unscheduled: 'allow' })
+  await h.cmd('autorule.save', { site: 'Ocean Beach' }, priya.cookie, 403)
+  let rule = await h.cmd('autorule.save', { site: 'Ocean Beach' })
+  assert.equal(rule.status, 'draft')
+  // Ana and Eve clean (the scheduled minutes); Ben 20 minutes early, flagged as an exception; Cy without the break attestation; Dee with no meal; Priya is a manager.
+  const ana = await punch(people.Ana, '2026-10-05T16:00:20Z', '2026-10-06T00:00:00Z')
+  const eve = await punch(people.Eve, '2026-10-05T16:00:00Z', '2026-10-06T00:00:40Z')
+  const ben = await punch(people.Ben, '2026-10-05T15:40:00Z', '2026-10-06T00:00:00Z')
+  assert.ok(ben.exceptions.length)
+  await punch(people.Cy, '2026-10-05T16:00:00Z', '2026-10-06T00:00:00Z', { breakNote: undefined })
+  await punch(people.Dee, '2026-10-05T16:00:00Z', '2026-10-06T00:00:00Z', { breakMinutes: 0 })
+  await punch(priya, '2026-10-05T16:00:00Z', '2026-10-06T00:00:00Z')
+  // Drafts approve nothing as time is submitted.
+  assert.equal((await h.state()).timesheets.filter(t => t.status === 'approved').length, 0)
+  const look = async () => (await h.send(`/api/lanyard/autorules/${rule.id}/preview`, undefined, h.owner)).value
+  const byName = v => Object.fromEntries(v.items.map(x => [all.find(p => p.id === x.staffId).name, x.decision === 'approve' ? 'approve' : x.reasons.join('; ')]))
+  const first = await look()
+  assert.deepEqual(byName(first), { Ana: 'approve', Eve: 'approve', Ben: ['not the scheduled start and end', ...ben.exceptions.map(e => `exception: ${e}`)].join('; '), Cy: 'no break attestation', Dee: 'breaks differ from the schedule', Priya: 'own time of a person who approves time' })
+  assert.equal((await h.send(`/api/lanyard/autorules/${rule.id}/preview`, undefined, priya.cookie)).status, 403)
+  assert.deepEqual((await look()).digest, first.digest, 'a preview writes nothing')
+  // A manager edits Eve's time after the preview: the old preview cannot authorize, and Eve now needs a person.
+  await h.cmd('time.edit', { id: eve.id, revision: eve.revision, start: '2026-10-05T16:00:00Z', end: '2026-10-06T00:00:00Z', breakMinutes: 30, reason: 'Register log' }, priya.cookie)
+  await h.cmd('autorule.authorize', { id: rule.id, revision: rule.revision, digest: first.digest }, h.owner, 409)
+  const second = await look()
+  assert.deepEqual([byName(second).Ana, byName(second).Eve], ['approve', 'edited by a manager'])
+  await h.cmd('autorule.authorize', { id: rule.id, revision: rule.revision, digest: second.digest }, priya.cookie, 403)
+  rule = await h.cmd('autorule.authorize', { id: rule.id, revision: rule.revision, digest: second.digest })
+  assert.deepEqual([rule.status, rule.approved], ['active', [ana.id]])
+  let s = await h.state()
+  const auto = s.timesheets.find(t => t.id === ana.id)
+  assert.deepEqual([auto.status, auto.approvedBy, auto.automation.ruleId, auto.automation.version, auto.automation.inputRevision], ['approved', `rule:${rule.id}`, rule.id, 1, ana.revision])
+  assert.deepEqual(s.timesheets.filter(t => t.status === 'submitted').map(t => all.find(p => p.id === t.staffId).name).sort(), ['Ben', 'Cy', 'Dee', 'Eve', 'Priya'])
+  // Active: Fay's clean clock-out is approved as it is submitted. Paused: Gus's stays for a person.
+  const fay = await punch(people.Fay, '2026-10-05T16:00:00Z', '2026-10-06T00:00:00Z')
+  assert.equal((await h.state()).timesheets.find(t => t.id === fay.id).automation.ruleId, rule.id)
+  rule = await h.cmd('autorule.pause', { id: rule.id, revision: rule.revision })
+  const gus = await punch(people.Gus, '2026-10-05T16:00:00Z', '2026-10-06T00:00:00Z')
+  s = await h.state()
+  assert.deepEqual([s.timesheets.find(t => t.id === fay.id).status, s.timesheets.find(t => t.id === gus.id).status], ['approved', 'submitted'])
+  // Payroll carries only approved time: Ana and Fay.
+  assert.deepEqual((await h.cmd('payroll.prepare', {})).lines.map(l => l.timeId).sort(), [ana.id, fay.id].sort())
+  rule = await h.cmd('autorule.revoke', { id: rule.id, revision: rule.revision })
+  await h.cmd('autorule.authorize', { id: rule.id, revision: rule.revision, digest: (await look()).digest }, h.owner, 409)
+  await h.mf.dispatchFetch(h.origin + '/setup', { method: 'POST', headers: { origin: h.origin, cookie: h.owner, 'content-type': 'application/x-www-form-urlencoded' }, body: 'confirm=yes', redirect: 'manual' })
+  const pay = (await h.send('/app/payroll', undefined, h.owner)).text
+  assert.ok(pay.includes('id="auto-approval"') && !pay.includes('Authorize v1'), 'the revoked rule is no longer offered for authorization')
+  assert.deepEqual((await h.state(priya.cookie)).autorulePreviews, undefined)
+}))
