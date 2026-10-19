@@ -1,4 +1,4 @@
-import {type Actor,type Context,type State,kinds,object,text,need,sha,canonical,get,manager} from './model'
+import {type Actor,type Context,type State,kinds,object,text,need,sha,canonical,get,manager,instant} from './model'
 import {actor,live,load,saved,commit} from './storage'
 import {people} from './people'
 import {roster} from './roster'
@@ -28,9 +28,11 @@ import {clockNets} from './clocknets'
 import {openShifts,openFor} from './openshifts'
 import {review} from './review'
 import {breaks} from './breaks'
+import {overtime,project,cost,alertsFor,upcoming} from './overtime'
+import {weekOf} from './openshifts'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -66,6 +68,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=clockNets(c,name,p)
  if(result===undefined)result=openShifts(c,name,p)
  if(result===undefined)result=breaks(c,name,p)
+ if(result===undefined)result=overtime(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
@@ -101,6 +104,15 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.swapOptions=a.staffId&&!agent?swapOptions(s,a.staffId,new Date().toISOString()):[]
  // COVER-002: managers read every open shift and request; a person reads the open shifts they may request (with their own rate when visible) and their requests.
  if(!manages){result.openshifts=agent?[]:openFor(s,a.staffId!,earnSettings(s.earnings).estimates);result.pickups=agent?[]:s.pickups.filter(x=>x.staffId===a.staffId)}
+ // COST-002: managers see projected overtime alerts, and each pending pickup's and swap's projected cost before approval.
+ if(manages) {
+  const now=new Date().toISOString(),shiftOf=(id:string)=>s.shifts.find(x=>x.id===id)
+  result.overtime=upcoming(s,a,now)
+  result.pickups=result.pickups.map((x:any)=>{const o=s.openshifts.find(v=>v.id===x.openShiftId);return x.status==='requested'&&o?{...x,cost:cost(project(s,x.staffId,o.week,now,[{...o,staffId:x.staffId} as any]))}:x})
+  result.swaps=result.swaps.map((w:any)=>{if(!['proposed','accepted'].includes(w.status))return w;const give=shiftOf(w.give.shiftId),take=w.take?shiftOf(w.take.shiftId):undefined
+   const moves=[...(give?[{to:w.toId,shift:give,skip:take?[take.id]:[]}]:[]),...(take&&give?[{to:w.fromId,shift:take,skip:[give.id]}]:[])]
+   return {...w,cost:moves.map(m=>cost(project(s,m.to,weekOf(s,m.shift.start),now,[m.shift],m.skip)))}})
+ }
  // TIME-009: managers see each waiting timesheet's approval review.
  if(manages)result.timesheets=result.timesheets.map((t:any)=>t.status==='submitted'?{...t,review:review(s,t)}:t)
  // TIME-007: each open punch past its point shows its provisional end; the person sees it as their reminder.
@@ -122,6 +134,12 @@ export async function batchCsv(db:D1Database,identity:Actor,id:string):Promise<s
 export async function schedulePdf(db:D1Database,identity:Actor,id:string):Promise<{bytes:Uint8Array<ArrayBuffer>;name:string}> {
  const a=await live(db,identity);manager(a);const s=await load(db);manager(fresh(a,s));const p=get(s,'postings',id)
  return {bytes:postingPdf(p,p.filter.staffId?s.staff.find(v=>v.id===p.filter.staffId)?.name??null:null),name:`lanyard-schedule-${p.week}-r${p.rosterRevision}-${p.id.slice(0,8)}.pdf`}
+}
+/** COST-002: overtime alerts for one workweek (its Monday) as of an instant, for the owner and the managers it concerns. */
+export async function overtimeAlerts(db:D1Database,identity:Actor,week:string,asOf:string) {
+ const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
+ need(/^\d{4}-\d{2}-\d{2}$/.test(week)&&weekOf(s,week+'T12:00:00Z')===week,'Choose a week by its Monday (YYYY-MM-DD)')
+ return {week,asOf,alerts:alertsFor(s,f,week,instant(asOf,'asOf'))}
 }
 /** JOURNAL-001: a note's attachment, for a reader who may read the note. */
 export async function noteAttachment(db:D1Database,identity:Actor,noteId:string,fileId:string) {

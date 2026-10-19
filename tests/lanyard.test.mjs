@@ -362,6 +362,53 @@ test('BREAK-001: timed rest and meal breaks pass the cafe policy; a short meal a
   assert.deepEqual(delta.lines.map(l => [l.minutes, l.payCode ?? 'regular']), [[0, 'regular'], [-60, 'rest premium']])
 }))
 
+test('COST-002: a 38-hour week with three extra hours clocked by Thursday alerts the cafe manager at 41 projected hours with the premium and a substitute; a pickup and a swap that add overtime show it before approval, and approving a substitute clears the alert', () => run(async h => {
+  const alex = await h.person('Alex'), ben = await h.person('Ben'), dee = await h.person('Dee'), priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager')
+  for (const [p, site] of [[alex, 'Ocean Beach'], [ben, 'Ocean Beach'], [dee, 'Ocean Beach'], [priya, 'Ocean Beach'], [omar, 'Mission']]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: p.role === 'staff' ? 'Barista' : 'Manager', site, hourlyRate: '20.00' })
+  // A past week read as of an instant: Mon Oct 5, 2026, 9-to-5 Mon–Thu and 9-to-3 Fri (38 hours); 9-to-6 worked Mon–Wed.
+  const shiftsOf = (at, staffId) => [0, 1, 2, 3, 4].map(d => ({ staffId, start: at(d, 16), end: at(d, d === 4 ? 22 : 24), breakMinutes: 0 }))
+  const oct = (d, hh) => new Date(Date.UTC(2026, 9, 5 + d, hh)).toISOString().replace('.000Z', 'Z')
+  for (const p of [alex, ben]) await h.cmd('availability.save', { staffId: p.id, start: oct(0, 7), end: oct(7, 7) })
+  const past = await h.cmd('roster.prepare', { week: '2026-10-05', shifts: shiftsOf(oct, alex.id) })
+  await h.cmd('roster.publish', { id: past.id, revision: past.revision }, priya.cookie)
+  for (const d of [0, 1, 2]) await h.cmd('time.prepare', { staffId: alex.id, start: oct(d, 16), end: oct(d, 25), breakMinutes: 0, reason: 'Paper sheet' }, priya.cookie)
+  const read = async (week, asOf, cookie, status = 200) => { const r = await h.send(`/api/lanyard/overtime?week=${week}${asOf ? `&asOf=${asOf}` : ''}`, undefined, cookie); assert.equal(r.status, status, r.text); return r.value.alerts }
+  const [alert] = await read('2026-10-05', '2026-10-08T14:00:00Z', priya.cookie)
+  assert.deepEqual([alert.staffId, alert.actualMinutes, alert.scheduledMinutes, alert.projectedMinutes, alert.overtimeMinutes, alert.premiumCents, alert.days['2026-10-07'], alert.days['2026-10-08']], [alex.id, 1620, 840, 2460, 60, 1000, 540, 480])
+  assert.deepEqual(alert.remaining.map(r => [r.start, r.substitutes.map(x => x.staffId)]), [[oct(3, 16).replace('Z', '.000Z'), [ben.id]], [oct(4, 16).replace('Z', '.000Z'), [ben.id]]])
+  // A day earlier Wednesday's extra hour is not yet recorded: 40 hours, no alert. Another cafe's manager and the employee read none.
+  assert.deepEqual(await read('2026-10-05', '2026-10-07T14:00:00Z', priya.cookie), [])
+  assert.deepEqual(await read('2026-10-05', '2026-10-08T14:00:00Z', omar.cookie), [])
+  await read('2026-10-05', '2026-10-08T14:00:00Z', alex.cookie, 403)
+  // An upcoming week, whatever today is: 38 scheduled hours, then a 3-hour Saturday open shift.
+  const base = new Date(Date.now() + 14 * 86400000), monday = Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + (8 - base.getUTCDay()) % 7)
+  const at = (d, hh) => new Date(monday + d * 86400000 + hh * 3600000).toISOString().replace('.000Z', 'Z'), week = at(0, 0).slice(0, 10)
+  for (const p of [alex, ben]) await h.cmd('availability.save', { staffId: p.id, start: at(0, 7), end: at(7, 7) })
+  const next = await h.cmd('roster.prepare', { week, shifts: shiftsOf(at, alex.id) })
+  await h.cmd('roster.publish', { id: next.id, revision: next.revision }, priya.cookie)
+  const open = await h.cmd('openshift.post', { site: 'Ocean Beach', position: 'Barista', start: at(5, 16), end: at(5, 19), breakMinutes: 0, approval: 'manager' }, priya.cookie)
+  const ask = await h.cmd('openshift.request', { id: open.id, revision: open.revision }, alex.cookie)
+  assert.deepEqual((await h.state(priya.cookie)).pickups.find(x => x.id === ask.id).cost, { staffId: alex.id, projectedMinutes: 2460, overtimeMinutes: 60, premiumCents: 1000 })
+  assert.ok((await h.send(`/app/schedule?week=${week}`, undefined, priya.cookie)).text.includes('Projected overtime: Alex would reach 41.0 hrs this workweek · 1.0 hr overtime · est. premium $10.00'))
+  await h.cmd('openshift.approve', { id: ask.id, revision: ask.revision }, priya.cookie)
+  const [risk] = (await h.state(priya.cookie)).overtime.filter(a => a.week === week)
+  assert.deepEqual([risk.staffId, risk.projectedMinutes, risk.premiumCents], [alex.id, 2460, 1000])
+  const page = (await h.send(`/app/schedule?week=${week}`, undefined, priya.cookie)).text
+  for (const text of ['Overtime risk', '41.0 hrs projected (0.0 recorded + 41.0 scheduled) · 1.0 hr overtime · est. premium $10.00', 'Give to Ben (6.0 hrs)']) assert.ok(page.includes(text), text)
+  // Priya gives Friday to Ben, a listed substitute; Dee (no availability), Alex and another cafe's manager are refused. The alert clears.
+  const fri = risk.remaining.find(r => r.start === at(4, 16).replace('Z', '.000Z'))
+  await h.cmd('overtime.substitute', { shiftId: fri.shiftId, revision: fri.revision, staffId: dee.id }, priya.cookie, 409)
+  await h.cmd('overtime.substitute', { shiftId: fri.shiftId, revision: fri.revision, staffId: ben.id }, alex.cookie, 403)
+  await h.cmd('overtime.substitute', { shiftId: fri.shiftId, revision: fri.revision, staffId: ben.id }, omar.cookie, 403)
+  const moved = await h.cmd('overtime.substitute', { shiftId: fri.shiftId, revision: fri.revision, staffId: ben.id }, priya.cookie)
+  assert.deepEqual([moved.staffId, moved.substitute.from, moved.substitute.reason], [ben.id, alex.id, 'projected overtime'])
+  assert.deepEqual((await h.state(priya.cookie)).overtime.filter(a => a.week === week), [])
+  // Ben then offers Friday back to Alex: the swap shows the same projected overtime before a manager decides.
+  const swap = await h.cmd('swap.propose', { shiftId: moved.id, revision: moved.revision, to: alex.id }, ben.cookie)
+  await h.cmd('swap.respond', { id: swap.id, revision: swap.revision, decision: 'accepted' }, alex.cookie)
+  assert.deepEqual((await h.state(priya.cookie)).swaps.find(w => w.id === swap.id).cost, [{ staffId: alex.id, projectedMinutes: 2460, overtimeMinutes: 60, premiumCents: 1000 }])
+}))
+
 test('SCHEDULE-002: a saved week is applied to a holiday week at the same wall times, a recurring shift skips its exception date, conflicts name the person now on leave, one occurrence is edited and published while earlier weeks stay unchanged', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam'), priya = await h.person('Priya', 'manager')
   for (const p of [alex, sam]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-11T07:00:00Z', end: '2026-12-01T08:00:00Z' })

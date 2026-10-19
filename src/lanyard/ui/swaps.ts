@@ -3,6 +3,7 @@
 // overtime the swap would cause shown before deciding.
 import {h,rows,form,hidden,exact,field,card,manager,person,status} from './shared'
 import {dateKey,day,hours,span} from './format'
+import {costNote} from './overtime'
 
 const when=(x:any,tz:string)=>`${day(dateKey(x.start,tz))} · ${span(x.start,x.end,tz)}`
 function what(w:any,tz:string) {
@@ -16,7 +17,7 @@ const decide=(w:any,back:string)=>`<form class="offer-actions" method="post" act
 export function swapCards(s:any,tz:string,back:string) {
  const me=s.actor.staffId,list=rows(s,'swaps'),parts:string[]=[]
  for(const w of list.filter(w=>w.toId===me&&w.status==='proposed'))parts.push(`<section class="offer"><div><p class="eyebrow">Swap request</p><h2>${what(w,tz)}</h2>${w.note?`<p><q>${h(w.note)}</q></p>`:''}<p>Nothing changes until you agree and a manager approves.</p></div>${answer(w,back)}</section>`)
- if(manager(s))for(const w of list.filter(w=>w.status==='accepted'&&w.fromId!==me&&w.toId!==me))parts.push(`<section class="offer"><div><p class="eyebrow">Swap to approve</p><h2>${what(w,tz)}</h2>${overtime(s,w)}<p>Both agreed. Approving moves the shifts and closes other swaps on them.</p></div>${decide(w,back)}</section>`)
+ if(manager(s))for(const w of list.filter(w=>w.status==='accepted'&&w.fromId!==me&&w.toId!==me))parts.push(`<section class="offer"><div><p class="eyebrow">Swap to approve</p><h2>${what(w,tz)}</h2>${overtime(s,w)}${costNote(s,w.cost)}<p>Both agreed. Approving moves the shifts and closes other swaps on them.</p></div>${decide(w,back)}</section>`)
  const mine=list.filter(w=>(w.fromId===me||w.toId===me)&&w.status!=='proposed'||w.fromId===me).filter(w=>w.status!=='closed'||w.fromId===me).slice(-8)
  const items=mine.map(w=>`<li>${what(w,tz)} · ${status(w.status==='proposed'?'waiting':w.status==='accepted'?'waiting for a manager':w.status,w.status)}${w.fromId===me&&['proposed','accepted'].includes(w.status)?form('swap.withdraw',back,exact(w),'Withdraw','','secondary'):''}</li>`).join('')
  const offers=rows(s,'swapOptions').filter(o=>o.give.length||o.exchange.length).map(o=>form('swap.propose',back,`${hidden('shiftId',o.shiftId)}${hidden('revision',o.revision)}<p><strong>${h(when(o,tz))}</strong></p><label>Give it to<select name="to"><option value="">Choose a coworker</option>${o.give.map((g:any)=>`<option value="${h(g.staffId)}">${h(g.name)}</option>`).join('')}</select></label><label>Or exchange it for<select name="theirShiftId"><option value="">No exchange</option>${o.exchange.map((x:any)=>`<option value="${h(x.shiftId)}">${h(x.name)} · ${h(when(x,tz))}</option>`).join('')}</select></label>${field('note','Message (optional)','','text','maxlength="280"')}`,'Propose swap','class="swap-form"','secondary')).join('')

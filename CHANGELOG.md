@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- COST-002: managers see each person's in-week overtime projection from recorded time plus remaining shifts, with the premium estimate and substitutes they can give a remaining shift to; pending pickups and swaps show projected overtime before approval.
 - BREAK-001: staff time paid rest and unpaid meal breaks on the clock; a per-cafe break policy turns missed, short or late meals and missed or short rests into exceptions with optional meal/rest premium lines in payroll, employee waivers and break attestations.
 - TIME-003: flagged time stays an open exception until a manager resolves it with a reason; employees request missing or corrected time with an attestation and confirm time entered for them.
 - TIME-009: the approval list shows each waiting timesheet's scheduled, captured and payable times, variance, breaks, network, job, cost and running week; approvers edit with a reason or send time back to the employee.

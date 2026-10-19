@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { batchCsv, command, noteAttachment, schedulePdf, snapshot, type Actor } from './domain'
+import { batchCsv, command, noteAttachment, overtimeAlerts, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -91,6 +91,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (file) return new Response(await batchCsv(env.DB, who, file[1]), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-${file[1]}.csv"` } })
       const attached = path.match(/^\/api\/lanyard\/notes\/([\w-]+)\/files\/([\w-]+)$/)
       if (attached) { const { bytes, name, type } = await noteAttachment(env.DB, who, attached[1], attached[2]); return new Response(bytes, { headers: { ...headers, 'content-type': type, 'content-disposition': `attachment; filename="${name.replace(/[^\w. -]/g, '_')}"`, 'x-content-type-options': 'nosniff' } }) }
+      if (path === '/api/lanyard/overtime') return json(await overtimeAlerts(env.DB, who, url.searchParams.get('week') ?? '', url.searchParams.get('asOf') ?? new Date().toISOString().replace(/\.\d+Z$/, 'Z')))
       const printed = path.match(/^\/api\/lanyard\/postings\/([\w-]+)\.pdf$/)
       if (printed) { const { bytes, name } = await schedulePdf(env.DB, who, printed[1]); return new Response(bytes, { headers: { ...headers, 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${name}"` } }) }
     } else {

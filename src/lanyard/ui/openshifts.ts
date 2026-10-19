@@ -4,6 +4,7 @@
 import {h,rows,form,field,hidden,utc,exact,card,disclosure,manager,person,status,staffOf} from './shared'
 import {dateKey,day,hours,money,span} from './format'
 import {sitesOf} from './week'
+import {costNote} from './overtime'
 
 const when=(o:any,tz:string)=>`${day(dateKey(o.start,tz))} · ${span(o.start,o.end,tz)}`
 const where=(o:any)=>[o.site,o.position,o.label].filter(Boolean).map(h).join(' · ')
@@ -16,7 +17,7 @@ export function openShiftCards(s:any,tz:string,back:string) {
  if(manager(s)) {
   const open=list.filter(o=>o.status==='open')
   const items=open.map(o=>{const waiting=asks.filter(x=>x.openShiftId===o.id&&x.status==='requested')
-   return `<li><strong>${h(when(o,tz))}</strong> · ${where(o)||'Any position'} · ${o.approval==='auto'?'approved on pickup':'manager approves'}${o.pool?` · ${h(o.pool.length)} in pool`:''}${waiting.map(x=>`<div class="request">${h(person(s,x.staffId))} · ${h(hours(x.after))} hrs that week${x.overtime?' · overtime':''}${form('openshift.approve',back,exact(x),`Approve ${person(s,x.staffId).split(/\s+/)[0]}`,'','primary small')}</div>`).join('')}</li>`}).join('')
+   return `<li><strong>${h(when(o,tz))}</strong> · ${where(o)||'Any position'} · ${o.approval==='auto'?'approved on pickup':'manager approves'}${o.pool?` · ${h(o.pool.length)} in pool`:''}${waiting.map(x=>`<div class="request">${h(person(s,x.staffId))} · ${h(hours(x.after))} hrs that week${x.overtime?' · overtime':''}${costNote(s,x.cost?[x.cost]:[])}${form('openshift.approve',back,exact(x),`Approve ${person(s,x.staffId).split(/\s+/)[0]}`,'','primary small')}</div>`).join('')}</li>`}).join('')
   return card('Open shifts',`${items?`<ul class="swap-list">${items}</ul>`:'<p class="note">No open shifts are posted.</p>'}${postForm(s,back)}`,'','open-shifts')
  }
  const mine=new Map(asks.map(x=>[x.openShiftId,x]))
