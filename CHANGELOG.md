@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- TIME-003: flagged time stays an open exception until a manager resolves it with a reason; employees request missing or corrected time with an attestation and confirm time entered for them.
 - TIME-009: the approval list shows each waiting timesheet's scheduled, captured and payable times, variance, breaks, network, job, cost and running week; approvers edit with a reason or send time back to the employee.
 - COVER-002: managers post open shifts to eligible staff or a pool with approved pickup or manager approval; one approval assigns the shift and closes the other requests; template position-only rows post as open shifts.
 - CLOCK-007: owners limit a cafe's clock-in and clock-out to approved IP ranges or enrolled store browsers, refusing or flagging other networks; each punch records only its network address and which approval matched.

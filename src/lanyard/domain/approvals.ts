@@ -11,10 +11,10 @@ export type Filter={site:string;position:string;from:string;to:string;state:stri
 /**
  * A waiting timesheet's review states. exception: capture recorded an exception (no capture
  * path records one yet). edited: it corrects earlier approved time. unconfirmed: a manager or
- * agent entered it, not the person's own clock. clean: none of these.
+ * agent entered it, not the person's own clock or request, and the person has not confirmed it (TIME-003). clean: none of these.
  */
 export function statesOf(r:Record<string,any>):string[] {
- const states=[...(r.exceptions?.length?['exception']:[]),...(r.corrects?['edited']:[]),...(r.clockId?[]:['unconfirmed'])]
+ const states=[...(r.exceptions?.length?['exception']:[]),...(r.corrects?['edited']:[]),...(r.clockId||r.requested||r.employeeConfirmed?[]:['unconfirmed'])]
  return states.length?states:['clean']
 }
 /** Site is the person's home cafe, position their People position, from/to inclusive venue dates of the start. */

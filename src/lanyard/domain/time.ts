@@ -19,6 +19,12 @@ export function approve(c:Context,submitted:Row) {
  const exported=c.s.claims.filter(cl=>cl.root_id===r.rootId).reduce((n,cl)=>n+cl.minutes,0)
  return put(c,'timesheets',{...r,status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now},r)
 }
+const ATTEST='I confirm these times and breaks are accurate.'
+/** TIME-003: the employee's own attestation of times and breaks, recorded with its wording; only the person attests their own time. */
+function attestation(c:Context,staffId:string,attest:unknown,required=false) {
+ if(attest!==true&&attest!=='on'&&attest!=='true'){need(!required,'Attest that the times and breaks are accurate');return {}}
+ need(c.a.staffId===staffId,'Only the employee attests their own time',403);return {attestation:{text:ATTEST,by:c.a.id,at:c.now}}
+}
 /** A punch's cafe: its matched shift's, else the person's home cafe (as TIME-006). */
 function cafeOf(c:Context,staffId:string,shiftId:string|null) {
  const shift=shiftId?c.s.shifts.find(x=>x.id===shiftId):undefined
@@ -53,12 +59,12 @@ export function time(c:Context,name:string,p:Record<string,any>) {
  }
  if(name==='time.confirm') {
   // TIME-007: the person or a manager confirms or corrects a provisionally closed punch; the result is submitted time flagged "provisional close".
-  keys(p,['id','revision','end','breakMinutes','meal','reason']);need(c.a.role!=='agent','Staff or manager required',403);const open=get(c.s,'clocks',p.id);exact(open,p)
+  keys(p,['id','revision','end','breakMinutes','meal','reason','attest']);need(c.a.role!=='agent','Staff or manager required',403);const open=get(c.s,'clocks',p.id);exact(open,p)
   if(c.a.role!=='owner'&&c.a.role!=='manager')need(open.staffId===self(c.a),'Only your own clock',403)
   const mark=provisional(c.s,open,c.now);need(mark,'This clock is not provisionally closed',409)
   const end=instant(p.end,'end');need(end<=c.now,'Time cannot end in the future')
   const reason=text(p.reason,'reason',500,true)||(end===mark.end?'Confirmed after provisional close':'Corrected after provisional close')
-  return closeClock(c,open,end,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,reason,{provisional:{end:mark.end,due:mark.due,confirmedBy:c.a.id}})
+  return closeClock(c,open,end,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,reason,{provisional:{end:mark.end,due:mark.due,confirmedBy:c.a.id},...attestation(c,open.staffId,p.attest)})
  }
  if(name==='time.prepare') {
   prepare(c.a);keys(p,['staffId','start','end','breakMinutes','reason','corrects']);const staffId=staff(c,p.staffId).id,w=work(p);need(w.end<=c.now,'Time cannot end in the future');const reason=text(p.reason,'reason',500)
@@ -75,6 +81,25 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   const captured=r.captured??{start:r.start,end:r.end,breakMinutes:r.breakMinutes,minutes:r.rounding?.capturedMinutes??r.minutes}
   // Edited time is never rounded (TIME-005): its payable time is the edited time, and no rule rounds it at approval.
   const {payable,rounding,...rest}=r;return put(c,'timesheets',{...rest,...w,captured,edited:{by:c.a.id,at:c.now,reason:text(p.reason,'reason',500)}},r)
+ }
+ if(name==='time.request') {
+  // TIME-003: an employee requests a missing punch or a correction of their own approved time, attesting to it; a manager approves it.
+  keys(p,['start','end','breakMinutes','reason','corrects','attest']);const staffId=self(c.a)!,w=work({...p,breakMinutes:typeof p.breakMinutes==='string'?Number(p.breakMinutes):p.breakMinutes});need(w.end<=c.now,'Time cannot end in the future')
+  const old=p.corrects?get(c.s,'timesheets',p.corrects):undefined
+  if(old){need(old.staffId===staffId,'Only your own time',403);need(old.status==='approved','Correct the latest approved time',409);need(!c.s.timesheets.some(t=>t.corrects===old.id),'A correction already exists for this revision',409)}
+  clearOverlap(c,staffId,w,old?.rootId)
+  const r=put(c,'timesheets',{staffId,...w,reason:text(p.reason,'reason',500),corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,requested:true,exceptions:[old?'employee correction':'missed punch'],...attestation(c,staffId,p.attest,true)});if(!old)r.rootId=r.id
+  return r
+ }
+ if(name==='time.acknowledge') {
+  // TIME-003: the employee confirms time a manager or agent entered for them; it leaves TIME-008's unconfirmed state.
+  keys(p,['id','revision']);const r=get(c.s,'timesheets',p.id);exact(r,p);need(r.staffId===self(c.a),'Only your own time',403);need(!r.clockId&&!r.requested&&!r.employeeConfirmed,'This time is already yours or confirmed',409);need(r.status==='submitted'||r.status==='approved','Only waiting or approved time',409)
+  return put(c,'timesheets',{...r,employeeConfirmed:{at:c.now}},r)
+ }
+ if(name==='time.resolve') {
+  // TIME-003: an exception stays open, assigned to its cafe's managers, until a manager resolves it with a reason.
+  manager(c.a);keys(p,['id','revision','reason']);const r=get(c.s,'timesheets',p.id);exact(r,p);need(r.exceptions?.length&&!r.resolution,'No open exception on this time',409);need(r.staffId!==c.a.staffId,'You cannot resolve your own exception',403)
+  return put(c,'timesheets',{...r,resolution:{by:c.a.id,at:c.now,reason:text(p.reason,'reason',500)}},r)
  }
  if(name==='time.return') {
   // TIME-009: send waiting time back to the employee with a reason; it waits for them, not for approval.

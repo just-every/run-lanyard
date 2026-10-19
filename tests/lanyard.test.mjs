@@ -747,6 +747,53 @@ test('TIME-009: the approval review shows scheduled, captured and payable times,
   await h.cmd('time.approve', { id: again.id, revision: again.revision }, priya.cookie)
 }))
 
+test('TIME-003: a missed clock-out opens an exception the employee corrects with an attestation, another manager approves and a manager resolves with a reason the employee reads; a manager edit makes a pinned bulk approval skip it; employee confirmation and requests leave the unconfirmed state', () => run(async h => {
+  const jess = await h.person('Jess'), dee = await h.person('Dee'), priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager')
+  await h.cmd('closerule.save', { site: '', graceMinutes: 15, capHours: 12 })
+  await h.cmd('clockrule.save', { site: '', position: '', early: 'flag', earlyMinutes: 10, unscheduled: 'allow' })
+  for (const p of [jess, dee]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-05T07:00:00Z', end: '2026-10-12T07:00:00Z' })
+  const week = await h.cmd('roster.prepare', { week: '2026-10-05', shifts: [{ staffId: jess.id, start: '2026-10-06T16:00:00Z', end: '2026-10-07T00:00:00Z', breakMinutes: 0 }, { staffId: dee.id, start: '2026-10-07T16:00:00Z', end: '2026-10-08T00:00:00Z', breakMinutes: 0 }] })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
+  // Jess misses her clock-out: the punch is provisionally closed; she corrects it and attests.
+  await h.cmd('clock.in', { commandId: 'jess-in', capturedAt: '2026-10-06T15:58:00Z' }, jess.cookie)
+  const punch = (await h.state(jess.cookie)).clocks[0]
+  assert.ok(punch.provisional)
+  const { timesheet } = await h.cmd('time.confirm', { id: punch.id, revision: punch.revision, end: '2026-10-07T00:20:00Z', breakMinutes: 0, reason: 'Closed the register', attest: true }, jess.cookie)
+  assert.deepEqual([timesheet.exceptions, timesheet.attestation.by], [['provisional close'], timesheet.submittedBy])
+  const approved = await h.cmd('time.approve', { id: timesheet.id, revision: timesheet.revision }, omar.cookie)
+  await h.cmd('time.resolve', { id: approved.id, revision: approved.revision, reason: 'Checked' }, jess.cookie, 403)
+  // Approval leaves the exception open until a manager resolves it; the employee reads the outcome before payroll.
+  assert.equal((await h.state(jess.cookie)).timesheets[0].resolution, undefined)
+  const resolved = await h.cmd('time.resolve', { id: approved.id, revision: approved.revision, reason: 'Register log shows 5:20 pm close' }, priya.cookie)
+  await h.cmd('time.resolve', { id: resolved.id, revision: resolved.revision, reason: 'Again' }, priya.cookie, 409)
+  const seen = (await h.state(jess.cookie)).timesheets[0]
+  assert.deepEqual([seen.status, seen.approvedBy, seen.reason, seen.attestation.text, seen.resolution.reason, seen.start], ['approved', approved.approvedBy, 'Closed the register', 'I confirm these times and breaks are accurate.', 'Register log shows 5:20 pm close', '2026-10-06T15:58:00.000Z'])
+  assert.deepEqual((await h.cmd('payroll.prepare', { ids: [resolved.id] }, priya.cookie)).lines.map(l => l.minutes), [502])
+  // A TIME-006 early punch opens an exception that stays open through approval until resolved.
+  await h.cmd('clock.in', { commandId: 'dee-in', capturedAt: '2026-10-07T15:35:00Z' }, dee.cookie)
+  const early = (await h.cmd('clock.out', { commandId: 'dee-out', capturedAt: '2026-10-08T00:00:00Z', breakMinutes: 0 }, dee.cookie)).timesheet
+  const ok = await h.cmd('time.approve', { id: early.id, revision: early.revision }, priya.cookie)
+  assert.equal(ok.resolution, undefined); assert.deepEqual(ok.exceptions, ['early clock-in'])
+  assert.equal((await h.cmd('time.resolve', { id: ok.id, revision: ok.revision, reason: 'Opening prep was approved' }, omar.cookie)).resolution.reason, 'Opening prep was approved')
+  // A manager's edit changes the revision another manager pinned, so the bulk approval skips it as changed.
+  const thu = await h.cmd('time.prepare', { staffId: dee.id, start: '2026-10-08T16:00:00Z', end: '2026-10-08T20:00:00Z', breakMinutes: 0, reason: 'Paper sheet' }, priya.cookie)
+  await h.cmd('time.edit', { id: thu.id, revision: thu.revision, start: '2026-10-08T16:00:00Z', end: '2026-10-08T21:00:00Z', breakMinutes: 0, reason: 'Stayed for a delivery' }, omar.cookie)
+  const pinned = await h.cmd('time.approveMany', { items: [{ id: thu.id, revision: thu.revision }] }, priya.cookie)
+  assert.deepEqual(pinned.skipped.map(x => x.reason), ['Changed since you reviewed it'])
+  // Dee confirms Friday's manager-entered time: it leaves the unconfirmed filter.
+  const fri = await h.cmd('time.prepare', { staffId: dee.id, start: '2026-10-09T16:00:00Z', end: '2026-10-09T20:00:00Z', breakMinutes: 0, reason: 'Paper sheet' }, priya.cookie)
+  const mine = await h.cmd('time.acknowledge', { id: fri.id, revision: fri.revision }, dee.cookie)
+  const filtered = await h.cmd('time.approveMany', { state: 'unconfirmed', items: [{ id: mine.id, revision: mine.revision }] }, omar.cookie)
+  assert.deepEqual(filtered.skipped.map(x => x.reason), ['Outside the filter'])
+  // An employee's missing-punch request needs the attestation, carries its exception and waits for a manager.
+  const sat = { start: '2026-10-10T16:00:00Z', end: '2026-10-10T19:00:00Z', breakMinutes: 0, reason: 'Phone died at the event' }
+  await h.cmd('time.request', sat, dee.cookie, 400)
+  const asked = await h.cmd('time.request', { ...sat, attest: true }, dee.cookie)
+  assert.deepEqual([asked.status, asked.exceptions], ['submitted', ['missed punch']])
+  await h.cmd('time.approve', { id: asked.id, revision: asked.revision }, dee.cookie, 403)
+  await h.cmd('time.approve', { id: asked.id, revision: asked.revision }, omar.cookie)
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }
