@@ -333,9 +333,9 @@ Judged from the code and tests at commit `e1c3882cec951e71c7dbc0b08b7881461612e6
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 14 | 2 | 0 | 16 |
+| Published | 15 | 1 | 0 | 16 |
 | Target and push further | 0 | 30 | 80 | 110 |
-| All | 14 | 32 | 80 | 126 |
+| All | 15 | 31 | 80 | 126 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -353,7 +353,7 @@ Judged from the code and tests at commit `e1c3882cec951e71c7dbc0b08b7881461612e6
 | `ARCHIVE-001` | Complete installation archive with authority exclusions | published | done | `src/lanyard/archive-policy.mjs`; `tests/archive.test.mjs`; `OPERATIONS.json` |  |
 | `ERASE-001` | Unused identity erasure and restore fence | published | done | `src/lanyard/domain/people.ts`; `tests/lanyard.test.mjs`; `tests/archive.test.mjs` |  |
 | `AUDIT-001` | Durable decisions and transactional history | published | done | `src/lanyard/domain/storage.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/movein/index.ts`; `tests/lanyard.test.mjs`; `tests/archive.test.mjs` |  |
-| `PUBLIC-001` | Public run site and installed Lobby | published | partial | `src/base/run-site.ts`; `src/site/pages.ts`; `src/base/lobby.ts`; `tests/lanyard.test.mjs` | Durable-claim Lobby behavior is tested; a full published run-site/install/docs journey is not established by the product test. |
+| `PUBLIC-001` | Public run site and installed Lobby | published | done | `src/base/run-site.ts`; `src/site/pages.ts`; `src/site/docs.ts`; `src/base/lobby.ts`; `.github/workflows/run-site.yml`; `tests/site/site.test.mjs`; `tests/lanyard.test.mjs` |  |
 | `BASE-001` | Maintained installation and operations commands | published | partial | `SEED-COMMAND-CONTRACT.md`; `OPERATIONS.json`; `tests/archive.test.mjs`; `tests/runtime.mjs` | Command declarations and local runtime/archive tests exist; full fresh-clone and hosted provider deployment acceptance is not proven here. |
 | `TEAM-001` | Multi-location roles and delegated management | target | partial | `src/lanyard/domain/model.ts`; `src/lanyard/domain/storage.ts`; `tests/lanyard.test.mjs` | Owner/manager/staff authority exists; business/location records, independent payroll roles and site-level permission scopes do not. |
 | `PEOPLE-002` | Jobs qualifications preferences and effective pay rates | target | missing |  | No qualification, job-rate, employee preference or effective-dated compensation records. |

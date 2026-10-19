@@ -166,9 +166,15 @@ test('unused identity erasure removes personal values and fences recreation; use
 }))
 
 // The public state changes at owner claim, before the separate first-run review.
-test('installed Lobby follows the durable owner claim before first-run confirmation', async () => {
+test('PUBLIC-001: installed Lobby follows the durable owner claim before first-run confirmation while private product data stays session-protected', async () => {
   const h = await harness({ unclaimed: true })
+  const sealed = async (cookie = '') => {
+    assert.equal((await h.send('/api/lanyard/state', undefined, cookie)).status, 401)
+    const app = await h.send('/app/schedule', undefined, cookie)
+    assert.equal(app.status, 303); assert.match(app.headers.get('location'), /^\/signin\?returnTo=/)
+  }
   try {
+    await sealed()
     assert.equal((await h.send('/setup/state')).value.state, 'unclaimed')
     const before = await h.send('/')
     assert.equal(before.status, 200)
@@ -179,9 +185,14 @@ test('installed Lobby follows the durable owner claim before first-run confirmat
     assert.equal((await h.send('/setup/state')).value.state, 'claimed')
     const after = await h.send('/')
     assert.match(after.text, /href="\/signin(\?login_hint=[^"]+)?"/)
+    await sealed()
     assert.equal((await h.send('/setup', undefined, claimed.cookie)).status, 200)
     const confirmed = await h.mf.dispatchFetch(h.origin + '/setup', { method: 'POST', headers: { origin: h.origin, cookie: claimed.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: 'confirm=yes', redirect: 'manual' })
     assert.equal(confirmed.status, 303)
     assert.equal((await h.send('/setup/state')).value.state, 'claimed')
+    const lobby = await h.send('/')
+    assert.equal(lobby.headers.get('x-rer-document'), 'lobby'); assert.match(lobby.text, /href="\/signin(\?login_hint=[^"]+)?"/)
+    await sealed(); await sealed('rer_session=forged')
+    assert.equal((await h.send('/api/lanyard/state', undefined, claimed.cookie)).status, 200)
   } finally { await h.close() }
 })

@@ -13,12 +13,21 @@ const pages = dir => readdirSync(dir, { withFileTypes: true }).flatMap(entry => 
 const served = path => [path, `${path}.html`, join(path, 'index.html')].some(candidate => existsSync(join(site, candidate)) && !candidate.endsWith('/'))
 const attrs = (html, name) => [...html.matchAll(new RegExp(`\\s${name}="([^"]*)"`, 'g'))].map(match => match[1].replaceAll('&amp;', '&'))
 
-test('the run site builds, its primary action opens /run, and every link and file it names resolves', () => {
+test('PUBLIC-001: the run site builds, its primary action opens /run, it leads to owner guides built from the repository Markdown, and every link and file it names resolves', () => {
   execFileSync(join(root, 'node_modules/.bin/rer'), ['build', '--site'], { cwd: root, stdio: 'pipe' })
   const home = readFileSync(join(site, 'index.html'), 'utf8')
   assert.match(home, /<a class="run-button" href="\/run">Run Lanyard/, 'the homepage leads with Run Lanyard to /run')
   assert.doesNotMatch(home, /localhost|127\.0\.0\.1|RER_[A-Z]/, 'the homepage shows no local addresses or rer output')
   assert.ok(served('run') && served('docs'), '/run and /docs are built')
+  assert.ok(attrs(home, 'href').includes('/docs'), 'the homepage leads to the owner guides at /docs')
+  const project = JSON.parse(readFileSync(join(root, 'rer-project.json'), 'utf8')).projectId
+  assert.ok(readFileSync(join(site, 'run.html'), 'utf8').includes(`rer dev ${project}`), '/run installs this repository with rer')
+  // Each guide under docs/ is built into /docs with its Markdown title as the page heading.
+  const text = html => html.replace(/<[^>]*>/g, '').replaceAll('&amp;', '&').replaceAll('&#39;', "'").replaceAll('&quot;', '"')
+  for (const file of readdirSync(join(root, 'docs')).filter(name => name.endsWith('.md'))) {
+    const title = readFileSync(join(root, 'docs', file), 'utf8').match(/^# (.+)$/m)[1], page = file === 'README.md' ? 'docs.html' : `docs/${file.slice(0, -3).toLowerCase()}.html`
+    assert.equal(text(readFileSync(join(site, page), 'utf8').match(/<h1[^>]*>(.*?)<\/h1>/s)[1]), title, `${file} is built at ${page}`)
+  }
   const all = pages(site)
   assert.ok(all.length > 3, 'the homepage, /run, the docs and the not-found page')
   for (const file of all) {
