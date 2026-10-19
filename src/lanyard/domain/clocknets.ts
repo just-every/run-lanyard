@@ -38,6 +38,11 @@ export function checkNetwork(s:State,site:string,net:Net|undefined):{network?:Re
  if(rule.mode==='refuse')fail(`Clock-in and clock-out at ${site||'this cafe'} work only from its approved networks or enrolled browsers.`,409)
  return {network,exceptions:['off-network punch']}
 }
+/** CLOCK-004: the cafe a punch's network places it at (an approved range or enrolled browser of a cafe with a rule), or null. */
+export function siteByNetwork(s:State,net:Net|undefined) {
+ if(!net)return null
+ return s.clocknets.find(r=>r.mode!=='off'&&(r.ranges.some((x:string)=>inRange(net.ip,x))||net.browsers.some(b=>b.site===r.site)))?.site??null
+}
 export function clockNets(c:Context,name:string,p:Record<string,any>) {
  if(name!=='clocknet.save')return undefined
  need(c.a.role==='owner','Owner required',403);keys(p,['site','mode','ranges','revision'])

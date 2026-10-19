@@ -4,7 +4,7 @@ import {checkClockIn} from './clockrules'
 import {mealAtClockOut} from './mealrules'
 import {roundAtCapture,roundAtApproval} from './rounding'
 import {provisional} from './closerules'
-import {checkNetwork} from './clocknets'
+import {checkNetwork,siteByNetwork} from './clocknets'
 import {siteOf} from './team'
 import {answer,attach} from './questions'
 import {checkBreaks,breakOutcome,mealMinutes,timedFor,WAIVER,ATTEST_BREAKS} from './breaks'
@@ -68,7 +68,7 @@ export function time(c:Context,name:string,p:Record<string,any>) {
    const check=checkClockIn(c.s,staffId,at),net=checkNetwork(c.s,cafeOf(c,staffId,check.shiftId),c.net)
    // CLOCK-006: the clock-in questions, answered before anything is written; their flags join the punch's.
    const asked=answer(c,staffId,check.shiftId,'in',p.answers),flags=[...check.exceptions,...net.exceptions,...asked.flags]
-   const clock=put(c,'clocks',{staffId,start:at,end:null,status:'open',capturedBy:c.a.id,receivedAt:c.now,shiftId:check.shiftId,...(flags.length?{exceptions:flags}:{}),...(net.network?{network:{in:net.network}}:{}),...(asked.answers.length?{answers:asked.answers}:{})})
+   const clock=put(c,'clocks',{staffId,start:at,end:null,status:'open',capturedBy:c.a.id,receivedAt:c.now,shiftId:check.shiftId,...(flags.length?{exceptions:flags}:{}),...(net.network?{network:{in:net.network}}:{}),...(asked.answers.length?{answers:asked.answers}:{}),...(siteByNetwork(c.s,c.net)!==null?{seenAt:siteByNetwork(c.s,c.net)}:{})})
    attach(c,asked.injuries,clock.id);c.entity=clock.id;return clock
   }
   need(open,'No open clock to stop',409);need(!open.breaks?.some((b:any)=>!b.end),'End your break before clocking out',409)

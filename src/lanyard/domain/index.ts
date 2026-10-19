@@ -32,9 +32,10 @@ import {overtime,project,cost,alertsFor,upcoming} from './overtime'
 import {weekOf} from './openshifts'
 import {history,shiftHistory,compare,changeLog,recentChanges} from './history'
 import {questions,injuriesFor} from './questions'
+import {attendance,board} from './attendance'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -73,6 +74,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=overtime(c,name,p)
  if(result===undefined)result=history(c,name,p)
  if(result===undefined)result=questions(c,name,p)
+ if(result===undefined)result=attendance(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
@@ -112,11 +114,15 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  if(manages) {
   const now=new Date().toISOString(),shiftOf=(id:string)=>s.shifts.find(x=>x.id===id)
   result.overtime=upcoming(s,a,now)
+  // CLOCK-004: the live attendance board for the manager's cafe (every cafe for the owner).
+  result.attendance=board(s,a,now)
   result.pickups=result.pickups.map((x:any)=>{const o=s.openshifts.find(v=>v.id===x.openShiftId);return x.status==='requested'&&o?{...x,cost:cost(project(s,x.staffId,o.week,now,[{...o,staffId:x.staffId} as any]))}:x})
   result.swaps=result.swaps.map((w:any)=>{if(!['proposed','accepted'].includes(w.status))return w;const give=shiftOf(w.give.shiftId),take=w.take?shiftOf(w.take.shiftId):undefined
    const moves=[...(give?[{to:w.toId,shift:give,skip:take?[take.id]:[]}]:[]),...(take&&give?[{to:w.fromId,shift:take,skip:[give.id]}]:[])]
    return {...w,cost:moves.map(m=>cost(project(s,m.to,weekOf(s,m.shift.start),now,[m.shift],m.skip)))}})
  }
+ // CLOCK-004: who is handling an attendance alert is for managers only.
+ if(!manages)result.attendacks=[]
  // CLOCK-006: injury answers and their follow-ups only for the employee, the owner and that cafe's managers.
  result.injuries=injuriesFor(s,a)
  // SCHEDULE-006: shift history from last week on (managers every line; an employee the lines they were assigned).
@@ -148,6 +154,11 @@ export async function overtimeAlerts(db:D1Database,identity:Actor,week:string,as
  const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
  need(/^\d{4}-\d{2}-\d{2}$/.test(week)&&weekOf(s,week+'T12:00:00Z')===week,'Choose a week by its Monday (YYYY-MM-DD)')
  return {week,asOf,alerts:alertsFor(s,f,week,instant(asOf,'asOf'))}
+}
+/** CLOCK-004: the attendance board as of an instant, for the owner and the managers of the cafes on it. */
+export async function attendanceBoard(db:D1Database,identity:Actor,asOf:string,site:string) {
+ const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
+ return {asOf,rows:board(s,f,instant(asOf,'asOf'),site)}
 }
 /** SCHEDULE-006 reads: one shift's history, two week revisions compared, and the week's change log CSV. */
 export async function scheduleHistory(db:D1Database,identity:Actor,kind:'shift'|'compare'|'log',id:string,from='',to='') {

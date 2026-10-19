@@ -499,6 +499,59 @@ test('CLOCK-006: an owner’s break, injury, cash-tip and fit-for-duty questions
   assert.deepEqual([first.answers[1].text, first.answers[1].version], ['Did you take all your breaks?', 1])
 }))
 
+test('CLOCK-004: a running service shift with an on-time, late, absent and offline employee shows on the live board from received punches; the absent one turns late then no-show, a manager records handling it and finds cover, and only the cover’s clock-in closes the alert', () => run(async h => {
+  const [ana, ben, cy, dee, eve] = [await h.person('Ana'), await h.person('Ben'), await h.person('Cy'), await h.person('Dee'), await h.person('Eve')], priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager')
+  for (const p of [ana, ben, cy, dee, eve, priya, omar]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site: p === omar ? 'Mission' : 'Ocean Beach' })
+  // The shift began an hour ago, whatever the time now.
+  const start = Math.floor(Date.now() / 60000) * 60000 - 3600000, iso = ms => new Date(ms).toISOString().replace('.000Z', 'Z'), min = m => iso(start + m * 60000)
+  const local = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(start)), d = new Date(local + 'T00:00:00Z')
+  const week = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10)
+  for (const p of [ana, ben, cy, dee, eve]) await h.cmd('availability.save', { staffId: p.id, start: iso(start - 86400000), end: iso(start + 2 * 86400000) })
+  const draft = await h.cmd('roster.prepare', { week, shifts: [ana, ben, cy, dee].map(p => ({ staffId: p.id, start: min(0), end: min(300), breakMinutes: 0 })) })
+  await h.cmd('roster.publish', { id: draft.id, revision: draft.revision }, priya.cookie)
+  await h.cmd('attendrule.save', { site: 'Ocean Beach', graceMinutes: 10, noShowMinutes: 30 }, priya.cookie, 403)
+  await h.cmd('attendrule.save', { site: 'Ocean Beach', graceMinutes: 10, noShowMinutes: 30 })
+  await h.cmd('clocknet.save', { site: 'Mission', mode: 'flag', ranges: '198.51.100.0/24' })
+  // Ana on time but from Mission's network, Ben 20 minutes late, Dee's phone captured 8:01 offline and sends it only now; Cy never comes.
+  await h.cmd('clock.in', { commandId: 'ana', capturedAt: min(0) }, ana.cookie, 200, { 'CF-Connecting-IP': '198.51.100.7' })
+  await h.cmd('clock.in', { commandId: 'ben', capturedAt: min(20) }, ben.cookie)
+  const read = async (asOf, cookie = priya.cookie, status = 200) => { const r = await h.send(`/api/lanyard/attendance${asOf ? `?asOf=${asOf}` : ''}`, undefined, cookie); assert.equal(r.status, status, r.text); return r.value.rows }
+  const row = (list, p) => list.find(r => r.staffId === p.id)
+  // Until Dee's phone sends its queued punch, the live board has her as a no-show.
+  assert.deepEqual([row(await read(), dee).status, row(await read(), dee).alert.kind], ['no-show', 'no-show'])
+  await h.cmd('clock.in', { commandId: 'dee', capturedAt: min(1) }, dee.cookie)
+  const early = await read(min(15))
+  assert.deepEqual([row(early, cy).status, row(early, cy).alert.kind, row(early, cy).alert.since], ['missing', 'late', new Date(start + 600000).toISOString()])
+  const half = await read(min(30))
+  assert.deepEqual([ana, ben, cy, dee].map(p => [row(half, p).status, row(half, p).lateMinutes, row(half, p).alert?.kind ?? null]), [['present', 0, null], ['present', 20, null], ['no-show', null, 'no-show'], ['present', 0, null]])
+  // Read as of 8:30, Dee's punch shows it was captured then but received only later.
+  assert.deepEqual([row(half, dee).punch.receivedAfter, row(half, ana).punch.receivedAfter], [true, true])
+  assert.deepEqual([row(half, ana).wrongSite, row(half, ana).punch.seenAt], [true, 'Mission'])
+  const now = await read()
+  assert.deepEqual([row(now, dee).status, row(now, dee).alert, row(now, dee).punch.offlineMinutes >= 58], ['present', null, true])
+  assert.deepEqual([row(now, cy).status, row(now, cy).alert.kind], ['no-show', 'no-show'])
+  // Another cafe's manager sees no rows and cannot act; staff cannot read the board.
+  assert.deepEqual(await read(undefined, omar.cookie), [])
+  await read(undefined, ana.cookie, 403)
+  const cyShift = row(now, cy)
+  await h.cmd('attendance.acknowledge', { shiftId: cyShift.shiftId, note: 'Calling Cy' }, omar.cookie, 403)
+  await h.cmd('attendance.acknowledge', { shiftId: cyShift.shiftId, note: 'Calling Cy' }, priya.cookie)
+  const handled = row((await h.state(priya.cookie)).attendance, cy)
+  assert.deepEqual([handled.alert.kind, handled.alert.acknowledged.map(a => [a.byName, a.note])], ['no-show', [['Priya', 'Calling Cy']]])
+  assert.deepEqual((await h.state(ana.cookie)).attendacks, [])
+  const page = (await h.send('/app/time', undefined, priya.cookie)).text
+  for (const text of ['Live attendance', 'No-show', '20 min late', 'clocked at Mission', 'handled by Priya: “Calling Cy”', 'Find cover']) assert.ok(page.includes(text), text)
+  // Cover: Priya calls out Cy's shift, Eve accepts and is approved. The alert stays open until Eve's clock-in is received.
+  await h.cmd('shift.callout', { id: cyShift.shiftId, revision: cyShift.revision, note: 'No-show: cover needed' }, priya.cookie)
+  const offer = (await h.state(eve.cookie)).offers[0], yes = await h.cmd('cover.respond', { id: offer.id, revision: offer.revision, decision: 'accepted' }, eve.cookie)
+  await h.cmd('cover.approve', { id: yes.id, revision: yes.revision }, priya.cookie)
+  const covered = row(await read(), eve)
+  assert.deepEqual([covered.shiftId, covered.status, covered.alert.kind, covered.alert.acknowledged], [cyShift.shiftId, 'no-show', 'no-show', []])
+  await h.cmd('clock.in', { commandId: 'eve', capturedAt: iso(Date.now() - 1000).replace(/\.\d+Z$/, 'Z') }, eve.cookie)
+  const closed = row(await read(), eve)
+  assert.deepEqual([closed.status, closed.alert, closed.lateMinutes >= 60], ['present', null, true])
+}))
+
 test('SCHEDULE-002: a saved week is applied to a holiday week at the same wall times, a recurring shift skips its exception date, conflicts name the person now on leave, one occurrence is edited and published while earlier weeks stay unchanged', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam'), priya = await h.person('Priya', 'manager')
   for (const p of [alex, sam]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-11T07:00:00Z', end: '2026-12-01T08:00:00Z' })

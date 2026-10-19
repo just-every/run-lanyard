@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- CLOCK-004: managers see a live attendance board (scheduled, present, on break, late, not in, no-show, offline captures, wrong-cafe networks and open conflicts) and per-cafe late and no-show alerts they record handling, call out for cover, and that close only on a received punch or approved time.
 - CLOCK-006: owners set clock-in and clock-out questions (breaks, injury, cash tips, custom yes-no or number) with Spanish text and versioned wording; answers stay on the punch, a missed break or flagged answer opens an exception, an injury a private safety follow-up for the cafe's managers, and declared tips are listed for managers.
 - SCHEDULE-006: managers move, reassign or cancel a published shift with a reason as a new week revision; each shift's history (who, when, why, acknowledgments, notice state) is readable by managers and the employees on it, two revisions compare by person and cafe, and the week's change log exports as CSV.
 - COST-002: managers see each person's in-week overtime projection from recorded time plus remaining shifts, with the premium estimate and substitutes they can give a remaining shift to; pending pickups and swaps show projected overtime before approval.
