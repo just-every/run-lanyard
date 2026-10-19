@@ -86,7 +86,9 @@ test('ROSTER-004: staff see their cafe’s published team by name, position and 
   assert.ok(before.s.team.shifts.every(x => Object.keys(x).sort().join() === 'end,name,position,start'))
   assert.deepEqual(before.s.team.shifts.map(x => x.position), ['Barista', 'Barista', 'Kitchen'])
   // Drafts, wages, contact details, who is hidden and another cafe's shifts stay out of the staff state.
-  for (const secret of [draft.id, sam.email, kim.email, lee.id, lee.email, 'North Park', 'hourlyRateCents', 'rate_cents']) assert.ok(!before.text.includes(secret), secret)
+  for (const secret of [draft.id, sam.email, kim.email, lee.id, lee.email, 'North Park', 'rate_cents']) assert.ok(!before.text.includes(secret), secret)
+  // The only wage a staff state carries is their own (EARN-001), never a coworker's.
+  assert.deepEqual(before.s.staff.map(p => [p.id, p.hourlyRateCents]), [[alex.id, 2100]]); assert.equal(before.text.match(/hourlyRateCents/g).length, 1)
   assert.deepEqual(before.s.teamviews, [])
   assert.deepEqual((await view(lee)).names, ['Lee'])
   const page = await h.send('/app/schedule?week=2026-10-12', undefined, alex.cookie)
