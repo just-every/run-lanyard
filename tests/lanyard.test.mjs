@@ -708,6 +708,45 @@ test('COVER-002: a manager posts an open shift that eligible staff see with thei
   assert.deepEqual((await h.state(jess.cookie)).openshifts.filter(o => o.week === '2027-08-09').map(o => [o.start, o.position, o.status]), [['2027-08-13T14:00:00.000Z', 'Barista', 'open']])
 }))
 
+test('TIME-009: the approval review shows scheduled, captured and payable times, variance, breaks, network, job, cost and the running week; filtering to exceptions lists the early, missed-meal and off-network rows; an edit keeps the captured facts and a send-back returns to the employee', () => run(async h => {
+  const ana = await h.person('Ana'), ben = await h.person('Ben'), cy = await h.person('Cy'), dee = await h.person('Dee'), priya = await h.person('Priya', 'manager')
+  for (const p of [ana, ben, cy, dee]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: 'staff', active: true, position: 'Barista', site: 'Ocean Beach', hourlyRate: '19.00' })
+  await h.cmd('clockrule.save', { site: 'Ocean Beach', position: '', early: 'flag', earlyMinutes: 10, unscheduled: 'allow' })
+  await h.cmd('mealrule.save', { site: 'Ocean Beach', afterMinutes: 360, deductMinutes: 30, enabled: true })
+  await h.cmd('clocknet.save', { site: 'Ocean Beach', mode: 'flag', ranges: '203.0.113.0/24' })
+  for (const p of [ana, ben, cy, dee]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-05T07:00:00Z', end: '2026-10-12T07:00:00Z' })
+  // Tue Oct 6, 2026, 9:00 am – 5:00 pm PDT for all four.
+  const week = await h.cmd('roster.prepare', { week: '2026-10-05', shifts: [ana, ben, cy, dee].map(p => ({ staffId: p.id, start: '2026-10-06T16:00:00Z', end: '2026-10-07T00:00:00Z', breakMinutes: 30 })) })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
+  const day = async (p, inAt, ip, meal) => {
+    await h.cmd('clock.in', { commandId: `${p.name}-in`, capturedAt: inAt }, p.cookie, 200, { 'CF-Connecting-IP': ip })
+    return (await h.cmd('clock.out', { commandId: `${p.name}-out`, capturedAt: '2026-10-07T00:00:00Z', breakMinutes: 0, meal }, p.cookie, 200, { 'CF-Connecting-IP': ip })).timesheet
+  }
+  const early = await day(ana, '2026-10-06T15:35:00Z', '203.0.113.5', 'taken'), missed = await day(ben, '2026-10-06T16:00:00Z', '203.0.113.6', 'missed')
+  const away = await day(cy, '2026-10-06T16:00:00Z', '198.51.100.9', 'taken'), clean = await day(dee, '2026-10-06T16:00:00Z', '203.0.113.7', 'taken')
+  const rows = Object.fromEntries((await h.state(priya.cookie)).timesheets.map(t => [t.id, t.review]))
+  assert.deepEqual(rows[early.id].scheduled, { start: '2026-10-06T16:00:00.000Z', end: '2026-10-07T00:00:00.000Z', minutes: 450 })
+  assert.deepEqual(rows[early.id].variance, { start: -25, end: 0, minutes: 25 })
+  assert.deepEqual([rows[early.id].captured.minutes, rows[early.id].payable.minutes, rows[early.id].roundingMinutes], [475, 475, 0])
+  assert.deepEqual([rows[early.id].costCents, rows[early.id].job, rows[early.id].site, rows[early.id].exceptions], [15042, 'Barista', 'Ocean Beach', ['early clock-in']])
+  assert.deepEqual([rows[missed.id].breaks, rows[missed.id].exceptions, rows[missed.id].week], [{ taken: 0, required: 30 }, ['missed meal'], { week: '2026-10-05', runningMinutes: 480, overtimeMinutes: 0 }])
+  assert.deepEqual([rows[away.id].network, rows[away.id].exceptions], [{ in: { ip: '198.51.100.9', via: null }, out: { ip: '198.51.100.9', via: null } }, ['off-network punch']])
+  assert.deepEqual([rows[clean.id].breaks, rows[clean.id].exceptions], [{ taken: 30, required: 30 }, []])
+  // The exception filter lists exactly the three flagged rows.
+  const page = (await h.send('/app/time?state=exception', undefined, priya.cookie)).text
+  assert.deepEqual([early, missed, away, clean].map(t => page.includes(t.id)), [true, true, true, false])
+  // Edit with a reason keeps the captured facts; send back waits for the employee, who resubmits.
+  await h.cmd('time.edit', { id: missed.id, revision: missed.revision, start: '2026-10-06T16:00:00Z', end: '2026-10-06T23:30:00Z', breakMinutes: 0, reason: 'Left at 4:30 per the closing log' }, ben.cookie, 403)
+  const edited = await h.cmd('time.edit', { id: missed.id, revision: missed.revision, start: '2026-10-06T16:00:00Z', end: '2026-10-06T23:30:00Z', breakMinutes: 0, reason: 'Left at 4:30 per the closing log' }, priya.cookie)
+  assert.deepEqual([edited.minutes, edited.revision, edited.captured.end, edited.captured.minutes, edited.edited.reason], [450, missed.revision + 1, '2026-10-07T00:00:00.000Z', 480, 'Left at 4:30 per the closing log'])
+  const back = await h.cmd('time.return', { id: away.id, revision: away.revision, reason: 'Were you off site at clock-in?' }, priya.cookie)
+  await h.cmd('time.approve', { id: back.id, revision: back.revision }, priya.cookie, 409)
+  assert.equal((await h.state(cy.cookie)).timesheets[0].returned.reason, 'Were you off site at clock-in?')
+  const again = await h.cmd('time.resubmit', { id: back.id, revision: back.revision, note: 'Phone was on cellular data' }, cy.cookie)
+  assert.equal(again.status, 'submitted')
+  await h.cmd('time.approve', { id: again.id, revision: again.revision }, priya.cookie)
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }

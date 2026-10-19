@@ -26,9 +26,10 @@ import {swaps,swapOptions} from './swaps'
 import {closeRules,provisional} from './closerules'
 import {clockNets} from './clocknets'
 import {openShifts,openFor} from './openshifts'
+import {review} from './review'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -98,6 +99,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.swapOptions=a.staffId&&!agent?swapOptions(s,a.staffId,new Date().toISOString()):[]
  // COVER-002: managers read every open shift and request; a person reads the open shifts they may request (with their own rate when visible) and their requests.
  if(!manages){result.openshifts=agent?[]:openFor(s,a.staffId!,earnSettings(s.earnings).estimates);result.pickups=agent?[]:s.pickups.filter(x=>x.staffId===a.staffId)}
+ // TIME-009: managers see each waiting timesheet's approval review.
+ if(manages)result.timesheets=result.timesheets.map((t:any)=>t.status==='submitted'?{...t,review:review(s,t)}:t)
  // TIME-007: each open punch past its point shows its provisional end; the person sees it as their reminder.
  {const now=new Date().toISOString();result.clocks=result.clocks.map((k:any)=>{const mark=provisional(s,k,now);return mark?{...k,provisional:mark}:k})}
  // FEEDBACK-001: each reader's own slice; an anonymous author is never named.

@@ -68,6 +68,26 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   const r=put(c,'timesheets',{staffId,...w,reason,corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now});if(!old)r.rootId=r.id
   return {...r,approvalRequired:'time.approve',approval:{id:r.id,revision:r.revision}}
  }
+ if(name==='time.edit') {
+  // TIME-009: a manager edits waiting time with a reason; the captured facts stay beside it and the revision changes.
+  manager(c.a);keys(p,['id','revision','start','end','breakMinutes','reason']);const r=get(c.s,'timesheets',p.id);exact(r,p);need(r.status==='submitted','Only waiting time can be edited',409);need(r.staffId!==c.a.staffId,'You cannot edit your own time',403)
+  const w=work({start:p.start,end:p.end,breakMinutes:typeof p.breakMinutes==='string'?Number(p.breakMinutes):p.breakMinutes});need(w.end<=c.now,'Time cannot end in the future');clearOverlap(c,r.staffId,w,r.rootId)
+  const captured=r.captured??{start:r.start,end:r.end,breakMinutes:r.breakMinutes,minutes:r.rounding?.capturedMinutes??r.minutes}
+  // Edited time is never rounded (TIME-005): its payable time is the edited time, and no rule rounds it at approval.
+  const {payable,rounding,...rest}=r;return put(c,'timesheets',{...rest,...w,captured,edited:{by:c.a.id,at:c.now,reason:text(p.reason,'reason',500)}},r)
+ }
+ if(name==='time.return') {
+  // TIME-009: send waiting time back to the employee with a reason; it waits for them, not for approval.
+  manager(c.a);keys(p,['id','revision','reason']);const r=get(c.s,'timesheets',p.id);exact(r,p);need(r.status==='submitted','Only waiting time can be sent back',409);need(r.staffId!==c.a.staffId,'You cannot send back your own time',403)
+  return put(c,'timesheets',{...r,status:'returned',returned:{by:c.a.id,at:c.now,reason:text(p.reason,'reason',500)}},r)
+ }
+ if(name==='time.resubmit') {
+  // The employee answers a send-back: the same times, or corrected ones with a note; the captured facts stay.
+  keys(p,['id','revision','start','end','breakMinutes','note']);const r=get(c.s,'timesheets',p.id);exact(r,p);need(r.staffId===self(c.a),'Only your own time',403);need(r.status==='returned','This time was not sent back to you',409)
+  const w=p.start===undefined?{start:r.start,end:r.end,breakMinutes:r.breakMinutes,minutes:r.minutes}:work({start:p.start,end:p.end,breakMinutes:typeof p.breakMinutes==='string'?Number(p.breakMinutes):p.breakMinutes});need(w.end<=c.now,'Time cannot end in the future');clearOverlap(c,r.staffId,w,r.rootId)
+  const captured=r.captured??{start:r.start,end:r.end,breakMinutes:r.breakMinutes,minutes:r.rounding?.capturedMinutes??r.minutes},changed=w.start!==r.start||w.end!==r.end||w.breakMinutes!==r.breakMinutes
+  const {payable,rounding,...rest}=r;return put(c,'timesheets',{...(changed?rest:r),...w,...(changed?{captured}:{}),status:'submitted',resubmitted:{at:c.now,note:text(p.note,'note',500,true)}},r)
+ }
  if(name==='time.approve') {
   manager(c.a);keys(p,['id','revision']);const r=get(c.s,'timesheets',p.id);exact(r,p);return approve(c,r)
  }

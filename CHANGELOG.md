@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- TIME-009: the approval list shows each waiting timesheet's scheduled, captured and payable times, variance, breaks, network, job, cost and running week; approvers edit with a reason or send time back to the employee.
 - COVER-002: managers post open shifts to eligible staff or a pool with approved pickup or manager approval; one approval assigns the shift and closes the other requests; template position-only rows post as open shifts.
 - CLOCK-007: owners limit a cafe's clock-in and clock-out to approved IP ranges or enrolled store browsers, refusing or flagging other networks; each punch records only its network address and which approval matched.
 - TIME-007: owners set a clock-out reminder and longest punch per cafe; a forgotten clock-out stops counting at the scheduled end (or the cap), is held from approval and payroll, and is confirmed or corrected by the employee or a manager.

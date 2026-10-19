@@ -21,6 +21,8 @@ const human = [
  ['clock.in','Linked staff','commandId, capturedAt'],
  ['clock.out','Linked staff','commandId, capturedAt, breakMinutes'],
  ['time.approve','Manager','id, revision; another person’s submitted time'],
+ ['time.edit / time.return','Manager','id, revision, reason; edit adds start, end, breakMinutes (captured times are kept)'],
+ ['time.resubmit','Linked staff','id, revision, note?; start, end, breakMinutes to correct time sent back to you'],
  ['time.confirm','Linked staff or manager','id, revision (open clock), end, breakMinutes, reason?: confirm or correct a provisionally closed punch'],
  ['closerule.save','Owner','site, graceMinutes (0–240), capHours (1–24); revision when editing'],
  ['openshift.post','Manager','site, position?, start, end, breakMinutes, label?, approval (auto or manager), pool?: staff IDs'],
