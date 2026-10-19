@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- TIME-007: owners set a clock-out reminder and longest punch per cafe; a forgotten clock-out stops counting at the scheduled end (or the cap), is held from approval and payroll, and is confirmed or corrected by the employee or a manager.
 - COVER-001: staff offer a shift to an eligible coworker or propose an exchange; the coworker agrees and a manager of the shift's cafe approves, with every check rerun and overtime shown first.
 - AVAIL-001: weekly availability patterns with available, preferred and unavailable blocks, effective dates, one-off dates and weekly hours, optional manager approval, and collision lists.
 - SCHEDULE-002: managers copy days between weeks, save and apply week templates and add recurring shifts with end dates and skipped dates, each as a rechecked draft.

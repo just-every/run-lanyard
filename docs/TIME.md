@@ -45,3 +45,9 @@ On the latest approved entry, open **Correct**. Enter the corrected full work pe
 The correction needs its own approval. After approval, the earlier entry remains in history as superseded. Only one correction can be prepared against a revision; review an existing correction before preparing further changes.
 
 If the old hours have already been exported, the next payroll export carries only the signed difference. For example, a correction from 480 to 450 approved minutes produces a difference of −30 minutes. Read [Payroll exports](PAYROLL.md) before sending a correction to your provider.
+
+## Forgotten clock-outs
+
+On **People**, the owner sets each cafe's clock-out rule: how many minutes after the scheduled end to remind, and the longest a punch may stay open. A punch still open at that point stops counting at the scheduled end (or at the longest punch when there was no shift), shows a reminder on the employee's **Time** screen and appears under **Provisionally closed** for managers. The reminder is shown in Lanyard only; no push or text message is sent.
+
+The employee or a manager confirms the end or enters the real one. That submits the time flagged as a provisional close, so bulk approval skips it and a manager approves it on its own. Until then the punch is held out of payroll.

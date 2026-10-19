@@ -1,6 +1,7 @@
 // Willow payroll's reviewed file + immutable SHA + unique source claims.
 // Each correction exports only the signed difference from prior claimed time.
 import {type Context,type Row,keys,text,need,prepare,manager,staff,get,exact,put,sha} from './model'
+import {provisional} from './closerules'
 function cell(value:unknown,numeric=false) { let s=String(value??'');if(!numeric&&/^[\s]*[=+\-@\t\r]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s }
 export function csv(lines:Row[]|any[]) {
  return 'payroll_id,time_id,revision,start_utc,end_utc,minutes,hours,corrects\r\n'+lines.map(l=>[cell(l.payrollId),cell(l.timeId),cell(l.revision,true),cell(l.start),cell(l.end),cell(l.minutes,true),cell((l.minutes/60).toFixed(4),true),cell(l.corrects)].join(',')).join('\r\n')+'\r\n'
@@ -11,9 +12,11 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
   const ids=p.ids?.map((v:unknown)=>text(v,'time ID'));if(ids)need(new Set(ids).size===ids.length,'Duplicate timesheet IDs')
   const available=c.s.timesheets.filter(t=>t.status==='approved'&&!c.s.claims.some(cl=>cl.time_id===t.id&&cl.time_revision===t.revision))
   const selected=ids?ids.map((id:string)=>{const t=available.find(r=>r.id===id);need(t,'Selected time is not approved or is already exported',409);return t}):available
-  need(selected.length>0&&selected.length<=500,'No approved unexported time, or too many entries',409)
+  // TIME-007: a provisionally closed punch is never exported; it is listed as held until confirmed or corrected and approved.
+  const held=c.s.clocks.filter(k=>provisional(c.s,k,c.now)).map(k=>({clockId:k.id,staffId:k.staffId,start:k.start,reason:'provisional close'}))
+  need(selected.length>0&&selected.length<=500,`No approved unexported time, or too many entries${held.length?`; ${held.length} provisionally closed punch${held.length===1?'':'es'} held until confirmed`:''}`,409)
   const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).map((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);return {timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,minutes:t.exportMinutes,corrects:t.corrects,rootId:t.rootId}})
-  const r=put(c,'batches',{status:'draft',lines,csvPreview:csv(lines),preparedBy:c.a.id,preparedAt:c.now})
+  const r=put(c,'batches',{status:'draft',lines,held,csvPreview:csv(lines),preparedBy:c.a.id,preparedAt:c.now})
   return {...r,approvalRequired:'payroll.export',approval:{id:r.id,revision:r.revision}}
  }
  if(name==='payroll.export') {

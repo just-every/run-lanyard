@@ -3,6 +3,7 @@
 import {checkClockIn} from './clockrules'
 import {mealAtClockOut} from './mealrules'
 import {roundAtCapture,roundAtApproval} from './rounding'
+import {provisional} from './closerules'
 import {type Context,type Row,keys,text,need,self,staff,instant,integer,work,prepare,manager,get,exact,put,overlap} from './model'
 function clearOverlap(c:Context,staffId:string,w:Record<string,any>,rootId?:string) {
  need(!c.s.timesheets.some(t=>t.staffId===staffId&&t.status!=='superseded'&&t.rootId!==rootId&&overlap(t,w)),'Time overlaps another submitted or approved entry',409)
@@ -16,6 +17,15 @@ export function approve(c:Context,submitted:Row) {
  const exported=c.s.claims.filter(cl=>cl.root_id===r.rootId).reduce((n,cl)=>n+cl.minutes,0)
  return put(c,'timesheets',{...r,status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now},r)
 }
+/** Ends an open clock at `at` and submits its timesheet (BREAK-002 meal answer, TIME-005 rounding, flags kept). */
+function closeClock(c:Context,open:Row,at:string,breakMinutes:number,meal:unknown,reason:string,extra:Record<string,any>={}) {
+ // BREAK-002: a cafe's automatic meal deduction, confirmed, reported missed or left unconfirmed by the employee.
+ const m=mealAtClockOut(c.s,open,at,breakMinutes,meal,c.now),flags=[...(open.exceptions??[]),...m.exceptions,...(extra.provisional?['provisional close']:[])]
+ const w=work({start:open.start,end:at,breakMinutes:m.breakMinutes});clearOverlap(c,open.staffId,w)
+ const entry=put(c,'timesheets',{staffId:open.staffId,...w,...roundAtCapture(c.s,open,at,w.breakMinutes,w.minutes),status:'submitted',reason,corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(flags.length?{exceptions:flags}:{}),...(m.deduction?{mealDeduction:m.deduction}:{}),...extra});entry.rootId=entry.id
+ const clock=put(c,'clocks',{...open,end:at,status:'closed',timesheetId:entry.id,closedReceivedAt:c.now,...extra},open);c.entity=entry.id
+ return {clock,timesheet:entry}
+}
 export function time(c:Context,name:string,p:Record<string,any>) {
  if(name==='clock.in'||name==='clock.out') {
   keys(p,name==='clock.in'?['commandId','capturedAt']:['commandId','capturedAt','breakMinutes','meal']);const staffId=self(c.a),at=instant(p.capturedAt,'capturedAt');need(Date.parse(at)<=Date.parse(c.now)+60000,'Clock capture cannot be in the future')
@@ -28,12 +38,18 @@ export function time(c:Context,name:string,p:Record<string,any>) {
    return put(c,'clocks',{staffId,start:at,end:null,status:'open',capturedBy:c.a.id,receivedAt:c.now,shiftId:check.shiftId,...(check.exceptions.length?{exceptions:check.exceptions}:{})})
   }
   need(open,'No open clock to stop',409)
-  // BREAK-002: a cafe's automatic meal deduction, confirmed, reported missed or left unconfirmed by the employee.
-  const meal=mealAtClockOut(c.s,open,at,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,c.now),flags=[...(open.exceptions??[]),...meal.exceptions]
-  const w=work({start:open.start,end:at,breakMinutes:meal.breakMinutes});clearOverlap(c,staffId,w)
-  const entry=put(c,'timesheets',{staffId,...w,...roundAtCapture(c.s,open,at,w.breakMinutes,w.minutes),status:'submitted',reason:'Phone clock',corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(flags.length?{exceptions:flags}:{}),...(meal.deduction?{mealDeduction:meal.deduction}:{})});entry.rootId=entry.id
-  const clock=put(c,'clocks',{...open,end:at,status:'closed',timesheetId:entry.id,closedReceivedAt:c.now},open);c.entity=entry.id
-  return {clock,timesheet:entry}
+  // TIME-007: a clock-out captured after the provisional close cannot end the punch; its end is confirmed or corrected instead.
+  need(!provisional(c.s,open,at),'Your clock was provisionally closed; confirm or correct your end time',409)
+  return closeClock(c,open,at,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,'Phone clock')
+ }
+ if(name==='time.confirm') {
+  // TIME-007: the person or a manager confirms or corrects a provisionally closed punch; the result is submitted time flagged "provisional close".
+  keys(p,['id','revision','end','breakMinutes','meal','reason']);need(c.a.role!=='agent','Staff or manager required',403);const open=get(c.s,'clocks',p.id);exact(open,p)
+  if(c.a.role!=='owner'&&c.a.role!=='manager')need(open.staffId===self(c.a),'Only your own clock',403)
+  const mark=provisional(c.s,open,c.now);need(mark,'This clock is not provisionally closed',409)
+  const end=instant(p.end,'end');need(end<=c.now,'Time cannot end in the future')
+  const reason=text(p.reason,'reason',500,true)||(end===mark.end?'Confirmed after provisional close':'Corrected after provisional close')
+  return closeClock(c,open,end,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,reason,{provisional:{end:mark.end,due:mark.due,confirmedBy:c.a.id}})
  }
  if(name==='time.prepare') {
   prepare(c.a);keys(p,['staffId','start','end','breakMinutes','reason','corrects']);const staffId=staff(c,p.staffId).id,w=work(p);need(w.end<=c.now,'Time cannot end in the future');const reason=text(p.reason,'reason',500)

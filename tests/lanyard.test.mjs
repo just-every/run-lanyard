@@ -582,6 +582,49 @@ test('COVER-001: staff propose a two-person exchange, the coworker consents and 
   assert.ok((await h.state(priya.cookie)).events.some(e => e.action === 'swap.decide' && e.entityId === agreed.id && e.actorRole === 'manager'))
 }))
 
+test('TIME-007: a forgotten 9-to-5 clock-out is reminded at 5:15 and provisionally closed at 5:00, held from payroll and bulk approval until the employee corrects it; an unscheduled punch stops at the 12-hour cap', () => run(async h => {
+  const jess = await h.person('Jess'), andrea = await h.person('Andrea'), luis = await h.person('Luis'), priya = await h.person('Priya', 'manager')
+  await h.cmd('closerule.save', { site: '', graceMinutes: 15, capHours: 12 }, priya.cookie, 403)
+  await h.cmd('closerule.save', { site: '', graceMinutes: 15, capHours: 12 })
+  // Mon Oct 12, 2026, 9:00 am – 5:00 pm PDT.
+  await h.cmd('availability.save', { staffId: jess.id, start: '2026-10-12T07:00:00Z', end: '2026-10-19T07:00:00Z' })
+  const week = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [{ staffId: jess.id, start: '2026-10-12T16:00:00Z', end: '2026-10-13T00:00:00Z', breakMinutes: 0 }] })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
+  await h.cmd('clock.in', { commandId: 'jess-in', capturedAt: '2026-10-12T15:58:00Z' }, jess.cookie)
+  // Wed Oct 14, 8:00 am PDT, with no shift.
+  await h.cmd('clock.in', { commandId: 'andrea-in', capturedAt: '2026-10-14T15:00:00Z' }, andrea.cookie)
+  const mine = (await h.state(jess.cookie)).clocks[0]
+  assert.equal(mine.status, 'open')
+  assert.deepEqual(mine.provisional, { end: '2026-10-13T00:00:00.000Z', due: '2026-10-13T00:15:00.000Z', scheduled: true })
+  const capped = (await h.state(priya.cookie)).clocks.find(k => k.staffId === andrea.id)
+  assert.deepEqual(capped.provisional, { end: '2026-10-15T03:00:00.000Z', due: '2026-10-15T03:00:00.000Z', scheduled: false })
+  assert.match((await h.send('/app/time', undefined, jess.cookie)).text, /name=time\.confirm/)
+  // A late clock-out cannot end it, and nothing is approvable or exportable yet.
+  await h.cmd('clock.out', { commandId: 'jess-out', capturedAt: new Date(Date.now() - 1000).toISOString().replace(/\.\d+Z$/, 'Z'), breakMinutes: 0 }, jess.cookie, 409)
+  assert.equal((await h.state(priya.cookie)).timesheets.length, 0)
+  await h.cmd('payroll.prepare', {}, priya.cookie, 409)
+  const other = await h.cmd('time.prepare', { staffId: luis.id, start: '2026-10-13T16:00:00Z', end: '2026-10-13T20:00:00Z', breakMinutes: 0, reason: 'Paper sheet' }, priya.cookie)
+  await h.cmd('time.approve', { id: other.id, revision: other.revision })
+  const draft = await h.cmd('payroll.prepare', {}, priya.cookie)
+  assert.deepEqual(draft.lines.map(l => l.staffId), [luis.id])
+  assert.deepEqual(draft.held.map(x => [x.clockId, x.reason]).sort(), [[capped.id, 'provisional close'], [mine.id, 'provisional close']].sort())
+  // The employee corrects the end to 5:30 pm; a manager confirms Andrea's capped punch.
+  await h.cmd('time.confirm', { id: mine.id, revision: mine.revision, end: '2026-10-13T00:30:00Z', breakMinutes: 0 }, andrea.cookie, 403)
+  const { timesheet, clock } = await h.cmd('time.confirm', { id: mine.id, revision: mine.revision, end: '2026-10-13T00:30:00Z', breakMinutes: 0, reason: 'Stayed to close' }, jess.cookie)
+  assert.equal(timesheet.minutes, 512); assert.deepEqual(timesheet.exceptions, ['provisional close']); assert.equal(timesheet.provisional.end, '2026-10-13T00:00:00.000Z')
+  assert.equal(clock.start, '2026-10-12T15:58:00.000Z'); assert.equal(clock.provisional.due, '2026-10-13T00:15:00.000Z')
+  const confirmed = await h.cmd('time.confirm', { id: capped.id, revision: capped.revision, end: capped.provisional.end, breakMinutes: 30 }, priya.cookie)
+  assert.deepEqual(confirmed.timesheet.exceptions, ['provisional close'])
+  // TIME-008 bulk approval skips both with the exception named; a single approval decides each.
+  const bulk = await h.cmd('time.approveMany', { items: [timesheet, confirmed.timesheet].map(t => ({ id: t.id, revision: t.revision })) }, priya.cookie)
+  assert.deepEqual(bulk.approved, []); assert.deepEqual(bulk.skipped.map(x => x.reason), ['Exception: provisional close', 'Exception: provisional close'])
+  const approved = await h.cmd('time.approve', { id: timesheet.id, revision: timesheet.revision }, priya.cookie)
+  const batch = await h.cmd('payroll.prepare', { ids: [approved.id] }, priya.cookie)
+  assert.deepEqual(batch.held, [])
+  const exported = await h.cmd('payroll.export', { id: batch.id, revision: batch.revision }, priya.cookie)
+  assert.match(exported.csvPreview, /,512,8\.5333,/)
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }
