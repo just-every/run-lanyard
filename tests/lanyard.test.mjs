@@ -1475,3 +1475,43 @@ test('SALES-001: two weeks of hourly sales by CSV and one day by hand, labelled 
   assert.deepEqual([(await h.state(alex.cookie)).sales, (await h.state(omar.cookie)).sales], [[], []])
   assert.equal((await read(h.owner, 'week=2026-09-28&site=Ocean%20Beach')).entered.salesCents, 7 * 80000)
 }))
+
+test('REPORT-003: a day of hourly sales with scheduled and actual hours at two cafes gives labor percentage and sales per labor hour by interval and position matching hand figures; a dinner target flags the exceeded intervals; hours without sales are incomplete; each cafe reads only its own', () => run(async h => {
+  const [alex, ben, mo] = [await h.person('Alex'), await h.person('Ben'), await h.person('Mo')], priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager')
+  const place = (p, site, position, hourlyRate) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position, site, hourlyRate })
+  await place(alex, 'Ocean Beach', 'Barista', '20.00'); await place(ben, 'Ocean Beach', 'Kitchen', '24.00'); await place(mo, 'Mission', 'Barista', '18.00'); await place(priya, 'Ocean Beach', 'Manager', '30.00'); await place(omar, 'Mission', 'Manager', '30.00')
+  // Mon Oct 5, 2026 (PDT): Alex 4–9 pm, Ben 5–8 pm at Ocean Beach; Mo 9–11 am at Mission. Ben actually stays until 8:30.
+  const pdt = (d, hh, mm = 0) => new Date(Date.UTC(2026, 9, d, hh + 7, mm)).toISOString().replace('.000Z', 'Z')
+  for (const p of [alex, ben, mo]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-05T07:00:00Z', end: '2026-10-12T07:00:00Z' })
+  const week = await h.cmd('roster.prepare', { week: '2026-10-05', shifts: [{ staffId: alex.id, start: pdt(5, 16), end: pdt(5, 21), breakMinutes: 0 }, { staffId: ben.id, start: pdt(5, 17), end: pdt(5, 20), breakMinutes: 0 }, { staffId: mo.id, start: pdt(5, 9), end: pdt(5, 11), breakMinutes: 0 }] })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
+  for (const [p, a, b] of [[alex, pdt(5, 16), pdt(5, 21)], [ben, pdt(5, 17), pdt(5, 20, 30)]]) await h.cmd('time.prepare', { staffId: p.id, start: a, end: b, breakMinutes: 0, reason: 'Paper sheet' }, priya.cookie)
+  for (const [hour, value] of [[17, '400'], [18, '600'], [19, '500'], [20, '200']]) await h.cmd('sales.save', { site: 'Ocean Beach', date: '2026-10-05', hour, metric: 'sales', value }, priya.cookie)
+  await h.cmd('sales.save', { site: 'Mission', date: '2026-10-05', hour: 9, metric: 'sales', value: '150' }, omar.cookie)
+  // Dinner 5–9 pm at a 9% target.
+  await h.cmd('daypart.save', { site: 'Ocean Beach', name: 'Dinner', start: '17:00', end: '21:00', targetPercent: '9' }, omar.cookie, 403)
+  await h.cmd('daypart.save', { site: 'Ocean Beach', name: 'Dinner', start: '17:00', end: '21:00', targetPercent: '9' }, priya.cookie)
+  await h.cmd('daypart.save', { site: 'Ocean Beach', name: 'Late', start: '20:00', end: '22:00', targetPercent: '12' }, priya.cookie, 409)
+  const read = async (cookie, query, status = 200) => { const r = await h.send(`/api/lanyard/intervals?${query}`, undefined, cookie); assert.equal(r.status, status, r.text); return r.value }
+  const ob = await read(priya.cookie, 'date=2026-10-05&size=60')
+  const row = (r, time) => r.intervals.find(x => x.time === time)
+  // 4 pm: Alex's hour ($20.00) with no sales: incomplete, never zero.
+  assert.deepEqual([row(ob, '16:00').incomplete, row(ob, '16:00').salesCents, row(ob, '16:00').actual.cents, row(ob, '16:00').actual.laborPercent], [true, null, 2000, null])
+  // 5 pm: $400 against Alex + Ben ($20 + $24 = $44.00): 11.0%, $200.00 per labor hour, over the 9% dinner target.
+  // 6 pm: $600, 7.3%; 7 pm: $500, 8.8%; 8 pm: $200 against scheduled Alex ($20, 10.0%) and actual Alex + Ben's half hour ($32, 16.0%).
+  assert.deepEqual(['17:00', '18:00', '19:00', '20:00'].map(t => { const x = row(ob, t); return [t, x.salesCents, x.scheduled.cents, x.scheduled.laborPercent, x.actual.minutes, x.actual.cents, x.actual.laborPercent, x.actual.salesPerLaborHour, x.exceeded] }),
+    [['17:00', 40000, 4400, 11, 120, 4400, 11, 20000, true], ['18:00', 60000, 4400, 7.3, 120, 4400, 7.3, 30000, false], ['19:00', 50000, 4400, 8.8, 120, 4400, 8.8, 25000, false], ['20:00', 20000, 2000, 10, 90, 3200, 16, 13333, true]])
+  assert.deepEqual([row(ob, '17:00').actual.byPosition, row(ob, '17:00').daypart, row(ob, '21:00').scheduled.minutes], [{ Barista: { minutes: 60, cents: 2000 }, Kitchen: { minutes: 60, cents: 2400 } }, { name: 'Dinner', targetPercent: 9 }, 0])
+  // Half hours take half the hour's sales, labelled as split.
+  const half = row(await read(priya.cookie, 'date=2026-10-05&size=30'), '17:30')
+  assert.deepEqual([half.salesCents, half.salesBasis, half.actual.cents, half.actual.laborPercent], [20000, 'hourly sales split evenly', 2200, 11])
+  assert.equal((await read(priya.cookie, 'date=2026-10-05&size=15')).intervals.length, 96)
+  // Mission: Mo's scheduled $18.00 hour against $150: 12.0% (nothing worked yet: 0.0%); 10 am has no sales. Omar reads only Mission whatever is asked; the owner picks.
+  const mission = await read(omar.cookie, 'site=Ocean%20Beach&date=2026-10-05&size=60')
+  assert.deepEqual([mission.site, row(mission, '09:00').actual.laborPercent, row(mission, '09:00').scheduled.laborPercent, row(mission, '10:00').incomplete, mission.dayparts], ['Mission', 0, 12, true, []])
+  assert.equal(row(await read(h.owner, 'site=Ocean%20Beach&date=2026-10-05&size=60'), '20:00').actual.laborPercent, 16)
+  await read(alex.cookie, 'date=2026-10-05&size=60', 403)
+  await read(priya.cookie, 'date=2026-10-05&size=20', 400)
+  const page = (await h.send('/app/intervals?site=Ocean%20Beach&date=2026-10-05&size=60', undefined, priya.cookie)).text
+  for (const part of ['id="intervals"', '2 over target', 'incomplete', '16.0%', 'Dinner 9.0%']) assert.ok(page.includes(part), part)
+}))

@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { attendanceBoard, batchCsv, command, contactRead, dashboardRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { attendanceBoard, batchCsv, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -101,6 +101,10 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/state' || path === '/api/lanyard/agent/context') return json(await state(env, who))
       const file = path.match(/^\/api\/lanyard\/batches\/([\w-]+)\.csv$/)
       if (file) return new Response(await batchCsv(env.DB, who, file[1]), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-${file[1]}.csv"` } })
+      if (path === '/api/lanyard/intervals' || path === '/app/intervals') {
+        const report = await intervalsRead(env.DB, who, url.searchParams.get('site') ?? '', url.searchParams.get('date') ?? '', Number(url.searchParams.get('size') ?? 60))
+        return path === '/app/intervals' ? renderApp(await state(env, who), path + url.search, { result: { report } }) : json(report)
+      }
       if (path === '/api/lanyard/sales') return json(await salesRead(env.DB, who, url.searchParams.get('week') ?? '', url.searchParams.get('site') ?? ''))
       if (path === '/api/lanyard/dashboard') return json(await dashboardRead(env.DB, who, url.searchParams.get('asOf') ?? new Date().toISOString().replace(/\.\d+Z$/, 'Z'), url.searchParams.get('site') ?? ''))
       if (path === '/api/lanyard/logbook') return json(await logbookRead(env.DB, who, 'search', '', { site: url.searchParams.get('site') ?? '', category: url.searchParams.get('category') ?? '', month: url.searchParams.get('month') ?? '' }))
