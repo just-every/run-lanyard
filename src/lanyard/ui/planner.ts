@@ -3,6 +3,7 @@
 import {h,rows,manager,self,form,field,hidden,utc,exact,staffSelect,disclosure,card,status,empty,person,venue} from './shared'
 import {type Week} from './week'
 import {day,dollars,wallInput,when,weekday,zoneTime} from './format'
+import {whoIsWorking} from './team'
 
 const range=(r:any,tz:string)=>`${h(when(r.start,tz))} – ${h(when(r.end,tz))}`
 /** One shift as editable fields; the browser serializes every row into the hidden `shifts` field. */
@@ -40,5 +41,5 @@ function mine(s:any,back:string) {
  return card('My availability and time off',body)
 }
 export function planner(s:any,w:Week,back:string) {
- return [self(s)?mine(s,back):'',manager(s)?build(s,w,back)+forecastCard(s,w,back):'',timeOff(s,back),availability(s,back)].join('')
+ return [manager(s)?'':whoIsWorking(s,w),self(s)?mine(s,back):'',manager(s)?build(s,w,back)+forecastCard(s,w,back):'',timeOff(s,back),availability(s,back)].join('')
 }

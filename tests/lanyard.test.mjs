@@ -70,6 +70,43 @@ test('a call-out is offered to qualified teammates within overtime, and a manage
   assert.equal(old.status, 301); assert.equal(old.headers.get('location'), '/app/schedule?week=2026-10-19')
 }))
 
+test('ROSTER-004: staff see their cafe’s published team by name, position and times only; a manager narrows a cafe to own position and hides a person', () => run(async h => {
+  const place = (p, site, position) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position, site, hourlyRate: '21.00' })
+  const alex = await h.person('Alex'), sam = await h.person('Sam'), kim = await h.person('Kim'), lee = await h.person('Lee'), manager = await h.person('Priya', 'manager')
+  await place(alex, 'Ocean Beach', 'Barista'); await place(sam, 'Ocean Beach', 'Barista'); await place(kim, 'Ocean Beach', 'Kitchen'); await place(lee, 'North Park', 'Barista')
+  for (const p of [alex, sam, kim, lee]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' })
+  // Mon Alex, Tue Sam, Wed Kim at Ocean Beach; Mon Lee at North Park. Next week's Sam shift stays a draft.
+  const on = (p, d) => ({ ...shift(p.id), start: `2026-10-${d}T14:00:00Z`, end: `2026-10-${d}T22:00:00Z` })
+  const week = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [on(alex, 12), on(sam, 13), on(kim, 14), on(lee, 12)] })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, manager.cookie)
+  const draft = await h.cmd('roster.prepare', { week: '2026-10-19', shifts: [on(sam, 20)] })
+  const view = async p => { const s = await h.state(p.cookie); return { s, text: JSON.stringify(s), names: s.team.shifts.map(x => x.name) } }
+  const before = await view(alex)
+  assert.equal(before.s.team.scope, 'site'); assert.deepEqual(before.names, ['Alex', 'Sam', 'Kim'])
+  assert.ok(before.s.team.shifts.every(x => Object.keys(x).sort().join() === 'end,name,position,start'))
+  assert.deepEqual(before.s.team.shifts.map(x => x.position), ['Barista', 'Barista', 'Kitchen'])
+  // Drafts, wages, contact details, who is hidden and another cafe's shifts stay out of the staff state.
+  for (const secret of [draft.id, sam.email, kim.email, lee.id, lee.email, 'North Park', 'hourlyRateCents', 'rate_cents']) assert.ok(!before.text.includes(secret), secret)
+  assert.deepEqual(before.s.teamviews, [])
+  assert.deepEqual((await view(lee)).names, ['Lee'])
+  const page = await h.send('/app/schedule?week=2026-10-12', undefined, alex.cookie)
+  assert.match(page.text, /Who’s working/); assert.match(page.text, /Kim/); assert.ok(!page.text.includes(lee.email))
+  // Staff cannot change it; a manager narrows Ocean Beach to own position and hides Sam through the People form.
+  await h.cmd('team.visibility', { site: 'Ocean Beach', scope: 'position' }, alex.cookie, 403)
+  const form = await h.mf.dispatchFetch(h.origin + '/app/action?name=team.visibility&returnTo=%2Fapp%2Fpeople', { method: 'POST', headers: { origin: h.origin, cookie: manager.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams([['site', 'Ocean Beach'], ['scope', 'position'], ['hidden', sam.id]]).toString(), redirect: 'manual' })
+  assert.equal(form.status, 200); assert.match(await form.text(), /Saved\./)
+  const rule = (await h.state(manager.cookie)).teamviews.find(v => v.site === 'Ocean Beach')
+  assert.deepEqual([rule.scope, rule.hidden], ['position', [sam.id]])
+  await h.cmd('team.visibility', { site: 'Ocean Beach', scope: 'site', revision: rule.revision + 1 }, manager.cookie, 409)
+  const people = await h.send('/app/people?site=Ocean%20Beach', undefined, manager.cookie)
+  assert.match(people.text, new RegExp(`value="${sam.id}" checked`))
+  const after = await view(alex)
+  assert.equal(after.s.team.scope, 'position'); assert.deepEqual(after.names, ['Alex'])
+  assert.deepEqual((await view(kim)).names, ['Kim'])
+  assert.deepEqual((await view(sam)).names, ['Alex'])
+  assert.deepEqual((await view(lee)).names, ['Lee'])
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }

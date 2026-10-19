@@ -40,6 +40,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   if (!request.headers.get('content-type')?.includes('application/x-www-form-urlencoded')) fail('Use JSON or a form', 415)
   const params = new URLSearchParams(raw), input: Record<string, unknown> = Object.fromEntries(params)
   if (params.has('days')) input.days = params.getAll('days')
+  if (params.has('hidden')) input.hidden = params.getAll('hidden')
   for (const key of ['revision', 'breakMinutes']) if (key in input) input[key] = Number(input[key])
   for (const key of ['shifts', 'ids']) if (input[key]) { try { input[key] = JSON.parse(String(input[key])) } catch { fail(`Invalid ${key}`) } }
   if ('active' in input) input.active = input.active === 'on' || input.active === 'true' || input.active === '1'

@@ -39,6 +39,12 @@ Publishing a replacement week supersedes the earlier published schedule and its 
 
 Staff open **Schedule**, select one of their published shifts and choose **Confirm shift**. A draft does not ask staff to confirm; publish first.
 
+## Who's working
+
+Staff see **Who's working** under their week: every published shift at their home cafe that week, as each coworker's name, position and start and end time, so they can arrange swaps and handovers. They never see drafts, pay, contact details or another cafe.
+
+In **People**, an owner or manager sets each cafe's **Staff team view**: everyone published at that cafe (the default) or only people in the viewer's own position. Tick **Hide** beside a person to keep them out of every staff team view for safety; staff are not told who is hidden, and the hidden person's own schedule is unchanged.
+
 ## When someone calls out
 
 Anyone who cannot make a published shift selects it and chooses **I can't make this shift**, with an optional note. A manager who takes the call can do the same for them with **Record a call-out**.
