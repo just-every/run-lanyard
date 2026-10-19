@@ -3,7 +3,8 @@
 // offer log. A per-cafe access-to-hours rule (San Jose, Seattle, San Francisco, New York City) flags
 // a person added at that cafe while its open hours are still owed to existing part-time staff.
 import {type Context,type Row,type State,keys,text,integer,need,put,staff} from './model'
-import {patternFit} from './patterns'
+import {patternFit,patternOn} from './patterns'
+import {localDate} from './settings'
 
 export const RULES=['parttime','preferred','fewest','seniority','custom']
 export const TYPES=['full-time','part-time']
@@ -13,14 +14,15 @@ export type Tier={staffIds:string[];opensAt:string}
 export const employmentOf=(s:State,staffId:string)=>s.employment.find(r=>r.staffId===staffId)
 /**
  * People ranked by a rule, ties by fewest published minutes that week, then name.
- * parttime: part-time first, then employment type not set, then full-time.
+ * parttime: part-time staff who want more hours (their AVAIL-001 pattern's preferred weekly hours exceed
+ * their published hours that week) first, then other part-time staff, then employment type not set, then full-time.
  * preferred: an AVAIL-001 pattern marking the whole shift preferred first.
  * seniority: earliest start date first; no start date last. custom: the manager's list order; unlisted last.
  */
 export function rank(s:State,list:Ranked[],shift:Row,rule:string,ranking:string[]=[]) {
  const name=(id:string)=>s.staff.find(p=>p.id===id)?.name??''
  const key=(f:Ranked):number|string=>{const e=employmentOf(s,f.staffId)
-  if(rule==='parttime')return e?.type==='part-time'?0:e?.type==='full-time'?2:1
+  if(rule==='parttime'){const want=patternOn(s,f.staffId,localDate(shift.start,s.timezone))?.preferredHours;return e?.type==='part-time'?(typeof want==='number'&&f.before<want*60?0:1):e?.type==='full-time'?3:2}
   if(rule==='preferred')return patternFit(s,f.staffId,shift)?.preferred?0:1
   if(rule==='seniority')return e?.startDate||'9999-12-31'
   if(rule==='custom'){const i=ranking.indexOf(f.staffId);return i<0?ranking.length:i}

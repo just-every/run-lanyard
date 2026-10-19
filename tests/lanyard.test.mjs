@@ -968,9 +968,10 @@ test('COVER-004: a two-tier open shift by part-time priority: tier two waits, ti
   const at = d => ({ start: `2027-09-${d}T15:00:00Z`, end: `2027-09-${d}T23:00:00Z`, breakMinutes: 30 })
   const week = await h.cmd('roster.prepare', { week: '2027-09-06', shifts: [{ staffId: ana.id, ...at('06') }] })
   await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
-  // Part-time first (fewest hours, then name), then employment type not set, then full-time; tiers of two a minute apart.
+  // Ana's pattern asks for 30 hours a week: part-time wanting more hours first, then part-time, then type not set, then full-time; tiers of two a minute apart.
+  await h.cmd('pattern.save', { staffId: ana.id, from: '2027-09-01', blocks: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `${d} available 06:00-22:00`).join('\n'), preferredHours: 30 }, priya.cookie)
   const o = await h.cmd('openshift.post', { site: 'San Jose', position: 'Barista', ...at('08'), approval: 'manager', order: 'tiers', rule: 'parttime', size: 2, minutes: 1 }, priya.cookie)
-  assert.deepEqual(o.tiers.map(t => t.staffIds), [[ben.id, ana.id], [cy.id, dee.id]])
+  assert.deepEqual(o.tiers.map(t => t.staffIds), [[ana.id, ben.id], [cy.id, dee.id]])
   assert.equal(Date.parse(o.tiers[1].opensAt) - Date.parse(o.tiers[0].opensAt), 60000)
   assert.deepEqual((await h.state(cy.cookie)).openshifts, [])
   await h.cmd('openshift.request', { id: o.id, revision: o.revision }, cy.cookie, 409)
