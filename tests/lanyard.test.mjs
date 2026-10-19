@@ -374,6 +374,35 @@ test('AVAIL-001: a staff weekly pattern waits for approval, lists the published 
   assert.match(page.text, /Tue preferred 06:00-16:00/); assert.match(page.text, /Except 2027-06-09 unavailable/)
 }))
 
+test('EARN-001: an employee reconciles their week’s scheduled, regular, overtime and pending hours and estimate to approved records; turning estimates off hides the amount; no coworker data', () => run(async h => {
+  const alex = await h.person('Alex'), priya = await h.person('Priya', 'manager')
+  for (const [p, rate] of [[alex, '20.00'], [priya, '30.00']]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, hourlyRate: rate })
+  await h.cmd('availability.save', { start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' }, alex.cookie)
+  const days = [12, 13, 14, 15, 16].map(d => ({ staffId: alex.id, start: `2026-10-${d}T14:00:00Z`, end: `2026-10-${d}T23:00:00Z`, breakMinutes: 30 }))
+  const week = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: days })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
+  // Five approved 8.5-hour days (42.5 hours: 2.5 over 40), a coworker's approved day and an unapproved Saturday punch.
+  for (const d of [...days, { ...days[0], staffId: priya.id }]) { const t = await h.cmd('time.prepare', { ...d, reason: 'Paper timesheet' }); await h.cmd('time.approve', { id: t.id, revision: 1 }) }
+  await h.cmd('clock.in', { commandId: crypto.randomUUID(), capturedAt: '2026-10-17T16:00:00Z' }, alex.cookie)
+  await h.cmd('clock.out', { commandId: crypto.randomUUID(), capturedAt: '2026-10-17T20:00:00Z', breakMinutes: 0 }, alex.cookie)
+  await h.cmd('earnings.save', { estimates: true, payDays: 5, statementUrl: 'https://payroll.example/statements' }, priya.cookie, 403)
+  const saved = await h.cmd('earnings.save', { estimates: true, payDays: 5, statementUrl: 'https://payroll.example/statements' })
+  const mine = await h.state(alex.cookie), approved = mine.timesheets.filter(t => t.status === 'approved')
+  assert.deepEqual([mine.staff.map(p => [p.id, p.hourlyRateCents]), approved.reduce((n, t) => n + t.minutes, 0)], [[[alex.id, 2000]], 2550])
+  const page = (await h.send('/app/time?week=2026-10-12', undefined, alex.cookie)).text
+  for (const text of ['Scheduled</th><td class="num">42.5 hrs', 'Regular (approved)</th><td class="num">40.0 hrs</td><td class="num">$20.00/hr', 'Overtime over 40 hrs (approved)</th><td class="num">2.5 hrs</td><td class="num">$30.00/hr', 'Pending approval (not in the estimate)</th><td class="num">4.0 hrs', '<strong>$875.00</strong> Estimate before taxes and deductions', 'Pay period Oct 12 – Oct 18 · pay date Fri Oct 23', 'href="https://payroll.example/statements"'])
+    assert.ok(page.includes(text), text)
+  assert.ok(!page.includes('Priya') && !page.includes('$900.00'), 'no coworker hours or pay')
+  // The owner turns estimates off from People: an unticked box is off.
+  await h.mf.dispatchFetch(h.origin + '/setup', { method: 'POST', headers: { origin: h.origin, cookie: h.owner, 'content-type': 'application/x-www-form-urlencoded' }, body: 'confirm=yes', redirect: 'manual' })
+  assert.match((await h.send('/app/people', undefined, h.owner)).text, /Employee pay estimates/)
+  const posted = await h.mf.dispatchFetch(h.origin + '/app/action?name=earnings.save&returnTo=%2Fapp%2Fpeople', { method: 'POST', headers: { origin: h.origin, cookie: h.owner, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ revision: String(saved.revision), payDays: '5', statementUrl: 'https://payroll.example/statements' }).toString() })
+  assert.match(await posted.text(), /Saved\./)
+  const off = (await h.send('/app/time?week=2026-10-12', undefined, alex.cookie)).text
+  assert.ok(off.includes('Your employer has turned off pay estimates') && off.includes('40.0 hrs') && !off.includes('$875.00') && !off.includes('/hr'))
+  assert.equal((await h.state(alex.cookie)).staff[0].hourlyRateCents, undefined)
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }
