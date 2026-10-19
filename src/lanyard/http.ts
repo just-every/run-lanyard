@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { attendanceBoard, batchCsv, command, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { attendanceBoard, batchCsv, command, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -45,7 +45,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
     if (Number(request.headers.get('content-length') ?? 0) > 1_500_000) fail('Request is too large', 413)
     const form = await request.formData(), input: Record<string, unknown> = {}
     for (const [key, value] of form) {
-      if (typeof value === 'string') input[key] = value
+      if (typeof value === 'string') input[key] = key === 'mentions' ? [...((input[key] as string[] | undefined) ?? []), value] : value
       else if (value.size) { const bytes = new Uint8Array(await value.arrayBuffer()); if (bytes.length > 1_000_000) fail('Attachments are 1 MB at most', 413); let raw = ''; for (const b of bytes) raw += String.fromCharCode(b); input[key] = { name: value.name || 'attachment', type: value.type || 'application/octet-stream', data: btoa(raw) } }
     }
     if ('revision' in input) input.revision = Number(input.revision)
@@ -65,6 +65,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   if (params.has('flags')) input.flags = params.getAll('flags')
   if (params.has('pool')) input.pool = params.getAll('pool')
   if (params.has('ranking')) input.ranking = params.getAll('ranking')
+  if (params.has('mentions')) input.mentions = params.getAll('mentions')
   for (const key of ['revision', 'breakMinutes']) if (key in input) input[key] = Number(input[key])
   for (const key of ['shifts', 'ids', 'items']) if (input[key]) { try { input[key] = JSON.parse(String(input[key])) } catch { fail(`Invalid ${key}`) } }
   if ('active' in input) input.active = input.active === 'on' || input.active === 'true' || input.active === '1'
@@ -90,6 +91,10 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/state' || path === '/api/lanyard/agent/context') return json(await state(env, who))
       const file = path.match(/^\/api\/lanyard\/batches\/([\w-]+)\.csv$/)
       if (file) return new Response(await batchCsv(env.DB, who, file[1]), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-${file[1]}.csv"` } })
+      if (path === '/api/lanyard/logbook') return json(await logbookRead(env.DB, who, 'search', '', { site: url.searchParams.get('site') ?? '', category: url.searchParams.get('category') ?? '', month: url.searchParams.get('month') ?? '' }))
+      const logged = path.match(/^\/api\/lanyard\/logbook\/([\w-]+)\/(export|files\/([\w-]+))$/)
+      if (logged && logged[2] === 'export') { const { name, body } = await logbookRead(env.DB, who, 'export', logged[1]) as { name: string; body: string }; return new Response(body, { headers: { ...headers, 'content-type': 'text/plain; charset=utf-8', 'content-disposition': `attachment; filename="${name}"` } }) }
+      if (logged) { const { bytes, name, type } = await logbookRead(env.DB, who, 'file', logged[1], { fileId: logged[3] }) as { bytes: Uint8Array<ArrayBuffer>; name: string; type: string }; return new Response(bytes, { headers: { ...headers, 'content-type': type, 'content-disposition': `attachment; filename="${name.replace(/[^\w. -]/g, '_')}"`, 'x-content-type-options': 'nosniff' } }) }
       const attached = path.match(/^\/api\/lanyard\/notes\/([\w-]+)\/files\/([\w-]+)$/)
       if (attached) { const { bytes, name, type } = await noteAttachment(env.DB, who, attached[1], attached[2]); return new Response(bytes, { headers: { ...headers, 'content-type': type, 'content-disposition': `attachment; filename="${name.replace(/[^\w. -]/g, '_')}"`, 'x-content-type-options': 'nosniff' } }) }
       if (path === '/api/lanyard/overtime') return json(await overtimeAlerts(env.DB, who, url.searchParams.get('week') ?? '', url.searchParams.get('asOf') ?? new Date().toISOString().replace(/\.\d+Z$/, 'Z')))

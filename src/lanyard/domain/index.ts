@@ -35,9 +35,10 @@ import {questions,injuriesFor} from './questions'
 import {attendance,board} from './attendance'
 import {offerRules,accessToHours} from './offerorder'
 import {periods,guardPeriods} from './periods'
+import {logbook,logFor,searchLog,incidentText,logFile} from './logbook'
 export {actor}
 export type {Actor} from './model'
-const commands=['period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
+const commands=['log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -79,6 +80,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=attendance(c,name,p)
  if(result===undefined)result=offerRules(c,name,p)
  if(result===undefined)result=periods(c,name,p)
+ if(result===undefined)result=await logbook(c,name,p)
  need(result!==undefined,'Unknown command',404)
  // TIME-004: whatever the command, time in a locked or closed pay period is rechecked before the write.
  guardPeriods(c,before)
@@ -149,6 +151,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.feedback=await feedbackFor(s,a,secret);if(agent)result.feedbackopts=[]
  // JOURNAL-001: notes by cafe and role; an employee reads only notes made visible to them.
  result.notes=notesFor(s,a)
+ // LOG-001: the owner reads every cafe's logbook, a manager their cafe's; staff and agents none.
+ result.logbook=logFor(s,a)
  // AUDIT-001: each role reads only its own slice of the activity list.
  result.events=events?readable(s,a,(await events).results):[]
  return result
@@ -182,4 +186,11 @@ export async function scheduleHistory(db:D1Database,identity:Actor,kind:'shift'|
 /** JOURNAL-001: a note's attachment, for a reader who may read the note. */
 export async function noteAttachment(db:D1Database,identity:Actor,noteId:string,fileId:string) {
  const a=await live(db,identity),s=await load(db);return noteFile(db,s,fresh(a,s),noteId,fileId)
+}
+/** LOG-001 reads: a logbook search, an incident's text export and an entry's attachment, for the owner and that cafe's managers. */
+export async function logbookRead(db:D1Database,identity:Actor,kind:'search'|'export'|'file',id='',q:{site?:string;category?:string;month?:string;fileId?:string}={}) {
+ const a=await live(db,identity),s=await load(db),f=fresh(a,s)
+ if(kind==='search')return searchLog(s,f,q)
+ if(kind==='export')return incidentText(s,f,id)
+ return logFile(db,s,f,id,q.fileId??'')
 }

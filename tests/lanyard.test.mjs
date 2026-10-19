@@ -1058,6 +1058,45 @@ test('TIME-004: the owner defines a pay period, employees and a manager sign off
   assert.deepEqual(extra.lines.map(l => [l.timeId, l.corrects, l.minutes]), [[late.id, fixed.id, 15]])
 }))
 
+test('LOG-001: a cafe manager writes a closing entry and an incident with a photo, mentioning the opening manager and linking the shift and person; the opening manager reads and acknowledges it; a search by category and month finds the incident and it exports; another cafe’s manager and staff see nothing; a correction keeps the original', () => run(async h => {
+  const alex = await h.person('Alex'), priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager'), mia = await h.person('Mia', 'manager')
+  for (const [p, site] of [[alex, 'Ocean Beach'], [priya, 'Ocean Beach'], [omar, 'Ocean Beach'], [mia, 'Mission']]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, site })
+  await h.cmd('availability.save', { staffId: alex.id, start: '2026-10-12T07:00:00Z', end: '2026-10-19T07:00:00Z' })
+  const week = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [{ ...shift(alex.id), site: 'Ocean Beach' }] })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
+  const alexShift = (await h.state(priya.cookie)).shifts.find(x => x.staffId === alex.id && x.status === 'published')
+  await h.cmd('log.save', { site: 'Ocean Beach', date: '2026-10-12', category: 'sales', text: 'Closing: $2,140 in sales, patio busy' }, priya.cookie)
+  const body = new FormData()
+  for (const [k, v] of Object.entries({ site: 'Ocean Beach', date: '2026-10-12', category: 'incident', text: 'Alex slipped by the dish pit; ice applied', mentions: omar.id, shiftId: alexShift.id, staffId: alex.id })) body.append(k, v)
+  body.append('attachment', new Blob(['photo-bytes'], { type: 'image/jpeg' }), 'floor.jpg')
+  const encoded = new Response(body), posted = await h.mf.dispatchFetch(h.origin + '/app/action?name=log.save&returnTo=%2Fapp%2Ftime', { method: 'POST', headers: { origin: h.origin, cookie: priya.cookie, 'content-type': encoded.headers.get('content-type') }, body: await encoded.arrayBuffer() })
+  assert.match(await posted.text(), /Saved\./)
+  await h.cmd('log.save', { site: 'Ocean Beach', date: '2026-10-12', category: 'staffing', text: 'Other cafe' }, mia.cookie, 403)
+  await h.cmd('log.save', { site: 'Ocean Beach', date: '2026-10-12', category: 'staffing', text: 'Bad mention', mentions: [mia.id] }, priya.cookie, 409)
+  const incident = (await h.state(omar.cookie)).logbook.find(r => r.category === 'incident')
+  assert.deepEqual([incident.mentions, incident.links, incident.attachment.name], [[omar.id], { shiftId: alexShift.id, staffId: alex.id }, 'floor.jpg'])
+  assert.equal((await h.send(`/api/lanyard/logbook/${incident.id}/files/${incident.attachment.id}`, undefined, omar.cookie)).text, 'photo-bytes')
+  assert.match((await h.send('/app/time', undefined, omar.cookie)).text, /mentions you/)
+  // The opening manager acknowledges it; the author cannot.
+  await h.cmd('log.read', { id: incident.id, revision: incident.revision }, priya.cookie, 409)
+  const read = await h.cmd('log.read', { id: incident.id, revision: incident.revision }, omar.cookie)
+  assert.deepEqual(read.reads.map(x => [x.staffId, x.revision]), [[omar.id, incident.revision]])
+  // Another cafe's manager and staff see nothing.
+  assert.deepEqual([(await h.state(mia.cookie)).logbook, (await h.state(alex.cookie)).logbook], [[], []])
+  assert.equal((await h.send(`/api/lanyard/logbook/${incident.id}/export`, undefined, mia.cookie)).status, 404)
+  assert.equal((await h.send(`/api/lanyard/logbook/${incident.id}/files/${incident.attachment.id}`, undefined, mia.cookie)).status, 404)
+  assert.deepEqual((await h.send('/api/lanyard/logbook?category=incident&month=2026-10', undefined, mia.cookie)).value, [])
+  // A correction is a new version; the search finds the incident by category and month and it exports with its history.
+  await h.cmd('log.save', { id: read.id, revision: read.revision, date: '2026-10-12', category: 'incident', text: 'Alex slipped by the dish pit; ice applied, no clinic visit', mentions: [omar.id], shiftId: alexShift.id, staffId: alex.id }, priya.cookie)
+  const found = (await h.send('/api/lanyard/logbook?category=incident&month=2026-10', undefined, priya.cookie)).value
+  assert.deepEqual(found.map(r => [r.id, r.text, r.versions.map(v => v.text)]), [[incident.id, 'Alex slipped by the dish pit; ice applied, no clinic visit', ['Alex slipped by the dish pit; ice applied']]])
+  assert.deepEqual((await h.send('/api/lanyard/logbook?category=incident&month=2026-09', undefined, priya.cookie)).value, [])
+  const exported = await h.send(`/api/lanyard/logbook/${incident.id}/export`, undefined, omar.cookie)
+  for (const line of ['Cafe: Ocean Beach', 'Person: Alex', 'Attachment: floor.jpg', 'Read by Omar', 'Earlier version', 'not sent anywhere']) assert.ok(exported.text.includes(line), line)
+  const sales = found.length && (await h.state(priya.cookie)).logbook.find(r => r.category === 'sales')
+  assert.equal((await h.send(`/api/lanyard/logbook/${sales.id}/export`, undefined, priya.cookie)).status, 409)
+}))
+
 test('TIME-009: the approval review shows scheduled, captured and payable times, variance, breaks, network, job, cost and the running week; filtering to exceptions lists the early, missed-meal and off-network rows; an edit keeps the captured facts and a send-back returns to the employee', () => run(async h => {
   const ana = await h.person('Ana'), ben = await h.person('Ben'), cy = await h.person('Cy'), dee = await h.person('Dee'), priya = await h.person('Priya', 'manager')
   for (const p of [ana, ben, cy, dee]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: 'staff', active: true, position: 'Barista', site: 'Ocean Beach', hourlyRate: '19.00' })
