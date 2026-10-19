@@ -36,6 +36,7 @@ import {attendance,board} from './attendance'
 import {offerRules,accessToHours} from './offerorder'
 import {periods,guardPeriods} from './periods'
 import {logbook,logFor,searchLog,incidentText,logFile} from './logbook'
+import {dashboard} from './dashboard'
 export {actor}
 export type {Actor} from './model'
 const commands=['log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
@@ -125,6 +126,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
   result.overtime=upcoming(s,a,now)
   // CLOCK-004: the live attendance board for the manager's cafe (every cafe for the owner).
   result.attendance=board(s,a,now)
+  // DASH-001: today's and this week's operations for the manager's cafe (every cafe for the owner).
+  result.dashboard=dashboard(s,a,now)
   // COVER-004: each open shift's access-to-hours standing where its cafe has the rule on.
   result.openshifts=result.openshifts.map((o:any)=>{const x=accessToHours(s,o as any,now);return x?{...o,accessToHours:x}:o})
   result.pickups=result.pickups.map((x:any)=>{const o=s.openshifts.find(v=>v.id===x.openShiftId);return x.status==='requested'&&o?{...x,cost:cost(project(s,x.staffId,o.week,now,[{...o,staffId:x.staffId} as any]))}:x})
@@ -193,4 +196,9 @@ export async function logbookRead(db:D1Database,identity:Actor,kind:'search'|'ex
  if(kind==='search')return searchLog(s,f,q)
  if(kind==='export')return incidentText(s,f,id)
  return logFile(db,s,f,id,q.fileId??'')
+}
+/** DASH-001: the operations dashboard as of an instant, for the owner (every cafe or one) and a manager (their cafe). */
+export async function dashboardRead(db:D1Database,identity:Actor,asOf:string,site:string) {
+ const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
+ return dashboard(s,f,instant(asOf,'asOf'),site)
 }

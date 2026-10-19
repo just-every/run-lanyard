@@ -45,11 +45,13 @@ test('a call-out is offered to qualified teammates within overtime, and a manage
   const team = { position: 'Baristas and counter', hourlyRate: '19.00', site: 'Ocean Beach' }
   const jess = await h.person('Jess'), luis = await h.person('Luis'), andrea = await h.person('Andrea')
   for (const p of [jess, luis, andrea]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: 'staff', active: true, ...team })
-  // Saturday Oct 24, 2026, 7:00 am – 3:00 pm PDT; Andrea already has 36.0 hours that week.
-  const sat = { start: '2026-10-24T14:00:00Z', end: '2026-10-24T22:00:00Z', breakMinutes: 30, label: 'Barista' }
-  const days = [19, 20, 21, 22].map(d => ({ staffId: andrea.id, start: `2026-10-${d}T14:00:00Z`, end: `2026-10-${d}T23:30:00Z`, breakMinutes: 30 }))
-  for (const p of [jess, luis, andrea]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-19T07:00:00Z', end: '2026-10-26T07:00:00Z' })
-  const week = await h.cmd('roster.prepare', { week: '2026-10-19', shifts: [{ staffId: jess.id, ...sat }, ...days] })
+  // The Saturday of a week starting 7–13 days from now, early morning on the venue clock; Andrea already has 36.0 hours that week.
+  const today = new Date(Math.floor(Date.now() / 86400000) * 86400000), mon = new Date(today.getTime() + (7 + (8 - today.getUTCDay()) % 7) * 86400000)
+  const on = (d, t) => new Date(mon.getTime() + d * 86400000).toISOString().slice(0, 10) + `T${t}:00Z`, monday = on(0, '00:00').slice(0, 10)
+  const sat = { start: on(5, '14:00'), end: on(5, '22:00'), breakMinutes: 30, label: 'Barista' }
+  const days = [0, 1, 2, 3].map(d => ({ staffId: andrea.id, start: on(d, '14:00'), end: on(d, '23:30'), breakMinutes: 30 }))
+  for (const p of [jess, luis, andrea]) await h.cmd('availability.save', { staffId: p.id, start: on(-1, '00:00'), end: on(8, '00:00') })
+  const week = await h.cmd('roster.prepare', { week: monday, shifts: [{ staffId: jess.id, ...sat }, ...days] })
   await h.cmd('roster.publish', { id: week.id, revision: week.revision })
   const same = x => Date.parse(x.start) === Date.parse(sat.start), called = (await h.state(jess.cookie)).shifts.find(same)
   await h.cmd('shift.callout', { id: called.id, revision: called.revision, note: 'I can’t come in this morning.' }, luis.cookie, 403)
@@ -65,9 +67,9 @@ test('a call-out is offered to qualified teammates within overtime, and a manage
   assert.equal(moved.staffId, luis.id); assert.equal(moved.callout.coveredBy, luis.id)
   assert.ok(!(await h.state(jess.cookie)).shifts.some(x => x.staffId === jess.id && same(x)))
   await h.mf.dispatchFetch(h.origin + '/setup', { method: 'POST', headers: { origin: h.origin, cookie: h.owner, 'content-type': 'application/x-www-form-urlencoded' }, body: 'confirm=yes', redirect: 'manual' })
-  assert.equal((await h.send('/app/schedule?week=2026-10-19&site=Ocean%20Beach', undefined, h.owner)).status, 200)
-  const old = await h.send('/app/roster?week=2026-10-19', undefined, h.owner)
-  assert.equal(old.status, 301); assert.equal(old.headers.get('location'), '/app/schedule?week=2026-10-19')
+  assert.equal((await h.send(`/app/schedule?week=${monday}&site=Ocean%20Beach`, undefined, h.owner)).status, 200)
+  const old = await h.send(`/app/roster?week=${monday}`, undefined, h.owner)
+  assert.equal(old.status, 301); assert.equal(old.headers.get('location'), `/app/schedule?week=${monday}`)
 }))
 
 test('ROSTER-004: staff see their cafe’s published team by name, position and times only; a manager narrows a cafe to own position and hides a person', () => run(async h => {
@@ -1318,3 +1320,65 @@ test('PUBLIC-001: installed Lobby follows the durable owner claim before first-r
     assert.equal((await h.send('/api/lanyard/state', undefined, claimed.cookie)).status, 200)
   } finally { await h.close() }
 })
+
+test('DASH-001: a live Thursday with a late arrival, an open shift, three pending approvals, an overtime risk and a missed punch shows on the cafe manager’s dashboard with counts and links, labor against forecast sales and budget and the pay-period cutoff; another cafe’s manager sees only their cafe; resolving items clears them', () => run(async h => {
+  const [alex, ben, dee, eve, mo] = [await h.person('Alex'), await h.person('Ben'), await h.person('Dee'), await h.person('Eve'), await h.person('Mo')], priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager')
+  for (const p of [alex, ben, dee, eve, mo, priya, omar]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: p.role === 'staff' ? 'Barista' : 'Manager', site: p === mo || p === omar ? 'Mission' : 'Ocean Beach', hourlyRate: '20.00' })
+  // Week of Mon Oct 5, 2026 read as of Thu Oct 8, 8:30 am PDT.
+  const oct = (d, hh, mm = 0) => new Date(Date.UTC(2026, 9, 5 + d, hh, mm)).toISOString().replace('.000Z', 'Z'), asOf = oct(3, 15, 30), W = '2026-10-05'
+  for (const p of [alex, ben, dee, eve, mo]) await h.cmd('availability.save', { staffId: p.id, start: oct(0, 7), end: oct(7, 7) })
+  await h.cmd('attendrule.save', { site: 'Ocean Beach', graceMinutes: 10, noShowMinutes: 30 })
+  await h.cmd('closerule.save', { site: 'Ocean Beach', graceMinutes: 15, capHours: 12 })
+  // Alex: 38 scheduled hours with 9-hour days worked Mon–Wed (41 projected); Ben opens Thursday; Dee worked Wednesday; Eve closes Thursday; Mo opens Mission.
+  const shifts = [...[0, 1, 2, 3, 4].map(d => ({ staffId: alex.id, start: oct(d, 16), end: oct(d, d === 4 ? 22 : 24), breakMinutes: 0 })), { staffId: ben.id, start: oct(3, 15), end: oct(3, 23), breakMinutes: 0 }, { staffId: dee.id, start: oct(2, 15), end: oct(2, 23), breakMinutes: 0 }, { staffId: eve.id, start: oct(3, 19), end: oct(3, 23), breakMinutes: 0 }, { staffId: mo.id, start: oct(3, 15), end: oct(3, 23), breakMinutes: 0 }]
+  await h.cmd('roster.prepare', { week: W, shifts }, priya.cookie)
+  // An open Friday shift, carried into the week by a template saved from a later week.
+  await h.cmd('openshift.post', { site: 'Ocean Beach', position: 'Barista', start: '2027-08-13T14:00:00Z', end: '2027-08-13T22:00:00Z', breakMinutes: 0, approval: 'manager' }, priya.cookie)
+  const template = await h.cmd('template.save', { name: 'Open Friday', week: '2027-08-09' }, priya.cookie)
+  const draft = await h.cmd('template.apply', { id: template.id, week: W, days: [4] }, priya.cookie)
+  await h.cmd('roster.publish', { id: draft.id, revision: draft.revision }, priya.cookie)
+  for (const d of [0, 1, 2]) { const t = await h.cmd('time.prepare', { staffId: alex.id, start: oct(d, 16), end: oct(d, 25), breakMinutes: 0, reason: 'Paper sheet' }, priya.cookie); await h.cmd('time.approve', { id: t.id, revision: t.revision }, omar.cookie) }
+  // Dee misses her Wednesday clock-out and corrects it; Ben clocks in 20 minutes late.
+  await h.cmd('clock.in', { commandId: 'dee-in', capturedAt: oct(2, 15) }, dee.cookie)
+  const punch = (await h.state(dee.cookie)).clocks[0]
+  const { timesheet } = await h.cmd('time.confirm', { id: punch.id, revision: punch.revision, end: oct(2, 23, 5), breakMinutes: 0, reason: 'Closed the register', attest: true }, dee.cookie)
+  await h.cmd('clock.in', { commandId: 'ben-in', capturedAt: oct(3, 15, 20) }, ben.cookie)
+  // Pending: Dee's time, Ben's time off and Eve's new availability.
+  const leave = await h.cmd('leave.request', { start: '2026-11-20T16:00:00Z', end: '2026-11-21T00:00:00Z', reason: 'Appointment' }, ben.cookie)
+  await h.cmd('availability.policy', { requireApproval: true }, priya.cookie)
+  await h.cmd('pattern.save', { from: '2027-01-03', blocks: 'Mon available 06:00-16:00' }, eve.cookie)
+  await h.cmd('period.save', { start: '2026-10-05', end: '2026-10-11' })
+  await h.cmd('forecast.save', { week: W, site: 'Ocean Beach', days: [1000, 1000, 1000, 1000, 1000, 1000, 1000], budgetPercent: 15 }, priya.cookie)
+  const read = async (cookie, query = '', status = 200) => { const r = await h.send(`/api/lanyard/dashboard?asOf=${asOf}${query}`, undefined, cookie); assert.equal(r.status, status, r.text); return r.value }
+  const ids = list => list.map(x => x.staffId ?? x.id), plan = `/app/schedule?week=${W}`
+  let d = await read(priya.cookie)
+  assert.deepEqual([d.today, d.week, d.site], ['2026-10-08', W, 'Ocean Beach'])
+  assert.deepEqual([ids(d.now), d.late.map(x => [x.staffId, x.lateMinutes]), d.now[0].link, d.late[0].link], [[ben.id], [[ben.id, 20]], '/app/time#attendance', '/app/time#attendance'])
+  assert.deepEqual([d.openShifts.map(o => [o.start, o.site]), d.openShifts[0].link], [[['2026-10-09T14:00:00.000Z', 'Ocean Beach']], `${plan}&site=Ocean%20Beach#open-shifts`])
+  assert.deepEqual(d.unconfirmed.map(x => x.staffId).sort(), [alex.id, alex.id, ben.id, eve.id].sort())
+  assert.deepEqual([ids(d.approvals.time), ids(d.approvals.leave), ids(d.approvals.availability), d.approvals.swaps], [[dee.id], [ben.id], [eve.id], []])
+  assert.deepEqual([d.approvals.time[0].link, d.approvals.leave[0].link, d.approvals.availability[0].link], ['/app/time#approve', `${plan}&site=Ocean%20Beach#time-off`, `${plan}&site=Ocean%20Beach#availability`])
+  assert.deepEqual(d.overtime.map(x => [x.staffId, x.overtimeMinutes, x.link]), [[alex.id, 60, `${plan}&site=Ocean%20Beach#overtime`]])
+  assert.deepEqual(d.exceptions.map(x => [x.id, x.exceptions, x.link]), [[timesheet.id, ['provisional close'], '/app/time#exceptions']])
+  // 38 + 8 + 8 + 4 scheduled hours at $20.00 = $1,160.00 against $7,000 forecast sales: 16.6%, over a 15% budget.
+  assert.deepEqual(d.labor, [{ site: 'Ocean Beach', scheduledCents: 116000, forecastCents: 700000, percent: 16.6, budgetPercent: 15, overBudget: true, link: `${plan}&site=Ocean%20Beach` }])
+  assert.deepEqual([d.cutoff.end, d.cutoff.daysLeft, d.cutoff.link], ['2026-10-11', 3, '/app/payroll#pay-periods'])
+  // Mission's manager sees only Mission, whatever cafe is asked for; the owner sees both or picks one; staff read none.
+  for (const q of ['', '&site=Ocean%20Beach']) {
+    const m = await read(omar.cookie, q)
+    assert.deepEqual([m.site, ids(m.late), m.now, m.openShifts, ids(m.unconfirmed), m.approvals, m.overtime, m.exceptions, m.labor.map(x => [x.site, x.scheduledCents, x.percent])], ['Mission', [mo.id], [], [], [mo.id], { time: [], leave: [], swaps: [], availability: [] }, [], [], [['Mission', 16000, null]]])
+  }
+  assert.deepEqual(ids((await read(h.owner)).late).sort(), [ben.id, mo.id].sort())
+  assert.deepEqual(ids((await read(h.owner, '&site=Mission')).late), [mo.id])
+  await read(ben.cookie, '', 403)
+  // The live screen carries the dashboard for managers only, with links to each card.
+  const screen = (await h.send('/app/schedule', undefined, priya.cookie)).text
+  for (const part of ['id="dashboard"', 'Pending approvals', 'href="/app/time#approve"', 'href="/app/time#exceptions"', 'Unresolved exceptions</a> <strong>1</strong>', 'Pending approvals</a> <strong>3</strong>']) assert.ok(screen.includes(part), part)
+  assert.ok(!(await h.send('/app/schedule', undefined, ben.cookie)).text.includes('id="dashboard"'))
+  // Resolving clears: Dee's time approved and its exception resolved, Ben's time off decided; the rest stay.
+  const ok = await h.cmd('time.approve', { id: timesheet.id, revision: timesheet.revision }, priya.cookie)
+  await h.cmd('time.resolve', { id: ok.id, revision: ok.revision, reason: 'Register log shows the close' }, priya.cookie)
+  await h.cmd('leave.decide', { id: leave.id, revision: leave.revision, decision: 'approved' }, priya.cookie)
+  d = await read(priya.cookie)
+  assert.deepEqual([d.approvals.time, d.approvals.leave, ids(d.approvals.availability), d.exceptions, ids(d.overtime), ids(d.late)], [[], [], [eve.id], [], [alex.id], [ben.id]])
+}))
