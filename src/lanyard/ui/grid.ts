@@ -4,6 +4,7 @@ import {h,avatar,manager,self,form,exact,field,rows,person} from './shared'
 import {type Week,type Row} from './week'
 import {clock,dateKey,day,dollars,hours,money,percent,span,weekday} from './format'
 import {coverPopover,calloutNote} from './callout'
+import {contactLink} from './contacts'
 
 const keyOf=(date:string)=>weekday(date).toLowerCase()
 export const link=(w:Week,extra:Record<string,string|null>={})=>{
@@ -31,7 +32,7 @@ function block(s:any,w:Week,x:any,now:number,back:string,guest:boolean) {
  const mine=self(s)&&x.staffId===s.actor.staffId,canCall=x.status==='published'&&!x.callout&&x.end>new Date(now).toISOString()&&(mine||manager(s))
  const actions=[mine&&x.status==='published'&&!x.confirmedAt&&!x.callout?form('shift.confirm',back,exact(x),'Confirm shift'):'',
   canCall?form('shift.callout',back,exact(x)+field('note',mine?'Note for your manager (optional)':'Note from the call (optional)','','text','maxlength="280"'),mine?'I can’t make this shift':'Record a call-out','','quiet'):''].filter(Boolean)
- const facts=`<p class="menu-head">${h(person(s,x.staffId))} · ${h(day(dateKey(x.start,tz)))}</p><p>${h(span(x.start,x.end,tz))}${x.breakMinutes?` · ${h(x.breakMinutes)} min meal`:''} · ${h(hours(x.minutes))} hrs${x.site?` · ${h(x.site)}`:''}</p><p>${x.status==='draft'?'Draft, not published':x.confirmedAt?'<span class="done">Confirmed ✓</span>':'Not confirmed yet'}</p>`
+ const facts=`<p class="menu-head">${h(person(s,x.staffId))} · ${h(day(dateKey(x.start,tz)))}</p><p>${h(span(x.start,x.end,tz))}${x.breakMinutes?` · ${h(x.breakMinutes)} min meal`:''} · ${h(hours(x.minutes))} hrs${x.site?` · ${h(x.site)}`:''}</p><p>${x.status==='draft'?'Draft, not published':x.confirmedAt?'<span class="done">Confirmed ✓</span>':'Not confirmed yet'}</p>${x.status==='published'&&contactLink(s,x.staffId)?`<p>${contactLink(s,x.staffId)}</p>`:''}`
  const note=open?calloutNote(x,tz):''
  return `<details class="shift${tone}"><summary>${summary}</summary><div class="shift-menu">${facts}${actions.join('')}</div></details>${note}`
 }

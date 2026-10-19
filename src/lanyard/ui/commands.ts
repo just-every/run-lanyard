@@ -30,6 +30,7 @@ const human = [
  ['closerule.save','Owner','site, graceMinutes (0–240), capHours (1–24); revision when editing'],
  ['openshift.post','Manager','site, position?, start, end, breakMinutes, label?, approval (auto = first come, or manager), pool?: staff IDs, order? (all or tiers), rule? (parttime, preferred, fewest, seniority or custom), size?, minutes?, ranking?: staff IDs in order'],
  ['openshift.decline','Linked staff','id, revision: declines an open shift offered to you; recorded in its offer log'],
+ ['contact.save','Linked staff or manager','contacts: up to 3 of { name, relationship, phone (US, with area code) } (your own; replaces the list); revision when editing'],
  ['log.save','Owner or cafe manager','site, date, category (sales, incident, maintenance, staffing or menu), text, mentions?: that cafe\'s managers, shiftId?, staffId?, timesheetId? (an attendance exception), attachment? (1 MB); id + revision to correct (keeps the earlier version)'],
  ['log.read','Owner or cafe manager','id, revision: acknowledges a logbook entry you did not write (read receipt)'],
  ['period.save','Owner','start, end (YYYY-MM-DD, inclusive venue dates, up to 31 days, no overlap): defines a pay period'],

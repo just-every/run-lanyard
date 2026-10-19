@@ -1382,3 +1382,47 @@ test('DASH-001: a live Thursday with a late arrival, an open shift, three pendin
   d = await read(priya.cookie)
   assert.deepEqual([d.approvals.time, d.approvals.leave, ids(d.approvals.availability), d.exceptions, ids(d.overtime), ids(d.late)], [[], [], [eve.id], [], [alex.id], [ben.id]])
 }))
+
+test('CONTACT-001: staff keep their own emergency contacts; the cafe manager opens a no-show alert for that person and calls from the audited card; another cafe’s manager and a coworker are refused and both attempts are audited', () => run(async h => {
+  const [cy, ben] = [await h.person('Cy'), await h.person('Ben')], priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager')
+  for (const p of [cy, ben, priya, omar]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site: p === omar ? 'Mission' : 'Ocean Beach' })
+  // As staff, through the form: two contacts (the blank third row is dropped); four, or a phone without an area code, are refused.
+  const form = async (fields, cookie) => { const body = new URLSearchParams(fields); return (await h.mf.dispatchFetch(h.origin + '/app/action?name=contact.save&returnTo=%2Fapp%2Fschedule', { method: 'POST', headers: { origin: h.origin, cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: body.toString() })).text() }
+  const rows = list => list.flatMap(([n, r, p]) => [['contactName', n], ['contactRelationship', r], ['contactPhone', p]])
+  assert.match(await form(rows([['Rosa Diaz', 'Mother', '(415) 555-0134'], ['Sam Lee', 'Partner', '1-628-555-0199'], ['', '', '']]), cy.cookie), /Saved\./)
+  const mine = (await h.state(cy.cookie)).contacts[0]
+  assert.deepEqual(mine.contacts, [{ name: 'Rosa Diaz', relationship: 'Mother', phone: '+14155550134' }, { name: 'Sam Lee', relationship: 'Partner', phone: '+16285550199' }])
+  await h.cmd('contact.save', { revision: mine.revision, contacts: [1, 2, 3, 4].map(i => ({ name: `C${i}`, relationship: 'Friend', phone: '4155550100' })) }, cy.cookie, 400)
+  await h.cmd('contact.save', { revision: mine.revision, contacts: [{ name: 'Rosa Diaz', relationship: 'Mother', phone: '555-0134' }] }, cy.cookie, 400)
+  await h.cmd('contact.save', { revision: mine.revision + 1, contacts: [] }, cy.cookie, 409)
+  // Nobody else reads them in their state, agents included.
+  assert.deepEqual([(await h.state(priya.cookie)).contacts, (await h.state(ben.cookie)).contacts, (await h.state()).contacts], [[], [], []])
+  const key = await h.cmd('agent.create', { label: 'Roster assistant' })
+  assert.deepEqual((await h.send('/api/lanyard/agent/context', undefined, '', { authorization: `Bearer ${key.token}` })).value.contacts, [])
+  // Cy's shift began an hour ago and Cy never clocked in: a no-show alert on Priya's board links to the card.
+  const start = Math.floor(Date.now() / 60000) * 60000 - 3600000, iso = ms => new Date(ms).toISOString().replace('.000Z', 'Z')
+  const local = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(start)), d = new Date(local + 'T00:00:00Z')
+  const week = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10)
+  await h.cmd('availability.save', { staffId: cy.id, start: iso(start - 86400000), end: iso(start + 2 * 86400000) })
+  const draft = await h.cmd('roster.prepare', { week, shifts: [{ staffId: cy.id, start: iso(start), end: iso(start + 5 * 3600000), breakMinutes: 0 }] })
+  await h.cmd('roster.publish', { id: draft.id, revision: draft.revision }, priya.cookie)
+  await h.cmd('attendrule.save', { site: 'Ocean Beach', graceMinutes: 10, noShowMinutes: 30 })
+  const board = (await h.state(priya.cookie)).attendance.find(r => r.staffId === cy.id)
+  assert.equal(board.alert.kind, 'no-show')
+  const timeScreen = (await h.send('/app/time', undefined, priya.cookie)).text, href = `href="/app/contacts/${cy.id}"`
+  assert.ok(timeScreen.includes(href), 'the alert links to the contact card')
+  assert.ok((await h.send(`/app/people`, undefined, priya.cookie)).text.includes(href), 'the People card links to it')
+  assert.ok((await h.send(`/app/schedule?week=${week}`, undefined, priya.cookie)).text.includes(href), 'the shift card links to it')
+  assert.ok(!(await h.send('/app/time', undefined, omar.cookie)).text.includes(href) && !(await h.send('/app/people', undefined, omar.cookie)).text.includes(href), 'no link where the card would be refused')
+  const page = await h.send(`/app/contacts/${cy.id}`, undefined, priya.cookie)
+  assert.equal(page.status, 200)
+  for (const part of ['href="tel:+14155550134"', 'Call (415) 555-0134', 'Rosa Diaz', 'Mother', 'href="tel:+16285550199"']) assert.ok(page.text.includes(part), part)
+  assert.deepEqual((await h.send(`/api/lanyard/contacts/${cy.id}`, undefined, h.owner)).value.contacts.map(x => x.phone), ['+14155550134', '+16285550199'])
+  // Mission's manager and a coworker are refused, on the screen and the JSON door.
+  for (const [who, path] of [[omar, `/app/contacts/${cy.id}`], [ben, `/api/lanyard/contacts/${cy.id}`]]) assert.equal((await h.send(path, undefined, who.cookie)).status, 404)
+  // Every view and every refusal is in activity, naming the reader and the person; Cy reads them too.
+  const seen = (await h.state()).events.filter(e => e.entityId === cy.id && e.action.startsWith('contact.') && e.action !== 'contact.save').map(e => [e.action, e.actorRole])
+  assert.deepEqual(seen.sort(), [['contact.refused', 'manager'], ['contact.refused', 'staff'], ['contact.view', 'manager'], ['contact.view', 'owner']].sort())
+  assert.equal((await h.state(cy.cookie)).events.filter(e => e.entityId === cy.id && e.action.startsWith('contact.') && e.action !== 'contact.save').length, 4)
+  assert.deepEqual((await h.state(omar.cookie)).events.filter(e => e.entityId === cy.id && e.action === 'contact.view'), [])
+}))

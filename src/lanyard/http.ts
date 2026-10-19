@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { attendanceBoard, batchCsv, command, dashboardRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { attendanceBoard, batchCsv, command, contactRead, dashboardRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -66,6 +66,12 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   if (params.has('pool')) input.pool = params.getAll('pool')
   if (params.has('ranking')) input.ranking = params.getAll('ranking')
   if (params.has('mentions')) input.mentions = params.getAll('mentions')
+  // CONTACT-001: the form's rows of name, relationship and phone; blank rows are dropped.
+  if (params.has('contactName')) {
+    const names = params.getAll('contactName'), relations = params.getAll('contactRelationship'), phones = params.getAll('contactPhone')
+    input.contacts = names.map((name, i) => ({ name, relationship: relations[i] ?? '', phone: phones[i] ?? '' })).filter(x => x.name || x.relationship || x.phone)
+    for (const key of ['contactName', 'contactRelationship', 'contactPhone']) delete input[key]
+  }
   for (const key of ['revision', 'breakMinutes']) if (key in input) input[key] = Number(input[key])
   for (const key of ['shifts', 'ids', 'items']) if (input[key]) { try { input[key] = JSON.parse(String(input[key])) } catch { fail(`Invalid ${key}`) } }
   if ('active' in input) input.active = input.active === 'on' || input.active === 'true' || input.active === '1'
@@ -88,6 +94,10 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     who = await principal(request, env, isAgent)
     if (request.method === 'GET') {
       if (pages.has(path)) return renderApp(await state(env, who), path + url.search)
+      // CONTACT-001: the audited emergency contact card, as a screen and as JSON.
+      const card = path.match(/^\/(app|api\/lanyard)\/contacts\/([\w-]+)$/)
+      if (card?.[1] === 'app') { const contactCard = await contactRead(env.DB, who, card[2]); return renderApp(await state(env, who), path, { result: { contactCard } }) }
+      if (card) return json(await contactRead(env.DB, who, card[2]))
       if (path === '/api/lanyard/state' || path === '/api/lanyard/agent/context') return json(await state(env, who))
       const file = path.match(/^\/api\/lanyard\/batches\/([\w-]+)\.csv$/)
       if (file) return new Response(await batchCsv(env.DB, who, file[1]), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-${file[1]}.csv"` } })

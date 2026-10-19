@@ -37,9 +37,10 @@ import {offerRules,accessToHours} from './offerorder'
 import {periods,guardPeriods} from './periods'
 import {logbook,logFor,searchLog,incidentText,logFile} from './logbook'
 import {dashboard} from './dashboard'
+import {contacts,mayRead,contactCard} from './contacts'
 export {actor}
 export type {Actor} from './model'
-const commands=['log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
+const commands=['contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -82,6 +83,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=offerRules(c,name,p)
  if(result===undefined)result=periods(c,name,p)
  if(result===undefined)result=await logbook(c,name,p)
+ if(result===undefined)result=contacts(c,name,p)
  need(result!==undefined,'Unknown command',404)
  // TIME-004: whatever the command, time in a locked or closed pay period is rechecked before the write.
  guardPeriods(c,before)
@@ -156,6 +158,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.notes=notesFor(s,a)
  // LOG-001: the owner reads every cafe's logbook, a manager their cafe's; staff and agents none.
  result.logbook=logFor(s,a)
+ // CONTACT-001: everyone reads only their own emergency contacts here; others' open only through the audited card read.
+ result.contacts=agent?[]:s.contacts.filter(r=>r.staffId===a.staffId)
  // AUDIT-001: each role reads only its own slice of the activity list.
  result.events=events?readable(s,a,(await events).results):[]
  return result
@@ -201,4 +205,11 @@ export async function logbookRead(db:D1Database,identity:Actor,kind:'search'|'ex
 export async function dashboardRead(db:D1Database,identity:Actor,asOf:string,site:string) {
  const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
  return dashboard(s,f,instant(asOf,'asOf'),site)
+}
+/** CONTACT-001: a person's emergency contact card; every view and every refused attempt is an activity event naming the reader and the person. */
+export async function contactRead(db:D1Database,identity:Actor,staffId:string) {
+ const a=await live(db,identity),s=await load(db),f=a.role==='agent'?a:fresh(a,s),ok=mayRead(s,f,staffId)
+ await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,f.role,ok?'contact.view':'contact.refused',staffId,new Date().toISOString()).run()
+ need(ok,'Not found',404)
+ return contactCard(s,staffId)
 }

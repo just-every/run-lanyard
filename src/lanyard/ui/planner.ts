@@ -1,5 +1,6 @@
 // Under the week: how a manager builds and publishes it (shift rows, the forecast and
 // budget), and the availability and time off the schedule is checked against.
+import {contactsForm} from './contacts'
 import {h,rows,manager,self,form,field,hidden,utc,exact,staffSelect,disclosure,card,status,empty,person,venue} from './shared'
 import {type Week} from './week'
 import {day,dollars,wallInput,when,weekday,zoneTime} from './format'
@@ -46,5 +47,5 @@ function mine(s:any,back:string) {
  return card('My availability and time off',body)
 }
 export function planner(s:any,w:Week,back:string,extras:any={}) {
- return [collisionNote(s,extras),manager(s)?'':whoIsWorking(s,w),self(s)?mine(s,back):'',manager(s)?build(s,w,back)+repeatCard(s,w,back)+printCard(s,w,back,extras)+forecastCard(s,w,back)+teamLeave(s,w):'',timeOff(s,back),manager(s)?leaveRulesCard(s,back):'',availability(s,back)].join('')
+ return [collisionNote(s,extras),manager(s)?'':whoIsWorking(s,w),self(s)?mine(s,back)+contactsForm(s,back):'',manager(s)?build(s,w,back)+repeatCard(s,w,back)+printCard(s,w,back,extras)+forecastCard(s,w,back)+teamLeave(s,w):'',timeOff(s,back),manager(s)?leaveRulesCard(s,back):'',availability(s,back)].join('')
 }
