@@ -333,9 +333,9 @@ Judged from the code and tests at commit `e1c3882cec951e71c7dbc0b08b7881461612e6
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 12 | 4 | 0 | 16 |
+| Published | 13 | 3 | 0 | 16 |
 | Target and push further | 0 | 30 | 80 | 110 |
-| All | 12 | 34 | 80 | 126 |
+| All | 13 | 33 | 80 | 126 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -350,7 +350,7 @@ Judged from the code and tests at commit `e1c3882cec951e71c7dbc0b08b7881461612e6
 | `PAYROLL-001` | Reviewed once-only payroll files and signed adjustments | published | done | `src/lanyard/domain/payroll.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` |  |
 | `PAYROLL-002` | Explicit manual provider acknowledgement | published | done | `src/lanyard/domain/payroll.ts`; `tests/lanyard.test.mjs` |  |
 | `AGENT-001` | Preparation-only delegated authority | published | done | `src/lanyard/credentials.ts`; `src/lanyard/http.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` |  |
-| `ARCHIVE-001` | Complete installation archive with authority exclusions | published | partial | `src/lanyard/archive-policy.mjs`; `tests/archive.test.mjs`; `OPERATIONS.json` | The CLI test covers staff round-trip, authority exclusion, damaged/populated refusal and erasure fences; the complete worked-hours/payroll/import-history archive journey is not exercised. |
+| `ARCHIVE-001` | Complete installation archive with authority exclusions | published | done | `src/lanyard/archive-policy.mjs`; `tests/archive.test.mjs`; `OPERATIONS.json` |  |
 | `ERASE-001` | Unused identity erasure and restore fence | published | done | `src/lanyard/domain/people.ts`; `tests/lanyard.test.mjs`; `tests/archive.test.mjs` |  |
 | `AUDIT-001` | Durable decisions and transactional history | published | partial | `src/lanyard/domain/storage.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` | Publication activity and source-claim refusal are tested; full event coverage, restart/archive continuity and concurrent rollback history are not demonstrated by the current journeys. |
 | `PUBLIC-001` | Public run site and installed Lobby | published | partial | `src/base/run-site.ts`; `src/site/pages.ts`; `src/base/lobby.ts`; `tests/lanyard.test.mjs` | Durable-claim Lobby behavior is tested; a full published run-site/install/docs journey is not established by the product test. |
