@@ -4,9 +4,11 @@
 // and overlaps are rechecked and nothing is published or confirmed by copying.
 import {type Context,type Row,keys,text,integer,need,manager,put,get,exact} from './model'
 import {draftWeek} from './roster'
+import {draftOpenShift} from './openshifts'
 import {instantAt,wall} from './settings'
 
-type Slot={staffId:string;day:number;start:string;end:string;breakMinutes:number;label:string;site:string}
+// A slot with no staffId is a position-only row (COVER-002): applying it adds an open shift to the draft.
+type Slot={staffId:string;day:number;start:string;end:string;breakMinutes:number;label:string;site:string;position?:string}
 const addDays=(date:string,n:number)=>new Date(Date.parse(date+'T00:00:00Z')+n*86400000).toISOString().slice(0,10)
 const isDate=(d:string)=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d
 const date=(v:unknown,label:string)=>{const d=text(v,label,10);need(isDate(d),`Invalid ${label}: use YYYY-MM-DD`);return d}
@@ -28,18 +30,22 @@ function rowOf(c:Context,week:string,s:Slot) {
  return {staffId:s.staffId,start,end,breakMinutes:s.breakMinutes,label:s.label,site:s.site}
 }
 const dayList=(v:unknown)=>{if(v===undefined)return [0,1,2,3,4,5,6];const list=(Array.isArray(v)?v:[v]).map(d=>integer(typeof d==='string'?Number(d):d,'day',0,6));need(list.length>0,'Choose at least one day');return [...new Set(list)]}
-/** Adds slots to the target week's current rows as a new draft; people no longer active are left out and named. */
+/** The week's posted open shifts, and those its open draft carries. */
+const openRows=(c:Context,week:string)=>c.s.openshifts.filter(o=>o.week===week&&(o.status==='open'||o.status==='draft')).sort((a,b)=>a.start.localeCompare(b.start))
+/** Adds slots to the target week's current rows as a new draft; people no longer active are left out and named; position-only slots become the draft's open shifts. */
 function addToWeek(c:Context,week:string,slots:Slot[]) {
  need(slots.length>0,'Nothing to add to this week',409)
- const active=(id:string)=>c.s.staff.some(p=>p.id===id&&p.active&&!p.erased_at)
- const leftOut=[...new Set(slots.filter(s=>!active(s.staffId)).map(s=>s.staffId))].map(staffId=>({staffId,reason:'No longer active'}))
- return {...draftWeek(c,week,[...currentRows(c,week).map(input),...slots.filter(s=>active(s.staffId)).map(s=>rowOf(c,week,s))]),leftOut}
+ const active=(id:string)=>c.s.staff.some(p=>p.id===id&&p.active&&!p.erased_at),people=slots.filter(s=>s.staffId)
+ const leftOut=[...new Set(people.filter(s=>!active(s.staffId)).map(s=>s.staffId))].map(staffId=>({staffId,reason:'No longer active'}))
+ const draft=draftWeek(c,week,[...currentRows(c,week).map(input),...people.filter(s=>active(s.staffId)).map(s=>rowOf(c,week,s))])
+ const openShifts=slots.filter(s=>!s.staffId).map(s=>draftOpenShift(c,draft.id,week,{...rowOf(c,week,s),position:s.position??''}));c.entity=draft.id
+ return {...draft,openShifts,leftOut}
 }
 
 export function templates(c:Context,name:string,p:Record<string,any>) {
  if(name==='template.save') {
-  manager(c.a);keys(p,['name','week']);const week=monday(p.week),rows=currentRows(c,week);need(rows.length,'This week has no shifts to save',409)
-  return put(c,'templates',{name:text(p.name,'name',80),sourceWeek:week,slots:rows.map(x=>slotOf(c,week,x)),savedBy:c.a.id,savedAt:c.now})
+  manager(c.a);keys(p,['name','week']);const week=monday(p.week),rows=currentRows(c,week),open=openRows(c,week);need(rows.length||open.length,'This week has no shifts to save',409)
+  return put(c,'templates',{name:text(p.name,'name',80),sourceWeek:week,slots:[...rows.map(x=>slotOf(c,week,x)),...open.map(o=>({...slotOf(c,week,o),staffId:'',position:o.position}))],savedBy:c.a.id,savedAt:c.now})
  }
  if(name==='template.apply') {
   manager(c.a);keys(p,['id','week','days']);const t=get(c.s,'templates',p.id),days=dayList(p.days)
