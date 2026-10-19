@@ -41,6 +41,10 @@ Publishing a replacement week supersedes the earlier published schedule and its 
 
 Staff open **Schedule**, select one of their published shifts and choose **Confirm shift**. A draft does not ask staff to confirm; publish first.
 
+## Print and post the week
+
+Once a week is published, managers use **Print and post** under the week: choose a cafe, a position or one person and select **Print PDF**. The PDF shows names, positions and shift times with the week's revision (1 for its first publication, 2 for the next), when it was published and when it was printed; it never shows pay, notes or time-off reasons. Each printed copy stays listed with its PDF, and turns **Superseded** once the published week no longer matches it. **Open the wall display** shows one cafe's current week read-only for a screen at the site; it reloads every minute and moves to each new revision.
+
 ## Who's working
 
 Staff see **Who's working** under their week: every published shift at their home cafe that week, as each coworker's name, position and start and end time, so they can arrange swaps and handovers. They never see drafts, pay, contact details or another cafe.

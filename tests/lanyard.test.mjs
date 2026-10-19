@@ -236,6 +236,46 @@ test('LEAVE-002: a holiday blackout refuses requests, a two-server limit routes 
   assert.match(managerPage.text, /Override: Ana and Ben swapped coverage/); assert.match(managerPage.text, /Needs an override: 2 Server already off/)
 }))
 
+test('SCHEDULE-005: a manager prints cafe and employee PDFs stamped with the revision, opens the wall display, and a later change moves the wall and marks both copies superseded; pay and leave reasons never print', () => run(async h => {
+  const place = (p, position, site) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position, site, hourlyRate: '21.75' })
+  const alex = await h.person('Alex'), sam = await h.person('Sam'), lee = await h.person('Lee'), priya = await h.person('Priya', 'manager')
+  await place(alex, 'Barista', 'Ocean Beach'); await place(sam, 'Kitchen', 'Ocean Beach'); await place(lee, 'Barista', 'North Park')
+  for (const p of [alex, sam, lee]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-12T07:00:00Z', end: '2026-10-19T07:00:00Z' })
+  const leave = await h.cmd('leave.request', { start: '2026-10-18T15:00:00Z', end: '2026-10-18T20:00:00Z', reason: 'Dentist appointment' }, alex.cookie)
+  await h.cmd('leave.decide', { id: leave.id, revision: 1, decision: 'approved' }, priya.cookie)
+  const on = (p, d, from = 14) => ({ staffId: p.id, start: `2026-10-${d}T${from}:00:00Z`, end: `2026-10-${d}T${from + 8}:00:00Z`, breakMinutes: 30, label: 'Opening' })
+  const first = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [on(alex, 12), on(sam, 13), on(lee, 12)] })
+  await h.cmd('roster.publish', { id: first.id, revision: first.revision }, priya.cookie)
+  // The cafe copy through the print form, the employee copy through the command door.
+  const form = await h.mf.dispatchFetch(h.origin + '/app/action?name=schedule.post&returnTo=' + encodeURIComponent('/app/schedule?week=2026-10-12'), { method: 'POST', headers: { origin: h.origin, cookie: priya.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ week: '2026-10-12', site: 'Ocean Beach', position: '', staffId: '' }).toString() })
+  const formHtml = await form.text(); assert.equal(form.status, 200, formHtml); assert.match(formHtml, /Download the PDF/)
+  const own = await h.cmd('schedule.post', { week: '2026-10-12', staffId: alex.id }, priya.cookie)
+  await h.cmd('schedule.post', { week: '2026-10-12', site: 'Ocean Beach' }, alex.cookie, 403)
+  const site = (await h.state(priya.cookie)).postings.find(p => p.id !== own.id)
+  const download = async (id, cookie = priya.cookie) => { const r = await h.mf.dispatchFetch(`${h.origin}/api/lanyard/postings/${id}.pdf`, { headers: { cookie } }); return { status: r.status, type: r.headers.get('content-type'), bytes: Buffer.from(await r.arrayBuffer()) } }
+  const sitePdf = await download(site.id), ownPdf = await download(own.id)
+  assert.equal(sitePdf.type, 'application/pdf'); assert.equal(sitePdf.bytes.subarray(0, 8).toString(), '%PDF-1.4')
+  const text = b => b.toString('latin1')
+  for (const pdf of [sitePdf, ownPdf]) assert.match(text(pdf.bytes), /published revision 1,/)
+  assert.match(text(sitePdf.bytes), /\(Alex\)/); assert.match(text(sitePdf.bytes), /\(Sam\)/); assert.ok(!text(sitePdf.bytes).includes('(Lee)'))
+  assert.match(text(ownPdf.bytes), /\(Alex\)/); assert.ok(!text(ownPdf.bytes).includes('(Sam)'))
+  assert.equal((await download(site.id, alex.cookie)).status, 403)
+  // The wall display shows this revision, read-only, for managers.
+  const wall = async () => (await h.send('/app/wall?site=Ocean%20Beach&week=2026-10-12', undefined, priya.cookie)).text
+  const before = await wall()
+  assert.match(before, /data-wall-revision="1"/); assert.match(before, /http-equiv="refresh" content="60"/); assert.ok(!before.includes('<form') && !before.includes('Lee'))
+  assert.equal((await h.send('/app/wall?site=Ocean%20Beach', undefined, alex.cookie)).status, 403)
+  // Change Alex's shift: the wall moves to the new revision; both printed copies keep the old one and show superseded.
+  const second = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [on(alex, 12, 15), on(sam, 13), on(lee, 12)] })
+  await h.cmd('roster.publish', { id: second.id, revision: second.revision }, priya.cookie)
+  assert.match(await wall(), /data-wall-revision="2"/)
+  assert.deepEqual((await download(site.id)).bytes, sitePdf.bytes)
+  const page = await h.send('/app/schedule?week=2026-10-12', undefined, priya.cookie)
+  assert.equal(page.text.match(/Superseded [A-Z][a-z]{2} [A-Z][a-z]{2} \d+, \d+:\d\d [ap]m/g)?.length, 2)
+  // Pay, contact details and time-off reasons are in no output.
+  for (const out of [text(sitePdf.bytes), text(ownPdf.bytes), before]) for (const secret of ['21.75', 'Dentist', alex.email]) assert.ok(!out.includes(secret), secret)
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }

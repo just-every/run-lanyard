@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { batchCsv, command, snapshot, type Actor } from './domain'
+import { batchCsv, command, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -7,7 +7,7 @@ import { timezone as zone } from './domain/settings'
 
 const headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin' }
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers })
-const pages = new Set(['/app', '/app/schedule', '/app/time', '/app/payroll', '/app/people', '/app/import', '/app/agent'])
+const pages = new Set(['/app', '/app/schedule', '/app/time', '/app/payroll', '/app/people', '/app/import', '/app/agent', '/app/wall'])
 // The screen a form returns to, with its own query (week, cafe, day) but never another origin or path.
 function returnTo(value: string | null): string {
   if (!value?.startsWith('/app')) return '/app'
@@ -66,6 +66,8 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/state' || path === '/api/lanyard/agent/context') return json(await state(env, who))
       const file = path.match(/^\/api\/lanyard\/batches\/([\w-]+)\.csv$/)
       if (file) return new Response(await batchCsv(env.DB, who, file[1]), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-${file[1]}.csv"` } })
+      const printed = path.match(/^\/api\/lanyard\/postings\/([\w-]+)\.pdf$/)
+      if (printed) { const { bytes, name } = await schedulePdf(env.DB, who, printed[1]); return new Response(bytes, { headers: { ...headers, 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${name}"` } }) }
     } else {
       if (path === '/app/action') {
         const input = await inputBody(request), name = url.searchParams.get('name') ?? ''

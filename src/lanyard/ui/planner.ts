@@ -5,6 +5,7 @@ import {type Week} from './week'
 import {day,dollars,wallInput,when,weekday,zoneTime} from './format'
 import {whoIsWorking} from './team'
 import {allowedNote,approveLeave,leaveRulesCard,teamLeave} from './leave'
+import {printCard} from './print'
 
 const range=(r:any,tz:string)=>`${h(when(r.start,tz))} – ${h(when(r.end,tz))}`
 /** One shift as editable fields; the browser serializes every row into the hidden `shifts` field. */
@@ -41,6 +42,6 @@ function mine(s:any,back:string) {
  const body=`<div class="split">${disclosure('Add availability',form('availability.save',back,utc('start','Available from')+utc('end','Available until'),'Save availability','','secondary'))}${disclosure('Request time off',allowedNote(s)+form('leave.request',back,utc('start','Time off starts')+utc('end','Time off ends')+field('reason','Reason','','text','required maxlength="500"'),'Request time off','','secondary'))}</div>`
  return card('My availability and time off',body)
 }
-export function planner(s:any,w:Week,back:string) {
- return [manager(s)?'':whoIsWorking(s,w),self(s)?mine(s,back):'',manager(s)?build(s,w,back)+forecastCard(s,w,back)+teamLeave(s,w):'',timeOff(s,back),manager(s)?leaveRulesCard(s,back):'',availability(s,back)].join('')
+export function planner(s:any,w:Week,back:string,extras:any={}) {
+ return [manager(s)?'':whoIsWorking(s,w),self(s)?mine(s,back):'',manager(s)?build(s,w,back)+printCard(s,w,back,extras)+forecastCard(s,w,back)+teamLeave(s,w):'',timeOff(s,back),manager(s)?leaveRulesCard(s,back):'',availability(s,back)].join('')
 }

@@ -12,9 +12,11 @@ import {approvals} from './approvals'
 import {clockRules} from './clockrules'
 import {leaveRules,allowedDates} from './leaverules'
 import {localDate} from './settings'
+import {postings} from './postings'
+import {postingPdf} from '../print'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -37,6 +39,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=approvals(c,name,p)
  if(result===undefined)result=clockRules(c,name,p)
  if(result===undefined)result=leaveRules(c,name,p)
+ if(result===undefined)result=postings(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
@@ -56,7 +59,7 @@ export async function snapshot(db:D1Database,identity:Actor):Promise<object> {
   // Staff see their own published shifts, the ones they called out of and the ones offered to them, never others' hours.
   result.offers=s.offers.filter(o=>o.staffId===a.staffId);const offered=new Set(result.offers.map((o:any)=>o.shiftId))
   result.shifts=s.shifts.filter(r=>r.status==='published'&&(r.staffId===a.staffId||r.callout?.staffId===a.staffId||offered.has(r.id))).map(({callout,...r})=>callout?{...r,callout:{staffId:callout.staffId===a.staffId?callout.staffId:undefined,note:callout.staffId===a.staffId?callout.note:undefined,at:callout.at,covered:Boolean(callout.coveredBy)}}:r)
-  const ids=new Set(result.shifts.map((r:any)=>r.rosterId));result.rosters=s.rosters.filter(r=>ids.has(r.id));result.batches=[];result.forecasts=[]
+  const ids=new Set(result.shifts.map((r:any)=>r.rosterId));result.rosters=s.rosters.filter(r=>ids.has(r.id));result.batches=[];result.forecasts=[];result.postings=[]
   // ROSTER-004: coworkers' published shifts at their cafe, as name, position and start/end only; who is hidden stays private.
   result.team=teamFor(s,a.staffId!);result.teamviews=[]
   // LEAVE-002: the dates they may not request (blackouts, limits already full), never who is off.
@@ -74,4 +77,9 @@ export async function batchCsv(db:D1Database,identity:Actor,id:string):Promise<s
  const a=await live(db,identity);manager(a);const s=await load(db);manager(fresh(a,s));const b=get(s,'batches',id);need(['exported','acknowledged'].includes(b.status),'Batch has not been exported',409);need(typeof b.csv==='string'&&await sha(b.csv)===b.sha256,'Stored payroll file integrity check failed',409)
  await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,a.role,'payroll.download',b.id,new Date().toISOString()).run()
  return b.csv
+}
+/** SCHEDULE-005: the PDF of one posting, rebuilt from the rows it recorded, for owners and managers. */
+export async function schedulePdf(db:D1Database,identity:Actor,id:string):Promise<{bytes:Uint8Array<ArrayBuffer>;name:string}> {
+ const a=await live(db,identity);manager(a);const s=await load(db);manager(fresh(a,s));const p=get(s,'postings',id)
+ return {bytes:postingPdf(p,p.filter.staffId?s.staff.find(v=>v.id===p.filter.staffId)?.name??null:null),name:`lanyard-schedule-${p.week}-r${p.rosterRevision}-${p.id.slice(0,8)}.pdf`}
 }
