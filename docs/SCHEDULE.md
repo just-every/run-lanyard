@@ -41,6 +41,10 @@ Publishing a replacement week supersedes the earlier published schedule and its 
 
 Staff open **Schedule**, select one of their published shifts and choose **Confirm shift**. A draft does not ask staff to confirm; publish first.
 
+## Copy and repeat
+
+Under the week, **Copy and repeat** builds a new draft from shifts you already have. **Copy from another week** copies the chosen days of a week into the one on screen. **Save this week as a template** keeps its shifts by weekday and time; **Apply a template** adds them to any week. **Add a recurring shift** repeats a person's shift on chosen weekdays between a first and last day, skipping listed dates; **Add this week's recurring shifts** places that week's occurrences. Shifts keep their wall-clock times across daylight-saving changes. Every result is a draft checked against availability, approved time off and overlaps, and nothing is published or confirmed until you publish.
+
 ## Print and post the week
 
 Once a week is published, managers use **Print and post** under the week: choose a cafe, a position or one person and select **Print PDF**. The PDF shows names, positions and shift times with the week's revision (1 for its first publication, 2 for the next), when it was published and when it was printed; it never shows pay, notes or time-off reasons. Each printed copy stays listed with its PDF, and turns **Superseded** once the published week no longer matches it. **Open the wall display** shows one cafe's current week read-only for a screen at the site; it reloads every minute and moves to each new revision.

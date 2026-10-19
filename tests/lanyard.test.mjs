@@ -300,6 +300,42 @@ test('BREAK-002: a 30-minute automatic meal deduction is confirmed at clock-out,
   assert.equal((await h.cmd('time.approve', { id: missed.id, revision: 1 }, priya.cookie)).exportMinutes, 420)
 }))
 
+test('SCHEDULE-002: a saved week is applied to a holiday week at the same wall times, a recurring shift skips its exception date, conflicts name the person now on leave, one occurrence is edited and published while earlier weeks stay unchanged', () => run(async h => {
+  const alex = await h.person('Alex'), sam = await h.person('Sam'), priya = await h.person('Priya', 'manager')
+  for (const p of [alex, sam]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-11T07:00:00Z', end: '2026-12-01T08:00:00Z' })
+  // Week of Oct 12 (PDT): Alex Mon 7 am – 3 pm, Sam Tue 7 am – 3 pm; Alex confirms his shift.
+  const a = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [{ staffId: alex.id, start: '2026-10-12T14:00:00Z', end: '2026-10-12T22:00:00Z', breakMinutes: 30, label: 'Opening' }, { staffId: sam.id, start: '2026-10-13T14:00:00Z', end: '2026-10-13T22:00:00Z', breakMinutes: 30 }] })
+  await h.cmd('roster.publish', { id: a.id, revision: a.revision }, priya.cookie)
+  const mine = (await h.state(alex.cookie)).shifts[0]; await h.cmd('shift.confirm', { id: mine.id, revision: mine.revision }, alex.cookie)
+  const octoberOf = s => JSON.stringify(s.shifts.filter(x => x.rosterId === s.rosters.find(r => r.week === '2026-10-12' && r.status === 'published').id)), weekA = octoberOf(await h.state())
+  await h.cmd('template.save', { name: 'Standard week', week: '2026-10-12' }, alex.cookie, 403)
+  const template = await h.cmd('template.save', { name: 'Standard week', week: '2026-10-12' }, priya.cookie)
+  assert.deepEqual(template.slots.map(s => [s.day, s.start, s.end]), [[0, '07:00', '15:00'], [1, '07:00', '15:00']])
+  // Sam is now on approved leave on Tue Nov 24 of the Thanksgiving week.
+  const leave = await h.cmd('leave.request', { start: '2026-11-24T08:00:00Z', end: '2026-11-25T08:00:00Z', reason: 'Travel' }, sam.cookie)
+  await h.cmd('leave.decide', { id: leave.id, revision: 1, decision: 'approved' }, priya.cookie)
+  const applied = await h.cmd('template.apply', { id: template.id, week: '2026-11-23' }, priya.cookie)
+  assert.deepEqual(applied.shifts.map(x => [x.staffId, x.start, x.confirmedAt]), [[alex.id, '2026-11-23T15:00:00.000Z', undefined], [sam.id, '2026-11-24T15:00:00.000Z', undefined]])
+  assert.deepEqual(applied.conflicts.map(x => [x.staffId, x.reason]), [[sam.id, 'Approved leave']])
+  // Alex also opens Wednesdays and Fridays through November, except the day after Thanksgiving.
+  await h.cmd('recurrence.save', { staffId: alex.id, days: [2, 4], start: '06:00', end: '10:00', breakMinutes: 0, label: 'Bake', from: '2026-11-01', until: '2026-11-30', except: ['2026-11-27'] }, priya.cookie)
+  const repeated = await h.cmd('recurrence.apply', { week: '2026-11-23' }, priya.cookie)
+  assert.deepEqual(repeated.shifts.map(x => [x.staffId, x.start]).slice(2), [[alex.id, '2026-11-25T14:00:00.000Z']])
+  const page = await h.send('/app/schedule?week=2026-11-23&view=draft', undefined, priya.cookie)
+  assert.match(page.text, /Copy and repeat/); assert.match(page.text, /Skips Fri Nov 27/)
+  // Copy only Monday of the October week into the next week.
+  const copied = await h.cmd('roster.copy', { fromWeek: '2026-10-12', week: '2026-10-19', days: [0] }, priya.cookie)
+  assert.deepEqual(copied.shifts.map(x => [x.staffId, x.start, x.label]), [[alex.id, '2026-10-19T14:00:00.000Z', 'Opening']])
+  // Edit one occurrence (Wednesday ends at 11), leave Sam off, publish; October stays exactly as it was.
+  const rows = repeated.shifts.filter(x => x.staffId === alex.id).map(x => ({ staffId: x.staffId, start: x.start, end: x.start === '2026-11-25T14:00:00.000Z' ? '2026-11-25T19:00:00Z' : x.end, breakMinutes: x.breakMinutes, label: x.label, site: x.site }))
+  const edited = await h.cmd('roster.prepare', { week: '2026-11-23', shifts: rows }, priya.cookie)
+  assert.deepEqual(edited.conflicts, [])
+  await h.cmd('roster.publish', { id: edited.id, revision: edited.revision }, priya.cookie)
+  const s = await h.state()
+  assert.deepEqual(s.shifts.filter(x => x.status === 'published' && x.rosterId === edited.id).map(x => [x.start, x.end]).sort(), [['2026-11-23T15:00:00.000Z', '2026-11-23T23:00:00.000Z'], ['2026-11-25T14:00:00.000Z', '2026-11-25T19:00:00.000Z']])
+  assert.equal(octoberOf(s), weekA)
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }

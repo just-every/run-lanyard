@@ -6,6 +6,7 @@ import {day,dollars,wallInput,when,weekday,zoneTime} from './format'
 import {whoIsWorking} from './team'
 import {allowedNote,approveLeave,leaveRulesCard,teamLeave} from './leave'
 import {printCard} from './print'
+import {repeatCard} from './templates'
 
 const range=(r:any,tz:string)=>`${h(when(r.start,tz))} – ${h(when(r.end,tz))}`
 /** One shift as editable fields; the browser serializes every row into the hidden `shifts` field. */
@@ -43,5 +44,5 @@ function mine(s:any,back:string) {
  return card('My availability and time off',body)
 }
 export function planner(s:any,w:Week,back:string,extras:any={}) {
- return [manager(s)?'':whoIsWorking(s,w),self(s)?mine(s,back):'',manager(s)?build(s,w,back)+printCard(s,w,back,extras)+forecastCard(s,w,back)+teamLeave(s,w):'',timeOff(s,back),manager(s)?leaveRulesCard(s,back):'',availability(s,back)].join('')
+ return [manager(s)?'':whoIsWorking(s,w),self(s)?mine(s,back):'',manager(s)?build(s,w,back)+repeatCard(s,w,back)+printCard(s,w,back,extras)+forecastCard(s,w,back)+teamLeave(s,w):'',timeOff(s,back),manager(s)?leaveRulesCard(s,back):'',availability(s,back)].join('')
 }
