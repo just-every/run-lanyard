@@ -5,6 +5,7 @@
 import {type Context,type Row,type State,keys,text,integer,need,manager,self,staff,get,exact,put,work} from './model'
 import {fit} from './cover'
 import {localDate} from './settings'
+import {order,tiers,opensFor} from './offerorder'
 
 const APPROVAL=['auto','manager']
 /** The Monday of the venue week holding an instant. */
@@ -20,10 +21,15 @@ export function pickupFit(s:State,staffId:string,o:Row) {
  const f=fit(s,staffId,{...o,rosterId:s.rosters.find(r=>r.week===o.week&&r.status==='published')?.id} as Row)
  return f.reason&&f.reason!=='overtime'?{block:f.reason}:{overtime:f.reason==='overtime'?f.after:null,after:f.after}
 }
-/** Open shifts the person may request, each with their own hourly rate when it is theirs to see. */
-export function openFor(s:State,staffId:string,showRate:boolean) {
+/** COVER-004: the offer log for an open shift posted at `at`: who was eligible then, in the order chosen. */
+export function offerLog(s:State,o:Record<string,any>,at:string) {
+ const list=s.staff.map(p=>({p,f:pickupFit(s,p.id,o as Row)})).filter(x=>!x.f.block).map(x=>({staffId:x.p.id,before:(x.f.after??0)-o.minutes}))
+ return tiers(s,o,list,o as Row,at)
+}
+/** Open shifts the person may request (their tier has opened), each with their own hourly rate when it is theirs to see; never the pool or the offer log. */
+export function openFor(s:State,staffId:string,showRate:boolean,now:string) {
  const rate=s.staff.find(p=>p.id===staffId)?.rate_cents??null
- return s.openshifts.filter(o=>o.status==='open'&&!pickupFit(s,staffId,o).block).map(o=>({...o,pool:undefined,...(showRate&&rate!==null?{hourlyRateCents:rate}:{})}))
+ return s.openshifts.filter(o=>o.status==='open'&&opensFor(o,staffId)<=now&&!pickupFit(s,staffId,o).block).map(o=>({...o,pool:undefined,tiers:undefined,everyoneAt:undefined,ranking:undefined,...(showRate&&rate!==null?{hourlyRateCents:rate}:{})}))
 }
 /** Assigns the open shift: a published shift row in the week's published revision, other requests closed. */
 function assign(c:Context,o:Row,staffId:string,pickup:Row|null) {
@@ -40,6 +46,7 @@ function scoped(c:Context,site:string) {
 }
 function recheck(c:Context,o:Row,staffId:string,mine:boolean) {
  need(o.status==='open','This open shift is no longer open',409);need(o.start>c.now,'This open shift has already started',409)
+ need(opensFor(o,staffId)<=c.now,'This open shift has not been offered to this person yet',409)
  const f=pickupFit(c.s,staffId,o);if(f.block)need(false,f.block==='not eligible'?'This open shift is not offered to this person':mine||c.a.role!=='staff'?`Not eligible for this shift: ${f.block}`:'Not eligible for this shift',409)
  return f
 }
@@ -49,19 +56,28 @@ export function draftOpenShift(c:Context,rosterId:string,week:string,slot:{start
 }
 export function openShifts(c:Context,name:string,p:Record<string,any>) {
  if(name==='openshift.post') {
-  manager(c.a);keys(p,['site','position','start','end','breakMinutes','label','pool','approval'])
+  manager(c.a);keys(p,['site','position','start','end','breakMinutes','label','pool','approval','order','rule','size','minutes','ranking'])
   const w=work({...p,breakMinutes:typeof p.breakMinutes==='string'?Number(p.breakMinutes):p.breakMinutes??0});need(w.start>c.now,'Post open shifts that have not started')
   need(APPROVAL.includes(p.approval),'Choose approved pickup or manager approval');scoped(c,text(p.site,'site',80,true))
   const pool=p.pool===undefined||p.pool===''?null:(Array.isArray(p.pool)?p.pool:[p.pool]).map((id:unknown)=>staff(c,id).id)
   need(!pool||pool.length>0&&pool.length<=200,'Choose 1–200 people for the pool')
-  return put(c,'openshifts',{week:weekOf(c.s,w.start),rosterId:null,site:text(p.site,'site',80,true),position:text(p.position,'position',80,true),...w,label:text(p.label,'label',120,true),pool,approval:p.approval,status:'open',postedBy:c.a.id,postedAt:c.now})
+  const row={week:weekOf(c.s,w.start),rosterId:null,site:text(p.site,'site',80,true),position:text(p.position,'position',80,true),...w,label:text(p.label,'label',120,true),pool,approval:p.approval,...order(c,p),status:'open',postedBy:c.a.id,postedAt:c.now}
+  return put(c,'openshifts',{...row,...offerLog(c.s,row,c.now)})
  }
  if(name==='openshift.request') {
   keys(p,['id','revision']);const me=self(c.a)!,o=get(c.s,'openshifts',p.id);exact(o,p)
   need(!c.s.pickups.some(x=>x.openShiftId===o.id&&x.staffId===me&&x.status==='requested'),'You already requested this shift',409)
+  for(const x of c.s.pickups.filter(x=>x.openShiftId===o.id&&x.staffId===me&&x.status==='declined'))put(c,'pickups',{...x,status:'withdrawn',withdrawnAt:c.now},x)
   const f=recheck(c,o,me,true)
   if(o.approval==='auto')return assign(c,o,me,null)
   return put(c,'pickups',{openShiftId:o.id,staffId:me,status:'requested',after:f.after,overtime:f.overtime,requestedAt:c.now})
+ }
+ if(name==='openshift.decline') {
+  // COVER-004: a declined offer is an answer in the offer log; the person may still request it later.
+  keys(p,['id','revision']);const me=self(c.a)!,o=get(c.s,'openshifts',p.id);exact(o,p)
+  need(!c.s.pickups.some(x=>x.openShiftId===o.id&&x.staffId===me&&['requested','declined'].includes(x.status)),'You already answered this shift',409)
+  recheck(c,o,me,true);const entity=o.id
+  const r=put(c,'pickups',{openShiftId:o.id,staffId:me,status:'declined',declinedAt:c.now});c.entity=entity;return r
  }
  if(name==='openshift.approve') {
   manager(c.a);keys(p,['id','revision']);const x=get(c.s,'pickups',p.id);exact(x,p);need(x.status==='requested','This request is no longer waiting',409)

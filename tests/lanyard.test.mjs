@@ -958,6 +958,60 @@ test('COVER-002: a manager posts an open shift that eligible staff see with thei
   assert.deepEqual((await h.state(jess.cookie)).openshifts.filter(o => o.week === '2027-08-09').map(o => [o.start, o.position, o.status]), [['2027-08-13T14:00:00.000Z', 'Barista', 'open']])
 }))
 
+test('COVER-004: a two-tier open shift by part-time priority: tier two waits, tier one declines and expires, tier two accepts and is approved; the offer log keeps times and answers; seniority and custom rankings; tiered call-out replacements; at an access-to-hours cafe a new hire is flagged until existing part-time staff are offered the hours', () => run(async h => {
+  const place = (p, extra) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site: 'San Jose', hourlyRate: '19.00', ...extra })
+  const ana = await h.person('Ana'), ben = await h.person('Ben'), cy = await h.person('Cy'), dee = await h.person('Dee'), priya = await h.person('Priya', 'manager')
+  await place(ana, { employmentType: 'part-time', startDate: '2020-01-01' }); await place(ben, { employmentType: 'part-time', startDate: '2024-01-01' })
+  await place(cy, {}); await place(dee, { employmentType: 'full-time', startDate: '2019-05-01' })
+  await h.cmd('staff.save', { id: priya.id, revision: priya.revision, name: priya.name, email: priya.email, payrollId: priya.payrollId, role: 'manager', active: true, position: 'Manager', site: 'San Jose' })
+  for (const p of [ana, ben, cy, dee]) await h.cmd('availability.save', { staffId: p.id, start: '2027-09-06T07:00:00Z', end: '2027-09-13T07:00:00Z' })
+  const at = d => ({ start: `2027-09-${d}T15:00:00Z`, end: `2027-09-${d}T23:00:00Z`, breakMinutes: 30 })
+  const week = await h.cmd('roster.prepare', { week: '2027-09-06', shifts: [{ staffId: ana.id, ...at('06') }] })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
+  // Part-time first (fewest hours, then name), then employment type not set, then full-time; tiers of two a minute apart.
+  const o = await h.cmd('openshift.post', { site: 'San Jose', position: 'Barista', ...at('08'), approval: 'manager', order: 'tiers', rule: 'parttime', size: 2, minutes: 1 }, priya.cookie)
+  assert.deepEqual(o.tiers.map(t => t.staffIds), [[ben.id, ana.id], [cy.id, dee.id]])
+  assert.equal(Date.parse(o.tiers[1].opensAt) - Date.parse(o.tiers[0].opensAt), 60000)
+  assert.deepEqual((await h.state(cy.cookie)).openshifts, [])
+  await h.cmd('openshift.request', { id: o.id, revision: o.revision }, cy.cookie, 409)
+  assert.deepEqual((await h.state(ana.cookie)).openshifts.map(x => [x.id, x.tiers]), [[o.id, undefined]])
+  const no = await h.cmd('openshift.decline', { id: o.id, revision: o.revision }, ana.cookie)
+  await h.cmd('openshift.decline', { id: o.id, revision: o.revision }, ana.cookie, 409)
+  // Seniority: earliest start date first, no start date last; custom: the manager's order, then fewest hours.
+  const senior = await h.cmd('openshift.post', { site: 'San Jose', position: 'Barista', ...at('09'), approval: 'manager', order: 'tiers', rule: 'seniority', size: 4, minutes: 30 }, priya.cookie)
+  assert.deepEqual(senior.tiers.map(t => t.staffIds), [[dee.id, ana.id, ben.id, cy.id]])
+  const custom = await h.cmd('openshift.post', { site: 'San Jose', position: 'Barista', ...at('10'), approval: 'manager', order: 'tiers', rule: 'custom', ranking: [cy.id, dee.id], size: 3, minutes: 30 }, priya.cookie)
+  assert.deepEqual(custom.tiers.map(t => t.staffIds), [[cy.id, dee.id, ben.id], [ana.id]])
+  // Access to hours: only the owner turns it on; a person added now is flagged while Cy (no employment type) is still owed the offer.
+  await h.cmd('offerrule.save', { site: 'San Jose', order: 'tiers', rule: 'fewest', size: 1, minutes: 60, accessToHours: true }, priya.cookie, 403)
+  await h.cmd('offerrule.save', { site: 'San Jose', order: 'tiers', rule: 'fewest', size: 1, minutes: 60, accessToHours: true })
+  const eve = await h.cmd('staff.save', { name: 'Eve', email: 'eve@venue.example', payrollId: 'EVE', role: 'staff', active: true, position: 'Barista', site: 'San Jose', employmentType: 'part-time' })
+  await h.cmd('availability.save', { staffId: eve.id, start: '2027-09-06T07:00:00Z', end: '2027-09-13T07:00:00Z' })
+  const flag = (await h.state(priya.cookie)).openshifts.find(x => x.id === o.id).accessToHours
+  assert.deepEqual(flag, { owed: [{ staffId: cy.id, typeSet: false }], hires: [eve.id], flagged: true })
+  assert.match((await h.send('/app/schedule?week=2027-09-06', undefined, priya.cookie)).text, /Cy \(employment type not set\)/)
+  await h.mf.dispatchFetch(h.origin + '/setup', { method: 'POST', headers: { origin: h.origin, cookie: h.owner, 'content-type': 'application/x-www-form-urlencoded' }, body: 'confirm=yes', redirect: 'manual' })
+  assert.match((await h.send('/app/people', undefined, h.owner)).text, /Flag: added while access-to-hours offers for San Jose/)
+  // Call-out replacements follow the cafe's order: one teammate per hour, fewest hours then name.
+  const shift = (await h.state(ana.cookie)).shifts.find(x => x.staffId === ana.id)
+  const out = await h.cmd('shift.callout', { id: shift.id, revision: shift.revision }, ana.cookie)
+  assert.deepEqual(out.offers.map(x => [x.staffId, x.tier]), [[ben.id, 1], [cy.id, 2], [dee.id, 3], [eve.id, 4]])
+  const later = out.offers[1]
+  assert.deepEqual((await h.state(cy.cookie)).offers, [])
+  await h.cmd('cover.respond', { id: later.id, revision: later.revision, decision: 'accepted' }, cy.cookie, 409)
+  // Tier one expires with Ana's decline and no answer from Ben; tier two reaches Cy, who requests, and Priya approves.
+  await new Promise(r => setTimeout(r, Math.max(0, Date.parse(o.tiers[1].opensAt) - Date.now() + 1000)))
+  const open = (await h.state(cy.cookie)).openshifts.find(x => x.id === o.id)
+  const ask = await h.cmd('openshift.request', { id: open.id, revision: open.revision }, cy.cookie)
+  const filled = await h.cmd('openshift.approve', { id: ask.id, revision: ask.revision }, priya.cookie)
+  assert.equal(filled.shift.staffId, cy.id)
+  const all = await h.state(priya.cookie), log = all.openshifts.find(x => x.id === o.id)
+  assert.deepEqual(all.pickups.filter(x => x.openShiftId === o.id).map(x => [x.staffId, x.status]).sort(), [[ana.id, 'declined'], [cy.id, 'approved']].sort())
+  assert.ok(no.declinedAt < log.tiers[1].opensAt && log.tiers[1].opensAt <= ask.requestedAt)
+  assert.deepEqual(log.accessToHours, { owed: [], hires: [eve.id], flagged: false })
+  assert.match((await h.send('/app/schedule?week=2027-09-06', undefined, priya.cookie)).text, /Offer log/)
+}))
+
 test('TIME-009: the approval review shows scheduled, captured and payable times, variance, breaks, network, job, cost and the running week; filtering to exceptions lists the early, missed-meal and off-network rows; an edit keeps the captured facts and a send-back returns to the employee', () => run(async h => {
   const ana = await h.person('Ana'), ben = await h.person('Ben'), cy = await h.person('Cy'), dee = await h.person('Dee'), priya = await h.person('Priya', 'manager')
   for (const p of [ana, ben, cy, dee]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: 'staff', active: true, position: 'Barista', site: 'Ocean Beach', hourlyRate: '19.00' })

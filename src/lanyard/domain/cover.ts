@@ -5,6 +5,8 @@ import {type Context,type Row,type State,keys,text,need,manager,self,get,exact,p
 import {available,onLeave} from './roster'
 import {localDate} from './settings'
 import {patternFit} from './patterns'
+import {replacementOrder,tiers} from './offerorder'
+import {siteOf} from './team'
 
 const WEEK_LIMIT=40*60, DAY_LIMIT=8*60
 type Fit={staffId:string;before:number;after:number;reason?:'overtime'|'already on'|'unavailable'|'time off';shiftId?:string;overlap?:number}
@@ -42,12 +44,14 @@ export function cover(c:Context,name:string,p:Record<string,any>) {
   need(!r.callout,'This shift is already called out',409);need(r.end>c.now,'This shift has already ended',409)
   const list=shortlist(c.s,r),note=text(p.note,'note',280,true)
   const shift=put(c,'shifts',{...r,callout:{staffId:r.staffId,note,at:c.now,by:c.a.id,qualified:list.qualified,leftOut:list.leftOut}},r)
-  const offers=list.qualified.map(f=>put(c,'offers',{shiftId:shift.id,staffId:f.staffId,before:f.before,after:f.after,status:'sent',sentAt:c.now}))
+  // COVER-004: the cafe's replacement order; a later tier's offer reaches its person at its opening time.
+  const log=tiers(c.s,replacementOrder(c.s,siteOf(c.s,r)),list.qualified,r,c.now)
+  const offers=log.tiers.flatMap((t,tier)=>t.staffIds.map(id=>{const f=list.qualified.find(v=>v.staffId===id)!;return put(c,'offers',{shiftId:shift.id,staffId:id,before:f.before,after:f.after,status:'sent',sentAt:t.opensAt,tier:tier+1,opensAt:t.opensAt})}))
   c.entity=shift.id;return {shift,offers}
  }
  if(name==='cover.respond') {
   keys(p,['id','revision','decision','note']);const o=get(c.s,'offers',p.id);exact(o,p);need(o.staffId===self(c.a),'Only your own offer',403)
-  need(['accepted','declined'].includes(p.decision),'Invalid decision');need(o.status==='sent','This offer is already answered or closed',409)
+  need(['accepted','declined'].includes(p.decision),'Invalid decision');need(o.status==='sent','This offer is already answered or closed',409);need(!o.opensAt||o.opensAt<=c.now,'This offer has not reached you yet',409)
   return put(c,'offers',{...o,status:p.decision,note:text(p.note,'note',280,true),respondedAt:c.now},o)
  }
  if(name==='cover.approve') {

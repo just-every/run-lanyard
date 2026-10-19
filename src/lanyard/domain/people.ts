@@ -3,6 +3,7 @@ import {createPortability} from '@runeditrun/rer/modules/portability'
 // @ts-ignore The archive policy is shared with Base's JavaScript CLI.
 import archivePolicy from '../archive-policy.mjs'
 import {requestFlags,overrideOf} from './leaverules'
+import {employment,employmentOf} from './offerorder'
 import {type Context,keys,text,integer,need,manager,self,staff,window,get,exact,put,sha,overlap} from './model'
 /** An hourly rate in dollars ("19.00", 19 or empty) stored as whole cents. */
 function cents(value:unknown):number|null {
@@ -14,7 +15,7 @@ function cents(value:unknown):number|null {
 // Willow leave: pending requests and a manager's explicit decision are distinct.
 export async function people(c:Context,name:string,p:Record<string,any>) {
  if(name==='staff.save') {
-  need(c.a.role==='owner','Owner required',403);keys(p,['id','revision','name','email','payrollId','role','active','position','hourlyRate','site'])
+  need(c.a.role==='owner','Owner required',403);keys(p,['id','revision','name','email','payrollId','role','active','position','hourlyRate','site','employmentType','startDate'])
   const old=p.id?c.s.staff.find(s=>s.id===text(p.id,'id')):undefined;need(!p.id||old,'Staff not found',404)
   if(old)need(integer(p.revision,'revision',1,Number.MAX_SAFE_INTEGER)===old.version,'Staff changed; reload',409)
   need(!old?.erased_at,'Erased staff cannot be restored',409)
@@ -23,12 +24,14 @@ export async function people(c:Context,name:string,p:Record<string,any>) {
   need(typeof p.active==='boolean','Explicit active flag required');need(['staff','manager'].includes(p.role),'Invalid role')
   const r={id:old?.id??crypto.randomUUID(),name:text(p.name,'name',160),email,payroll_id:text(p.payrollId,'payrollId',100,true)||null,role:p.role,active:p.active?1:0,version:(old?.version??0)+1,erased_at:null,position:text(p.position,'position',80,true)||null,rate_cents:cents(p.hourlyRate),site:text(p.site,'site',80,true)||null}
   need(!c.s.staff.some(v=>v.id!==r.id&&(v.email.toLowerCase()===email||(r.payroll_id!==null&&v.payroll_id===r.payroll_id))),'Email or payroll ID is already used',409)
-  c.sql.push(c.db.prepare('INSERT INTO l_staff(id,name,email,payroll_id,role,active,version,position,rate_cents,site) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,email=excluded.email,payroll_id=excluded.payroll_id,role=excluded.role,active=excluded.active,version=excluded.version,position=excluded.position,rate_cents=excluded.rate_cents,site=excluded.site').bind(r.id,r.name,r.email,r.payroll_id,r.role,r.active,r.version,r.position,r.rate_cents,r.site));c.entity=r.id
-  return {id:r.id,name:r.name,email:r.email,payrollId:r.payroll_id,role:r.role,active:!!r.active,revision:r.version,position:r.position,hourlyRateCents:r.rate_cents,site:r.site}
+  c.sql.push(c.db.prepare('INSERT INTO l_staff(id,name,email,payroll_id,role,active,version,position,rate_cents,site) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,email=excluded.email,payroll_id=excluded.payroll_id,role=excluded.role,active=excluded.active,version=excluded.version,position=excluded.position,rate_cents=excluded.rate_cents,site=excluded.site').bind(r.id,r.name,r.email,r.payroll_id,r.role,r.active,r.version,r.position,r.rate_cents,r.site));employment(c,r.id,!old,p);c.entity=r.id
+  const e=employmentOf(c.s,r.id)
+  return {id:r.id,name:r.name,email:r.email,payrollId:r.payroll_id,role:r.role,active:!!r.active,revision:r.version,position:r.position,hourlyRateCents:r.rate_cents,site:r.site,employmentType:e?.type??null,startDate:e?.startDate??null}
  }
  if(name==='staff.erase') {
   need(c.a.role==='owner','Owner required',403);keys(p,['id','revision']);const old=c.s.staff.find(s=>s.id===text(p.id,'id'));need(old,'Staff not found',404);need(!old.erased_at,'Staff already erased',409);need(integer(p.revision,'revision',1,Number.MAX_SAFE_INTEGER)===old.version,'Staff changed; reload',409)
-  const unusedSql=`NOT EXISTS(SELECT 1 FROM l_records r,json_tree(r.data) j WHERE j.key='staffId' AND j.value=?)
+  // COVER-004's employment record (type, start date) is not history: it never blocks erasure and is erased with the person.
+  const unusedSql=`NOT EXISTS(SELECT 1 FROM l_records r,json_tree(r.data) j WHERE r.kind<>'employment' AND j.key='staffId' AND j.value=?)
    AND NOT EXISTS(SELECT 1 FROM oa_operators WHERE email=? COLLATE NOCASE)
    AND NOT EXISTS(SELECT 1 FROM ik_provenance WHERE destination='lanyard:staff' AND target_kind='staff' AND target_id=?)
    AND NOT EXISTS(SELECT 1 FROM ik_d1_history WHERE destination='lanyard:staff' AND target_kind='staff' AND target_id=?)
@@ -39,9 +42,10 @@ export async function people(c:Context,name:string,p:Record<string,any>) {
   c.sql.push(c.db.prepare(`INSERT INTO l_guard(id,ok) VALUES(?,CASE WHEN (${unusedSql}) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(),...values))
   const portability=await createPortability({db:c.db,policy:archivePolicy})
   c.sql.push(...await portability.redactionStatements(),...await portability.invalidateTransfersStatements())
-  c.sql.push(c.db.prepare('INSERT INTO l_erasure_journal(staff_id,identity_hash,erased_at,actor_id) VALUES(?,?,?,?)').bind(old.id,await sha(old.email.toLowerCase()),c.now,c.a.id),c.db.prepare("UPDATE l_staff SET name='Erased staff',email=?,payroll_id=NULL,role='staff',active=0,version=version+1,erased_at=?,position=NULL,rate_cents=NULL,site=NULL WHERE id=?").bind(`erased-${old.id}@invalid.local`,c.now,old.id))
+  c.sql.push(c.db.prepare('INSERT INTO l_erasure_journal(staff_id,identity_hash,erased_at,actor_id) VALUES(?,?,?,?)').bind(old.id,await sha(old.email.toLowerCase()),c.now,c.a.id),c.db.prepare("DELETE FROM l_records WHERE kind='employment' AND json_extract(data,'$.staffId')=?").bind(old.id),c.db.prepare("UPDATE l_staff SET name='Erased staff',email=?,payroll_id=NULL,role='staff',active=0,version=version+1,erased_at=?,position=NULL,rate_cents=NULL,site=NULL WHERE id=?").bind(`erased-${old.id}@invalid.local`,c.now,old.id))
   // Keep identities and digests so old commands cannot replay erased PII.
   c.sql.push(c.db.prepare("UPDATE l_commands SET result=? WHERE instr(result,?)>0 OR instr(result,?)>0").bind(JSON.stringify({ok:true,result:{erased:true}}),old.id,old.email));c.entity=old.id
+  c.s.employment=c.s.employment.filter(r=>r.staffId!==old.id)
   return {id:old.id,erased:true}
  }
  if(name==='availability.save') {

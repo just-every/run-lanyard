@@ -33,9 +33,10 @@ import {weekOf} from './openshifts'
 import {history,shiftHistory,compare,changeLog,recentChanges} from './history'
 import {questions,injuriesFor} from './questions'
 import {attendance,board} from './attendance'
+import {offerRules,accessToHours} from './offerorder'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
+const commands=['offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -75,6 +76,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=history(c,name,p)
  if(result===undefined)result=questions(c,name,p)
  if(result===undefined)result=attendance(c,name,p)
+ if(result===undefined)result=offerRules(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
@@ -91,7 +93,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  if(!manages&&!agent) {
   for(const k of ['availability','leave','clocks','timesheets','patterns'] as const)result[k]=s[k].filter(r=>r.staffId===a.staffId)
   // Staff see their own published shifts, the ones they called out of and the ones offered to them, never others' hours.
-  result.offers=s.offers.filter(o=>o.staffId===a.staffId);const offered=new Set(result.offers.map((o:any)=>o.shiftId))
+  // COVER-004: a tiered replacement offer reaches the person at its opening time.
+  {const now=new Date().toISOString();result.offers=s.offers.filter(o=>o.staffId===a.staffId&&(!o.opensAt||o.opensAt<=now))};const offered=new Set(result.offers.map((o:any)=>o.shiftId))
   result.shifts=s.shifts.filter(r=>r.status==='published'&&(r.staffId===a.staffId||r.callout?.staffId===a.staffId||offered.has(r.id))).map(({callout,...r})=>callout?{...r,callout:{staffId:callout.staffId===a.staffId?callout.staffId:undefined,note:callout.staffId===a.staffId?callout.note:undefined,at:callout.at,covered:Boolean(callout.coveredBy)}}:r)
   const ids=new Set(result.shifts.map((r:any)=>r.rosterId));result.rosters=s.rosters.filter(r=>ids.has(r.id));result.batches=[];result.forecasts=[];result.postings=[];result.templates=[];result.recurrences=[]
   // ROSTER-004: coworkers' published shifts at their cafe, as name, position and start/end only; who is hidden stays private.
@@ -109,13 +112,15 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.swaps=agent?[]:s.swaps.filter(w=>manages||w.fromId===a.staffId||w.toId===a.staffId).map(named)
  result.swapOptions=a.staffId&&!agent?swapOptions(s,a.staffId,new Date().toISOString()):[]
  // COVER-002: managers read every open shift and request; a person reads the open shifts they may request (with their own rate when visible) and their requests.
- if(!manages){result.openshifts=agent?[]:openFor(s,a.staffId!,earnSettings(s.earnings).estimates);result.pickups=agent?[]:s.pickups.filter(x=>x.staffId===a.staffId)}
+ if(!manages){result.openshifts=agent?[]:openFor(s,a.staffId!,earnSettings(s.earnings).estimates,new Date().toISOString());result.pickups=agent?[]:s.pickups.filter(x=>x.staffId===a.staffId)}
  // COST-002: managers see projected overtime alerts, and each pending pickup's and swap's projected cost before approval.
  if(manages) {
   const now=new Date().toISOString(),shiftOf=(id:string)=>s.shifts.find(x=>x.id===id)
   result.overtime=upcoming(s,a,now)
   // CLOCK-004: the live attendance board for the manager's cafe (every cafe for the owner).
   result.attendance=board(s,a,now)
+  // COVER-004: each open shift's access-to-hours standing where its cafe has the rule on.
+  result.openshifts=result.openshifts.map((o:any)=>{const x=accessToHours(s,o as any,now);return x?{...o,accessToHours:x}:o})
   result.pickups=result.pickups.map((x:any)=>{const o=s.openshifts.find(v=>v.id===x.openShiftId);return x.status==='requested'&&o?{...x,cost:cost(project(s,x.staffId,o.week,now,[{...o,staffId:x.staffId} as any]))}:x})
   result.swaps=result.swaps.map((w:any)=>{if(!['proposed','accepted'].includes(w.status))return w;const give=shiftOf(w.give.shiftId),take=w.take?shiftOf(w.take.shiftId):undefined
    const moves=[...(give?[{to:w.toId,shift:give,skip:take?[take.id]:[]}]:[]),...(take&&give?[{to:w.fromId,shift:take,skip:[give.id]}]:[])]
@@ -123,6 +128,9 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  }
  // CLOCK-004: who is handling an attendance alert is for managers only.
  if(!manages)result.attendacks=[]
+ // COVER-004: employment type and start date: managers read everyone's, a person their own; agents none.
+ result.employment=agent?[]:s.employment.filter(r=>manages||r.staffId===a.staffId)
+ if(!manages)result.offerrules=[]
  // CLOCK-006: injury answers and their follow-ups only for the employee, the owner and that cafe's managers.
  result.injuries=injuriesFor(s,a)
  // SCHEDULE-006: shift history from last week on (managers every line; an employee the lines they were assigned).

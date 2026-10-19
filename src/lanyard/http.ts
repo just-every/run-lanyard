@@ -64,6 +64,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   if (params.has('hidden')) input.hidden = params.getAll('hidden')
   if (params.has('flags')) input.flags = params.getAll('flags')
   if (params.has('pool')) input.pool = params.getAll('pool')
+  if (params.has('ranking')) input.ranking = params.getAll('ranking')
   for (const key of ['revision', 'breakMinutes']) if (key in input) input[key] = Number(input[key])
   for (const key of ['shifts', 'ids', 'items']) if (input[key]) { try { input[key] = JSON.parse(String(input[key])) } catch { fail(`Invalid ${key}`) } }
   if ('active' in input) input.active = input.active === 'on' || input.active === 'true' || input.active === '1'

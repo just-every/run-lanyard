@@ -6,7 +6,7 @@ const preparation = [
 ]
 const human = [
  ['settings.save','Owner','timezone: named IANA venue time zone; fixed after the first published week'],
- ['staff.save','Owner','name, email, role (staff or manager), active; payrollId optional until export; position, hourlyRate (dollars) and site (home cafe) optional; id + revision when editing'],
+ ['staff.save','Owner','name, email, role (staff or manager), active; payrollId optional until export; position, hourlyRate (dollars), site (home cafe), employmentType (part-time, full-time or empty) and startDate (YYYY-MM-DD) optional; id + revision when editing'],
  ['forecast.save','Manager','week: Monday YYYY-MM-DD; site; days: seven whole-dollar sales forecasts, Monday to Sunday; budgetPercent optional'],
  ['staff.invite','Owner','id: active staff ID'],
  ['staff.erase','Owner','id, revision; unused, uninvited manually added staff only'],
@@ -28,7 +28,9 @@ const human = [
  ['time.resubmit','Linked staff','id, revision, note?; start, end, breakMinutes to correct time sent back to you'],
  ['time.confirm','Linked staff or manager','id, revision (open clock), end, breakMinutes, reason?: confirm or correct a provisionally closed punch'],
  ['closerule.save','Owner','site, graceMinutes (0–240), capHours (1–24); revision when editing'],
- ['openshift.post','Manager','site, position?, start, end, breakMinutes, label?, approval (auto or manager), pool?: staff IDs'],
+ ['openshift.post','Manager','site, position?, start, end, breakMinutes, label?, approval (auto = first come, or manager), pool?: staff IDs, order? (all or tiers), rule? (parttime, preferred, fewest, seniority or custom), size?, minutes?, ranking?: staff IDs in order'],
+ ['openshift.decline','Linked staff','id, revision: declines an open shift offered to you; recorded in its offer log'],
+ ['offerrule.save','Owner or home-cafe manager','site, revision?, order, rule?, size?, minutes?, ranking?, accessToHours? (owner only): the cafe\'s call-out replacement order and access-to-hours rule'],
  ['openshift.request','Linked staff','id, revision: an open shift offered to you'],
  ['openshift.approve','Manager','id, revision: a pickup request; assigns the shift and closes other requests'],
  ['clocknet.save','Owner','site, mode (off, refuse or flag), ranges: approved IPv4/IPv6 CIDR ranges; revision when editing'],

@@ -12,6 +12,7 @@ const first=(name:string)=>name.split(/\s+/)[0]
 function badge(o:any,tz:string) {
  if(o.status==='accepted'||o.status==='approved')return `<span class="badge yes" aria-label="Accepted">✓</span><span class="at">${h(clock(o.respondedAt,tz))}</span>`
  if(o.status==='declined')return `<span class="badge no" aria-label="Declined">×</span><span class="at">${h(clock(o.respondedAt,tz))}</span>`
+ if(o.opensAt&&o.opensAt>new Date().toISOString())return `<span class="badge wait" aria-label="Not offered yet">T${h(o.tier)}</span><span class="at">opens ${h(clock(o.opensAt,tz))}</span>`
  return `<span class="badge wait" aria-label="No reply yet">···</span>`
 }
 function leftOut(s:any,w:Week,list:any[]) {
@@ -29,7 +30,7 @@ export function coverPopover(s:any,w:Week,x:any,back:string,waitLink:string) {
  const ordered=qualified.map(f=>({f,o:offers.find(o=>o.staffId===f.staffId)})).filter(v=>v.o).sort((a,b)=>rank[a.o.status]-rank[b.o.status])
  const list=ordered.map(({f,o})=>{
   const p=staffOf(s,o.staffId),site=p?.site&&p.site!==w.site?`<span class="from">${h(p.site)}</span>`:''
-  const quote=o.note?`<q>${h(o.note)}</q>`:o.status==='sent'?'<span class="waiting">No reply yet</span>':''
+  const quote=o.note?`<q>${h(o.note)}</q>`:o.status==='sent'&&!(o.opensAt>new Date().toISOString())?'<span class="waiting">No reply yet</span>':''
   return `<li class="candidate ${h(o.status)}">${avatar(p?.name??'?',site?'cross':'')}<span class="who"><strong>${h(p?.name??'Former staff')}</strong>${site}</span><span class="hrs">${h(hours(f.before))} → ${h(hours(f.after))}</span><span class="reply">${badge(o,w.tz)}</span>${quote?`<span class="quote">${quote}</span>`:''}</li>`
  }).join('')
  const accepted=ordered.filter(v=>v.o.status==='accepted'),pending=ordered.filter(v=>v.o.status==='sent')
