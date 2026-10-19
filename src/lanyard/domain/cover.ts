@@ -10,15 +10,15 @@ const WEEK_LIMIT=40*60, DAY_LIMIT=8*60
 type Fit={staffId:string;before:number;after:number;reason?:'overtime'|'already on'|'unavailable'|'time off';shiftId?:string;overlap?:number}
 
 /** Minutes a person is already published for in the shift's workweek and on its day. */
-function load(s:State,staffId:string,shift:Row) {
+function load(s:State,staffId:string,shift:Row,skip:string[]) {
  const week=s.rosters.find(r=>r.id===shift.rosterId)?.week,day=localDate(shift.start,s.timezone)
- const mine=s.shifts.filter(x=>x.staffId===staffId&&x.status==='published'&&x.id!==shift.id)
+ const mine=s.shifts.filter(x=>x.staffId===staffId&&x.status==='published'&&x.id!==shift.id&&!skip.includes(x.id))
  const inWeek=mine.filter(x=>s.rosters.find(r=>r.id===x.rosterId)?.week===week)
  return {week:inWeek.reduce((n,x)=>n+x.minutes,0),day:inWeek.filter(x=>localDate(x.start,s.timezone)===day).reduce((n,x)=>n+x.minutes,0),clash:mine.find(x=>overlap(x,shift))}
 }
-/** One teammate measured against the shift: qualified, or the reason they are left out. */
-export function fit(s:State,staffId:string,shift:Row):Fit {
- const {week,day,clash}=load(s,staffId,shift),f:Fit={staffId,before:week,after:week+shift.minutes}
+/** One teammate measured against the shift (ignoring shifts they would give up, for a swap): qualified, or the reason they are left out. */
+export function fit(s:State,staffId:string,shift:Row,skip:string[]=[]):Fit {
+ const {week,day,clash}=load(s,staffId,shift,skip),f:Fit={staffId,before:week,after:week+shift.minutes}
  if(clash)return {...f,reason:'already on',shiftId:clash.id,overlap:(Math.min(Date.parse(clash.end),Date.parse(shift.end))-Math.max(Date.parse(clash.start),Date.parse(shift.start)))/60000}
  if(!available(s,staffId,shift))return {...f,reason:'unavailable'}
  if(onLeave(s,staffId,shift))return {...f,reason:'time off'}

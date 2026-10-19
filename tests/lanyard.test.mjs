@@ -529,6 +529,59 @@ test('JOURNAL-001: a cafe manager keeps a private note with an attachment and a 
   assert.deepEqual([history.text, history.revision, history.versions.map(v => [v.revision, v.text, v.attachment.name])], ['Late twice; alarm plan working since Wednesday', edited.revision, [[1, 'Late twice this week; agreed a 6:45 alarm', 'conversation.txt']]])
 }))
 
+test('COVER-001: staff propose a two-person exchange, the coworker consents and a cafe manager approves; ineligible, unavailable, stale and competing swaps are refused and the original assignee keeps the shift until approval', () => run(async h => {
+  const place = (p, site) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site })
+  const jess = await h.person('Jess'), luis = await h.person('Luis'), andrea = await h.person('Andrea'), mo = await h.person('Mo')
+  const priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager')
+  for (const p of [jess, luis, andrea, priya]) await place(p, 'Ocean Beach')
+  for (const p of [mo, omar]) await place(p, 'Mission')
+  for (const p of [jess, luis, mo]) await h.cmd('availability.save', { staffId: p.id, start: '2027-07-12T07:00:00Z', end: '2027-07-19T07:00:00Z' })
+  // Andrea's AVAIL-001 pattern marks Tuesdays unavailable.
+  await h.cmd('pattern.save', { staffId: andrea.id, from: '2027-07-01', blocks: 'Tue unavailable 00:00-24:00\nWed available 06:00-22:00' }, priya.cookie)
+  // 7:00 am – 3:00 pm PDT: Jess on Tue Jul 13, Luis on Wed Jul 14.
+  const at = (p, d) => ({ staffId: p.id, start: `2027-07-${d}T14:00:00Z`, end: `2027-07-${d}T22:00:00Z`, breakMinutes: 30 })
+  const week = await h.cmd('roster.prepare', { week: '2027-07-12', shifts: [at(jess, 13), at(luis, 14)] })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
+  const tue = (await h.state(jess.cookie)).shifts[0], wed = (await h.state(luis.cookie)).shifts[0]
+  // Jess's choices: Luis can take Tuesday or exchange Wednesday; Andrea (unavailable) and Mo (another cafe) are not offered.
+  const [choice] = (await h.state(jess.cookie)).swapOptions
+  assert.deepEqual(choice.give.map(g => g.staffId), [luis.id]); assert.deepEqual(choice.exchange.map(x => x.shiftId), [wed.id])
+  await h.cmd('swap.propose', { shiftId: tue.id, revision: tue.revision, to: andrea.id }, jess.cookie, 409)
+  await h.cmd('swap.propose', { shiftId: tue.id, revision: tue.revision, to: mo.id }, jess.cookie, 409)
+  await h.cmd('swap.propose', { shiftId: wed.id, revision: wed.revision, to: luis.id }, jess.cookie, 403)
+  const exchange = await h.cmd('swap.propose', { shiftId: tue.id, revision: tue.revision, theirShiftId: wed.id, note: 'Swap my Tuesday for your Wednesday?' }, jess.cookie)
+  const giveaway = await h.cmd('swap.propose', { shiftId: tue.id, revision: tue.revision, to: luis.id }, jess.cookie)
+  assert.equal(exchange.toId, luis.id); assert.equal(exchange.status, 'proposed')
+  await h.cmd('swap.decide', { id: exchange.id, revision: exchange.revision, decision: 'approved' }, priya.cookie, 409)
+  await h.cmd('swap.respond', { id: exchange.id, revision: exchange.revision, decision: 'accepted' }, andrea.cookie, 403)
+  assert.match((await h.send('/app/schedule?week=2027-07-12', undefined, luis.cookie)).text, /name=swap\.respond/)
+  const agreed = await h.cmd('swap.respond', { id: exchange.id, revision: exchange.revision, decision: 'accepted' }, luis.cookie)
+  const competing = await h.cmd('swap.respond', { id: giveaway.id, revision: giveaway.revision, decision: 'accepted' }, luis.cookie)
+  // Pending swaps change no responsibility.
+  assert.equal((await h.state(jess.cookie)).shifts.find(x => x.id === tue.id).staffId, jess.id)
+  assert.equal((await h.state(luis.cookie)).shifts.find(x => x.id === wed.id).staffId, luis.id)
+  assert.match((await h.send('/app/schedule?week=2027-07-12', undefined, priya.cookie)).text, /name=swap\.decide/)
+  await h.cmd('swap.decide', { id: agreed.id, revision: agreed.revision, decision: 'approved' }, omar.cookie, 403)
+  await h.cmd('swap.decide', { id: agreed.id, revision: agreed.revision, decision: 'approved' }, jess.cookie, 403)
+  const done = await h.cmd('swap.decide', { id: agreed.id, revision: agreed.revision, decision: 'approved' }, priya.cookie)
+  assert.equal(done.status, 'approved')
+  await h.cmd('swap.decide', { id: agreed.id, revision: agreed.revision, decision: 'approved' }, priya.cookie, 409)
+  await h.cmd('swap.decide', { id: competing.id, revision: competing.revision, decision: 'approved' }, h.owner, 409)
+  // Both schedules changed exactly once; each person's swap record shows the outcome.
+  const jessNow = await h.state(jess.cookie), luisNow = await h.state(luis.cookie)
+  assert.deepEqual(jessNow.shifts.map(x => [x.id, x.swap.id]), [[wed.id, agreed.id]])
+  assert.deepEqual(luisNow.shifts.map(x => [x.id, x.swap.id]), [[tue.id, agreed.id]])
+  assert.deepEqual(Object.fromEntries(jessNow.swaps.map(w => [w.id, w.status])), { [agreed.id]: 'approved', [giveaway.id]: 'closed' })
+  assert.equal(luisNow.swaps.find(w => w.id === agreed.id).fromName, 'Jess')
+  // A stale request: Luis offers his new Tuesday back, Jess agrees, then Luis calls out of it.
+  const moved = luisNow.shifts[0]
+  const back = await h.cmd('swap.propose', { shiftId: moved.id, revision: moved.revision, to: jess.id }, luis.cookie)
+  const yes = await h.cmd('swap.respond', { id: back.id, revision: back.revision, decision: 'accepted' }, jess.cookie)
+  await h.cmd('shift.callout', { id: moved.id, revision: moved.revision, note: 'Sick' }, luis.cookie)
+  await h.cmd('swap.decide', { id: yes.id, revision: yes.revision, decision: 'approved' }, priya.cookie, 409)
+  assert.ok((await h.state(priya.cookie)).events.some(e => e.action === 'swap.decide' && e.entityId === agreed.id && e.actorRole === 'manager'))
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- COVER-001: staff offer a shift to an eligible coworker or propose an exchange; the coworker agrees and a manager of the shift's cafe approves, with every check rerun and overtime shown first.
 - AVAIL-001: weekly availability patterns with available, preferred and unavailable blocks, effective dates, one-off dates and weekly hours, optional manager approval, and collision lists.
 - SCHEDULE-002: managers copy days between weeks, save and apply week templates and add recurring shifts with end dates and skipped dates, each as a rechecked draft.
 - BREAK-002: owners turn on an automatic meal deduction per cafe; staff confirm or report the meal at clock-out, and reported or unanswered meals are flagged for approval.

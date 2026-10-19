@@ -17,7 +17,7 @@ function subject(s:State,index:Map<string,[string,Row]>,id:string):Subject {
  const found=index.get(id)
  if(found) {
   const [k,r]=found
-  add(r.staffId);add(r.callout?.staffId);if(typeof r.staffId==='string')person=r.staffId
+  add(r.staffId);add(r.callout?.staffId);add(r.fromId);add(r.toId);if(typeof r.staffId==='string')person=r.staffId
   for(const list of [r.lines,r.slots,r.rows])if(Array.isArray(list))for(const x of list)add(x.staffId)
   const roster=k==='rosters'?r.id:k==='postings'?r.rosterId:null
   if(roster)for(const x of s.shifts)if(x.rosterId===roster)add(x.staffId)

@@ -7,7 +7,7 @@ export type TeamShift={name:string;position:string|null;start:string;end:string}
 const SCOPES=['site','position']
 
 /** A shift's cafe: the one it was scheduled at, else the person's home cafe ('' when unnamed). */
-const siteOf=(s:State,x:Record<string,any>)=>x.site||s.staff.find(p=>p.id===x.staffId)?.site||''
+export const siteOf=(s:State,x:Record<string,any>)=>x.site||s.staff.find(p=>p.id===x.staffId)?.site||''
 
 /** The cafe's saved choice, or the default whole-site view with nobody hidden. */
 export function visibility(s:State,site:string) {

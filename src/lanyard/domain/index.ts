@@ -22,9 +22,10 @@ import {earnings,earnSettings} from './earnings'
 import {rounding} from './rounding'
 import {feedback,feedbackFor} from './feedback'
 import {journal,notesFor,noteFile} from './journal'
+import {swaps,swapOptions} from './swaps'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -55,6 +56,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=rounding(c,name,p)
  if(result===undefined)result=await feedback(c,name,p)
  if(result===undefined)result=await journal(c,name,p)
+ if(result===undefined)result=swaps(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
@@ -84,6 +86,10 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
   result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,...r})=>r)
   result.batches=s.batches.map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,...l}:any)=>l)}))
  }
+ // COVER-001: managers read every swap; a person reads the swaps they are in, with both names, and their own swap choices.
+ const named=(w:any)=>({...w,fromName:s.staff.find(p=>p.id===w.fromId)?.name??'Former staff',toName:s.staff.find(p=>p.id===w.toId)?.name??'Former staff'})
+ result.swaps=agent?[]:s.swaps.filter(w=>manages||w.fromId===a.staffId||w.toId===a.staffId).map(named)
+ result.swapOptions=a.staffId&&!agent?swapOptions(s,a.staffId,new Date().toISOString()):[]
  // FEEDBACK-001: each reader's own slice; an anonymous author is never named.
  result.feedback=await feedbackFor(s,a,secret);if(agent)result.feedbackopts=[]
  // JOURNAL-001: notes by cafe and role; an employee reads only notes made visible to them.
