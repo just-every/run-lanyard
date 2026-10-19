@@ -2,7 +2,7 @@
 // budget), and the availability and time off the schedule is checked against.
 import {h,rows,manager,self,form,field,hidden,utc,exact,staffSelect,disclosure,card,status,empty,person,venue} from './shared'
 import {type Week} from './week'
-import {day,dollars,wallInput,when,weekday} from './format'
+import {day,dollars,wallInput,when,weekday,zoneTime} from './format'
 
 const range=(r:any,tz:string)=>`${h(when(r.start,tz))} – ${h(when(r.end,tz))}`
 /** One shift as editable fields; the browser serializes every row into the hidden `shifts` field. */
@@ -14,7 +14,7 @@ function build(s:any,w:Week,back:string) {
  const current=[...w.shifts].sort((a,b)=>a.start.localeCompare(b.start)||String(a.staffId).localeCompare(String(b.staffId)))
  const sites=w.sites.length?`<datalist id="cafes">${w.sites.map(v=>`<option value="${h(v)}">`).join('')}</datalist>`:''
  const keep=current.length?`<label class="check"><input type="checkbox" data-keep checked> Keep this week’s ${h(current.length)} shifts and add the rows above</label><details class="current-shifts"><summary>Edit or remove this week’s ${h(current.length)} shifts</summary><div data-current-rows>${current.map(x=>shiftRow(s,w,x)).join('')}</div></details>`:''
- const body=form('roster.prepare',back,`${field('week','Week starting Monday',w.week,'date','required')}<p class="note">Times are ${h(venue(s))} wall time. Each draft is a new revision; nothing reaches staff until you publish it.</p><noscript><p class="note">Building a week on this screen needs JavaScript. Agents prepare weeks with roster.prepare (Agent access).</p></noscript><div data-shift-rows>${shiftRow(s,w)}</div>${sites}<button type="button" data-add-shift class="secondary small">Add another shift</button>${keep}<input type="hidden" name="shifts" value="" data-shifts-output>`,'Prepare draft','data-roster-form','primary')
+ const body=form('roster.prepare',back,`${field('week','Week starting Monday',w.week,'date','required')}<p class="note">Times are ${h(zoneTime(w.tz))}. Each draft is a new revision; nothing reaches staff until you publish it.</p><noscript><p class="note">Building a week on this screen needs JavaScript. Agents prepare weeks with roster.prepare (Agent access).</p></noscript><div data-shift-rows>${shiftRow(s,w)}</div>${sites}<button type="button" data-add-shift class="secondary small">Add another shift</button>${keep}<input type="hidden" name="shifts" value="" data-shifts-output>`,'Prepare draft','data-roster-form','primary')
  return card(w.roster?'Edit this week':'Build this week',body,`<p class="card-note">${w.roster?`${h(w.shifts.length)} shifts in the ${h(w.view)} revision`:'No revision yet'}</p>`,'plan')
 }
 function forecastCard(s:any,w:Week,back:string) {

@@ -38,6 +38,13 @@ export const dollars=(whole:number)=>'$'+whole.toLocaleString('en-US')
 export const percent=(part:number,whole:number)=>whole>0?(part/whole*100).toFixed(1)+'%':'—'
 /** The short zone name, such as "PT". */
 export const zoneName=(tz:string)=>parts(tz,Date.now(),{timeZoneName:'shortGeneric'}).timeZoneName??tz
+/** US venue zones as People offers them: [IANA zone, region, city]. */
+export const ZONES:[string,string,string][]=[['America/Los_Angeles','Pacific','Los Angeles'],['America/Denver','Mountain','Denver'],['America/Phoenix','Arizona','Phoenix'],['America/Chicago','Central','Chicago'],['America/New_York','Eastern','New York'],['America/Anchorage','Alaska','Anchorage'],['Pacific/Honolulu','Hawaii','Honolulu']]
+const longZone=(tz:string)=>parts(tz,Date.now(),{timeZoneName:'longGeneric'}).timeZoneName??tz
+/** A venue zone as People labels it, "Pacific (Los Angeles)". */
+export function zoneLabel(tz:string) { const z=ZONES.find(([id])=>id===tz);return z?`${z[1]} (${z[2]})`:longZone(tz) }
+/** A venue zone in a sentence, "Pacific time (Los Angeles)". */
+export function zoneTime(tz:string) { const z=ZONES.find(([id])=>id===tz);return z?`${z[1]} time (${z[2]})`:longZone(tz) }
 export const initials=(name:string)=>name.split(/\s+/).filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?'
 /** An instant as the venue wall time a datetime-local input holds ("2026-10-24T07:00"). */
 export function wallInput(v:string|number|Date,tz:string) {

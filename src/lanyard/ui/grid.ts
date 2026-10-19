@@ -55,7 +55,7 @@ function footer(w:Week) {
  const f=w.forecast?.days as number[]|undefined,total=w.labor.reduce((a,b)=>a+b,0),sales=f?f.reduce((a,b)=>a+b,0):0
  const days=w.days.map((d,i)=>`<div class="wk-cell day${d===w.today?' today':''}" role="cell" data-day="${keyOf(d)}"><span>${f?h(dollars(f[i])):'—'}</span><span>${h(money(w.labor[i]))}</span><span>${f?h(percent(w.labor[i]/100,f[i])):'—'}</span></div>`).join('')
  const budget=w.forecast?.budgetPercent?` · budget ${h(w.forecast.budgetPercent)}%`:''
- const summary=f?`<strong>${h(money(total))}</strong> of ${h(dollars(sales))}<br>${h(percent(total/100,sales))}${budget}`:`<strong>${h(money(total))}</strong> scheduled<br>No forecast yet`
+ const summary=f?`<span><strong>${h(money(total))}</strong> of ${h(dollars(sales))}</span><span>${h(percent(total/100,sales))}${budget}</span>`:`<span><strong>${h(money(total))}</strong> scheduled</span><span>No forecast yet</span>`
  return `<div class="wk-row foot" role="row"><div class="wk-cell" role="rowheader"><span>Forecast</span><span>Labor cost</span><span>Labor %</span></div>${days}<div class="wk-cell total" role="cell">${summary}</div></div>${w.unrated?`<p class="wk-aside">${h(w.unrated)} scheduled ${w.unrated===1?'person has':'people have'} no hourly rate yet, so their hours are not in labor cost. Set rates in People.</p>`:''}`
 }
 export function grid(s:any,w:Week,now:number,back:string,q:URLSearchParams) {

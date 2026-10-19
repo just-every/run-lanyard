@@ -60,7 +60,7 @@ export async function seedDemo(env: Bindings, { ownerEmail, now }: { ownerEmail:
     // Worked time: phone clocks a few minutes either side of the shift; open while it is still running.
     const clockId = `demo-clock-${r.week}-${i}-${n}`, start = minus(x.start, 3), end = minus(x.end, -2)
     if (end > at) { add('clocks', clockId, { staffId, start, end: null, status: 'open', capturedBy: staffId, receivedAt: start }); continue }
-    const id = `demo-time-${r.week}-${i}-${n}`, minutes = Math.floor((Date.parse(end) - Date.parse(start)) / 60000) - x.breakMinutes, approved = end < minus(at, 24 * 60)
+    const id = crypto.randomUUID(), minutes = Math.floor((Date.parse(end) - Date.parse(start)) / 60000) - x.breakMinutes, approved = end < minus(at, 24 * 60)
     timesheets.push(add('timesheets', id, { staffId, start, end, breakMinutes: x.breakMinutes, minutes, status: approved ? 'approved' : 'submitted', reason: 'Phone clock', corrects: null, rootId: id, submittedBy: staffId, submittedAt: end, clockId, ...(approved ? { exportMinutes: minutes, approvedBy: owner.id, approvedAt: minus(end, -12 * 60) } : {}) }, approved ? 2 : 1))
     add('clocks', clockId, { staffId, start, end, status: 'closed', capturedBy: staffId, receivedAt: start, closedReceivedAt: end, timesheetId: id }, 2)
    }
