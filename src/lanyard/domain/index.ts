@@ -34,9 +34,10 @@ import {history,shiftHistory,compare,changeLog,recentChanges} from './history'
 import {questions,injuriesFor} from './questions'
 import {attendance,board} from './attendance'
 import {offerRules,accessToHours} from './offerorder'
+import {periods,guardPeriods} from './periods'
 export {actor}
 export type {Actor} from './model'
-const commands=['offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
+const commands=['period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -77,7 +78,10 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=questions(c,name,p)
  if(result===undefined)result=attendance(c,name,p)
  if(result===undefined)result=offerRules(c,name,p)
+ if(result===undefined)result=periods(c,name,p)
  need(result!==undefined,'Unknown command',404)
+ // TIME-004: whatever the command, time in a locked or closed pay period is rechecked before the write.
+ guardPeriods(c,before)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
   result={...safe,lines:lines.map(({payrollId,...line}:any)=>line)}
@@ -131,6 +135,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  // COVER-004: employment type and start date: managers read everyone's, a person their own; agents none.
  result.employment=agent?[]:s.employment.filter(r=>manages||r.staffId===a.staffId)
  if(!manages)result.offerrules=[]
+ // TIME-004: a person reads each pay period with only their own signoff and locked rows.
+ if(!manages)result.periods=s.periods.map(r=>({...r,signoffs:r.signoffs.filter((x:any)=>!agent&&x.staffId===a.staffId),locked:r.locked.filter((x:any)=>!agent&&x.staffId===a.staffId),reopens:r.reopens.map((x:any)=>({at:x.at,reason:x.reason}))}))
  // CLOCK-006: injury answers and their follow-ups only for the employee, the owner and that cafe's managers.
  result.injuries=injuriesFor(s,a)
  // SCHEDULE-006: shift history from last week on (managers every line; an employee the lines they were assigned).

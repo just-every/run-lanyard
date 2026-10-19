@@ -15,6 +15,7 @@ import {exceptionsCard,myRequestsCard} from './cases'
 import {breakButtons,clockBreaks,breakQuestions,breakNote} from './breaks'
 import {clockQuestions,answersNote,safetyCard,tipsCard} from './questions'
 import {attendanceCard} from './attendance'
+import {signoffCard} from './periods'
 
 const timeFields=(s:any,r:any={})=>staffSelect(s,r.staffId)+utc('start','Work starts',r.start)+utc('end','Work ends',r.end)+field('breakMinutes','Meal minutes',r.breakMinutes??0,'number','required min="0" max="1440"')+field('reason','Reason for manual entry or correction','','text','required maxlength="120"')+(r.id?hidden('corrects',r.id):'')
 function clockCard(s:any,tz:string) {
@@ -45,5 +46,5 @@ export function time(s:any,w:Week,now:number,back:string,q:URLSearchParams,extra
  const manual=canManage?card('Record worked time',form('time.prepare',back,timeFields(s),'Prepare timesheet','','secondary'),'<p class="card-note">For a missed clock-in</p>'):''
  const history=rows(s,'clocks').filter(inSite).filter(r=>w.days.includes(dateKey(r.start,tz)))
  const clocks=`<details class="card fold"><summary><h2>Clock history</h2><span class="card-note">${h(history.length)} this week</span></summary>${history.length?`<table class="list stack clock-list"><thead><tr><th>Person</th><th>Day</th><th>Clock</th><th>Status</th></tr></thead><tbody>${history.map(r=>`<tr><td class="who">${h(person(s,r.staffId))}</td><td class="day">${h(day(dateKey(r.start,tz)))}</td><td class="span" data-label="Clock">${r.end?h(span(r.start,r.end,tz)):`in ${moment(r.start,tz)}`}</td><td class="st" data-label="Status">${status(r.status)}</td></tr>`).join('')}</tbody></table>`:empty('No clock events this week.')}</details>`
- return `${titleRow(title,s,now)}${self(s)?reminderCard(s,tz,back)+returnedCard(s,tz,back)+clockCard(s,tz)+myRequestsCard(s,tz,back)+safetyCard(s,tz,back,false)+myFeedbackCard(s,tz,back)+earningsCard(s,w)+sharedNotesCard(s):''}${canManage?attendanceCard(s,tz,back):''}${toApprove}${canManage?provisionalCard(s,tz,back)+exceptionsCard(s,tz,back)+safetyCard(s,tz,back,true)+tipsCard(s,w.days,tz):''}${canManage?feedbackCard(s,w,q,back,tz)+neutralityCard(s,week):''}${card(`Week of ${day(w.week)}`,table,`<p class="card-note">${h(week.length)} timesheet${week.length===1?'':'s'}</p>`)}${manual}${clocks}`
+ return `${titleRow(title,s,now)}${self(s)?reminderCard(s,tz,back)+returnedCard(s,tz,back)+(manager(s)?'':signoffCard(s))+clockCard(s,tz)+myRequestsCard(s,tz,back)+safetyCard(s,tz,back,false)+myFeedbackCard(s,tz,back)+earningsCard(s,w)+sharedNotesCard(s):''}${canManage?attendanceCard(s,tz,back):''}${toApprove}${canManage?provisionalCard(s,tz,back)+exceptionsCard(s,tz,back)+safetyCard(s,tz,back,true)+tipsCard(s,w.days,tz):''}${canManage?feedbackCard(s,w,q,back,tz)+neutralityCard(s,week):''}${card(`Week of ${day(w.week)}`,table,`<p class="card-note">${h(week.length)} timesheet${week.length===1?'':'s'}</p>`)}${manual}${clocks}`
 }

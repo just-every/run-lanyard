@@ -2,6 +2,7 @@
 // Each correction exports only the signed difference from prior claimed time.
 import {type Context,type Row,keys,text,need,prepare,manager,staff,get,exact,put,sha} from './model'
 import {provisional} from './closerules'
+import {heldByPeriod} from './periods'
 function cell(value:unknown,numeric=false) { let s=String(value??'');if(!numeric&&/^[\s]*[=+\-@\t\r]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s }
 // pay_code: "regular" is net worked time; "meal premium" and "rest premium" are BREAK-001 premium inputs
 // (minutes of premium pay at the regular rate, not worked time), exported as signed differences like hours.
@@ -19,10 +20,11 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
  if(name==='payroll.prepare') {
   prepare(c.a);keys(p,['ids']);need(p.ids===undefined||(Array.isArray(p.ids)&&p.ids.length>0&&p.ids.length<=500),'Provide 1–500 timesheet IDs')
   const ids=p.ids?.map((v:unknown)=>text(v,'time ID'));if(ids)need(new Set(ids).size===ids.length,'Duplicate timesheet IDs')
-  const available=c.s.timesheets.filter(t=>t.status==='approved'&&!c.s.claims.some(cl=>cl.time_id===t.id&&cl.time_revision===t.revision))
-  const selected=ids?ids.map((id:string)=>{const t=available.find(r=>r.id===id);need(t,'Selected time is not approved or is already exported',409);return t}):available
+  // TIME-004: time in an open defined pay period waits for the period's lock.
+  const unclaimed=c.s.timesheets.filter(t=>t.status==='approved'&&!c.s.claims.some(cl=>cl.time_id===t.id&&cl.time_revision===t.revision)),available=unclaimed.filter(t=>!heldByPeriod(c.s,t))
+  const selected=ids?ids.map((id:string)=>{const t=available.find(r=>r.id===id);need(t,unclaimed.some(r=>r.id===id)?'Selected time is in an open pay period; lock the period first':'Selected time is not approved or is already exported',409);return t}):available
   // TIME-007: a provisionally closed punch is never exported; it is listed as held until confirmed or corrected and approved.
-  const held=c.s.clocks.filter(k=>provisional(c.s,k,c.now)).map(k=>({clockId:k.id,staffId:k.staffId,start:k.start,reason:'provisional close'}))
+  const held=[...c.s.clocks.filter(k=>provisional(c.s,k,c.now)).map(k=>({clockId:k.id,staffId:k.staffId,start:k.start,reason:'provisional close'})),...unclaimed.filter(t=>heldByPeriod(c.s,t)).map(t=>({timeId:t.id,staffId:t.staffId,start:t.start,reason:'pay period open'}))]
   need(selected.length>0&&selected.length<=500,`No approved unexported time, or too many entries${held.length?`; ${held.length} provisionally closed punch${held.length===1?'':'es'} held until confirmed`:''}`,409)
   const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).flatMap((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);const base={timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,corrects:t.corrects,rootId:t.rootId};return [{...base,minutes:t.exportMinutes},...premiumLines(c,t,base)]})
   const r=put(c,'batches',{status:'draft',lines,held,csvPreview:csv(lines),preparedBy:c.a.id,preparedAt:c.now})
@@ -33,6 +35,7 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
   for(const line of b.lines) {
    const t=get(c.s,'timesheets',line.timeId),person=staff(c,line.staffId)
    need(t.status==='approved'&&t.revision===line.revision&&person.payroll_id===line.payrollId,'Reviewed payroll sources changed; prepare a new batch',409)
+   need(!heldByPeriod(c.s,t),'This time\'s pay period was reopened; lock it before exporting',409)
    // A premium line rides on its timesheet's regular line, which claims the revision.
    if(line.payCode){need(premiumLines(c,t,{}).some(l=>l.payCode===line.payCode&&l.minutes===line.minutes),'Premium inputs changed; prepare a new batch',409);continue}
    need(!c.s.claims.some(cl=>cl.time_id===t.id&&cl.time_revision===t.revision),'Time revision already claimed by another export',409)

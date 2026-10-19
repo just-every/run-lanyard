@@ -1012,6 +1012,52 @@ test('COVER-004: a two-tier open shift by part-time priority: tier two waits, ti
   assert.match((await h.send('/app/schedule?week=2027-09-06', undefined, priya.cookie)).text, /Offer log/)
 }))
 
+test('TIME-004: the owner defines a pay period, employees and a manager sign off and it locks; an ordinary manager cannot edit or reopen it; the owner reopens with a reason and fresh signoff, a reopened period holds its prepared payroll, and after the provider run closes it a correction is a linked adjustment that leaves the locked record unchanged', () => run(async h => {
+  const alex = await h.person('Alex'), ben = await h.person('Ben'), priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager')
+  const at = (staffId, d, extra = {}) => ({ staffId, start: `2026-10-${d}T14:00:00Z`, end: `2026-10-${d}T22:00:00Z`, breakMinutes: 30, reason: 'Entered from the paper sheet', ...extra })
+  await h.cmd('period.save', { start: '2026-10-12', end: '2026-10-18' }, priya.cookie, 403)
+  let period = await h.cmd('period.save', { start: '2026-10-12', end: '2026-10-18' })
+  await h.cmd('period.save', { start: '2026-10-18', end: '2026-10-24' }, h.owner, 409)
+  const a = await h.cmd('time.approve', { id: (await h.cmd('time.prepare', at(alex.id, '13'))).id, revision: 1 }, priya.cookie)
+  await h.cmd('time.approve', { id: (await h.cmd('time.prepare', at(ben.id, '14'))).id, revision: 1 }, priya.cookie)
+  // Approved time in an open period waits for the lock.
+  await h.cmd('payroll.prepare', {}, h.owner, 409)
+  const signAll = async () => { for (const p of [alex, ben, priya]) period = await h.cmd('period.signoff', { id: period.id, revision: period.revision }, p.cookie) }
+  await h.cmd('period.lock', { id: period.id, revision: period.revision }, h.owner, 409)
+  await signAll()
+  await h.cmd('period.lock', { id: period.id, revision: period.revision }, priya.cookie, 403)
+  period = await h.cmd('period.lock', { id: period.id, revision: period.revision })
+  assert.deepEqual([period.status, period.locked.length], ['locked', 2])
+  // Locked: an ordinary manager neither corrects the time nor reopens the period.
+  await h.cmd('time.prepare', at(alex.id, '13', { breakMinutes: 45, corrects: a.id }), omar.cookie, 409)
+  await h.cmd('period.reopen', { id: period.id, revision: period.revision, reason: 'Missed break' }, omar.cookie, 403)
+  // A batch prepared while locked is rechecked at export: the owner reopens with a reason, signoffs clear, the batch is refused.
+  const stale = await h.cmd('payroll.prepare', {})
+  await h.cmd('period.reopen', { id: period.id, revision: period.revision }, h.owner, 400)
+  period = await h.cmd('period.reopen', { id: period.id, revision: period.revision, reason: 'Alex took a 45-minute break' })
+  assert.deepEqual([period.status, period.signoffs, period.reopens.map(x => x.reason)], ['open', [], ['Alex took a 45-minute break']])
+  await h.cmd('payroll.export', { id: stale.id, revision: stale.revision }, h.owner, 409)
+  const fixed = await h.cmd('time.approve', { id: (await h.cmd('time.prepare', at(alex.id, '13', { breakMinutes: 45, corrects: a.id }), priya.cookie)).id, revision: 1 }, h.owner)
+  await h.cmd('period.lock', { id: period.id, revision: period.revision }, h.owner, 409)
+  await signAll()
+  period = await h.cmd('period.lock', { id: period.id, revision: period.revision })
+  await h.cmd('period.close', { id: period.id, revision: period.revision, reference: 'Run 2026-10-23' }, h.owner, 409)
+  const batch = await h.cmd('payroll.prepare', {}), sent = await h.cmd('payroll.export', { id: batch.id, revision: batch.revision })
+  assert.match(sent.csv, /435,7\.2500/)
+  period = await h.cmd('period.close', { id: period.id, revision: period.revision, reference: 'Run 2026-10-23' })
+  assert.deepEqual([period.status, period.reference], ['closed', 'Run 2026-10-23'])
+  await h.cmd('period.reopen', { id: period.id, revision: period.revision, reason: 'Late fix' }, h.owner, 409)
+  // After close: a correction is a linked adjustment; the original keeps its times and the locked record is unchanged.
+  const late = await h.cmd('time.prepare', at(alex.id, '13', { breakMinutes: 30, corrects: fixed.id, reason: 'Break was 30 minutes after all' }))
+  await h.cmd('time.approve', { id: late.id, revision: 1 }, priya.cookie)
+  const s = await h.state(), original = s.timesheets.find(t => t.id === fixed.id), adj = s.timesheets.find(t => t.id === late.id)
+  assert.deepEqual(adj.adjustment, { periodId: period.id, of: fixed.id })
+  assert.deepEqual([original.start, original.end, original.minutes, original.status], [fixed.start, fixed.end, fixed.minutes, 'superseded'])
+  assert.deepEqual(s.periods.find(p => p.id === period.id).locked, period.locked)
+  const extra = await h.cmd('payroll.prepare', {})
+  assert.deepEqual(extra.lines.map(l => [l.timeId, l.corrects, l.minutes]), [[late.id, fixed.id, 15]])
+}))
+
 test('TIME-009: the approval review shows scheduled, captured and payable times, variance, breaks, network, job, cost and the running week; filtering to exceptions lists the early, missed-meal and off-network rows; an edit keeps the captured facts and a send-back returns to the employee', () => run(async h => {
   const ana = await h.person('Ana'), ben = await h.person('Ben'), cy = await h.person('Cy'), dee = await h.person('Dee'), priya = await h.person('Priya', 'manager')
   for (const p of [ana, ben, cy, dee]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: 'staff', active: true, position: 'Barista', site: 'Ocean Beach', hourlyRate: '19.00' })
