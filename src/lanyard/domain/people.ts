@@ -2,6 +2,7 @@
 import {createPortability} from '@runeditrun/rer/modules/portability'
 // @ts-ignore The archive policy is shared with Base's JavaScript CLI.
 import archivePolicy from '../archive-policy.mjs'
+import {requestFlags,overrideOf} from './leaverules'
 import {type Context,keys,text,integer,need,manager,self,staff,window,get,exact,put,sha,overlap} from './model'
 /** An hourly rate in dollars ("19.00", 19 or empty) stored as whole cents. */
 function cents(value:unknown):number|null {
@@ -52,12 +53,13 @@ export async function people(c:Context,name:string,p:Record<string,any>) {
  if(name==='leave.request') {
   keys(p,['start','end','reason']);const staffId=self(c.a),w=window(p)
   need(!c.s.leave.some(r=>r.staffId===staffId&&['pending','approved'].includes(r.status)&&overlap(r,w)),'Leave overlaps an existing request',409)
-  return put(c,'leave',{staffId,...w,reason:text(p.reason,'reason',500,true),status:'pending',requestedBy:c.a.id,requestedAt:c.now})
+  const flags=requestFlags(c,{staffId,...w})
+  return put(c,'leave',{staffId,...w,reason:text(p.reason,'reason',500,true),status:'pending',requestedBy:c.a.id,requestedAt:c.now,...(flags.length?{flags}:{})})
  }
  if(name==='leave.decide') {
-  manager(c.a);keys(p,['id','revision','decision']);const r=get(c.s,'leave',p.id);exact(r,p);need(r.status==='pending','Request already decided',409);need(['approved','rejected'].includes(p.decision),'Invalid decision');need(r.staffId!==c.a.staffId&&r.requestedBy!==c.a.id,'You cannot decide your own leave',403)
+  manager(c.a);keys(p,['id','revision','decision','override']);const r=get(c.s,'leave',p.id);exact(r,p);need(r.status==='pending','Request already decided',409);need(['approved','rejected'].includes(p.decision),'Invalid decision');need(r.staffId!==c.a.staffId&&r.requestedBy!==c.a.id,'You cannot decide your own leave',403)
   if(p.decision==='approved')need(!c.s.shifts.some(s=>s.staffId===r.staffId&&s.status==='published'&&overlap(s,r)),'Approved leave would conflict with a published shift',409)
-  return put(c,'leave',{...r,status:p.decision,decidedBy:c.a.id,decidedAt:c.now},r)
+  return put(c,'leave',{...r,status:p.decision,decidedBy:c.a.id,decidedAt:c.now,...(p.decision==='approved'?overrideOf(c,r,p):{})},r)
  }
  return undefined
 }

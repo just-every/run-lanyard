@@ -12,6 +12,8 @@ Staff open **Schedule**, then **My availability and time off**. Use **Add availa
 
 Availability must cover the whole shift. Back-to-back availability windows can cover it together. In **Time off**, a manager or the owner selects **Approve** or **Decline** on another person's request. A pending request is not approved time off; decide requests before publishing.
 
+Managers set **Time-off rules** under the week: **Add blackout dates** (such as a holiday weekend) and **Add a limit** on how many people may be off at once, for a cafe, a position or everyone. Each rule either refuses requests that hit it or sends them to a manager flagged. Approving a request that breaks a rule asks for an **Override reason**, kept with the decision. Staff see the closed and already-full dates above **Request time off**, never who is off. The **Team leave calendar** shows each day's approved and pending time off for the week on screen.
+
 ## Build the week
 
 1. Check the venue time zone. New installations start on the zone given at setup (US Pacific unless you chose another); the owner can change it in **People** before the first schedule is published.

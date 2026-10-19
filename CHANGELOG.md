@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- LEAVE-002: blackout dates and absence limits per cafe or position refuse or flag time-off requests, conflicting approvals need an override reason, and managers see a team leave calendar.
 - TIME-006: owner clock-in rules per cafe and position refuse or flag early clock-ins and refuse, flag or allow clock-ins without a shift; flagged time waits for a manager.
 - TIME-008: managers filter waiting timesheets by cafe, position, dates and state and approve the shown revisions at once; changed, flagged, foreign or own items are skipped with reasons.
 - ROSTER-004: staff see who's working at their cafe (name, position and times of published shifts); managers set each cafe to whole team or own position and hide people for safety.

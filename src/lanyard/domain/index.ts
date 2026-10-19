@@ -10,9 +10,11 @@ import {forecast} from './forecast'
 import {team,teamFor} from './team'
 import {approvals} from './approvals'
 import {clockRules} from './clockrules'
+import {leaveRules,allowedDates} from './leaverules'
+import {localDate} from './settings'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -34,6 +36,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=team(c,name,p)
  if(result===undefined)result=approvals(c,name,p)
  if(result===undefined)result=clockRules(c,name,p)
+ if(result===undefined)result=leaveRules(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
@@ -56,6 +59,8 @@ export async function snapshot(db:D1Database,identity:Actor):Promise<object> {
   const ids=new Set(result.shifts.map((r:any)=>r.rosterId));result.rosters=s.rosters.filter(r=>ids.has(r.id));result.batches=[];result.forecasts=[]
   // ROSTER-004: coworkers' published shifts at their cafe, as name, position and start/end only; who is hidden stays private.
   result.team=teamFor(s,a.staffId!);result.teamviews=[]
+  // LEAVE-002: the dates they may not request (blackouts, limits already full), never who is off.
+  result.leaveDates=allowedDates(s.staff,s.leave,s.leaverules,s.timezone,a.staffId!,localDate(new Date().toISOString(),s.timezone));result.leaverules=[]
  }
  if(agent) {
   result.clocks=[];result.teamviews=[];result.leave=s.leave.filter(r=>r.status==='approved').map(r=>({id:r.id,staffId:r.staffId,start:r.start,end:r.end,status:r.status,revision:r.revision}))

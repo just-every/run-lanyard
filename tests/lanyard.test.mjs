@@ -197,6 +197,45 @@ test('TIME-006 and TIME-008: an early clock-in is refused with its opening time 
   assert.deepEqual([s.timesheets.find(t => t.id === unscheduled.id).status, s.timesheets.find(t => t.id === unscheduled.id).end], ['superseded', '2026-10-13T19:00:00.000Z'])
 }))
 
+test('LEAVE-002: a holiday blackout refuses requests, a two-server limit routes the third approval to an override with a reason, and the team leave calendar and allowed dates show it to managers and staff', () => run(async h => {
+  const place = (p, position) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position, site: 'Ocean Beach' })
+  const priya = await h.person('Priya', 'manager'), servers = [], eve = await h.person('Eve')
+  for (const n of ['Ana', 'Ben', 'Cal', 'Dee']) { const p = await h.person(n); await place(p, 'Server'); servers.push(p) }
+  await place(eve, 'Barista')
+  const [ana, ben, cal, dee] = servers
+  // Dates 40 and 47 days out, 5 am – 1 pm venue time, so the test never ages out.
+  const date = days => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10), day = date(40), holiday = date(47)
+  const off = (p, d, status = 200) => h.cmd('leave.request', { start: `${d}T12:00:00Z`, end: `${d}T20:00:00Z`, reason: 'Family' }, p.cookie, status)
+  await h.cmd('leaverule.save', { kind: 'limit', position: 'Server', max: 2, mode: 'override' }, ana.cookie, 403)
+  await h.cmd('leaverule.save', { kind: 'blackout', label: 'Holiday', from: holiday, to: holiday, mode: 'refuse' }, priya.cookie)
+  await h.cmd('leaverule.save', { kind: 'limit', position: 'Server', max: 2, mode: 'override' }, priya.cookie)
+  const [a, b, c] = [await off(ana, day), await off(ben, day), await off(cal, day)]
+  const refused = await h.send('/api/lanyard/command', { name: 'leave.request', input: { start: `${holiday}T12:00:00Z`, end: `${holiday}T20:00:00Z`, reason: 'Trip' } }, dee.cookie)
+  assert.equal(refused.status, 409); assert.match(refused.value.error, /Inside the Holiday blackout/)
+  await h.cmd('leave.decide', { id: a.id, revision: 1, decision: 'approved' }, priya.cookie)
+  await h.cmd('leave.decide', { id: b.id, revision: 1, decision: 'approved' }, priya.cookie)
+  const over = await h.send('/api/lanyard/command', { name: 'leave.decide', input: { id: c.id, revision: 1, decision: 'approved' } }, priya.cookie)
+  assert.equal(over.status, 409); assert.match(over.value.error, /2 Server already off on .*Approve with an override reason/)
+  const third = await h.cmd('leave.decide', { id: c.id, revision: 1, decision: 'approved', override: 'Ana and Ben swapped coverage for the rush' }, priya.cookie)
+  assert.equal(third.override.reason, 'Ana and Ben swapped coverage for the rush'); assert.equal(third.override.by, (await h.state(priya.cookie)).actor.id)
+  // Now full: Dee's request is routed (flagged) for an override; a barista is outside the server limit.
+  const routed = await off(dee, day)
+  assert.match(routed.flags[0], /2 Server already off/)
+  assert.equal((await off(eve, day)).flags, undefined)
+  // Staff see the dates they cannot take, never who is off.
+  const mine = await h.state(dee.cookie)
+  assert.deepEqual(mine.leaveDates.closed.map(x => [x.label, x.from, x.mode]), [['Holiday', holiday, 'refuse']]); assert.deepEqual(mine.leaveDates.full, [day])
+  for (const other of [ana.id, ben.id, cal.id, a.id]) assert.ok(!JSON.stringify(mine).includes(other))
+  const week = (() => { const d = new Date(day + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10) })()
+  const staffPage = await h.send(`/app/schedule?week=${week}`, undefined, dee.cookie)
+  assert.match(staffPage.text, /Time off is limited on these dates/); assert.match(staffPage.text, /Already full/); assert.ok(!staffPage.text.includes('Team leave calendar'))
+  const managerPage = await h.send(`/app/schedule?week=${week}`, undefined, priya.cookie)
+  const start = managerPage.text.indexOf('id="leave-calendar"'), calendar = managerPage.text.slice(start, managerPage.text.indexOf('</section>', start))
+  for (const n of ['Ana', 'Ben', 'Cal']) assert.ok(calendar.includes(`${n} <span class="status positive">approved</span>`), n)
+  for (const n of ['Dee', 'Eve']) assert.ok(calendar.includes(`${n} <span class="status neutral">pending</span>`), n)
+  assert.match(managerPage.text, /Override: Ana and Ben swapped coverage/); assert.match(managerPage.text, /Needs an override: 2 Server already off/)
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }

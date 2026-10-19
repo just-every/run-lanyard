@@ -4,6 +4,7 @@ import {h,rows,manager,self,form,field,hidden,utc,exact,staffSelect,disclosure,c
 import {type Week} from './week'
 import {day,dollars,wallInput,when,weekday,zoneTime} from './format'
 import {whoIsWorking} from './team'
+import {allowedNote,approveLeave,leaveRulesCard,teamLeave} from './leave'
 
 const range=(r:any,tz:string)=>`${h(when(r.start,tz))} – ${h(when(r.end,tz))}`
 /** One shift as editable fields; the browser serializes every row into the hidden `shifts` field. */
@@ -32,14 +33,14 @@ function availability(s:any,back:string) {
 }
 function timeOff(s:any,back:string) {
  const tz=venue(s),list=rows(s,'leave')
- const decide=(r:any)=>manager(s)&&r.status==='pending'&&r.staffId!==s.actor.staffId&&r.requestedBy!==s.actor.id?`<div class="row-actions">${form('leave.decide',back,exact(r)+hidden('decision','approved'),'Approve','','primary small')}${form('leave.decide',back,exact(r)+hidden('decision','rejected'),'Decline','','secondary small')}</div>`:''
- const table=list.length?`<table class="list"><thead><tr><th>Person</th><th>Status</th><th>Off</th><th>Reason</th><th><span class="sr-only">Decide</span></th></tr></thead><tbody>${list.map(r=>`<tr><td>${h(person(s,r.staffId))}</td><td>${status(r.status,r.status==='rejected'?'declined':r.status)}</td><td>${range(r,tz)}</td><td>${h(r.reason)}</td><td>${decide(r)}</td></tr>`).join('')}</tbody></table>`:empty('No time off requested.','calendar')
+ const decide=(r:any)=>manager(s)&&r.status==='pending'&&r.staffId!==s.actor.staffId&&r.requestedBy!==s.actor.id?`<div class="row-actions">${approveLeave(s,r,back)}${form('leave.decide',back,exact(r)+hidden('decision','rejected'),'Decline','','secondary small')}</div>`:''
+ const table=list.length?`<table class="list"><thead><tr><th>Person</th><th>Status</th><th>Off</th><th>Reason</th><th><span class="sr-only">Decide</span></th></tr></thead><tbody>${list.map(r=>`<tr><td>${h(person(s,r.staffId))}</td><td>${status(r.status,r.status==='rejected'?'declined':r.status)}</td><td>${range(r,tz)}</td><td>${h(r.reason)}${r.status==='pending'&&r.flags?.length?`<small>Needs an override: ${h(r.flags.join('; '))}</small>`:''}${r.override?`<small>Override: ${h(r.override.reason)}</small>`:''}</td><td>${decide(r)}</td></tr>`).join('')}</tbody></table>`:empty('No time off requested.','calendar')
  return card('Time off',table,`<p class="card-note">${h(list.filter(r=>r.status==='pending').length)} waiting</p>`)
 }
 function mine(s:any,back:string) {
- const body=`<div class="split">${disclosure('Add availability',form('availability.save',back,utc('start','Available from')+utc('end','Available until'),'Save availability','','secondary'))}${disclosure('Request time off',form('leave.request',back,utc('start','Time off starts')+utc('end','Time off ends')+field('reason','Reason','','text','required maxlength="500"'),'Request time off','','secondary'))}</div>`
+ const body=`<div class="split">${disclosure('Add availability',form('availability.save',back,utc('start','Available from')+utc('end','Available until'),'Save availability','','secondary'))}${disclosure('Request time off',allowedNote(s)+form('leave.request',back,utc('start','Time off starts')+utc('end','Time off ends')+field('reason','Reason','','text','required maxlength="500"'),'Request time off','','secondary'))}</div>`
  return card('My availability and time off',body)
 }
 export function planner(s:any,w:Week,back:string) {
- return [manager(s)?'':whoIsWorking(s,w),self(s)?mine(s,back):'',manager(s)?build(s,w,back)+forecastCard(s,w,back):'',timeOff(s,back),availability(s,back)].join('')
+ return [manager(s)?'':whoIsWorking(s,w),self(s)?mine(s,back):'',manager(s)?build(s,w,back)+forecastCard(s,w,back)+teamLeave(s,w):'',timeOff(s,back),manager(s)?leaveRulesCard(s,back):'',availability(s,back)].join('')
 }
