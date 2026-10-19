@@ -1,6 +1,7 @@
 import {type Context,type Row,type State,keys,text,need,prepare,manager,self,staff,work,get,exact,put,overlap} from './model'
 import {localDate} from './settings'
 import {patternFit,patternOn} from './patterns'
+import {link,actorName} from './history'
 // Glove's prepare/approve split and Dial's occurrence fences: publication acts
 // on the exact draft and all conflicts are checked inside its state version.
 /** An AVAIL-001 unavailable block wins; else the effective pattern's blocks or dated windows cover the whole time (adjacent ones chain). */
@@ -43,12 +44,14 @@ export function roster(c:Context,name:string,p:Record<string,any>) {
   prepare(c.a);keys(p,['week','shifts']);return draftWeek(c,p.week,p.shifts)
  }
  if(name==='roster.publish') {
-  manager(c.a);keys(p,['id','revision']);const r=get(c.s,'rosters',p.id);exact(r,p);need(r.status==='draft','Only drafts can be published',409);need(r.timezone===c.s.timezone,'Venue timezone changed; prepare this roster again',409);const shifts=c.s.shifts.filter(s=>s.rosterId===r.id&&s.status==='draft'),issues=conflicts(c,shifts,r.week);need(shifts.length>0,'Empty roster',409);need(!issues.length,issues.map(x=>x.reason).join('; '),409)
+  manager(c.a);keys(p,['id','revision','reason']);const r=get(c.s,'rosters',p.id);exact(r,p);need(r.status==='draft','Only drafts can be published',409);need(r.timezone===c.s.timezone,'Venue timezone changed; prepare this roster again',409);const shifts=c.s.shifts.filter(s=>s.rosterId===r.id&&s.status==='draft'),issues=conflicts(c,shifts,r.week);need(shifts.length>0,'Empty roster',409);need(!issues.length,issues.map(x=>x.reason).join('; '),409)
+  // SCHEDULE-006: each row continues the shift line it repeats from the current revision.
+  const lines=link(c.s,r.week,shifts)
   for(const old of c.s.rosters.filter(x=>x.week===r.week&&x.status==='published')){put(c,'rosters',{...old,status:'superseded'},old);for(const s of c.s.shifts.filter(s=>s.rosterId===old.id&&s.status==='published'))put(c,'shifts',{...s,status:'superseded'},s)}
-  for(const s of shifts)put(c,'shifts',{...s,status:'published'},s)
+  shifts.forEach((s,i)=>put(c,'shifts',{...s,status:'published',lineage:lines[i]},s))
   // COVER-002: the draft's position-only rows are posted as open shifts with it.
   for(const o of c.s.openshifts.filter(o=>o.rosterId===r.id&&o.status==='draft'))put(c,'openshifts',{...o,status:'open',postedBy:c.a.id,postedAt:c.now},o)
-  return put(c,'rosters',{...r,status:'published',publishedBy:c.a.id,publishedAt:c.now},r)
+  return put(c,'rosters',{...r,status:'published',publishedBy:c.a.id,publishedByName:actorName(c),publishedAt:c.now,reason:text(p.reason,'reason',280,true)},r)
  }
  if(name==='shift.confirm') {
   keys(p,['id','revision']);const r=get(c.s,'shifts',p.id);need(r.staffId===self(c.a),'Only your own shift',403);exact(r,p);need(r.status==='published','Shift is no longer published',409);return put(c,'shifts',{...r,confirmedAt:c.now,confirmedBy:c.a.id},r)

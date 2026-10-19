@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { batchCsv, command, noteAttachment, overtimeAlerts, schedulePdf, snapshot, type Actor } from './domain'
+import { batchCsv, command, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -92,6 +92,11 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       const attached = path.match(/^\/api\/lanyard\/notes\/([\w-]+)\/files\/([\w-]+)$/)
       if (attached) { const { bytes, name, type } = await noteAttachment(env.DB, who, attached[1], attached[2]); return new Response(bytes, { headers: { ...headers, 'content-type': type, 'content-disposition': `attachment; filename="${name.replace(/[^\w. -]/g, '_')}"`, 'x-content-type-options': 'nosniff' } }) }
       if (path === '/api/lanyard/overtime') return json(await overtimeAlerts(env.DB, who, url.searchParams.get('week') ?? '', url.searchParams.get('asOf') ?? new Date().toISOString().replace(/\.\d+Z$/, 'Z')))
+      const story = path.match(/^\/api\/lanyard\/shifts\/([\w-]+)\/history$/)
+      if (story) return json(await scheduleHistory(env.DB, who, 'shift', story[1]))
+      const weekly = path.match(/^\/api\/lanyard\/weeks\/(\d{4}-\d{2}-\d{2})\/(compare|changes\.csv)$/)
+      if (weekly?.[2] === 'compare') return json(await scheduleHistory(env.DB, who, 'compare', weekly[1], url.searchParams.get('from') ?? '', url.searchParams.get('to') ?? ''))
+      if (weekly) return new Response(await scheduleHistory(env.DB, who, 'log', weekly[1]) as string, { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-changes-${weekly[1]}.csv"` } })
       const printed = path.match(/^\/api\/lanyard\/postings\/([\w-]+)\.pdf$/)
       if (printed) { const { bytes, name } = await schedulePdf(env.DB, who, printed[1]); return new Response(bytes, { headers: { ...headers, 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${name}"` } }) }
     } else {

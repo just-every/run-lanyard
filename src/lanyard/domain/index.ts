@@ -30,9 +30,10 @@ import {review} from './review'
 import {breaks} from './breaks'
 import {overtime,project,cost,alertsFor,upcoming} from './overtime'
 import {weekOf} from './openshifts'
+import {history,shiftHistory,compare,changeLog,recentChanges} from './history'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -69,6 +70,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=openShifts(c,name,p)
  if(result===undefined)result=breaks(c,name,p)
  if(result===undefined)result=overtime(c,name,p)
+ if(result===undefined)result=history(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
@@ -113,6 +115,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
    const moves=[...(give?[{to:w.toId,shift:give,skip:take?[take.id]:[]}]:[]),...(take&&give?[{to:w.fromId,shift:take,skip:[give.id]}]:[])]
    return {...w,cost:moves.map(m=>cost(project(s,m.to,weekOf(s,m.shift.start),now,[m.shift],m.skip)))}})
  }
+ // SCHEDULE-006: shift history from last week on (managers every line; an employee the lines they were assigned).
+ if(!agent){const now=new Date().toISOString();result.shiftChanges=recentChanges(s,a,new Date(Date.parse(weekOf(s,now)+'T00:00:00Z')-7*86400000).toISOString().slice(0,10))}
  // TIME-009: managers see each waiting timesheet's approval review.
  if(manages)result.timesheets=result.timesheets.map((t:any)=>t.status==='submitted'?{...t,review:review(s,t)}:t)
  // TIME-007: each open punch past its point shows its provisional end; the person sees it as their reminder.
@@ -140,6 +144,11 @@ export async function overtimeAlerts(db:D1Database,identity:Actor,week:string,as
  const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
  need(/^\d{4}-\d{2}-\d{2}$/.test(week)&&weekOf(s,week+'T12:00:00Z')===week,'Choose a week by its Monday (YYYY-MM-DD)')
  return {week,asOf,alerts:alertsFor(s,f,week,instant(asOf,'asOf'))}
+}
+/** SCHEDULE-006 reads: one shift's history, two week revisions compared, and the week's change log CSV. */
+export async function scheduleHistory(db:D1Database,identity:Actor,kind:'shift'|'compare'|'log',id:string,from='',to='') {
+ const a=await live(db,identity);need(a.role!=='agent','Not found',404);const s=await load(db),f=fresh(a,s)
+ return kind==='shift'?shiftHistory(s,f,id):kind==='compare'?compare(s,f,id,from,to):changeLog(s,f,id)
 }
 /** JOURNAL-001: a note's attachment, for a reader who may read the note. */
 export async function noteAttachment(db:D1Database,identity:Actor,noteId:string,fileId:string) {

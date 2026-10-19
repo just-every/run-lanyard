@@ -6,6 +6,7 @@
 import {type Context,type Row,type State,keys,text,need,fail,self,manager,get,exact,put} from './model'
 import {fit} from './cover'
 import {siteOf} from './team'
+import {actorName} from './history'
 
 const OPEN=['proposed','accepted']
 type Pin={shiftId:string;revision:number;start:string;end:string;site:string;label:string}
@@ -79,7 +80,7 @@ export function swaps(c:Context,name:string,p:Record<string,any>) {
   if(p.decision==='refused')return put(c,'swaps',{...w,status:'refused',decisionNote:note,decidedBy:c.a.id,decidedAt:c.now},w)
   const {give,take,overtime}=recheck(c,w,'manager')
   for(const o of c.s.swaps.filter(o=>o.id!==w.id&&OPEN.includes(o.status)&&[o.give.shiftId,o.take?.shiftId].some(id=>id===give.id||id===take?.id)))put(c,'swaps',{...o,status:'closed',closedBy:w.id,closedAt:c.now},o)
-  const moved=(x:Row,from:string,to:string)=>put(c,'shifts',{...x,staffId:to,confirmedAt:w.respondedAt,confirmedBy:w.toId===to?to:w.fromId,swap:{id:w.id,from,approvedBy:c.a.id,at:c.now}},x)
+  const moved=(x:Row,from:string,to:string)=>put(c,'shifts',{...x,staffId:to,confirmedAt:w.respondedAt,confirmedBy:w.toId===to?to:w.fromId,swap:{id:w.id,from,approvedBy:c.a.id,approvedByName:actorName(c),at:c.now}},x)
   moved(give,w.fromId,w.toId);if(take)moved(take,w.toId,w.fromId)
   return put(c,'swaps',{...w,status:'approved',overtime,decisionNote:note,decidedBy:c.a.id,decidedAt:c.now},w)
  }

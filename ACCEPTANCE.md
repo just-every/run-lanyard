@@ -76,7 +76,7 @@ Run touched product journeys with `pnpm run test:lanyard` and archive journeys w
 
 - **SCHEDULE-005 — Printable and posted schedules.** **Status: done.** Publish a week, print site and employee PDFs, open the wall display, then change a shift. The PDFs carry the old revision, the display moves to the new revision and the posting record shows both times; wages and time-off reasons are absent from every output (SCHEDULE-004 keeps its private notes out). **Existing evidence:** `src/lanyard/domain/postings.ts`; `src/lanyard/print.ts`; `src/lanyard/pdf.ts`; `src/lanyard/ui/print.ts`; `tests/lanyard.test.mjs`.
 
-- **SCHEDULE-006 — Schedule change history and revision compare.** **Status: partial.** Publish a week, then move one shift, approve a swap and cancel another. Open each shift's history as manager and as the affected employees, compare the first and latest week revisions and export the change log with reasons and notice states. **Existing evidence:** `src/lanyard/domain/roster.ts`; `src/lanyard/domain/storage.ts`. **Remaining gap:** Superseded week revisions and publication events are retained; no per-shift history, change reasons, revision diff or exportable change log.
+- **SCHEDULE-006 — Schedule change history and revision compare.** **Status: done.** Publish a week, then move one shift, approve a swap and cancel another. Open each shift's history as manager and as the affected employees, compare the first and latest week revisions and export the change log with reasons and notice states. **Existing evidence:** `src/lanyard/domain/history.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/http.ts`; `src/lanyard/ui/history.ts`; `tests/lanyard.test.mjs`.
 
 ### Coverage employee experience and follow-up
 

@@ -409,6 +409,56 @@ test('COST-002: a 38-hour week with three extra hours clocked by Thursday alerts
   assert.deepEqual((await h.state(priya.cookie)).swaps.find(w => w.id === swap.id).cost, [{ staffId: alex.id, projectedMinutes: 2460, overtimeMinutes: 60, premiumCents: 1000 }])
 }))
 
+test('SCHEDULE-006: after a week is published, a moved shift, an approved swap and a canceled shift each keep a history the manager and the affected employees read with who, when, why and the notice state; the first and latest revisions compare by person and site; the change log exports', () => run(async h => {
+  const alex = await h.person('Alex'), ben = await h.person('Ben'), cy = await h.person('Cy'), priya = await h.person('Priya', 'manager')
+  for (const p of [alex, ben, cy, priya]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: p.role === 'staff' ? 'Barista' : 'Manager', site: 'Ocean Beach' })
+  const base = new Date(Date.now() + 14 * 86400000), monday = Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate() + (8 - base.getUTCDay()) % 7)
+  const at = (d, hh) => new Date(monday + d * 86400000 + hh * 3600000).toISOString().replace('.000Z', 'Z'), week = at(0, 0).slice(0, 10)
+  for (const p of [alex, ben, cy]) await h.cmd('availability.save', { staffId: p.id, start: at(0, 7), end: at(7, 7) })
+  const draft = await h.cmd('roster.prepare', { week, shifts: [[alex, 0], [ben, 1], [cy, 2]].map(([p, d]) => ({ staffId: p.id, start: at(d, 16), end: at(d, 24), breakMinutes: 0 })) })
+  const first = await h.cmd('roster.publish', { id: draft.id, revision: draft.revision, reason: 'First schedule' }, priya.cookie)
+  const current = async () => (await h.state(priya.cookie)).shifts.filter(x => x.status === 'published')
+  const of = async p => (await current()).find(x => x.staffId === p.id)
+  // Move Alex's Monday an hour later, with a reason; staff cannot.
+  const mon = await of(alex)
+  await h.cmd('shift.change', { id: mon.id, revision: mon.revision, start: at(0, 17), end: at(0, 25), reason: 'Delivery moved to 10am' }, alex.cookie, 403)
+  const moved = await h.cmd('shift.change', { id: mon.id, revision: mon.revision, start: at(0, 17), end: at(0, 25), reason: 'Delivery moved to 10am' }, priya.cookie)
+  await h.cmd('shift.confirm', { id: moved.shift.id, revision: moved.shift.revision }, alex.cookie)
+  // Ben gives Tuesday to Cy, approved by Priya; then Priya cancels Cy's Wednesday.
+  const tue = await of(ben), swap = await h.cmd('swap.propose', { shiftId: tue.id, revision: tue.revision, to: cy.id }, ben.cookie)
+  const yes = await h.cmd('swap.respond', { id: swap.id, revision: swap.revision, decision: 'accepted' }, cy.cookie)
+  await h.cmd('swap.decide', { id: yes.id, revision: yes.revision, decision: 'approved' }, priya.cookie)
+  const wed = (await current()).find(x => x.start === at(2, 16).replace('Z', '.000Z'))
+  const canceled = await h.cmd('shift.cancel', { id: wed.id, revision: wed.revision, reason: 'Closed for a private event' }, priya.cookie)
+  const history = async (id, cookie, status = 200) => { const r = await h.send(`/api/lanyard/shifts/${id}/history`, undefined, cookie); assert.equal(r.status, status, r.text); return r.value.events }
+  // Alex's Monday, read by Alex and the manager: published, moved with its reason and previous time, acknowledged, carried into the latest revision.
+  const monNow = (await current()).find(x => x.staffId === alex.id), mine = await history(monNow.id, alex.cookie)
+  assert.deepEqual(mine.map(e => e.action), ['created', 'moved', 'acknowledged', 'republished'])
+  assert.deepEqual([mine[0].by, mine[0].reason, mine[1].by, mine[1].reason, mine[1].from.start, mine[1].start, mine[1].notice, mine[2].by], ['Priya', 'First schedule', 'Priya', 'Delivery moved to 10am', at(0, 16).replace('Z', '.000Z'), at(0, 17).replace('Z', '.000Z'), 'not sent: in-app schedule only until NOTICE-001', 'Alex'])
+  assert.deepEqual((await history(monNow.id, priya.cookie)).length, 4)
+  // Tuesday: both people in the swap read it (Cy's consent is her acknowledgment); Alex, never on it, cannot.
+  const tueNow = (await current()).find(x => x.start === at(1, 16).replace('Z', '.000Z'))
+  for (const p of [ben, cy]) { const list = await history(tueNow.id, p.cookie); assert.deepEqual(list.filter(e => e.action !== 'republished').map(e => [e.action, e.staffId, e.from?.staffId ?? null]), [['created', ben.id, null], ['acknowledged', cy.id, null], ['swapped', cy.id, ben.id]]); assert.equal(list.find(e => e.action === 'swapped').by, 'Priya') }
+  await history(tueNow.id, alex.cookie, 404)
+  // The canceled Wednesday keeps its history for Cy, with the reason.
+  const gone = await history(wed.id, cy.cookie)
+  assert.deepEqual([gone.map(e => e.action), gone.at(-1).reason, gone.at(-1).by], [['created', 'republished', 'canceled'], 'Closed for a private event', 'Priya'])
+  // Compare the first and latest revisions by shift line, person and cafe.
+  const diff = await h.send(`/api/lanyard/weeks/${week}/compare?from=${first.id}&to=${canceled.roster.id}`, undefined, priya.cookie)
+  assert.equal(diff.status, 200, diff.text)
+  assert.deepEqual([diff.value.added, diff.value.removed.map(x => x.staffId), diff.value.changed.map(x => [x.before.staffId, x.after.staffId, x.before.start === x.after.start]).sort(), diff.value.minutesByPerson, diff.value.minutesBySite], [[], [cy.id], [[alex.id, alex.id, false], [ben.id, cy.id, true]].sort(), { [ben.id]: -480 }, { 'Ocean Beach': -480 }])
+  assert.equal((await h.send(`/api/lanyard/weeks/${week}/compare?from=${first.id}&to=${canceled.roster.id}`, undefined, alex.cookie)).status, 403)
+  // The change log exports with reasons and notice states; employees cannot export it.
+  const log = await h.send(`/api/lanyard/weeks/${week}/changes.csv`, undefined, priya.cookie)
+  assert.match(log.text, /^at_utc,shift_line,action,employee,previous_employee,start_utc,end_utc,site,by,reason,notice\r\n/)
+  for (const row of [/,moved,Alex,Alex,.*,Ocean Beach,Priya,Delivery moved to 10am,not sent: in-app schedule only until NOTICE-001\r\n/, /,swapped,Cy,Ben,.*,Priya,,not sent/, /,canceled,,Cy,.*,Priya,Closed for a private event,not sent/, /,acknowledged,Alex,,.*,Alex,,\r\n/]) assert.match(log.text, row)
+  assert.equal((await h.send(`/api/lanyard/weeks/${week}/changes.csv`, undefined, alex.cookie)).status, 403)
+  // The schedule shows the changes to the manager and to the employee.
+  const page = (await h.send(`/app/schedule?week=${week}`, undefined, priya.cookie)).text
+  for (const text of ['Schedule changes', 'Compare first and latest', 'Export change log (CSV)', '“Delivery moved to 10am”', '“Closed for a private event”']) assert.ok(page.includes(text), text)
+  assert.ok((await h.send(`/app/schedule?week=${week}`, undefined, alex.cookie)).text.includes('Changes to my shifts'))
+}))
+
 test('SCHEDULE-002: a saved week is applied to a holiday week at the same wall times, a recurring shift skips its exception date, conflicts name the person now on leave, one occurrence is edited and published while earlier weeks stay unchanged', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam'), priya = await h.person('Priya', 'manager')
   for (const p of [alex, sam]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-11T07:00:00Z', end: '2026-12-01T08:00:00Z' })

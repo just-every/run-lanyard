@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- SCHEDULE-006: managers move, reassign or cancel a published shift with a reason as a new week revision; each shift's history (who, when, why, acknowledgments, notice state) is readable by managers and the employees on it, two revisions compare by person and cafe, and the week's change log exports as CSV.
 - COST-002: managers see each person's in-week overtime projection from recorded time plus remaining shifts, with the premium estimate and substitutes they can give a remaining shift to; pending pickups and swaps show projected overtime before approval.
 - BREAK-001: staff time paid rest and unpaid meal breaks on the clock; a per-cafe break policy turns missed, short or late meals and missed or short rests into exceptions with optional meal/rest premium lines in payroll, employee waivers and break attestations.
 - TIME-003: flagged time stays an open exception until a manager resolves it with a reason; employees request missing or corrected time with an attestation and confirm time entered for them.
