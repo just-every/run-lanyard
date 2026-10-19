@@ -40,7 +40,7 @@ This contract is the product destination, not a claim that every target ships to
 
 - **ERASE-001 — Unused identity erasure and restore fence.** An owner erases only an unused, uninvited, never-imported staff identity, replacing personal values and recording an erasure fence that rejects recreation/import by the erased identity. Employed, invited or imported people are deactivated and their legally relevant history retained; expanded retention and privacy controls are PRIVACY-001. **Acceptance evidence:** Create an unused person, erase via its exact revision, inspect the state for removed name/email, refuse native/CSV recreation and refuse an older archive with the later fence. Attempt erasing invited or imported staff and require retention with deactivation available.
 
-- **AUDIT-001 — Durable decisions and transactional history.** Publication, time decisions, payroll export/acknowledgement, import actions, erasure and payroll downloads retain actor, role, subject and time. State mutation, payroll source claims, decision event and replay outcome commit together or fail together. Audit survives restart and supported archives; role-scoped history is inspectable without exposing employee-private data. **Acceptance evidence:** Perform the roster-to-payroll journey through public doors, inspect each actor/revision/event, restart and round-trip the archive. Cause a stale concurrent mutation and verify no orphan decision or source claim appears; staff cannot read management activity.
+- **AUDIT-001 — Durable decisions and transactional history.** Publication, time decisions, payroll export/acknowledgement, import actions, erasure and payroll downloads retain actor, role, subject and time. State mutation, payroll source claims, decision event and replay outcome commit together or fail together. An import action (apply, resume, undo or rollback) records one event per staff record it creates or removes, named for the action and committed in the same atomic batch as that record; a payroll download records its own event. Audit survives restart and supported archives; role-scoped history is inspectable by owners and managers without exposing employee-private data, and staff read none of it. **Acceptance evidence:** Perform the roster-to-payroll journey through public doors, inspect each actor/revision/event, restart and round-trip the archive. Cause a stale concurrent mutation and verify no orphan decision or source claim appears; staff cannot read management activity.
 
 - **PUBLIC-001 — Public run site and installed Lobby.** The public run site presents the target product, opens /run for installation and builds owner guides at /docs from repository Markdown. The installed / remains the shared Lobby, reflecting the durable owner claim before separate first-run confirmation. Public marketing, installation and private operational state stay distinguishable; enabling deployment remains an explicit repository operation. **Acceptance evidence:** Build the run site, follow homepage to /run and /docs, then claim an installation through native setup and inspect the installed Lobby before and after first-run confirmation. Private product data remains session-protected.
 
@@ -333,9 +333,9 @@ Judged from the code and tests at commit `e1c3882cec951e71c7dbc0b08b7881461612e6
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 13 | 3 | 0 | 16 |
+| Published | 14 | 2 | 0 | 16 |
 | Target and push further | 0 | 30 | 80 | 110 |
-| All | 13 | 33 | 80 | 126 |
+| All | 14 | 32 | 80 | 126 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -352,7 +352,7 @@ Judged from the code and tests at commit `e1c3882cec951e71c7dbc0b08b7881461612e6
 | `AGENT-001` | Preparation-only delegated authority | published | done | `src/lanyard/credentials.ts`; `src/lanyard/http.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` |  |
 | `ARCHIVE-001` | Complete installation archive with authority exclusions | published | done | `src/lanyard/archive-policy.mjs`; `tests/archive.test.mjs`; `OPERATIONS.json` |  |
 | `ERASE-001` | Unused identity erasure and restore fence | published | done | `src/lanyard/domain/people.ts`; `tests/lanyard.test.mjs`; `tests/archive.test.mjs` |  |
-| `AUDIT-001` | Durable decisions and transactional history | published | partial | `src/lanyard/domain/storage.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` | Publication activity and source-claim refusal are tested; full event coverage, restart/archive continuity and concurrent rollback history are not demonstrated by the current journeys. |
+| `AUDIT-001` | Durable decisions and transactional history | published | done | `src/lanyard/domain/storage.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/movein/index.ts`; `tests/lanyard.test.mjs`; `tests/archive.test.mjs` |  |
 | `PUBLIC-001` | Public run site and installed Lobby | published | partial | `src/base/run-site.ts`; `src/site/pages.ts`; `src/base/lobby.ts`; `tests/lanyard.test.mjs` | Durable-claim Lobby behavior is tested; a full published run-site/install/docs journey is not established by the product test. |
 | `BASE-001` | Maintained installation and operations commands | published | partial | `SEED-COMMAND-CONTRACT.md`; `OPERATIONS.json`; `tests/archive.test.mjs`; `tests/runtime.mjs` | Command declarations and local runtime/archive tests exist; full fresh-clone and hosted provider deployment acceptance is not proven here. |
 | `TEAM-001` | Multi-location roles and delegated management | target | partial | `src/lanyard/domain/model.ts`; `src/lanyard/domain/storage.ts`; `tests/lanyard.test.mjs` | Owner/manager/staff authority exists; business/location records, independent payroll roles and site-level permission scopes do not. |

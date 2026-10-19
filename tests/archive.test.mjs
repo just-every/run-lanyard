@@ -26,7 +26,7 @@ async function checkout(root) {
 }
 // Pacific Monday Oct 12, 2026, 7:00 am – 3:00 pm PDT; the 45-minute break is a later agreed correction.
 const work = staffId => ({ staffId, start: '2026-10-12T14:00:00Z', end: '2026-10-12T22:00:00Z', breakMinutes: 30 })
-test('ARCHIVE-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores and respects erasure', { timeout: 300_000 }, async () => {
+test('ARCHIVE-001 and AUDIT-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 300_000 }, async () => {
   const temporary = await mkdtemp(join(tmpdir(),'lanyard-archive-')), source=join(temporary,'source'), restored=join(temporary,'restored'), erased=join(temporary,'erased')
   let h
   try {
@@ -73,7 +73,10 @@ test('ARCHIVE-001: public CLI archive round trip carries staff, schedules, corre
     const corrupt=join(temporary,'corrupt.rer');await writeFile(corrupt,bytes.replace('Temporary joiner','Changed joiner'),{mode:0o600})
     // Checksum damage is a transfer failure (1); restore policy conflicts remain 4.
     await command(erased,['import','--input',corrupt,'--yes','--no-queue'],1)
-    h=await harness({root:source,...identity});await h.cmd('staff.erase',{id:p.id,revision:1},await h.signIn(h.auth.OWNER_EMAIL));await h.close();h=null
+    h=await harness({root:source,...identity});const reopened=await h.signIn(h.auth.OWNER_EMAIL)
+    // Activity survives a restart of the same installation.
+    assert.deepEqual((await h.state(reopened)).events.map(e=>e.id),original.events.map(e=>e.id))
+    await h.cmd('staff.erase',{id:p.id,revision:1},reopened);await h.close();h=null
     await command(source,['export','--output',later,'--no-queue'])
     await command(erased,['import','--input',old,'--journal',later,'--yes','--no-queue'],4)
     await command(erased,['import','--input',later,'--yes','--no-queue'])

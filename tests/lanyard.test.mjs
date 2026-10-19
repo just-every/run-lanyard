@@ -86,13 +86,21 @@ test('clock retry commits once and binds capture identity to body and person', (
   await h.cmd('time.approve', { id: stopped.timesheet.id, revision: 1 })
 }))
 
-test('reviewed payroll claims once, immutable downloads, acknowledgement and signed correction delta', () => run(async h => {
-  const alex = await h.person('Alex')
+test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta', () => run(async h => {
+  const alex = await h.person('Alex'), manager = await h.person('Priya', 'manager')
+  await h.cmd('availability.save', { staffId: alex.id, start: '2026-10-12T07:00:00Z', end: '2026-10-19T07:00:00Z' })
+  const week = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [shift(alex.id)] })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, manager.cookie)
   const submitted = await h.cmd('time.prepare', timeInput(alex.id))
-  const approved = await h.cmd('time.approve', { id: submitted.id, revision: 1 })
-  const batch = await h.cmd('payroll.prepare', {}), rival = await h.cmd('payroll.prepare', {})
-  const exported = await h.cmd('payroll.export', { id: batch.id, revision: batch.revision })
-  await h.cmd('payroll.export', { id: rival.id, revision: 1 }, h.owner, 409)
+  const approved = await h.cmd('time.approve', { id: submitted.id, revision: 1 }, manager.cookie)
+  // Two reviewed batches claim the same approved time at once: exactly one commits its claim and event.
+  const drafts = [await h.cmd('payroll.prepare', {}), await h.cmd('payroll.prepare', {})]
+  const raced = await Promise.all(drafts.map(b => h.send('/api/lanyard/command', { name: 'payroll.export', input: { id: b.id, revision: b.revision } }, h.owner)))
+  assert.deepEqual(raced.map(r => r.status).sort(), [200, 409])
+  const exported = raced.find(r => r.status === 200).value.result, batch = { id: exported.id }
+  assert.deepEqual((await h.db.prepare('SELECT DISTINCT batch_id FROM l_payroll_claims').all()).results.map(r => r.batch_id), [batch.id])
+  assert.deepEqual((await h.state()).events.filter(e => e.action === 'payroll.export').map(e => e.entityId), [batch.id])
+  assert.equal((await h.state()).batches.find(b => b.id !== batch.id).status, 'draft')
   const path = `/api/lanyard/batches/${batch.id}.csv`
   const a = await h.send(path, undefined, h.owner), b = await h.send(path, undefined, h.owner)
   assert.equal(a.text, b.text); assert.match(a.text, /450,7\.5000/)
@@ -105,6 +113,13 @@ test('reviewed payroll claims once, immutable downloads, acknowledgement and sig
   assert.match(done.csv, /-15,-0\.2500/)
   assert.equal((await h.send(path, undefined, h.owner)).text, a.text)
   assert.equal((await h.state()).timesheets.find(t => t.id === approved.id).status, 'superseded')
+  const events = (await h.state()).events
+  for (const [action, role, entityId] of [['roster.publish', 'manager', week.id], ['time.approve', 'manager', approved.id], ['payroll.export', 'owner', batch.id], ['payroll.download', 'owner', batch.id], ['payroll.acknowledge', 'owner', batch.id], ['time.approve', 'owner', corrected.id]])
+    assert.ok(events.some(e => e.action === action && e.actorRole === role && e.entityId === entityId && e.actorId && !Number.isNaN(Date.parse(e.at))), `${action} by ${role}`)
+  assert.equal(events.find(e => e.action === 'time.approve' && e.entityId === approved.id).actorId, approved.approvedBy)
+  // Management activity is role-scoped: staff read none of it.
+  assert.deepEqual((await h.state(alex.cookie)).events, [])
+  assert.deepEqual((await h.state(manager.cookie)).events.map(e => e.id), events.map(e => e.id))
 }))
 
 test('agent prepares drafts but cannot approve through any human or agent door; key revocation is immediate', () => run(async h => {
@@ -120,7 +135,7 @@ test('agent prepares drafts but cannot approve through any human or agent door; 
   assert.equal((await agent('payroll.prepare', {})).status, 401)
 }))
 
-test('staff CSV dry run, exact reviewed apply, original journal, undo and native edit preservation', () => run(async h => {
+test('staff CSV dry run, exact reviewed apply, original journal, undo and native edit preservation; AUDIT-001 import actions keep actor, role, subject and time', () => run(async h => {
   const csv = await readFile('tests/fixtures/staff.csv', 'utf8')
   const preview = await h.cmd('import.preview', { csv })
   assert.equal((await h.state()).staff.length, 0)
@@ -132,6 +147,9 @@ test('staff CSV dry run, exact reviewed apply, original journal, undo and native
   await h.cmd('staff.save', { id: staff[0].id, revision: staff[0].revision, name: 'Edited by owner', email: staff[0].email, payrollId: staff[0].payrollId, role: 'staff', active: false })
   await h.cmd('import.undo', { jobId: applied.job.id })
   const after = (await h.state()).staff; assert.equal(after.length, 1); assert.equal(after[0].name, 'Edited by owner')
+  const events = (await h.state()).events, audit = action => events.filter(e => e.action === action && e.actorRole === 'owner' && e.at).map(e => e.entityId).sort()
+  assert.deepEqual(audit('import.apply'), staff.map(s => s.id).sort())
+  assert.deepEqual(audit('import.undo'), staff.filter(s => s.id !== after[0].id).map(s => s.id))
   await h.cmd('staff.erase', { id: after[0].id, revision: after[0].revision }, h.owner, 409)
 }))
 
@@ -140,6 +158,7 @@ test('unused identity erasure removes personal values and fences recreation; use
   const staff = await h.cmd('staff.save', p)
   await h.cmd('staff.erase', { id: staff.id, revision: 1 })
   const s = await h.state(); assert.ok(!JSON.stringify(s).includes(p.email)); assert.ok(!JSON.stringify(s).includes(p.name))
+  assert.ok(s.events.some(e => e.action === 'staff.erase' && e.entityId === staff.id && e.actorRole === 'owner' && e.at), 'AUDIT-001 erasure keeps actor, role, subject and time')
   await h.cmd('staff.save', p, h.owner, 409)
   const csv = 'staff_id,name,email,payroll_id\nunused,Unused,unused@venue.example,UNUSED\n'
   const preview = await h.cmd('import.preview', { csv })
