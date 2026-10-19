@@ -302,6 +302,66 @@ test('BREAK-002: a 30-minute automatic meal deduction is confirmed at clock-out,
   assert.equal((await h.cmd('time.approve', { id: missed.id, revision: 1 }, priya.cookie)).exportMinutes, 420)
 }))
 
+test('BREAK-001: timed rest and meal breaks pass the cafe policy; a short meal and rest open exceptions with premiums and an attestation, a waiver covers a short shift, a pinned timesheet that gains a missed meal is skipped by name, and a reasoned correction reconciles net and premium hours in payroll', () => run(async h => {
+  const alex = await h.person('Alex'), priya = await h.person('Priya', 'manager')
+  for (const p of [alex, priya]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, site: 'Ocean Beach' })
+  const policy = { site: 'Ocean Beach', mealAfterMinutes: 300, mealMinutes: 30, waiveUpTo: 360, restEveryMinutes: 240, restMinutes: 10, premium: true }
+  await h.cmd('breakrule.save', policy, priya.cookie, 403)
+  await h.cmd('breakrule.save', policy)
+  await h.mf.dispatchFetch(h.origin + '/setup', { method: 'POST', headers: { origin: h.origin, cookie: h.owner, 'content-type': 'application/x-www-form-urlencoded' }, body: 'confirm=yes', redirect: 'manual' })
+  assert.match((await h.send('/app/people', undefined, h.owner)).text, /Break policy[\s\S]*Meal of 30 min started by 5\.0 hours worked, waivable up to 6\.0 hours/)
+  // Each day starts 8:00 am PDT; breaks are [kind, start, end] in UTC hours.
+  const day = async (d, breaks, out, extra = {}, look) => {
+    const at = hm => `2026-10-${d}T${hm}:00Z`
+    await h.cmd('clock.in', { commandId: crypto.randomUUID(), capturedAt: at('15:00') }, alex.cookie)
+    for (const [kind, start, end] of breaks) {
+      await h.cmd('clock.breakStart', { commandId: crypto.randomUUID(), capturedAt: at(start), kind }, alex.cookie)
+      if (look) {
+        assert.match((await h.send('/app/time', undefined, alex.cookie)).text, new RegExp(`End ${kind} break`))
+        await h.cmd('clock.out', { commandId: crypto.randomUUID(), capturedAt: at(end), breakMinutes: 0 }, alex.cookie, 409)
+      }
+      await h.cmd('clock.breakEnd', { commandId: crypto.randomUUID(), capturedAt: at(end) }, alex.cookie)
+    }
+    if (look) assert.match((await h.send('/app/time', undefined, alex.cookie)).text, /<form data-clock-form data-command="clock\.out">.*name="waiveMeal".*name="breakNote".*data-command="clock\.breakStart" data-kind="meal".*data-kind="rest".*Clock out<\/button><\/form>/)
+    return (await h.cmd('clock.out', { commandId: crypto.randomUUID(), capturedAt: at(out), breakMinutes: 0, ...extra }, alex.cookie)).timesheet
+  }
+  // Mon: two 10-minute rests and a 30-minute meal at four hours worked over 8.5 hours.
+  const mon = await day('05', [['rest', '17:00', '17:10'], ['meal', '19:00', '19:30'], ['rest', '21:00', '21:10']], '23:30', {}, true)
+  assert.deepEqual([mon.minutes, mon.breakMinutes, mon.breaks.length, mon.exceptions, mon.premiums], [480, 30, 3, undefined, undefined])
+  // Tue: a 5-minute rest and a 20-minute meal after six hours; only the timed 20 minutes are unpaid, and the employee attests.
+  const tue = await day('06', [['rest', '17:00', '17:05'], ['meal', '21:00', '21:20']], '23:00', { breakNote: 'Rush at lunch; asked to stay on register' })
+  assert.deepEqual([tue.minutes, tue.breakMinutes, tue.exceptions, tue.premiums.map(p => [p.code, p.minutes])], [460, 20, ['short meal break', 'short rest break'], [['meal premium', 60], ['rest premium', 60]]])
+  assert.deepEqual([tue.breakAttestation.note, tue.breakAttestation.text], ['Rush at lunch; asked to stay on register', 'I confirm my breaks on this shift are recorded accurately.'])
+  // Wed: a 5.5-hour shift with its rest; the employee waives the meal. Thu: 7 hours is past the waiver limit.
+  const wed = await day('07', [['rest', '17:00', '17:10']], '20:30', { waiveMeal: true })
+  assert.deepEqual([wed.minutes, wed.exceptions, wed.breakWaiver.text], [330, undefined, 'I chose to waive my meal break on this shift.'])
+  const thu = await day('08', [], '22:00', { waiveMeal: true })
+  assert.deepEqual([thu.minutes, thu.exceptions, thu.breakWaiver], [420, ['missed meal break', 'missed rest break'], undefined])
+  const page = (await h.send('/app/time?week=2026-10-05', undefined, priya.cookie)).text
+  for (const text of ['Flagged: short meal break, short rest break', 'employee: “Rush at lunch; asked to stay on register”', 'meal premium 1 hr', 'meal waived by the employee']) assert.ok(page.includes(text), text)
+  // TIME-008: Monday is pinned clean, then a manager's edit records no meal; the bulk approval skips it naming the exception.
+  const edited = await h.cmd('time.edit', { id: mon.id, revision: mon.revision, start: mon.start, end: mon.end, breakMinutes: 0, reason: 'Meal was interrupted per the floor log' }, priya.cookie)
+  assert.deepEqual([edited.exceptions, edited.premiums, edited.breaks.length], [['missed meal break'], [{ code: 'meal premium', minutes: 60 }], 3])
+  const bulk = await h.cmd('time.approveMany', { items: [{ id: mon.id, revision: mon.revision }, { id: wed.id, revision: wed.revision }] }, priya.cookie)
+  assert.deepEqual([bulk.approved.map(x => x.id), bulk.skipped.map(x => x.reason)], [[wed.id], ['Exception: missed meal break']])
+  // A reasoned correction: the meal ran 30 minutes. The captured facts stay, the meal premium goes, the rest premium stays.
+  const fixed = await h.cmd('time.edit', { id: tue.id, revision: tue.revision, start: tue.start, end: tue.end, breakMinutes: 30, reason: 'Meal ran 30 minutes per the floor log' }, priya.cookie)
+  assert.deepEqual([fixed.minutes, fixed.captured.breakMinutes, fixed.breaks.length, fixed.premiums], [450, 20, 2, [{ code: 'rest premium', minutes: 60 }]])
+  const resolved = await h.cmd('time.resolve', { id: fixed.id, revision: fixed.revision, reason: 'Rest was cut short by the rush; premium stands' }, priya.cookie)
+  const approved = await h.cmd('time.approve', { id: resolved.id, revision: resolved.revision }, priya.cookie)
+  const batch = await h.cmd('payroll.prepare', { ids: [approved.id, wed.id] }, priya.cookie)
+  assert.deepEqual(batch.lines.map(l => [l.timeId, l.minutes, l.payCode ?? 'regular']), [[approved.id, 450, 'regular'], [approved.id, 60, 'rest premium'], [wed.id, 330, 'regular']])
+  assert.match(batch.csvPreview, /^payroll_id,time_id,revision,start_utc,end_utc,minutes,hours,corrects,pay_code\r\n/)
+  assert.match(batch.csvPreview, /,450,7\.5000,,regular\r\n.*,60,1\.0000,,rest premium\r\n.*,330,5\.5000,,regular\r\n$/s)
+  assert.match((await h.send('/app/payroll', undefined, priya.cookie)).text, /Rest premium · premium pay at the regular rate, not worked time/)
+  await h.cmd('payroll.export', { id: batch.id, revision: batch.revision }, priya.cookie)
+  // A later correction without the rest premium exports its reversal beside the unchanged hours.
+  const again = await h.cmd('time.prepare', { staffId: alex.id, start: approved.start, end: approved.end, breakMinutes: 30, reason: 'Rest breaks confirmed taken on the camera log', corrects: approved.id }, priya.cookie)
+  const done = await h.cmd('time.approve', { id: again.id, revision: again.revision }, priya.cookie)
+  const delta = await h.cmd('payroll.prepare', { ids: [done.id] }, priya.cookie)
+  assert.deepEqual(delta.lines.map(l => [l.minutes, l.payCode ?? 'regular']), [[0, 'regular'], [-60, 'rest premium']])
+}))
+
 test('SCHEDULE-002: a saved week is applied to a holiday week at the same wall times, a recurring shift skips its exception date, conflicts name the person now on leave, one occurrence is edited and published while earlier weeks stay unchanged', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam'), priya = await h.person('Priya', 'manager')
   for (const p of [alex, sam]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-11T07:00:00Z', end: '2026-12-01T08:00:00Z' })

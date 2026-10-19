@@ -7,6 +7,7 @@ import {clockRulesCard} from './clockrules'
 import {closeRulesCard} from './closerules'
 import {clockNetsCard} from './clocknets'
 import {mealRulesCard} from './mealrules'
+import {breakRulesCard} from './breaks'
 import {earningsSettingsCard} from './earnings'
 import {roundRulesCard} from './rounding'
 import {feedbackSettingsCard} from './feedback'
@@ -36,5 +37,5 @@ export function people(s:any,now:number,site:string,q:URLSearchParams) {
  const search=`<form class="filter" method="get" action="/app/people" role="search"><input type="hidden" name="site" value="${h(site||'all')}"><label><span class="sr-only">Find a person</span><input type="search" name="q" value="${h(q.get('q')??'')}" placeholder="Find by name, email or position"></label>${find?'<a class="text-link" href="/app/people">Clear</a>':''}</form>`
  const table=team.length?`<table class="list stack people"><thead><tr><th>Person</th><th>Position</th><th class="num">Rate</th><th>Home cafe</th><th>Payroll ID</th><th>Role</th><th>Status</th><th><span class="sr-only">Edit</span></th></tr></thead>${team.map(p=>personRow(s,p,canEdit)).join('')}</table>`:empty(find?`No one matches “${q.get('q')}”.`:'No staff yet. Add your first person to build a schedule.')
  const add=canEdit?card('Add a person',form('staff.save','people',editor(s),'Add person','class="person-form"','primary'),`<a class="text-link" href="/app/import">Import a staff CSV</a>`,'add'):''
- return `${titleRow(`${site||'All cafes'} · ${active} active`,s,now)}${card('Team',search+table,`<p class="card-note">${h(team.length)} ${team.length===1?'person':'people'}${manager(s)&&!canEdit?' · only the owner edits':''}</p>`,'team')}${add}${teamViewCard(s,site)}${manager(s)?journalCard(s):''}${canEdit?clockRulesCard(s)+closeRulesCard(s)+clockNetsCard(s)+roundRulesCard(s)+mealRulesCard(s)+earningsSettingsCard(s)+feedbackSettingsCard(s)+zoneCard(s):''}`
+ return `${titleRow(`${site||'All cafes'} · ${active} active`,s,now)}${card('Team',search+table,`<p class="card-note">${h(team.length)} ${team.length===1?'person':'people'}${manager(s)&&!canEdit?' · only the owner edits':''}</p>`,'team')}${add}${teamViewCard(s,site)}${manager(s)?journalCard(s):''}${canEdit?clockRulesCard(s)+closeRulesCard(s)+clockNetsCard(s)+roundRulesCard(s)+mealRulesCard(s)+breakRulesCard(s)+earningsSettingsCard(s)+feedbackSettingsCard(s)+zoneCard(s):''}`
 }

@@ -39,10 +39,11 @@ export function approvals(c:Context,name:string,p:Record<string,any>) {
   const id=text(item.id,'id'),revision=integer(item.revision,'revision',1,Number.MAX_SAFE_INTEGER);need(!seen.has(id),'Each timesheet once');seen.add(id)
   const r=c.s.timesheets.find(t=>t.id===id),skip=(reason:string)=>skipped.push({id,staffId:r?.staffId,reason})
   if(!r){skip('Not found');continue}
+  // An exception is named even when it arrived after the manager pinned the revision (BREAK-001).
+  if(r.exceptions?.length){skip(`Exception: ${r.exceptions.join(', ')}`);continue}
   if(r.revision!==revision){skip('Changed since you reviewed it');continue}
   if(r.staffId===c.a.staffId){skip('Your own time');continue}
   if(!matches(c.s,r,f)){skip('Outside the filter');continue}
-  if(r.exceptions?.length){skip(`Exception: ${r.exceptions.join(', ')}`);continue}
   try { const done=approve(c,r as Row);approved.push({id,staffId:r.staffId,revision});recordDecision(c,done.id) }
   catch(e){ if(!(e as any)?.status)throw e;skip((e as Error).message) }
  }

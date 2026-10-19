@@ -27,9 +27,10 @@ import {closeRules,provisional} from './closerules'
 import {clockNets} from './clocknets'
 import {openShifts,openFor} from './openshifts'
 import {review} from './review'
+import {breaks} from './breaks'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -64,6 +65,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=closeRules(c,name,p)
  if(result===undefined)result=clockNets(c,name,p)
  if(result===undefined)result=openShifts(c,name,p)
+ if(result===undefined)result=breaks(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>

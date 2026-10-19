@@ -168,16 +168,16 @@
   const update = () => {
     retry.hidden = !pending
     retry.disabled = busy
-    form.querySelector('button').disabled = busy || Boolean(pending)
+    for (const button of form.querySelectorAll('button')) button.disabled = busy || Boolean(pending)
   }
   try {
     const saved = localStorage.getItem(storageKey)
     if (saved) pending = JSON.parse(saved)
-    if (pending && (!['clock.in','clock.out'].includes(pending.name) || typeof pending.input?.commandId !== 'string' || typeof pending.input?.capturedAt !== 'string')) throw new Error('Invalid queue')
-    if (pending) show(`Queued ${pending.name === 'clock.in' ? 'clock-in' : 'clock-out'} captured at ${displayInstant(pending.input.capturedAt)}. Retry to submit this same event.`)
+    if (pending && (!['clock.in','clock.out','clock.breakStart','clock.breakEnd'].includes(pending.name) || typeof pending.input?.commandId !== 'string' || typeof pending.input?.capturedAt !== 'string')) throw new Error('Invalid queue')
+    if (pending) show(`Queued ${{'clock.in':'clock-in','clock.out':'clock-out','clock.breakStart':'break start','clock.breakEnd':'break end'}[pending.name]} captured at ${displayInstant(pending.input.capturedAt)}. Retry to submit this same event.`)
   } catch {
     show('The saved clock queue cannot be read. Do not capture a replacement event until browser storage is available.')
-    form.querySelector('button').disabled = true
+    for (const button of form.querySelectorAll('button')) button.disabled = true
     return
   }
   const clear = () => { localStorage.removeItem(storageKey); pending = null }
@@ -207,12 +207,12 @@
     if (response.status >= 400 && response.status < 500 && ![408,429].includes(response.status)) {
       try { clear() } catch {
         pending = null; busy = false; retry.hidden = true
-        form.querySelector('button').disabled = true
+        for (const button of form.querySelectorAll('button')) button.disabled = true
         show(`${error} The server rejected this event. Browser storage could not be cleared; clear this device’s saved Lanyard clock event before using the clock again.`)
         return
       }
       show(`${error} This clock event was rejected and is not queued. Reload the page before capturing another event.`)
-      busy = false; update(); form.querySelector('button').disabled = true; return
+      busy = false; update(); for (const button of form.querySelectorAll('button')) button.disabled = true; return
     }
     show(`${error} The original event remains queued; retry safely when available.`)
     busy = false; update()
@@ -221,10 +221,17 @@
     event.preventDefault()
     if (busy || pending) return
     const input = {commandId:crypto.randomUUID(),capturedAt:new Date().toISOString()}
-    if (form.dataset.command === 'clock.out') input.breakMinutes = Number(new FormData(form).get('breakMinutes'))
-    const meal = new FormData(form).get('meal')
-    if (form.dataset.command === 'clock.out' && meal) input.meal = meal
-    const eventPayload = {name:form.dataset.command,input}
+    // A break button names its own command (BREAK-001); the form's command is clock-in, clock-out or break end.
+    const command = event.submitter?.dataset.command || form.dataset.command
+    if (command === 'clock.breakStart') input.kind = event.submitter.dataset.kind
+    if (command === 'clock.out') {
+      const data = new FormData(form), meal = data.get('meal'), note = data.get('breakNote')
+      input.breakMinutes = Number(data.get('breakMinutes'))
+      if (meal) input.meal = meal
+      if (data.get('waiveMeal')) input.waiveMeal = true
+      if (note) input.breakNote = note
+    }
+    const eventPayload = {name:command,input}
     try { localStorage.setItem(storageKey,JSON.stringify(eventPayload)) } catch {
       show('Browser storage is unavailable. The clock event was not sent; enable storage before capturing time.')
       return

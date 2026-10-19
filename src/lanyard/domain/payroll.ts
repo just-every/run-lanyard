@@ -3,8 +3,17 @@
 import {type Context,type Row,keys,text,need,prepare,manager,staff,get,exact,put,sha} from './model'
 import {provisional} from './closerules'
 function cell(value:unknown,numeric=false) { let s=String(value??'');if(!numeric&&/^[\s]*[=+\-@\t\r]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s }
+// pay_code: "regular" is net worked time; "meal premium" and "rest premium" are BREAK-001 premium inputs
+// (minutes of premium pay at the regular rate, not worked time), exported as signed differences like hours.
 export function csv(lines:Row[]|any[]) {
- return 'payroll_id,time_id,revision,start_utc,end_utc,minutes,hours,corrects\r\n'+lines.map(l=>[cell(l.payrollId),cell(l.timeId),cell(l.revision,true),cell(l.start),cell(l.end),cell(l.minutes,true),cell((l.minutes/60).toFixed(4),true),cell(l.corrects)].join(',')).join('\r\n')+'\r\n'
+ return 'payroll_id,time_id,revision,start_utc,end_utc,minutes,hours,corrects,pay_code\r\n'+lines.map(l=>[cell(l.payrollId),cell(l.timeId),cell(l.revision,true),cell(l.start),cell(l.end),cell(l.minutes,true),cell((l.minutes/60).toFixed(4),true),cell(l.corrects),cell(l.payCode??'regular')].join(',')).join('\r\n')+'\r\n'
+}
+/** Premium minutes already exported for a timesheet's lineage, by pay code. */
+const exportedPremium=(c:Context,rootId:string,code:string)=>c.s.batches.filter(b=>b.status==='exported'||b.status==='acknowledged').flatMap(b=>b.lines).filter((l:any)=>l.rootId===rootId&&l.payCode===code).reduce((n:number,l:any)=>n+l.minutes,0)
+/** BREAK-001: each premium code's difference from what this lineage already exported. */
+function premiumLines(c:Context,t:Row,base:Record<string,any>) {
+ const codes=['meal premium','rest premium']
+ return codes.map(code=>({...base,payCode:code,minutes:(t.premiums??[]).filter((p:any)=>p.code===code).reduce((n:number,p:any)=>n+p.minutes,0)-exportedPremium(c,t.rootId,code)})).filter(l=>l.minutes!==0)
 }
 export async function payroll(c:Context,name:string,p:Record<string,any>) {
  if(name==='payroll.prepare') {
@@ -15,7 +24,7 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
   // TIME-007: a provisionally closed punch is never exported; it is listed as held until confirmed or corrected and approved.
   const held=c.s.clocks.filter(k=>provisional(c.s,k,c.now)).map(k=>({clockId:k.id,staffId:k.staffId,start:k.start,reason:'provisional close'}))
   need(selected.length>0&&selected.length<=500,`No approved unexported time, or too many entries${held.length?`; ${held.length} provisionally closed punch${held.length===1?'':'es'} held until confirmed`:''}`,409)
-  const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).map((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);return {timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,minutes:t.exportMinutes,corrects:t.corrects,rootId:t.rootId}})
+  const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).flatMap((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);const base={timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,corrects:t.corrects,rootId:t.rootId};return [{...base,minutes:t.exportMinutes},...premiumLines(c,t,base)]})
   const r=put(c,'batches',{status:'draft',lines,held,csvPreview:csv(lines),preparedBy:c.a.id,preparedAt:c.now})
   return {...r,approvalRequired:'payroll.export',approval:{id:r.id,revision:r.revision}}
  }
@@ -24,6 +33,8 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
   for(const line of b.lines) {
    const t=get(c.s,'timesheets',line.timeId),person=staff(c,line.staffId)
    need(t.status==='approved'&&t.revision===line.revision&&person.payroll_id===line.payrollId,'Reviewed payroll sources changed; prepare a new batch',409)
+   // A premium line rides on its timesheet's regular line, which claims the revision.
+   if(line.payCode){need(premiumLines(c,t,{}).some(l=>l.payCode===line.payCode&&l.minutes===line.minutes),'Premium inputs changed; prepare a new batch',409);continue}
    need(!c.s.claims.some(cl=>cl.time_id===t.id&&cl.time_revision===t.revision),'Time revision already claimed by another export',409)
    // A later correction preparation must be decided before exporting its source.
    need(!c.s.timesheets.some(x=>x.corrects===t.id),'A correction is awaiting approval; prepare payroll after its decision',409)

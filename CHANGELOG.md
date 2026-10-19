@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- BREAK-001: staff time paid rest and unpaid meal breaks on the clock; a per-cafe break policy turns missed, short or late meals and missed or short rests into exceptions with optional meal/rest premium lines in payroll, employee waivers and break attestations.
 - TIME-003: flagged time stays an open exception until a manager resolves it with a reason; employees request missing or corrected time with an attestation and confirm time entered for them.
 - TIME-009: the approval list shows each waiting timesheet's scheduled, captured and payable times, variance, breaks, network, job, cost and running week; approvers edit with a reason or send time back to the employee.
 - COVER-002: managers post open shifts to eligible staff or a pool with approved pickup or manager approval; one approval assigns the shift and closes the other requests; template position-only rows post as open shifts.
