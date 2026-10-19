@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- BREAK-002: owners turn on an automatic meal deduction per cafe; staff confirm or report the meal at clock-out, and reported or unanswered meals are flagged for approval.
 - SCHEDULE-005: managers print the published week as a PDF by cafe, position or person, each copy recorded and marked superseded when the week changes, and open a read-only wall display.
 - LEAVE-002: blackout dates and absence limits per cafe or position refuse or flag time-off requests, conflicting approvals need an override reason, and managers see a team leave calendar.
 - TIME-006: owner clock-in rules per cafe and position refuse or flag early clock-ins and refuse, flag or allow clock-ins without a shift; flagged time waits for a manager.

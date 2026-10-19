@@ -276,6 +276,30 @@ test('SCHEDULE-005: a manager prints cafe and employee PDFs stamped with the rev
   for (const out of [text(sitePdf.bytes), text(ownPdf.bytes), before]) for (const secret of ['21.75', 'Dentist', alex.email]) assert.ok(!out.includes(secret), secret)
 }))
 
+test('BREAK-002: a 30-minute automatic meal deduction is confirmed at clock-out, reversed with an exception when the meal is reported missed, and flagged when left unconfirmed', () => run(async h => {
+  const alex = await h.person('Alex'), priya = await h.person('Priya', 'manager')
+  for (const p of [alex, priya]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, site: 'Ocean Beach' })
+  await h.cmd('mealrule.save', { site: 'Ocean Beach', afterMinutes: 360, deductMinutes: 30, enabled: true }, priya.cookie, 403)
+  await h.cmd('mealrule.save', { site: 'Ocean Beach', afterMinutes: 360, deductMinutes: 30, enabled: true })
+  const work = async (d, hours, breakMinutes, meal, look) => {
+    await h.cmd('clock.in', { commandId: crypto.randomUUID(), capturedAt: `2026-10-${d}T15:00:00Z` }, alex.cookie)
+    if (look) { const page = await h.send('/app/time', undefined, alex.cookie); assert.match(page.text, /30 minutes are deducted as an unpaid meal/); assert.match(page.text, /Did you take your meal\?/) }
+    return (await h.cmd('clock.out', { commandId: crypto.randomUUID(), capturedAt: `2026-10-${d}T${15 + hours}:00:00Z`, breakMinutes, ...(meal ? { meal } : {}) }, alex.cookie)).timesheet
+  }
+  const taken = await work(12, 7, 0, 'taken', true), missed = await work(13, 7, 0, 'missed'), silent = await work(14, 7, 0)
+  const short = await work(15, 5, 0, 'taken'), recorded = await work(16, 7, 45)
+  assert.deepEqual([taken.minutes, taken.breakMinutes, taken.mealDeduction.answer, taken.exceptions], [390, 30, 'taken', undefined])
+  assert.deepEqual([missed.minutes, missed.breakMinutes, missed.mealDeduction.reversed, missed.exceptions], [420, 0, true, ['missed meal']])
+  assert.deepEqual([silent.minutes, silent.mealDeduction.answer, silent.exceptions], [390, null, ['unconfirmed meal deduction']])
+  assert.deepEqual([short.minutes, short.mealDeduction, recorded.minutes, recorded.mealDeduction], [300, undefined, 375, undefined])
+  const page = await h.send('/app/time?week=2026-10-12', undefined, priya.cookie)
+  for (const text of ['Meal deducted 30 min · confirmed taken', 'Meal reported missed: 30 min deduction reversed', 'Flagged: missed meal', 'Flagged: unconfirmed meal deduction']) assert.ok(page.text.includes(text), text)
+  // Reported and unconfirmed meals wait for a manager: bulk approval skips them, a single approval pays the full reported time.
+  const bulk = await h.cmd('time.approveMany', { items: [taken, missed, silent].map(t => ({ id: t.id, revision: 1 })) }, priya.cookie)
+  assert.deepEqual(bulk.approved.map(x => x.id), [taken.id]); assert.deepEqual(bulk.skipped.map(x => x.reason), ['Exception: missed meal', 'Exception: unconfirmed meal deduction'])
+  assert.equal((await h.cmd('time.approve', { id: missed.id, revision: 1 }, priya.cookie)).exportMinutes, 420)
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }

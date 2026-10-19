@@ -26,6 +26,10 @@ The entry becomes submitted and still needs approval. Worked time cannot end in 
 
 The owner sets **Clock-in rules** in **People**, per cafe and optionally per position (a position's rule replaces its cafe's). **Early clock-in** allows any time, refuses a clock-in before the window (the phone shows when clock-in opens) or accepts it and flags it for approval. **Clock-in without a shift** is allowed, accepted pending approval (flagged) or refused. A clock-in belongs to the shift in progress, else the next published shift starting within 12 hours; with none it is unscheduled. Flagged time keeps the captured clock times, shows **Flagged** in **To approve**, and is paid only after a manager approves it on its own.
 
+## Meal deductions
+
+The owner can turn on **Meal deductions** in **People** for a cafe, such as 30 minutes on shifts over 6 hours. When someone clocks out of a longer shift without entering meal minutes, the clock asks **Did you take your meal?** A yes deducts the meal and keeps the answer. **No, I missed it** or **It was interrupted** pays the full time and flags the entry for a manager. No answer deducts the meal and flags it as unconfirmed. Entering meal minutes yourself replaces the deduction.
+
 ## Review and approve
 
 Submitted time from every cafe waits in **To approve** at the top of **Time**. Check the person's day, clocked times, meal and source, then select **Approve**. Approval applies to that exact revision; a changed record needs a fresh review.

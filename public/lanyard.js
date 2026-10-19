@@ -222,6 +222,8 @@
     if (busy || pending) return
     const input = {commandId:crypto.randomUUID(),capturedAt:new Date().toISOString()}
     if (form.dataset.command === 'clock.out') input.breakMinutes = Number(new FormData(form).get('breakMinutes'))
+    const meal = new FormData(form).get('meal')
+    if (form.dataset.command === 'clock.out' && meal) input.meal = meal
     const eventPayload = {name:form.dataset.command,input}
     try { localStorage.setItem(storageKey,JSON.stringify(eventPayload)) } catch {
       show('Browser storage is unavailable. The clock event was not sent; enable storage before capturing time.')

@@ -1,6 +1,7 @@
 // Gauge time's submitted -> approved revision flow, adapted to hours only;
 // Glove field capture preserves device time and command identity on retries.
 import {checkClockIn} from './clockrules'
+import {mealAtClockOut} from './mealrules'
 import {type Context,type Row,keys,text,need,self,staff,instant,integer,work,prepare,manager,get,exact,put,overlap} from './model'
 function clearOverlap(c:Context,staffId:string,w:Record<string,any>,rootId?:string) {
  need(!c.s.timesheets.some(t=>t.staffId===staffId&&t.status!=='superseded'&&t.rootId!==rootId&&overlap(t,w)),'Time overlaps another submitted or approved entry',409)
@@ -14,7 +15,7 @@ export function approve(c:Context,r:Row) {
 }
 export function time(c:Context,name:string,p:Record<string,any>) {
  if(name==='clock.in'||name==='clock.out') {
-  keys(p,name==='clock.in'?['commandId','capturedAt']:['commandId','capturedAt','breakMinutes']);const staffId=self(c.a),at=instant(p.capturedAt,'capturedAt');need(Date.parse(at)<=Date.parse(c.now)+60000,'Clock capture cannot be in the future')
+  keys(p,name==='clock.in'?['commandId','capturedAt']:['commandId','capturedAt','breakMinutes','meal']);const staffId=self(c.a),at=instant(p.capturedAt,'capturedAt');need(Date.parse(at)<=Date.parse(c.now)+60000,'Clock capture cannot be in the future')
   const open=c.s.clocks.find(r=>r.staffId===staffId&&r.status==='open')
   if(name==='clock.in') {
    need(!open,'You already have an open clock',409)
@@ -23,8 +24,11 @@ export function time(c:Context,name:string,p:Record<string,any>) {
    const check=checkClockIn(c.s,staffId,at)
    return put(c,'clocks',{staffId,start:at,end:null,status:'open',capturedBy:c.a.id,receivedAt:c.now,shiftId:check.shiftId,...(check.exceptions.length?{exceptions:check.exceptions}:{})})
   }
-  need(open,'No open clock to stop',409);const w=work({start:open.start,end:at,breakMinutes:integer(p.breakMinutes,'breakMinutes',0,1440)});clearOverlap(c,staffId,w)
-  const entry=put(c,'timesheets',{staffId,...w,status:'submitted',reason:'Phone clock',corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(open.exceptions?.length?{exceptions:open.exceptions}:{})});entry.rootId=entry.id
+  need(open,'No open clock to stop',409)
+  // BREAK-002: a cafe's automatic meal deduction, confirmed, reported missed or left unconfirmed by the employee.
+  const meal=mealAtClockOut(c.s,open,at,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,c.now),flags=[...(open.exceptions??[]),...meal.exceptions]
+  const w=work({start:open.start,end:at,breakMinutes:meal.breakMinutes});clearOverlap(c,staffId,w)
+  const entry=put(c,'timesheets',{staffId,...w,status:'submitted',reason:'Phone clock',corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(flags.length?{exceptions:flags}:{}),...(meal.deduction?{mealDeduction:meal.deduction}:{})});entry.rootId=entry.id
   const clock=put(c,'clocks',{...open,end:at,status:'closed',timesheetId:entry.id,closedReceivedAt:c.now},open);c.entity=entry.id
   return {clock,timesheet:entry}
  }
