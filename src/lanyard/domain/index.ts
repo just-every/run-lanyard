@@ -20,9 +20,10 @@ import {postingPdf} from '../print'
 import {type Event,readable} from './activity'
 import {earnings,earnSettings} from './earnings'
 import {rounding} from './rounding'
+import {feedback,feedbackFor} from './feedback'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -51,6 +52,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=patterns(c,name,p)
  if(result===undefined)result=earnings(c,name,p)
  if(result===undefined)result=rounding(c,name,p)
+ if(result===undefined)result=await feedback(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
@@ -80,6 +82,8 @@ export async function snapshot(db:D1Database,identity:Actor):Promise<object> {
   result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,...r})=>r)
   result.batches=s.batches.map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,...l}:any)=>l)}))
  }
+ // FEEDBACK-001: each reader's own slice; an anonymous author is never named.
+ result.feedback=feedbackFor(s,a);if(agent)result.feedbackopts=[]
  // AUDIT-001: each role reads only its own slice of the activity list.
  result.events=events?readable(s,a,(await events).results):[]
  return result

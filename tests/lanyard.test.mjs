@@ -448,6 +448,51 @@ test('TIME-005: quarter-hour rounding at one cafe and a 7-minute snap at another
   assert.ok(people.includes('2026-10-19') && people.includes('Nearest quarter hour · at clock-out') && people.includes('Snap to schedule within 7 min · at approval'))
 }))
 
+test('FEEDBACK-001: after clock-out a low rating with a safety flag, an anonymous comment and a skip reach the cafe manager, who resolves the flag with a reply the employee sees; the trend shows and the author stays hidden from pay, ranking and agents', () => run(async h => {
+  const alex = await h.person('Alex'), sam = await h.person('Sam'), kim = await h.person('Kim'), priya = await h.person('Priya', 'manager'), remy = await h.person('Remy', 'manager')
+  for (const [p, site] of [[alex, 'Ocean Beach'], [sam, 'Ocean Beach'], [kim, 'Ocean Beach'], [priya, 'Ocean Beach'], [remy, 'North Park']]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, site })
+  const clock = async (p, d) => { await h.cmd('clock.in', { commandId: crypto.randomUUID(), capturedAt: `2026-10-${d}T14:00:00Z` }, p.cookie); return (await h.cmd('clock.out', { commandId: crypto.randomUUID(), capturedAt: `2026-10-${d}T22:00:00Z`, breakMinutes: 30 }, p.cookie)).timesheet }
+  // Last week Alex rated an unscheduled shift 4; this week's Monday shifts were published by Priya.
+  await h.cmd('feedback.submit', { timesheetId: (await clock(alex, '05')).id, rating: 4 }, alex.cookie)
+  for (const p of [alex, sam, kim]) await h.cmd('availability.save', { start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' }, p.cookie)
+  const week = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [alex, sam, kim].map(p => shift(p.id)) })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
+  const [ta, ts, tk] = [await clock(alex, 12), await clock(sam, 12), await clock(kim, 12)]
+  await h.cmd('feedback.submit', { timesheetId: ts.id, comment: 'The walk-in door is stuck', anonymous: true }, sam.cookie, 400)
+  await h.cmd('feedback.settings', { anonymous: true }, priya.cookie, 403)
+  await h.cmd('feedback.settings', { anonymous: true })
+  assert.match((await h.send('/app/time?week=2026-10-12', undefined, alex.cookie)).text, /How was your shift Mon Oct 12, 7:00 am – 3:00 pm\?/)
+  const sent = await h.mf.dispatchFetch(h.origin + '/app/action?name=feedback.submit&returnTo=%2Fapp%2Ftime', { method: 'POST', headers: { origin: h.origin, cookie: alex.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams([['timesheetId', ta.id], ['rating', '2'], ['flags', 'safety'], ['flags', 'understaffed'], ['comment', 'Wet floor by the espresso bar and one person short']]).toString() })
+  assert.match(await sent.text(), /Saved\./)
+  const anon = await h.cmd('feedback.submit', { timesheetId: ts.id, comment: 'The walk-in door is stuck', flags: ['safety'], anonymous: true }, sam.cookie)
+  await h.cmd('feedback.submit', { timesheetId: tk.id, skip: true }, kim.cookie)
+  await h.cmd('feedback.submit', { timesheetId: tk.id, rating: 5 }, kim.cookie, 409)
+  // The cafe manager and the owner see the flag and the anonymous comment without its author; the other cafe sees nothing.
+  for (const cookie of [priya.cookie, h.owner]) {
+    const state = await h.state(cookie), list = state.feedback, hidden = list.find(f => f.id === anon.id)
+    assert.deepEqual(list.map(f => f.rating ?? f.comment).sort(), [2, 4, 'The walk-in door is stuck'].sort())
+    assert.deepEqual([hidden.staffId, hidden.timesheetId, hidden.shiftId, hidden.clockId, hidden.flags], [null, undefined, undefined, undefined, ['safety']])
+    assert.ok(!JSON.stringify(hidden).includes(sam.id) && !state.events.some(e => e.entityId === anon.id), 'the anonymous author stays hidden')
+  }
+  assert.deepEqual((await h.state(remy.cookie)).feedback, [])
+  assert.ok((await h.state(sam.cookie)).events.some(e => e.entityId === anon.id))
+  const flagged = (await h.state(priya.cookie)).feedback.find(f => f.rating === 2)
+  assert.ok(flagged.managerName && flagged.staffId === alex.id && (await h.state(priya.cookie)).feedback.find(f => f.rating === 4).managerName === null)
+  const page = (await h.send('/app/time?week=2026-10-12&site=all', undefined, priya.cookie)).text, byManager = (await h.send(`/app/time?week=2026-10-12&site=all&manager=${encodeURIComponent(flagged.managerName)}`, undefined, priya.cookie)).text
+  for (const text of ['Average rating <strong>2.0</strong> this week (last week 4.0) · down', 'Flagged: Safety, Understaffed', 'Anonymous', 'The walk-in door is stuck']) assert.ok(page.includes(text) && (text.startsWith('Average') || byManager.includes(text)), text)
+  await h.cmd('feedback.reply', { id: flagged.id, revision: flagged.revision, reply: 'A second closer is on from Friday', resolve: true }, remy.cookie, 403)
+  await h.cmd('feedback.reply', { id: flagged.id, revision: flagged.revision, reply: 'A second closer is on from Friday', resolve: true }, priya.cookie)
+  const mine = (await h.state(alex.cookie)).feedback.find(f => f.id === flagged.id)
+  assert.deepEqual([mine.status, mine.reply], ['resolved', 'A second closer is on from Friday'])
+  assert.match((await h.send('/app/time?week=2026-10-12', undefined, alex.cookie)).text, /Reply: A second closer is on from Friday/)
+  // Feedback never touches pay, approval or ranking inputs: the timesheet is unchanged and approves clean, and agents never read it.
+  const sheet = (await h.state()).timesheets.find(t => t.id === ta.id)
+  assert.deepEqual([sheet.revision, sheet.status, sheet.minutes], [1, 'submitted', 450])
+  assert.deepEqual((await h.cmd('time.approveMany', { items: [{ id: ta.id, revision: 1 }] }, priya.cookie)).approved.map(x => x.id), [ta.id])
+  const key = await h.cmd('agent.create', { label: 'Roster assistant' }), context = await h.send('/api/lanyard/agent/context', undefined, '', { authorization: `Bearer ${key.token}` })
+  assert.deepEqual([context.value.feedback, context.value.feedbackopts], [[], []])
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }
