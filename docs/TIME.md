@@ -51,3 +51,7 @@ If the old hours have already been exported, the next payroll export carries onl
 On **People**, the owner sets each cafe's clock-out rule: how many minutes after the scheduled end to remind, and the longest a punch may stay open. A punch still open at that point stops counting at the scheduled end (or at the longest punch when there was no shift), shows a reminder on the employee's **Time** screen and appears under **Provisionally closed** for managers. The reminder is shown in Lanyard only; no push or text message is sent.
 
 The employee or a manager confirms the end or enters the real one. That submits the time flagged as a provisional close, so bulk approval skips it and a manager approves it on its own. Until then the punch is held out of payroll.
+
+## Web time clock on approved networks
+
+On **People**, under **Web time clock**, the owner can limit a cafe's clock-in and clock-out to its approved public IP ranges (one per line, such as `203.0.113.0/24`) and to browsers enrolled as that cafe's clock. Choose whether a punch from another network is refused or accepted and flagged; a flagged punch waits for a manager's single approval. To enrol the store computer, open **People** on that computer and select **Enrol this browser**; revoke it from the same card. Each punch records only the network address it came from and which approval matched.

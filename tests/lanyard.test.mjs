@@ -625,6 +625,44 @@ test('TIME-007: a forgotten 9-to-5 clock-out is reminded at 5:15 and provisional
   assert.match(exported.csvPreview, /,512,8\.5333,/)
 }))
 
+test('CLOCK-007: a cafe’s web clock accepts punches from its approved IP range or an enrolled browser, records only the network, refuses or flags other networks as configured, and a range change applies on the next punch', () => run(async h => {
+  const jess = await h.person('Jess'), priya = await h.person('Priya', 'manager')
+  const from = ip => ({ 'CF-Connecting-IP': ip })
+  const punch = (name, n, ip, status = 200, cookie = jess.cookie) => h.cmd(name, { commandId: `${name}-${n}`, capturedAt: `2026-10-05T${String(10 + n).padStart(2, '0')}:00:00Z`, ...(name === 'clock.out' ? { breakMinutes: 0 } : {}) }, cookie, status, from(ip))
+  await h.cmd('clocknet.save', { site: '', mode: 'refuse', ranges: '203.0.113.0/24' }, priya.cookie, 403)
+  const rule = await h.cmd('clocknet.save', { site: '', mode: 'refuse', ranges: '203.0.113.0/24\n2001:db8::/32' })
+  await punch('clock.in', 1, '198.51.100.9', 409)
+  const open = await punch('clock.in', 1, '203.0.113.7')
+  assert.deepEqual(open.network, { in: { ip: '203.0.113.7', via: 'approved range' } })
+  await punch('clock.out', 2, '198.51.100.9', 409)
+  const widened = await h.cmd('clocknet.save', { site: '', mode: 'refuse', ranges: '203.0.113.0/24, 198.51.100.0/24', revision: rule.revision })
+  const first = await punch('clock.out', 2, '198.51.100.9')
+  assert.deepEqual(first.timesheet.network.out, { ip: '198.51.100.9', via: 'approved range' }); assert.equal(first.timesheet.exceptions, undefined)
+  // Flag mode: an outside punch is accepted with its exception; an IPv6 address inside 2001:db8::/32 is approved.
+  const flagged = await h.cmd('clocknet.save', { site: '', mode: 'flag', ranges: '2001:db8::/32', revision: widened.revision })
+  const outside = await punch('clock.in', 3, '192.0.2.44')
+  assert.deepEqual(outside.exceptions, ['off-network punch']); assert.deepEqual(outside.network.in, { ip: '192.0.2.44', via: null })
+  const second = await punch('clock.out', 4, '2001:db8:0:1::5')
+  assert.deepEqual(second.timesheet.network, { in: { ip: '192.0.2.44', via: null }, out: { ip: '2001:db8:0:1::5', via: 'approved range' } })
+  const bulk = await h.cmd('time.approveMany', { items: [{ id: second.timesheet.id, revision: second.timesheet.revision }] }, priya.cookie)
+  assert.deepEqual(bulk.skipped.map(x => x.reason), ['Exception: off-network punch'])
+  // An enrolled browser punches from any network; its token is only an HttpOnly cookie, and revoking it applies at once.
+  await h.cmd('clocknet.save', { site: '', mode: 'refuse', ranges: '', revision: flagged.revision })
+  assert.equal((await h.send('/api/lanyard/command', { name: 'clockbrowser.enroll', input: { site: '', label: 'Back office PC' } }, priya.cookie)).status, 403)
+  const enrolled = await h.send('/api/lanyard/command', { name: 'clockbrowser.enroll', input: { site: '', label: 'Back office PC' } }, h.owner)
+  assert.equal(enrolled.status, 200); assert.equal(enrolled.value.token, undefined)
+  const cookie = enrolled.headers.get('set-cookie').split(';')[0]
+  assert.match(enrolled.headers.get('set-cookie'), /^__Host-lanyard-clock=[0-9a-f]{64}; .*HttpOnly; Secure; SameSite=Strict/)
+  await punch('clock.in', 5, '192.0.2.44', 409)
+  const desk = await punch('clock.in', 5, '192.0.2.44', 200, `${jess.cookie}; ${cookie}`)
+  assert.deepEqual(desk.network.in, { ip: '192.0.2.44', via: 'enrolled browser', browserId: enrolled.value.id })
+  const owner = await h.state()
+  assert.deepEqual(owner.clockBrowsers.map(b => [b.id, b.label]), [[enrolled.value.id, 'Back office PC']]); assert.ok(!JSON.stringify(owner).includes(cookie.split('=')[1]))
+  assert.equal((await h.send('/api/lanyard/command', { name: 'clockbrowser.revoke', input: { id: enrolled.value.id } }, h.owner)).status, 200)
+  await punch('clock.out', 6, '192.0.2.44', 409, `${jess.cookie}; ${cookie}`)
+  assert.deepEqual(owner.events.filter(e => e.action.startsWith('clockbrowser.')).map(e => e.entityId), [enrolled.value.id])
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }

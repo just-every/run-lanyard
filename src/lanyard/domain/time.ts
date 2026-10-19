@@ -4,6 +4,8 @@ import {checkClockIn} from './clockrules'
 import {mealAtClockOut} from './mealrules'
 import {roundAtCapture,roundAtApproval} from './rounding'
 import {provisional} from './closerules'
+import {checkNetwork} from './clocknets'
+import {siteOf} from './team'
 import {type Context,type Row,keys,text,need,self,staff,instant,integer,work,prepare,manager,get,exact,put,overlap} from './model'
 function clearOverlap(c:Context,staffId:string,w:Record<string,any>,rootId?:string) {
  need(!c.s.timesheets.some(t=>t.staffId===staffId&&t.status!=='superseded'&&t.rootId!==rootId&&overlap(t,w)),'Time overlaps another submitted or approved entry',409)
@@ -17,12 +19,17 @@ export function approve(c:Context,submitted:Row) {
  const exported=c.s.claims.filter(cl=>cl.root_id===r.rootId).reduce((n,cl)=>n+cl.minutes,0)
  return put(c,'timesheets',{...r,status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now},r)
 }
+/** A punch's cafe: its matched shift's, else the person's home cafe (as TIME-006). */
+function cafeOf(c:Context,staffId:string,shiftId:string|null) {
+ const shift=shiftId?c.s.shifts.find(x=>x.id===shiftId):undefined
+ return shift?siteOf(c.s,shift):c.s.staff.find(p=>p.id===staffId)?.site??''
+}
 /** Ends an open clock at `at` and submits its timesheet (BREAK-002 meal answer, TIME-005 rounding, flags kept). */
 function closeClock(c:Context,open:Row,at:string,breakMinutes:number,meal:unknown,reason:string,extra:Record<string,any>={}) {
  // BREAK-002: a cafe's automatic meal deduction, confirmed, reported missed or left unconfirmed by the employee.
  const m=mealAtClockOut(c.s,open,at,breakMinutes,meal,c.now),flags=[...(open.exceptions??[]),...m.exceptions,...(extra.provisional?['provisional close']:[])]
  const w=work({start:open.start,end:at,breakMinutes:m.breakMinutes});clearOverlap(c,open.staffId,w)
- const entry=put(c,'timesheets',{staffId:open.staffId,...w,...roundAtCapture(c.s,open,at,w.breakMinutes,w.minutes),status:'submitted',reason,corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(flags.length?{exceptions:flags}:{}),...(m.deduction?{mealDeduction:m.deduction}:{}),...extra});entry.rootId=entry.id
+ const entry=put(c,'timesheets',{staffId:open.staffId,...w,...roundAtCapture(c.s,open,at,w.breakMinutes,w.minutes),status:'submitted',reason,corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(flags.length?{exceptions:flags}:{}),...(m.deduction?{mealDeduction:m.deduction}:{}),...(open.network?{network:open.network}:{}),...extra});entry.rootId=entry.id
  const clock=put(c,'clocks',{...open,end:at,status:'closed',timesheetId:entry.id,closedReceivedAt:c.now,...extra},open);c.entity=entry.id
  return {clock,timesheet:entry}
 }
@@ -34,13 +41,15 @@ export function time(c:Context,name:string,p:Record<string,any>) {
    need(!open,'You already have an open clock',409)
    need(!c.s.clocks.some(r=>r.staffId===staffId&&r.end&&r.end>at),'Clock capture predates an existing clock; ask a manager to prepare missed time',409)
    // TIME-006: refused before any write, or accepted with its flags kept for the timesheet.
-   const check=checkClockIn(c.s,staffId,at)
-   return put(c,'clocks',{staffId,start:at,end:null,status:'open',capturedBy:c.a.id,receivedAt:c.now,shiftId:check.shiftId,...(check.exceptions.length?{exceptions:check.exceptions}:{})})
+   const check=checkClockIn(c.s,staffId,at),net=checkNetwork(c.s,cafeOf(c,staffId,check.shiftId),c.net),flags=[...check.exceptions,...net.exceptions]
+   return put(c,'clocks',{staffId,start:at,end:null,status:'open',capturedBy:c.a.id,receivedAt:c.now,shiftId:check.shiftId,...(flags.length?{exceptions:flags}:{}),...(net.network?{network:{in:net.network}}:{})})
   }
   need(open,'No open clock to stop',409)
   // TIME-007: a clock-out captured after the provisional close cannot end the punch; its end is confirmed or corrected instead.
   need(!provisional(c.s,open,at),'Your clock was provisionally closed; confirm or correct your end time',409)
-  return closeClock(c,open,at,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,'Phone clock')
+  // CLOCK-007: the clock-out is checked against the same cafe's networks; its flag joins the timesheet's.
+  const net=checkNetwork(c.s,cafeOf(c,staffId,open.shiftId),c.net),network=net.network?{...open.network,out:net.network}:open.network
+  return closeClock(c,{...open,exceptions:[...(open.exceptions??[]),...net.exceptions.filter(e=>!open.exceptions?.includes(e))],...(network?{network}:{})},at,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,'Phone clock')
  }
  if(name==='time.confirm') {
   // TIME-007: the person or a manager confirms or corrects a provisionally closed punch; the result is submitted time flagged "provisional close".

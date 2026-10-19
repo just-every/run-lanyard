@@ -3,6 +3,7 @@ import { batchCsv, command, noteAttachment, schedulePdf, snapshot, type Actor } 
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
+import { clockBrowserCommand, clockBrowsers, clockCookie, networkOf } from './clockbrowsers'
 import { timezone as zone } from './domain/settings'
 
 const headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin' }
@@ -19,14 +20,23 @@ async function state(env: Bindings, who: Actor) {
   // A new installation takes the time zone its owner gave at setup until anything is saved.
   if (env.VENUE_TIMEZONE) await env.DB.prepare('UPDATE l_meta SET timezone=? WHERE id=1 AND version=0 AND timezone<>?').bind(zone(env.VENUE_TIMEZONE), zone(env.VENUE_TIMEZONE)).run()
   // Independent reads go to D1 together, so a page waits for one round trip instead of several in a row.
-  const [snap, keys, jobs] = await Promise.all([snapshot(env.DB, who, env.SESSION_SECRET), agentKeys(env, who), who.role === 'owner' ? env.DB.prepare("SELECT id,state,checkpoint,total,fingerprint,error FROM ik_jobs WHERE destination='lanyard:staff' AND namespace='lanyard.staff.csv.v1' AND mapping_version='staff-csv-v1' AND principal_id=? ORDER BY rowid DESC LIMIT 30").bind(who.id).all() : null])
-  return { ...snap, agentKeys: keys, importJobs: jobs ? jobs.results : [] }
+  const [snap, keys, browsers, jobs] = await Promise.all([snapshot(env.DB, who, env.SESSION_SECRET), agentKeys(env, who), clockBrowsers(env, who), who.role === 'owner' ? env.DB.prepare("SELECT id,state,checkpoint,total,fingerprint,error FROM ik_jobs WHERE destination='lanyard:staff' AND namespace='lanyard.staff.csv.v1' AND mapping_version='staff-csv-v1' AND principal_id=? ORDER BY rowid DESC LIMIT 30").bind(who.id).all() : null])
+  return { ...snap, agentKeys: keys, clockBrowsers: browsers, importJobs: jobs ? jobs.results : [] }
 }
 
 async function execute(request: Request, env: Bindings, who: Actor, name: string, input: Record<string, unknown>) {
   if (name.startsWith('agent.') || name === 'staff.invite') return credentialCommand(request, env, who, name, input)
   if (name.startsWith('import.')) return importCommand(env.DB, who, name, input)
-  return command(env.DB, who, name, input, env.SESSION_SECRET)
+  if (name.startsWith('clockbrowser.')) return clockBrowserCommand(env, who, name, input)
+  // CLOCK-007: a punch carries its network identity (edge client IP and enrolled-browser cookie).
+  return command(env.DB, who, name, input, env.SESSION_SECRET, name === 'clock.in' || name === 'clock.out' ? await networkOf(request, env) : undefined)
+}
+
+/** CLOCK-007: an enrolment's token goes only into this response's HttpOnly cookie, never into the page or JSON. */
+function withClockCookie(response: Response, result: unknown) {
+  const token = (result as { token?: string } | null)?.token
+  if (token) response.headers.append('set-cookie', clockCookie(token))
+  return response
 }
 
 async function inputBody(request: Request): Promise<Record<string, unknown>> {
@@ -86,14 +96,16 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/app/action') {
         const input = await inputBody(request), name = url.searchParams.get('name') ?? ''
         if (name === 'staff.save' && !('active' in input)) input.active = false
-        const result = await execute(request, env, who, name, input)
-        return renderApp(await state(env, who), back, { message: 'Saved.', result: name === 'import.preview' ? { ...(result as object), csv: input.csv } : result })
+        const result = await execute(request, env, who, name, input), { token, ...shown } = result as Record<string, unknown>
+        return withClockCookie(await renderApp(await state(env, who), back, { message: 'Saved.', result: name === 'import.preview' ? { ...shown, csv: input.csv } : name.startsWith('clockbrowser.') ? shown : result }), name.startsWith('clockbrowser.') ? result : null)
       }
       if (path === '/api/lanyard/command' || path === '/api/lanyard/agent/command') {
         const body = await inputBody(request)
         if (typeof body.name !== 'string' || !body.input || typeof body.input !== 'object' || Array.isArray(body.input)) fail('Provide a command name and input object')
         if (isAgent && !['roster.prepare', 'time.prepare', 'payroll.prepare'].includes(String(body.name))) fail('Agents can only prepare drafts', 403)
-        return json(await execute(request, env, who, String(body.name), body.input as Record<string, unknown>))
+        const result = await execute(request, env, who, String(body.name), body.input as Record<string, unknown>)
+        if (String(body.name).startsWith('clockbrowser.')) { const { token, ...shown } = result as Record<string, unknown>; return withClockCookie(json(shown), result) }
+        return json(result)
       }
     }
     return json({ error: 'Not found' }, 404)

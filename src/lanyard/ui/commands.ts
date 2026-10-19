@@ -23,6 +23,8 @@ const human = [
  ['time.approve','Manager','id, revision; another person’s submitted time'],
  ['time.confirm','Linked staff or manager','id, revision (open clock), end, breakMinutes, reason?: confirm or correct a provisionally closed punch'],
  ['closerule.save','Owner','site, graceMinutes (0–240), capHours (1–24); revision when editing'],
+ ['clocknet.save','Owner','site, mode (off, refuse or flag), ranges: approved IPv4/IPv6 CIDR ranges; revision when editing'],
+ ['clockbrowser.enroll / clockbrowser.revoke','Owner','site and label to enrol this browser (sets its clock cookie); id to revoke'],
  ['swap.propose','Linked staff','shiftId, revision, to (coworker staffId) and/or theirShiftId (exchange), note?'],
  ['swap.respond','Linked staff','id, revision, decision (accepted or declined), note?: a swap offered to you'],
  ['swap.decide','Manager','id, revision, decision (approved or refused), note?: an agreed swap at your cafe'],

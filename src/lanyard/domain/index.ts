@@ -24,20 +24,21 @@ import {feedback,feedbackFor} from './feedback'
 import {journal,notesFor,noteFile} from './journal'
 import {swaps,swapOptions} from './swaps'
 import {closeRules,provisional} from './closerules'
+import {clockNets} from './clocknets'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
  need(person,'Staff access revoked',403);return {...a,role:person.role}
 }
-export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string):Promise<object> {
+export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string,net?:Context['net']):Promise<object> {
  need(commands.includes(name),'Unknown command',404);const a=await live(db,identity),p=object(input)
  if(a.role==='agent')need(['roster.prepare','time.prepare','payroll.prepare'].includes(name),'Agents may prepare drafts only; a human manager must approve',403)
  const commandId=name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID(),digest=await sha(canonical({name,input:p}))
  const previous=await saved(db,commandId,a,digest);if(previous)return previous
- const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret}
+ const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret,net}
  let result:any=settings(c,name,p)
  if(result===undefined)result=await people(c,name,p)
  if(result===undefined)result=roster(c,name,p)
@@ -59,6 +60,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=await journal(c,name,p)
  if(result===undefined)result=swaps(c,name,p)
  if(result===undefined)result=closeRules(c,name,p)
+ if(result===undefined)result=clockNets(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
@@ -85,7 +87,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  }
  if(agent) {
   result.clocks=[];result.teamviews=[];result.leave=s.leave.filter(r=>r.status==='approved').map(r=>({id:r.id,staffId:r.staffId,start:r.start,end:r.end,status:r.status,revision:r.revision}))
-  result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,...r})=>r)
+  result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,network,...r})=>r)
   result.batches=s.batches.map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,...l}:any)=>l)}))
  }
  // COVER-001: managers read every swap; a person reads the swaps they are in, with both names, and their own swap choices.
