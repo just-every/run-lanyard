@@ -6,6 +6,7 @@ import {roundAtCapture,roundAtApproval} from './rounding'
 import {provisional} from './closerules'
 import {checkNetwork} from './clocknets'
 import {siteOf} from './team'
+import {answer,attach} from './questions'
 import {checkBreaks,breakOutcome,mealMinutes,timedFor,WAIVER,ATTEST_BREAKS} from './breaks'
 import {type Context,type Row,keys,text,need,self,staff,instant,integer,work,prepare,manager,get,exact,put,overlap} from './model'
 function clearOverlap(c:Context,staffId:string,w:Record<string,any>,rootId?:string) {
@@ -58,21 +59,27 @@ function recheck(c:Context,r:Row,w:{start:string;end:string;breakMinutes:number}
 }
 export function time(c:Context,name:string,p:Record<string,any>) {
  if(name==='clock.in'||name==='clock.out') {
-  keys(p,name==='clock.in'?['commandId','capturedAt']:['commandId','capturedAt','breakMinutes','meal','waiveMeal','breakNote']);const staffId=self(c.a),at=instant(p.capturedAt,'capturedAt');need(Date.parse(at)<=Date.parse(c.now)+60000,'Clock capture cannot be in the future')
+  keys(p,name==='clock.in'?['commandId','capturedAt','answers']:['commandId','capturedAt','breakMinutes','meal','waiveMeal','breakNote','answers']);const staffId=self(c.a),at=instant(p.capturedAt,'capturedAt');need(Date.parse(at)<=Date.parse(c.now)+60000,'Clock capture cannot be in the future')
   const open=c.s.clocks.find(r=>r.staffId===staffId&&r.status==='open')
   if(name==='clock.in') {
    need(!open,'You already have an open clock',409)
    need(!c.s.clocks.some(r=>r.staffId===staffId&&r.end&&r.end>at),'Clock capture predates an existing clock; ask a manager to prepare missed time',409)
    // TIME-006: refused before any write, or accepted with its flags kept for the timesheet.
-   const check=checkClockIn(c.s,staffId,at),net=checkNetwork(c.s,cafeOf(c,staffId,check.shiftId),c.net),flags=[...check.exceptions,...net.exceptions]
-   return put(c,'clocks',{staffId,start:at,end:null,status:'open',capturedBy:c.a.id,receivedAt:c.now,shiftId:check.shiftId,...(flags.length?{exceptions:flags}:{}),...(net.network?{network:{in:net.network}}:{})})
+   const check=checkClockIn(c.s,staffId,at),net=checkNetwork(c.s,cafeOf(c,staffId,check.shiftId),c.net)
+   // CLOCK-006: the clock-in questions, answered before anything is written; their flags join the punch's.
+   const asked=answer(c,staffId,check.shiftId,'in',p.answers),flags=[...check.exceptions,...net.exceptions,...asked.flags]
+   const clock=put(c,'clocks',{staffId,start:at,end:null,status:'open',capturedBy:c.a.id,receivedAt:c.now,shiftId:check.shiftId,...(flags.length?{exceptions:flags}:{}),...(net.network?{network:{in:net.network}}:{}),...(asked.answers.length?{answers:asked.answers}:{})})
+   attach(c,asked.injuries,clock.id);c.entity=clock.id;return clock
   }
   need(open,'No open clock to stop',409);need(!open.breaks?.some((b:any)=>!b.end),'End your break before clocking out',409)
   // TIME-007: a clock-out captured after the provisional close cannot end the punch; its end is confirmed or corrected instead.
   need(!provisional(c.s,open,at),'Your clock was provisionally closed; confirm or correct your end time',409)
   // CLOCK-007: the clock-out is checked against the same cafe's networks; its flag joins the timesheet's.
   const net=checkNetwork(c.s,cafeOf(c,staffId,open.shiftId),c.net),network=net.network?{...open.network,out:net.network}:open.network
-  return closeClock(c,{...open,exceptions:[...(open.exceptions??[]),...net.exceptions.filter(e=>!open.exceptions?.includes(e))],...(network?{network}:{})},at,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,'Phone clock',{},breakWords(c,staffId,p))
+  // CLOCK-006: clock-out answers join the clock-in ones on the punch and its timesheet; their flags become exceptions.
+  const asked=answer(c,staffId,open.shiftId,'out',p.answers),answers=[...(open.answers??[]),...asked.answers],flags=[...net.exceptions,...asked.flags].filter(e=>!open.exceptions?.includes(e))
+  const done=closeClock(c,{...open,exceptions:[...(open.exceptions??[]),...flags],...(network?{network}:{})},at,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,'Phone clock',answers.length?{answers}:{},breakWords(c,staffId,p))
+  attach(c,asked.injuries,open.id);c.entity=done.timesheet.id;return done
  }
  if(name==='time.confirm') {
   // TIME-007: the person or a manager confirms or corrects a provisionally closed punch; the result is submitted time flagged "provisional close".

@@ -223,6 +223,12 @@
     const input = {commandId:crypto.randomUUID(),capturedAt:new Date().toISOString()}
     // A break button names its own command (BREAK-001); the form's command is clock-in, clock-out or break end.
     const command = event.submitter?.dataset.command || form.dataset.command
+    // CLOCK-006: the punch's question fields travel as one answers object.
+    if (command === 'clock.in' || command === 'clock.out') {
+      const answers = {}
+      for (const [key, value] of new FormData(form)) if (key.startsWith('answer:') && value !== '') answers[key.slice(7)] = value
+      if (Object.keys(answers).length) input.answers = answers
+    }
     if (command === 'clock.breakStart') input.kind = event.submitter.dataset.kind
     if (command === 'clock.out') {
       const data = new FormData(form), meal = data.get('meal'), note = data.get('breakNote')

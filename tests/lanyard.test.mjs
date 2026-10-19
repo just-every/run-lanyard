@@ -459,6 +459,46 @@ test('SCHEDULE-006: after a week is published, a moved shift, an approved swap a
   assert.ok((await h.send(`/app/schedule?week=${week}`, undefined, alex.cookie)).text.includes('Changes to my shifts'))
 }))
 
+test('CLOCK-006: an owner’s break, injury, cash-tip and fit-for-duty questions are asked in English and Spanish; a missed break opens a break exception, an injury a private safety follow-up for that cafe’s managers, the tip declaration is listed for managers, and an edited question keeps earlier answers under their old wording', () => run(async h => {
+  const alex = await h.person('Alex'), cy = await h.person('Cy'), priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager')
+  for (const [p, site] of [[alex, 'Ocean Beach'], [cy, 'Ocean Beach'], [priya, 'Ocean Beach'], [omar, 'Mission']]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site })
+  const ask = (when, kind, text, textEs, extra = {}) => h.cmd('question.save', { site: 'Ocean Beach', position: '', when, kind, text, textEs, required: true, ...extra })
+  await h.cmd('question.save', { site: 'Ocean Beach', when: 'out', kind: 'breaks', text: 'Did you take all your breaks?', required: true }, priya.cookie, 403)
+  const breaks = await ask('out', 'breaks', 'Did you take all your breaks?', '¿Tomó todos sus descansos?'), injury = await ask('out', 'injury', 'Were you injured at work today?', '¿Se lesionó hoy en el trabajo?')
+  const tips = await ask('out', 'tips', 'Cash tips received', 'Propinas en efectivo', { required: false }), fit = await ask('in', 'yesno', 'Are you fit for duty?', '¿Está en condiciones de trabajar?', { flagOn: 'no' })
+  const clockPage = async () => (await h.send('/app/time', undefined, alex.cookie)).text
+  assert.ok((await clockPage()).includes('Are you fit for duty? / ¿Está en condiciones de trabajar?'))
+  await h.cmd('clock.in', { commandId: 'a1', capturedAt: '2026-10-06T15:00:00Z' }, alex.cookie, 400)
+  await h.cmd('clock.in', { commandId: 'a2', capturedAt: '2026-10-06T15:00:00Z', answers: { [fit.id]: 'yes' } }, alex.cookie)
+  const out = await clockPage()
+  for (const text of ['Did you take all your breaks? / ¿Tomó todos sus descansos?', 'Were you injured at work today? / ¿Se lesionó hoy en el trabajo?', 'Cash tips received / Propinas en efectivo ($)']) assert.ok(out.includes(text), text)
+  await h.cmd('clock.out', { commandId: 'a3', capturedAt: '2026-10-06T23:00:00Z', breakMinutes: 30, answers: { [breaks.id]: 'no' } }, alex.cookie, 400)
+  const { timesheet } = await h.cmd('clock.out', { commandId: 'a4', capturedAt: '2026-10-06T23:00:00Z', breakMinutes: 30, answers: { [breaks.id]: 'no', [injury.id]: 'yes', [tips.id]: '42.50' } }, alex.cookie)
+  assert.deepEqual(timesheet.exceptions, ['missed break reported'])
+  assert.deepEqual(timesheet.answers.map(a => [a.kind, a.text, a.version, a.value]), [['yesno', 'Are you fit for duty?', 1, 'yes'], ['breaks', 'Did you take all your breaks?', 1, 'no'], ['injury', 'Were you injured at work today?', 1, undefined], ['tips', 'Cash tips received', 1, 4250]])
+  // The break exception waits for a manager: bulk approval skips it by name.
+  assert.deepEqual((await h.cmd('time.approveMany', { items: [{ id: timesheet.id, revision: timesheet.revision }] }, priya.cookie)).skipped.map(x => x.reason), ['Exception: missed break reported'])
+  // The injury follow-up: the employee and this cafe's manager read it; a coworker, another cafe's manager and an agent do not.
+  const [report] = (await h.state(priya.cookie)).injuries
+  assert.deepEqual([report.staffId, report.answer, report.status, report.text, report.clockId], [alex.id, 'yes', 'open', 'Were you injured at work today?', timesheet.clockId])
+  for (const p of [cy, omar]) assert.deepEqual((await h.state(p.cookie)).injuries, [])
+  const key = await h.cmd('agent.create', { label: 'Roster assistant' }), context = (await h.send('/api/lanyard/agent/context', undefined, '', { authorization: `Bearer ${key.token}` })).value
+  assert.deepEqual([context.injuries, context.timesheets.some(t => 'answers' in t)], [[], false])
+  const page = (await h.send('/app/time?week=2026-10-05', undefined, priya.cookie)).text
+  for (const text of ['Safety follow-ups', 'Declared cash tips', '$42.50', 'Answers: Are you fit for duty? yes · Did you take all your breaks? no · Cash tips received $42.50']) assert.ok(page.includes(text), text)
+  await h.cmd('injury.resolve', { id: report.id, revision: report.revision, reason: 'First aid given; incident log filed' }, omar.cookie, 403)
+  await h.cmd('injury.resolve', { id: report.id, revision: report.revision, reason: 'First aid given; incident log filed' }, priya.cookie)
+  assert.equal((await h.state(alex.cookie)).injuries[0].resolution.reason, 'First aid given; incident log filed')
+  // Rewording the breaks question makes version 2; the earlier answer keeps version 1's words. A flagged fit-for-duty "no" opens an exception.
+  const edited = await h.cmd('question.save', { id: breaks.id, revision: breaks.revision, site: 'Ocean Beach', when: 'out', kind: 'breaks', text: 'Did you take every meal and rest break?', textEs: '¿Tomó todas sus comidas y descansos?', required: true })
+  assert.deepEqual([edited.version, edited.wordings.map(w => w.text)], [2, ['Did you take all your breaks?', 'Did you take every meal and rest break?']])
+  await h.cmd('clock.in', { commandId: 'b1', capturedAt: '2026-10-07T15:00:00Z', answers: { [fit.id]: 'no' } }, alex.cookie)
+  const next = (await h.cmd('clock.out', { commandId: 'b2', capturedAt: '2026-10-07T23:00:00Z', breakMinutes: 30, answers: { [breaks.id]: 'yes', [injury.id]: 'no' } }, alex.cookie)).timesheet
+  assert.deepEqual([next.exceptions, next.answers.find(a => a.kind === 'breaks').text, next.answers.find(a => a.kind === 'breaks').version], [['Are you fit for duty?: no'], 'Did you take every meal and rest break?', 2])
+  const first = (await h.state(priya.cookie)).timesheets.find(t => t.id === timesheet.id)
+  assert.deepEqual([first.answers[1].text, first.answers[1].version], ['Did you take all your breaks?', 1])
+}))
+
 test('SCHEDULE-002: a saved week is applied to a holiday week at the same wall times, a recurring shift skips its exception date, conflicts name the person now on leave, one occurrence is edited and published while earlier weeks stay unchanged', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam'), priya = await h.person('Priya', 'manager')
   for (const p of [alex, sam]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-11T07:00:00Z', end: '2026-12-01T08:00:00Z' })

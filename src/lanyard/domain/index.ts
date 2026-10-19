@@ -31,9 +31,10 @@ import {breaks} from './breaks'
 import {overtime,project,cost,alertsFor,upcoming} from './overtime'
 import {weekOf} from './openshifts'
 import {history,shiftHistory,compare,changeLog,recentChanges} from './history'
+import {questions,injuriesFor} from './questions'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -71,6 +72,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=breaks(c,name,p)
  if(result===undefined)result=overtime(c,name,p)
  if(result===undefined)result=history(c,name,p)
+ if(result===undefined)result=questions(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
@@ -97,7 +99,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  }
  if(agent) {
   result.clocks=[];result.teamviews=[];result.leave=s.leave.filter(r=>r.status==='approved').map(r=>({id:r.id,staffId:r.staffId,start:r.start,end:r.end,status:r.status,revision:r.revision}))
-  result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,network,...r})=>r)
+  result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,network,answers,...r})=>r)
   result.batches=s.batches.map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,...l}:any)=>l)}))
  }
  // COVER-001: managers read every swap; a person reads the swaps they are in, with both names, and their own swap choices.
@@ -115,6 +117,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
    const moves=[...(give?[{to:w.toId,shift:give,skip:take?[take.id]:[]}]:[]),...(take&&give?[{to:w.fromId,shift:take,skip:[give.id]}]:[])]
    return {...w,cost:moves.map(m=>cost(project(s,m.to,weekOf(s,m.shift.start),now,[m.shift],m.skip)))}})
  }
+ // CLOCK-006: injury answers and their follow-ups only for the employee, the owner and that cafe's managers.
+ result.injuries=injuriesFor(s,a)
  // SCHEDULE-006: shift history from last week on (managers every line; an employee the lines they were assigned).
  if(!agent){const now=new Date().toISOString();result.shiftChanges=recentChanges(s,a,new Date(Date.parse(weekOf(s,now)+'T00:00:00Z')-7*86400000).toISOString().slice(0,10))}
  // TIME-009: managers see each waiting timesheet's approval review.
