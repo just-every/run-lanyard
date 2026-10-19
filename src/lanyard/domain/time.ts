@@ -2,12 +2,15 @@
 // Glove field capture preserves device time and command identity on retries.
 import {checkClockIn} from './clockrules'
 import {mealAtClockOut} from './mealrules'
+import {roundAtCapture,roundAtApproval} from './rounding'
 import {type Context,type Row,keys,text,need,self,staff,instant,integer,work,prepare,manager,get,exact,put,overlap} from './model'
 function clearOverlap(c:Context,staffId:string,w:Record<string,any>,rootId?:string) {
  need(!c.s.timesheets.some(t=>t.staffId===staffId&&t.status!=='superseded'&&t.rootId!==rootId&&overlap(t,w)),'Time overlaps another submitted or approved entry',409)
 }
 /** One exact-revision approval; every check runs before anything is written. TIME-008 approves each bulk item through it. */
-export function approve(c:Context,r:Row) {
+export function approve(c:Context,submitted:Row) {
+ // TIME-005: a rule that rounds at approval sets the payable time before anything is decided.
+ const r=roundAtApproval(c.s,submitted)
  need(r.status==='submitted','Only submitted time can be approved',409);need(r.staffId!==c.a.staffId,'You cannot approve your own time',403);staff(c,r.staffId);clearOverlap(c,r.staffId,r,r.rootId)
  if(r.corrects){const old=get(c.s,'timesheets',r.corrects);need(old.status==='approved','Correction source changed',409);put(c,'timesheets',{...old,status:'superseded',supersededBy:r.id},old)}
  const exported=c.s.claims.filter(cl=>cl.root_id===r.rootId).reduce((n,cl)=>n+cl.minutes,0)
@@ -28,7 +31,7 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   // BREAK-002: a cafe's automatic meal deduction, confirmed, reported missed or left unconfirmed by the employee.
   const meal=mealAtClockOut(c.s,open,at,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,c.now),flags=[...(open.exceptions??[]),...meal.exceptions]
   const w=work({start:open.start,end:at,breakMinutes:meal.breakMinutes});clearOverlap(c,staffId,w)
-  const entry=put(c,'timesheets',{staffId,...w,status:'submitted',reason:'Phone clock',corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(flags.length?{exceptions:flags}:{}),...(meal.deduction?{mealDeduction:meal.deduction}:{})});entry.rootId=entry.id
+  const entry=put(c,'timesheets',{staffId,...w,...roundAtCapture(c.s,open,at,w.breakMinutes,w.minutes),status:'submitted',reason:'Phone clock',corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(flags.length?{exceptions:flags}:{}),...(meal.deduction?{mealDeduction:meal.deduction}:{})});entry.rootId=entry.id
   const clock=put(c,'clocks',{...open,end:at,status:'closed',timesheetId:entry.id,closedReceivedAt:c.now},open);c.entity=entry.id
   return {clock,timesheet:entry}
  }

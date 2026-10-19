@@ -405,6 +405,49 @@ test('EARN-001: an employee reconciles their week’s scheduled, regular, overti
   assert.equal((await h.state(alex.cookie)).staff[0].hourlyRateCents, undefined)
 }))
 
+test('TIME-005: quarter-hour rounding at one cafe and a 7-minute snap at another pay rounded time beside captured punches, report net minutes, refuse a round-down rule and never alter approved history', () => run(async h => {
+  const alex = await h.person('Alex'), sam = await h.person('Sam'), priya = await h.person('Priya', 'manager')
+  for (const [p, site] of [[alex, 'Ocean Beach'], [sam, 'Noe Valley']]) {
+    await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, site })
+    await h.cmd('availability.save', { start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' }, p.cookie)
+  }
+  const rule = { site: 'Ocean Beach', from: '2026-10-12', method: 'nearest', increment: 15, apply: 'capture' }
+  await h.cmd('roundrule.save', { ...rule, direction: 'down' }, h.owner, 400)
+  await h.cmd('roundrule.save', rule, priya.cookie, 403)
+  await h.cmd('roundrule.save', rule)
+  await h.cmd('roundrule.save', { site: 'Noe Valley', from: '2026-10-12', method: 'snap', window: 7, apply: 'approval' })
+  // 9:00 am – 5:00 pm PDT shifts Monday to Thursday; clock in at 8:52, 8:58, 9:04 and 9:09 and out at 5:00 at each cafe.
+  const days = [12, 13, 14, 15], ins = ['15:52', '15:58', '16:04', '16:09']
+  const week = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [alex, sam].flatMap(p => days.map(d => ({ staffId: p.id, start: `2026-10-${d}T16:00:00Z`, end: `2026-10-${d + 1}T00:00:00Z`, breakMinutes: 0 }))) })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
+  for (const [i, d] of days.entries()) for (const p of [alex, sam]) {
+    await h.cmd('clock.in', { commandId: crypto.randomUUID(), capturedAt: `2026-10-${d}T${ins[i]}:00Z` }, p.cookie)
+    await h.cmd('clock.out', { commandId: crypto.randomUUID(), capturedAt: `2026-10-${d + 1}T00:00:00Z`, breakMinutes: 0 }, p.cookie)
+  }
+  const sheets = async (p, cookie = h.owner) => (await h.state(cookie)).timesheets.filter(t => t.staffId === p.id).sort((a, b) => a.start.localeCompare(b.start))
+  const a = await sheets(alex), b = await sheets(sam)
+  assert.deepEqual(a.map(t => [t.start.slice(11, 16), t.payable.start.slice(11, 16), t.rounding.capturedMinutes, t.minutes]), [['15:52', '15:45', 488, 495], ['15:58', '16:00', 482, 480], ['16:04', '16:00', 476, 480], ['16:09', '16:15', 471, 465]])
+  assert.deepEqual(b.map(t => [t.payable, t.minutes]), [[undefined, 488], [undefined, 482], [undefined, 476], [undefined, 471]])
+  const before = (await h.send('/app/time?week=2026-10-12&site=all', undefined, priya.cookie)).text
+  assert.ok(before.includes('Paid 8:45 am – 5:00 pm (+7 min)') && before.includes('Rounded at approval'))
+  for (const t of [...a, ...b]) await h.cmd('time.approve', { id: t.id, revision: t.revision })
+  const approvedA = await sheets(alex), approvedB = await sheets(sam)
+  assert.deepEqual(approvedB.map(t => [t.payable.start.slice(11, 16), t.minutes, t.status]), [['15:52', 488, 'approved'], ['15:58', 482, 'approved'], ['16:00', 480, 'approved'], ['16:09', 471, 'approved']])
+  const report = (await h.send('/app/time?week=2026-10-12&site=all', undefined, priya.cookie)).text
+  assert.ok(report.includes('Alex</th><td class="num">+3 min') && report.includes('Sam</th><td class="num">+4 min'), 'period neutrality report')
+  const own = (await h.send('/app/time?week=2026-10-12', undefined, alex.cookie)).text
+  assert.ok(own.includes('9:09 am – 5:00 pm') && own.includes('Paid 9:15 am – 5:00 pm (−6 min)'), 'the employee sees captured and paid time')
+  // Payroll keeps the captured times and pays the payable minutes.
+  const batch = await h.cmd('payroll.prepare', { ids: [approvedA[0].id] }), file = await h.cmd('payroll.export', { id: batch.id, revision: batch.revision })
+  assert.match(file.csv, /2026-10-12T15:52:00\.000Z,2026-10-13T00:00:00\.000Z,495,8\.2500/)
+  // A rule effective next week leaves approved history as it was.
+  await h.cmd('roundrule.save', { ...rule, from: '2026-10-19', increment: 5 })
+  assert.deepEqual((await sheets(alex)).map(t => [t.minutes, t.revision]), approvedA.map(t => [t.minutes, t.revision]))
+  await h.mf.dispatchFetch(h.origin + '/setup', { method: 'POST', headers: { origin: h.origin, cookie: h.owner, 'content-type': 'application/x-www-form-urlencoded' }, body: 'confirm=yes', redirect: 'manual' })
+  const people = (await h.send('/app/people', undefined, h.owner)).text
+  assert.ok(people.includes('2026-10-19') && people.includes('Nearest quarter hour · at clock-out') && people.includes('Snap to schedule within 7 min · at approval'))
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }
