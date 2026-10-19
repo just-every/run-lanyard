@@ -1,5 +1,6 @@
 // Gauge time's submitted -> approved revision flow, adapted to hours only;
 // Glove field capture preserves device time and command identity on retries.
+import {checkClockIn} from './clockrules'
 import {type Context,type Row,keys,text,need,self,staff,instant,integer,work,prepare,manager,get,exact,put,overlap} from './model'
 function clearOverlap(c:Context,staffId:string,w:Record<string,any>,rootId?:string) {
  need(!c.s.timesheets.some(t=>t.staffId===staffId&&t.status!=='superseded'&&t.rootId!==rootId&&overlap(t,w)),'Time overlaps another submitted or approved entry',409)
@@ -18,10 +19,12 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   if(name==='clock.in') {
    need(!open,'You already have an open clock',409)
    need(!c.s.clocks.some(r=>r.staffId===staffId&&r.end&&r.end>at),'Clock capture predates an existing clock; ask a manager to prepare missed time',409)
-   return put(c,'clocks',{staffId,start:at,end:null,status:'open',capturedBy:c.a.id,receivedAt:c.now})
+   // TIME-006: refused before any write, or accepted with its flags kept for the timesheet.
+   const check=checkClockIn(c.s,staffId,at)
+   return put(c,'clocks',{staffId,start:at,end:null,status:'open',capturedBy:c.a.id,receivedAt:c.now,shiftId:check.shiftId,...(check.exceptions.length?{exceptions:check.exceptions}:{})})
   }
   need(open,'No open clock to stop',409);const w=work({start:open.start,end:at,breakMinutes:integer(p.breakMinutes,'breakMinutes',0,1440)});clearOverlap(c,staffId,w)
-  const entry=put(c,'timesheets',{staffId,...w,status:'submitted',reason:'Phone clock',corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id});entry.rootId=entry.id
+  const entry=put(c,'timesheets',{staffId,...w,status:'submitted',reason:'Phone clock',corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(open.exceptions?.length?{exceptions:open.exceptions}:{})});entry.rootId=entry.id
   const clock=put(c,'clocks',{...open,end:at,status:'closed',timesheetId:entry.id,closedReceivedAt:c.now},open);c.entity=entry.id
   return {clock,timesheet:entry}
  }

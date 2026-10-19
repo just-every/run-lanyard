@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- TIME-006: owner clock-in rules per cafe and position refuse or flag early clock-ins and refuse, flag or allow clock-ins without a shift; flagged time waits for a manager.
 - TIME-008: managers filter waiting timesheets by cafe, position, dates and state and approve the shown revisions at once; changed, flagged, foreign or own items are skipped with reasons.
 - ROSTER-004: staff see who's working at their cafe (name, position and times of published shifts); managers set each cafe to whole team or own position and hide people for safety.
 - Run the hosted demo on rer 0.2.30's native Worker Loader host: refresh every recorded Base copy from `rer-v0.2.30`, take Base's run-demo workflow, and drop the container observer and instance type.

@@ -150,6 +150,53 @@ test('TIME-008: a manager filters a 60-person week to clean timesheets and appro
   await h.cmd('time.approveMany', { state: 'clean', items: [{ id: own.id, revision: 1 }] }, team[1].cookie, 403)
 }))
 
+test('TIME-006 and TIME-008: an early clock-in is refused with its opening time or flagged, a clock-in without a shift is refused, flagged pending approval or allowed for a listed position, and flagged time is skipped by bulk approval until a manager approves it', () => run(async h => {
+  const place = (p, position) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position, site: 'Ocean Beach' })
+  const alex = await h.person('Alex'), priya = await h.person('Priya', 'manager')
+  await place(alex, 'Barista'); await place(priya, 'Manager')
+  await h.cmd('availability.save', { staffId: alex.id, start: '2026-10-12T07:00:00Z', end: '2026-10-13T07:00:00Z' })
+  const week = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [shift(alex.id)] }) // Mon 7:00 am – 3:00 pm PDT
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision })
+  const punch = (p, name, capturedAt, extra = {}) => h.send('/api/lanyard/command', { name, input: { commandId: crypto.randomUUID(), capturedAt, ...extra } }, p.cookie)
+  const rule = await h.cmd('clockrule.save', { site: 'Ocean Beach', position: '', early: 'refuse', earlyMinutes: 10, unscheduled: 'refuse' })
+  await h.cmd('clockrule.save', { site: 'Ocean Beach', position: 'Manager', early: 'any', unscheduled: 'allow' })
+  await h.cmd('clockrule.save', { site: 'Ocean Beach', position: '', early: 'flag', earlyMinutes: 10, unscheduled: 'pending' }, priya.cookie, 403)
+  // 25 minutes early with a 10-minute window: refused, naming when clock-in opens; no shift: refused.
+  const early = await punch(alex, 'clock.in', '2026-10-12T13:35:00Z')
+  assert.equal(early.status, 409); assert.match(early.value.error, /opens at 6:50 am, 10 minutes before your 7:00 am shift/)
+  const none = await punch(alex, 'clock.in', '2026-10-13T15:00:00Z')
+  assert.equal(none.status, 409); assert.match(none.value.error, /No scheduled shift/)
+  // The Manager position's own rule allows a clock-in without a shift, unflagged.
+  assert.equal((await punch(priya, 'clock.in', '2026-10-13T15:00:00Z')).status, 200)
+  const managers = (await punch(priya, 'clock.out', '2026-10-13T19:00:00Z', { breakMinutes: 0 })).value.result.timesheet
+  assert.equal(managers.exceptions, undefined)
+  // Switch the cafe to flag mode (exact revision) and repeat: accepted and flagged, then a pending unscheduled punch.
+  await h.cmd('clockrule.save', { site: 'Ocean Beach', position: '', revision: rule.revision + 1, early: 'flag', earlyMinutes: 10, unscheduled: 'pending' }, h.owner, 409)
+  await h.cmd('clockrule.save', { site: 'Ocean Beach', position: '', revision: rule.revision, early: 'flag', earlyMinutes: 10, unscheduled: 'pending' })
+  assert.equal((await punch(alex, 'clock.in', '2026-10-12T13:35:00Z')).status, 200)
+  const flagged = (await punch(alex, 'clock.out', '2026-10-12T22:00:00Z', { breakMinutes: 30 })).value.result.timesheet
+  assert.equal((await punch(alex, 'clock.in', '2026-10-13T15:00:00Z')).status, 200)
+  const unscheduled = (await punch(alex, 'clock.out', '2026-10-13T19:00:00Z', { breakMinutes: 0 })).value.result.timesheet
+  assert.deepEqual([flagged.exceptions, flagged.start, flagged.minutes], [['early clock-in'], '2026-10-12T13:35:00.000Z', 475])
+  assert.deepEqual(unscheduled.exceptions, ['unscheduled punch'])
+  const page = await h.send('/app/time?week=2026-10-12', undefined, priya.cookie)
+  assert.match(page.text, /Flagged: early clock-in/); assert.match(page.text, /Flagged: unscheduled punch/)
+  // Bulk approval skips flagged time and names the exception; nothing is payable yet.
+  const bulk = await h.cmd('time.approveMany', { items: [{ id: flagged.id, revision: 1 }, { id: unscheduled.id, revision: 1 }] }, priya.cookie)
+  assert.deepEqual(bulk.approved, []); assert.deepEqual(bulk.skipped.map(x => x.reason), ['Exception: early clock-in', 'Exception: unscheduled punch'])
+  await h.cmd('payroll.prepare', { ids: [flagged.id] }, h.owner, 409)
+  // A manager approves the early time (it counts as worked) and corrects the unscheduled punch with a reason.
+  assert.equal((await h.cmd('time.approve', { id: flagged.id, revision: 1 }, priya.cookie)).exportMinutes, 475)
+  const kept = await h.cmd('time.approve', { id: unscheduled.id, revision: 1 }, priya.cookie)
+  const fixed = await h.cmd('time.prepare', { staffId: alex.id, start: '2026-10-13T15:00:00Z', end: '2026-10-13T18:00:00Z', breakMinutes: 0, corrects: kept.id, reason: 'Unscheduled cover: left at 11 am' }, priya.cookie)
+  await h.cmd('time.approve', { id: fixed.id, revision: 1 }, priya.cookie)
+  const batch = await h.cmd('payroll.prepare', {}, h.owner)
+  assert.deepEqual(batch.lines.filter(l => l.staffId === alex.id).map(l => [l.timeId, l.minutes]), [[flagged.id, 475], [fixed.id, 180]])
+  const s = await h.state()
+  assert.deepEqual(s.clocks.filter(c => c.staffId === alex.id).map(c => c.start).sort(), ['2026-10-12T13:35:00.000Z', '2026-10-13T15:00:00.000Z'])
+  assert.deepEqual([s.timesheets.find(t => t.id === unscheduled.id).status, s.timesheets.find(t => t.id === unscheduled.id).end], ['superseded', '2026-10-13T19:00:00.000Z'])
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }

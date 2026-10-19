@@ -1,6 +1,6 @@
 export type Actor = { id: string; email: string; role: 'owner'|'manager'|'staff'|'agent'; staffId?: string; isOwner?: boolean; name?: string }
 export type Row = { id: string; revision: number; [key: string]: any }
-export const kinds = ['availability','leave','rosters','shifts','clocks','timesheets','batches','forecasts','offers','teamviews'] as const
+export const kinds = ['availability','leave','rosters','shifts','clocks','timesheets','batches','forecasts','offers','teamviews','clockrules'] as const
 export type Kind = typeof kinds[number]
 export type Staff = { id:string; name:string; email:string; payroll_id:string|null; role:'staff'|'manager'; active:number; version:number; erased_at:string|null; position:string|null; rate_cents:number|null; site:string|null }
 export type State = {version:number;timezone:string;staff:Staff[];claims:any[]} & Record<Kind,Row[]>
