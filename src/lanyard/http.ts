@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { batchCsv, command, schedulePdf, snapshot, type Actor } from './domain'
+import { batchCsv, command, noteAttachment, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -30,6 +30,17 @@ async function execute(request: Request, env: Bindings, who: Actor, name: string
 }
 
 async function inputBody(request: Request): Promise<Record<string, unknown>> {
+  // JOURNAL-001: a note form may carry one attachment, passed on as name, type and base64 bytes.
+  if (request.headers.get('content-type')?.includes('multipart/form-data')) {
+    if (Number(request.headers.get('content-length') ?? 0) > 1_500_000) fail('Request is too large', 413)
+    const form = await request.formData(), input: Record<string, unknown> = {}
+    for (const [key, value] of form) {
+      if (typeof value === 'string') input[key] = value
+      else if (value.size) { const bytes = new Uint8Array(await value.arrayBuffer()); if (bytes.length > 1_000_000) fail('Attachments are 1 MB at most', 413); let raw = ''; for (const b of bytes) raw += String.fromCharCode(b); input[key] = { name: value.name || 'attachment', type: value.type || 'application/octet-stream', data: btoa(raw) } }
+    }
+    if ('revision' in input) input.revision = Number(input.revision)
+    return input
+  }
   const raw = await request.text()
   if (new TextEncoder().encode(raw).length > 200_000) fail('Request is too large', 413)
   if (request.headers.get('content-type')?.includes('application/json')) {
@@ -67,6 +78,8 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/state' || path === '/api/lanyard/agent/context') return json(await state(env, who))
       const file = path.match(/^\/api\/lanyard\/batches\/([\w-]+)\.csv$/)
       if (file) return new Response(await batchCsv(env.DB, who, file[1]), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-${file[1]}.csv"` } })
+      const attached = path.match(/^\/api\/lanyard\/notes\/([\w-]+)\/files\/([\w-]+)$/)
+      if (attached) { const { bytes, name, type } = await noteAttachment(env.DB, who, attached[1], attached[2]); return new Response(bytes, { headers: { ...headers, 'content-type': type, 'content-disposition': `attachment; filename="${name.replace(/[^\w. -]/g, '_')}"`, 'x-content-type-options': 'nosniff' } }) }
       const printed = path.match(/^\/api\/lanyard\/postings\/([\w-]+)\.pdf$/)
       if (printed) { const { bytes, name } = await schedulePdf(env.DB, who, printed[1]); return new Response(bytes, { headers: { ...headers, 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${name}"` } }) }
     } else {

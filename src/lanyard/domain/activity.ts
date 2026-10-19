@@ -4,6 +4,7 @@
 // actor, role, action, subject id and time only, never employee-private fields.
 import {type Actor,type State,type Row,kinds} from './model'
 import {privateEntity} from './feedback'
+import {privateNote} from './journal'
 
 export type Event={id:string;actorId:string;actorRole:string;action:string;entityId:string;at:string}
 type Subject={people:Set<string>;sites:Set<string>;person:string|null}
@@ -39,6 +40,7 @@ export function readable(s:State,a:Actor,events:Event[]):Event[] {
   const {people,sites,person}=subject(s,index,e.entityId)
   // A cafe setting with no cafe named covers every cafe, so every manager reads it.
   if(a.role==='manager')return [...people].some(id=>siteOf(id)===home)||(!people.size&&(sites.has(home)||sites.has('')))
-  return person===a.staffId
+  // JOURNAL-001: a private note's events stay with its writers, not its employee.
+  return person===a.staffId&&!privateNote(s,e.entityId)
  }).slice(0,100)
 }

@@ -493,6 +493,38 @@ test('FEEDBACK-001: after clock-out a low rating with a safety flag, an anonymou
   assert.deepEqual([context.value.feedback, context.value.feedbackopts], [[], []])
 }))
 
+test('JOURNAL-001: a cafe manager keeps a private note with an attachment and a shared note on an employee; another cafe’s manager, the employee and an agent read only what each may; an edit keeps its version', () => run(async h => {
+  const alex = await h.person('Alex'), priya = await h.person('Priya', 'manager'), remy = await h.person('Remy', 'manager')
+  for (const [p, site] of [[alex, 'Ocean Beach'], [priya, 'Ocean Beach'], [remy, 'North Park']]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, site })
+  const body = new FormData()
+  for (const [k, v] of Object.entries({ staffId: alex.id, date: '2026-10-12', category: 'attendance', visibility: 'private', text: 'Late twice this week; agreed a 6:45 alarm' })) body.append(k, v)
+  body.append('attachment', new Blob(['Signed attendance conversation'], { type: 'text/plain' }), 'conversation.txt')
+  const encoded = new Response(body), posted = await h.mf.dispatchFetch(h.origin + '/app/action?name=note.save&returnTo=%2Fapp%2Fpeople', { method: 'POST', headers: { origin: h.origin, cookie: priya.cookie, 'content-type': encoded.headers.get('content-type') }, body: await encoded.arrayBuffer() })
+  assert.match(await posted.text(), /Saved\./)
+  const shared = await h.cmd('note.save', { staffId: alex.id, date: '2026-10-13', category: 'commendation', visibility: 'employee', text: 'Covered the Sunday rush calmly' }, priya.cookie)
+  await h.cmd('note.save', { staffId: alex.id, date: '2026-10-13', category: 'performance', visibility: 'private', text: 'Other cafe' }, remy.cookie, 403)
+  await h.cmd('note.save', { staffId: priya.id, date: '2026-10-13', category: 'performance', visibility: 'private', text: 'About myself' }, priya.cookie, 403)
+  const kept = (await h.state(priya.cookie)).notes, secret = kept.find(n => n.visibility === 'private'), file = `/api/lanyard/notes/${secret.id}/files/${secret.attachment.id}`
+  assert.deepEqual([kept.length, secret.attachment.name, secret.byName.length > 0], [2, 'conversation.txt', true])
+  assert.equal((await h.send(file, undefined, priya.cookie)).text, 'Signed attendance conversation')
+  // The second cafe's manager, the employee and an agent key read only what each may.
+  assert.deepEqual((await h.state(remy.cookie)).notes, [])
+  assert.equal((await h.send(file, undefined, remy.cookie)).status, 404)
+  const own = await h.state(alex.cookie), ownText = JSON.stringify(own)
+  assert.deepEqual(own.notes.map(n => [n.id, n.text, n.versions, n.by]), [[shared.id, 'Covered the Sunday rush calmly', undefined, undefined]])
+  assert.ok(!ownText.includes('Late twice') && !own.events.some(e => e.entityId === secret.id), 'a private note never reaches its employee')
+  assert.equal((await h.send(file, undefined, alex.cookie)).status, 404)
+  const page = (await h.send('/app/time', undefined, alex.cookie)).text
+  assert.ok(page.includes('Notes shared with you') && page.includes('Covered the Sunday rush calmly') && !page.includes('Late twice'))
+  const key = await h.cmd('agent.create', { label: 'Roster assistant' }), context = await h.send('/api/lanyard/agent/context', undefined, '', { authorization: `Bearer ${key.token}` })
+  assert.ok(Array.isArray(context.value.notes) && !context.value.notes.length && !context.text.includes('Covered the Sunday') && !context.text.includes('Late twice'))
+  // An edit keeps the earlier version and its attachment; a stale revision is refused.
+  const edited = await h.cmd('note.save', { id: secret.id, revision: secret.revision, date: '2026-10-12', category: 'attendance', visibility: 'private', text: 'Late twice; alarm plan working since Wednesday' }, priya.cookie)
+  await h.cmd('note.save', { id: secret.id, revision: secret.revision, date: '2026-10-12', category: 'attendance', visibility: 'private', text: 'Stale' }, priya.cookie, 409)
+  const history = (await h.state()).notes.find(n => n.id === secret.id)
+  assert.deepEqual([history.text, history.revision, history.versions.map(v => [v.revision, v.text, v.attachment.name])], ['Late twice; alarm plan working since Wednesday', edited.revision, [[1, 'Late twice this week; agreed a 6:45 alarm', 'conversation.txt']]])
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }

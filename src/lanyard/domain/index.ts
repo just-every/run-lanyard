@@ -21,9 +21,10 @@ import {type Event,readable} from './activity'
 import {earnings,earnSettings} from './earnings'
 import {rounding} from './rounding'
 import {feedback,feedbackFor} from './feedback'
+import {journal,notesFor,noteFile} from './journal'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -53,6 +54,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=earnings(c,name,p)
  if(result===undefined)result=rounding(c,name,p)
  if(result===undefined)result=await feedback(c,name,p)
+ if(result===undefined)result=await journal(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
@@ -84,6 +86,8 @@ export async function snapshot(db:D1Database,identity:Actor):Promise<object> {
  }
  // FEEDBACK-001: each reader's own slice; an anonymous author is never named.
  result.feedback=feedbackFor(s,a);if(agent)result.feedbackopts=[]
+ // JOURNAL-001: notes by cafe and role; an employee reads only notes made visible to them.
+ result.notes=notesFor(s,a)
  // AUDIT-001: each role reads only its own slice of the activity list.
  result.events=events?readable(s,a,(await events).results):[]
  return result
@@ -97,4 +101,8 @@ export async function batchCsv(db:D1Database,identity:Actor,id:string):Promise<s
 export async function schedulePdf(db:D1Database,identity:Actor,id:string):Promise<{bytes:Uint8Array<ArrayBuffer>;name:string}> {
  const a=await live(db,identity);manager(a);const s=await load(db);manager(fresh(a,s));const p=get(s,'postings',id)
  return {bytes:postingPdf(p,p.filter.staffId?s.staff.find(v=>v.id===p.filter.staffId)?.name??null:null),name:`lanyard-schedule-${p.week}-r${p.rosterRevision}-${p.id.slice(0,8)}.pdf`}
+}
+/** JOURNAL-001: a note's attachment, for a reader who may read the note. */
+export async function noteAttachment(db:D1Database,identity:Actor,noteId:string,fileId:string) {
+ const a=await live(db,identity),s=await load(db);return noteFile(db,s,fresh(a,s),noteId,fileId)
 }
