@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { attendanceBoard, batchCsv, command, contactRead, dashboardRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { attendanceBoard, batchCsv, command, contactRead, dashboardRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -101,6 +101,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/state' || path === '/api/lanyard/agent/context') return json(await state(env, who))
       const file = path.match(/^\/api\/lanyard\/batches\/([\w-]+)\.csv$/)
       if (file) return new Response(await batchCsv(env.DB, who, file[1]), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-${file[1]}.csv"` } })
+      if (path === '/api/lanyard/sales') return json(await salesRead(env.DB, who, url.searchParams.get('week') ?? '', url.searchParams.get('site') ?? ''))
       if (path === '/api/lanyard/dashboard') return json(await dashboardRead(env.DB, who, url.searchParams.get('asOf') ?? new Date().toISOString().replace(/\.\d+Z$/, 'Z'), url.searchParams.get('site') ?? ''))
       if (path === '/api/lanyard/logbook') return json(await logbookRead(env.DB, who, 'search', '', { site: url.searchParams.get('site') ?? '', category: url.searchParams.get('category') ?? '', month: url.searchParams.get('month') ?? '' }))
       const logged = path.match(/^\/api\/lanyard\/logbook\/([\w-]+)\/(export|files\/([\w-]+))$/)
@@ -122,7 +123,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         const input = await inputBody(request), name = url.searchParams.get('name') ?? ''
         if (name === 'staff.save' && !('active' in input)) input.active = false
         const result = await execute(request, env, who, name, input), { token, ...shown } = result as Record<string, unknown>
-        return withClockCookie(await renderApp(await state(env, who), back, { message: 'Saved.', result: name === 'import.preview' ? { ...shown, csv: input.csv } : name.startsWith('clockbrowser.') ? shown : result }), name.startsWith('clockbrowser.') ? result : null)
+        return withClockCookie(await renderApp(await state(env, who), back, { message: 'Saved.', result: name === 'import.preview' || name === 'sales.preview' ? { ...shown, csv: input.csv, mapping: input.mapping, site: input.site } : name.startsWith('clockbrowser.') ? shown : result }), name.startsWith('clockbrowser.') ? result : null)
       }
       if (path === '/api/lanyard/command' || path === '/api/lanyard/agent/command') {
         const body = await inputBody(request)

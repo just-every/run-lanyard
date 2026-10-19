@@ -1,7 +1,7 @@
 // DASH-001: one manager view of today and this week, scoped to the manager's home cafe (the
 // owner's: every cafe, or one chosen): who is on now and late (CLOCK-004), open and unconfirmed
-// shifts, pending approvals, overtime risk (COST-002), scheduled labor against the forecast sales and
-// budget, unresolved time exceptions and the days left to the open pay period's cutoff (TIME-004).
+// shifts, pending approvals, overtime risk (COST-002), scheduled labor against the forecast sales,
+// entered sales (SALES-001) and budget, unresolved time exceptions and the days left to the open pay period's cutoff (TIME-004).
 // Each item is read from its own record and links to the card that resolves it; each count is its list's length.
 import {type Actor,type State} from './model'
 import {localDate} from './settings'
@@ -9,6 +9,7 @@ import {siteOf} from './team'
 import {board} from './attendance'
 import {alertsFor} from './overtime'
 import {weekOf} from './openshifts'
+import {salesWeek} from './sales'
 
 const days=(a:string,b:string)=>Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/86400000)
 export function dashboard(s:State,a:Actor,asOf:string,site='') {
@@ -36,8 +37,10 @@ export function dashboard(s:State,a:Actor,asOf:string,site='') {
  const labor=cafes.map(cafe=>{
   const cents=s.shifts.filter(x=>x.status==='published'&&inWeek(x.start)&&siteOf(s,x)===cafe).reduce((n,x)=>n+Math.round(x.minutes*(s.staff.find(p=>p.id===x.staffId)?.rate_cents??0)/60),0)
   const f=s.forecasts.find(v=>v.week===week&&(v.site??'')===cafe),sales=f?f.days.reduce((n:number,v:number)=>n+v,0)*100:null
-  const percent=sales?Math.round(cents/sales*1000)/10:null
-  return {site:cafe,scheduledCents:cents,forecastCents:sales,percent,budgetPercent:f?.budgetPercent??null,overBudget:percent!==null&&f?.budgetPercent!=null&&percent>f.budgetPercent,link:`/app/schedule?week=${week}${cafe?`&site=${encodeURIComponent(cafe)}`:''}`}})
+  const percent=sales?Math.round(cents/sales*1000)/10:null,e=salesWeek(s,week,cafe).entered
+  // SALES-001: on the days with entered sales, their scheduled labor over those sales.
+  const actual=e.days?{days:e.days,salesCents:e.salesCents,laborCents:e.laborCents,percent:e.laborPercent,salesPerLaborHour:e.salesPerLaborHour}:null
+  return {site:cafe,scheduledCents:cents,forecastCents:sales,percent,budgetPercent:f?.budgetPercent??null,overBudget:percent!==null&&f?.budgetPercent!=null&&percent>f.budgetPercent,actual,link:`/app/schedule?week=${week}${cafe?`&site=${encodeURIComponent(cafe)}`:''}`}})
  const period=s.periods.filter(p=>p.status==='open'&&p.end>=today).sort((x,y)=>x.end.localeCompare(y.end))[0]
  const cutoff=period?{periodId:period.id,end:period.end,daysLeft:days(today,period.end),link:links.cutoff}:null
  return {asOf,today,week,site:scope,links,now,late,openShifts,unconfirmed,approvals,overtime,labor,exceptions,cutoff}

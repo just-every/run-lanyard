@@ -7,7 +7,7 @@ export const namespace = 'lanyard.staff.csv.v1'
 const columns = ['staff_id', 'name', 'email', 'payroll_id']
 
 /** RFC 4180 quoting, including quoted line breaks. Row numbers are physical start lines. */
-function parse(text: string): { cells: string[]; line: number }[] {
+export function parse(text: string): { cells: string[]; line: number }[] {
   const rows: { cells: string[]; line: number }[] = []
   let cells: string[] = [], cell = '', state: 'plain' | 'quoted' | 'closed' = 'plain', line = 1, start = 1
   const push = () => { cells.push(cell); rows.push({ cells, line: start }); cells = []; cell = ''; state = 'plain' }

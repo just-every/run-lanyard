@@ -1361,7 +1361,7 @@ test('DASH-001: a live Thursday with a late arrival, an open shift, three pendin
   assert.deepEqual(d.overtime.map(x => [x.staffId, x.overtimeMinutes, x.link]), [[alex.id, 60, `${plan}&site=Ocean%20Beach#overtime`]])
   assert.deepEqual(d.exceptions.map(x => [x.id, x.exceptions, x.link]), [[timesheet.id, ['provisional close'], '/app/time#exceptions']])
   // 38 + 8 + 8 + 4 scheduled hours at $20.00 = $1,160.00 against $7,000 forecast sales: 16.6%, over a 15% budget.
-  assert.deepEqual(d.labor, [{ site: 'Ocean Beach', scheduledCents: 116000, forecastCents: 700000, percent: 16.6, budgetPercent: 15, overBudget: true, link: `${plan}&site=Ocean%20Beach` }])
+  assert.deepEqual(d.labor, [{ site: 'Ocean Beach', scheduledCents: 116000, forecastCents: 700000, percent: 16.6, budgetPercent: 15, overBudget: true, actual: null, link: `${plan}&site=Ocean%20Beach` }])
   assert.deepEqual([d.cutoff.end, d.cutoff.daysLeft, d.cutoff.link], ['2026-10-11', 3, '/app/payroll#pay-periods'])
   // Mission's manager sees only Mission, whatever cafe is asked for; the owner sees both or picks one; staff read none.
   for (const q of ['', '&site=Ocean%20Beach']) {
@@ -1425,4 +1425,53 @@ test('CONTACT-001: staff keep their own emergency contacts; the cafe manager ope
   assert.deepEqual(seen.sort(), [['contact.refused', 'manager'], ['contact.refused', 'staff'], ['contact.view', 'manager'], ['contact.view', 'owner']].sort())
   assert.equal((await h.state(cy.cookie)).events.filter(e => e.entityId === cy.id && e.action.startsWith('contact.') && e.action !== 'contact.save').length, 4)
   assert.deepEqual((await h.state(omar.cookie)).events.filter(e => e.entityId === cy.id && e.action === 'contact.view'), [])
+}))
+
+test('SALES-001: two weeks of hourly sales by CSV and one day by hand, labelled Manual; a duplicate upload is refused at preview; a correction keeps the earlier value; labor percentage and sales per labor hour follow, on the cafe’s week and its dashboard; other cafes and staff read none', () => run(async h => {
+  const alex = await h.person('Alex'), priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager')
+  for (const p of [alex, priya, omar]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site: p === omar ? 'Mission' : 'Ocean Beach', hourlyRate: '20.00' })
+  await h.cmd('availability.save', { staffId: alex.id, start: '2026-10-05T07:00:00Z', end: '2026-10-12T07:00:00Z' })
+  const week = await h.cmd('roster.prepare', { week: '2026-10-05', shifts: [5, 6].map(d => ({ staffId: alex.id, start: `2026-10-0${d}T16:00:00Z`, end: `2026-10-0${d + 1}T00:00:00Z`, breakMinutes: 0 })) })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
+  // Sep 28 – Oct 11, 9:00 and 10:00, except Wed Oct 7: $300 + $500 and 30 + 50 checks a day.
+  const dates = Array.from({ length: 14 }, (_, i) => new Date(Date.UTC(2026, 8, 28 + i)).toISOString().slice(0, 10)).filter(d => d !== '2026-10-07')
+  const csv = 'Date,Hour,Net sales,Checks\n' + dates.flatMap(d => [`${d},9,"$300.00",30`, `${d},10:00,500,50`]).join('\n') + '\n'
+  const mapping = 'sales=Net sales\ntransactions=Checks'
+  const first = await h.cmd('sales.preview', { csv, mapping, site: 'Ocean Beach' }, priya.cookie)
+  assert.deepEqual([first.entries.length, first.duplicates, first.errors], [52, [], []])
+  assert.deepEqual((await h.cmd('sales.import', { csv, mapping, site: 'Ocean Beach', fingerprint: first.fingerprint }, priya.cookie)).imported, 52)
+  // The same file again: every row is a duplicate at preview and the upload is refused; so is a file repeating its own row.
+  const again = await h.cmd('sales.preview', { csv, mapping, site: 'Ocean Beach' }, priya.cookie)
+  assert.equal(again.duplicates.length, 52)
+  await h.cmd('sales.import', { csv, mapping, site: 'Ocean Beach', fingerprint: again.fingerprint }, priya.cookie, 409)
+  const twice = await h.cmd('sales.preview', { csv: 'date,hour,sales\n2026-10-12,9,10\n2026-10-12,9,12\n', site: 'Ocean Beach' }, priya.cookie)
+  assert.deepEqual(twice.duplicates.map(d => d.line), [3])
+  // Wed Oct 7 by hand through the form, for the whole day; an hourly value beside it is refused.
+  const body = new URLSearchParams({ site: 'Ocean Beach', date: '2026-10-07', hour: '', metric: 'sales', value: '1,000.00' })
+  const posted = await h.mf.dispatchFetch(h.origin + '/app/action?name=sales.save&returnTo=%2Fapp%2Fschedule%3Fweek%3D2026-10-05', { method: 'POST', headers: { origin: h.origin, cookie: priya.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+  assert.match(await posted.text(), /Saved\./)
+  await h.cmd('sales.save', { site: 'Ocean Beach', date: '2026-10-07', hour: 9, metric: 'sales', value: '10' }, priya.cookie, 409)
+  await h.cmd('sales.save', { site: 'Ocean Beach', date: '2026-10-06', hour: 9, metric: 'covers', value: '40' }, priya.cookie)
+  // Correct Tuesday 9:00 from $300 to $350; the CSV value stays in its history.
+  const read = async (cookie, query = 'week=2026-10-05', status = 200) => { const r = await h.send(`/api/lanyard/sales?${query}`, undefined, cookie); assert.equal(r.status, status, r.text); return r.value }
+  const nine = (await read(priya.cookie)).days[1].entries.find(e => e.metric === 'sales' && e.hour === 9)
+  await h.cmd('sales.save', { id: nine.id, revision: nine.revision, value: '350' }, priya.cookie)
+  await h.cmd('sales.save', { id: nine.id, revision: nine.revision, value: '360' }, priya.cookie, 409)
+  const w = await read(priya.cookie)
+  const fixed = w.days[1].entries.find(e => e.id === nine.id)
+  assert.deepEqual([fixed.value, fixed.source, fixed.versions.map(v => [v.value, v.source])], [35000, 'form', [[30000, 'csv']]])
+  // Mon: $800 against 8 scheduled hours ($160): 20.0%, $100.00 an hour. Tue: $850, 18.8%, $106.25. Wed: $1,000, no scheduled labor.
+  assert.deepEqual(w.days.slice(0, 3).map(d => [d.date, d.label, d.salesCents, d.laborCents, d.laborPercent, d.salesPerLaborHour, d.hourly]), [['2026-10-05', 'Manual', 80000, 16000, 20, 10000, true], ['2026-10-06', 'Manual', 85000, 16000, 18.8, 10625, true], ['2026-10-07', 'Manual', 100000, 0, 0, null, false]])
+  assert.deepEqual([w.days[1].metrics, w.entered], [{ covers: 40, sales: 85000, transactions: 80 }, { days: 7, salesCents: 585000, laborCents: 32000, laborMinutes: 960, laborPercent: 5.5, salesPerLaborHour: 36563 }])
+  const dash = (await h.send('/api/lanyard/dashboard?asOf=2026-10-08T15:30:00Z', undefined, priya.cookie)).value.labor[0]
+  assert.deepEqual([dash.site, dash.actual], ['Ocean Beach', { days: 7, salesCents: 585000, laborCents: 32000, percent: 5.5, salesPerLaborHour: 36563 }])
+  const screen = (await h.send('/app/schedule?week=2026-10-05', undefined, priya.cookie)).text
+  for (const part of ['id="sales"', 'Manual (CSV)', 'Manual (form)', '20.0%', '$106.25', 'earlier: $300.00']) assert.ok(screen.includes(part), part)
+  // Mission's manager reads and enters only Mission; staff read none; the owner reads any cafe.
+  assert.deepEqual([(await read(omar.cookie, 'week=2026-10-05&site=Ocean%20Beach')).site, (await read(omar.cookie, 'week=2026-10-05&site=Ocean%20Beach')).entered.days], ['Mission', 0])
+  await h.cmd('sales.save', { site: 'Ocean Beach', date: '2026-10-12', metric: 'sales', value: '5' }, omar.cookie, 403)
+  assert.equal((await h.cmd('sales.preview', { csv, mapping, site: 'Ocean Beach' }, omar.cookie)).errors.length, 26)
+  await read(alex.cookie, 'week=2026-10-05', 403)
+  assert.deepEqual([(await h.state(alex.cookie)).sales, (await h.state(omar.cookie)).sales], [[], []])
+  assert.equal((await read(h.owner, 'week=2026-09-28&site=Ocean%20Beach')).entered.salesCents, 7 * 80000)
 }))

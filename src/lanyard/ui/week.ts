@@ -64,9 +64,10 @@ export function weekModel(s:any,now:number,q:URLSearchParams,focus=false) {
  const forecast=rows(s,'forecasts').find(f=>f.week===week&&(f.site??'')===site)
  const atSite=shifts.filter(here)
  const labor=days.map((_,i)=>atSite.filter(x=>dayOf(x)===i).reduce((n,x)=>n+Math.round(x.minutes*(staffOf(s,x.staffId)?.hourlyRateCents??0)/60),0))
+ const laborMinutes=days.map((_,i)=>atSite.filter(x=>dayOf(x)===i).reduce((n,x)=>n+x.minutes,0))
  const unrated=new Set(atSite.filter(x=>typeof staffOf(s,x.staffId)?.hourlyRateCents!=='number').map(x=>x.staffId)).size
  const people=new Set(shifts.map(x=>x.staffId)),confirmed=[...people].filter(id=>shifts.filter(x=>x.staffId===id).every(x=>x.confirmedAt)).length
  const headcount=rows(s,'staff').filter(p=>p.active&&(!site||p.site===site)).length
- return {tz,today,week,days,sites,site,published,draft,view,roster,shifts,groups,callouts,forecast,labor,unrated,people:people.size,confirmed,headcount,extraCount}
+ return {tz,today,week,days,sites,site,published,draft,view,roster,shifts,groups,callouts,forecast,labor,laborMinutes,unrated,people:people.size,confirmed,headcount,extraCount}
 }
 export type Week=ReturnType<typeof weekModel>
