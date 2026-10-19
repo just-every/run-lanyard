@@ -30,12 +30,12 @@ function fresh(a:Actor,s:State) {
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
  need(person,'Staff access revoked',403);return {...a,role:person.role}
 }
-export async function command(db:D1Database,identity:Actor,name:string,input:unknown):Promise<object> {
+export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string):Promise<object> {
  need(commands.includes(name),'Unknown command',404);const a=await live(db,identity),p=object(input)
  if(a.role==='agent')need(['roster.prepare','time.prepare','payroll.prepare'].includes(name),'Agents may prepare drafts only; a human manager must approve',403)
  const commandId=name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID(),digest=await sha(canonical({name,input:p}))
  const previous=await saved(db,commandId,a,digest);if(previous)return previous
- const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:''}
+ const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret}
  let result:any=settings(c,name,p)
  if(result===undefined)result=await people(c,name,p)
  if(result===undefined)result=roster(c,name,p)
@@ -62,7 +62,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  }
  return commit(c,before,name,commandId,digest,result)
 }
-export async function snapshot(db:D1Database,identity:Actor):Promise<object> {
+export async function snapshot(db:D1Database,identity:Actor,secret?:string):Promise<object> {
  const a0=await live(db,identity),events=a0.role==='agent'?null:db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at FROM l_events ORDER BY at DESC,id DESC').all<Event>()
  const s=await load(db),a=fresh(a0,s),manages=['owner','manager'].includes(a.role),agent=a.role==='agent'
  const staff=s.staff.filter(p=>manages||agent||p.id===a.staffId).map(p=>agent?{id:p.id,name:p.name,active:!!p.active,position:p.position,site:p.site}:{id:p.id,name:p.name,email:p.email,payrollId:p.payroll_id,role:p.role,active:!!p.active,revision:p.version,erasedAt:p.erased_at,position:p.position,site:p.site,...(manages||(p.id===a.staffId&&earnSettings(s.earnings).estimates)?{hourlyRateCents:p.rate_cents}:{})})
@@ -85,7 +85,7 @@ export async function snapshot(db:D1Database,identity:Actor):Promise<object> {
   result.batches=s.batches.map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,...l}:any)=>l)}))
  }
  // FEEDBACK-001: each reader's own slice; an anonymous author is never named.
- result.feedback=feedbackFor(s,a);if(agent)result.feedbackopts=[]
+ result.feedback=await feedbackFor(s,a,secret);if(agent)result.feedbackopts=[]
  // JOURNAL-001: notes by cafe and role; an employee reads only notes made visible to them.
  result.notes=notesFor(s,a)
  // AUDIT-001: each role reads only its own slice of the activity list.

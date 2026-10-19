@@ -475,7 +475,11 @@ test('FEEDBACK-001: after clock-out a low rating with a safety flag, an anonymou
     assert.ok(!JSON.stringify(hidden).includes(sam.id) && !state.events.some(e => e.entityId === anon.id), 'the anonymous author stays hidden')
   }
   assert.deepEqual((await h.state(remy.cookie)).feedback, [])
-  assert.ok((await h.state(sam.cookie)).events.some(e => e.entityId === anon.id))
+  // The records and history the installation archive carries never name the anonymous author; the author still sees their answer.
+  const samState = await h.state(sam.cookie), stored = (await h.db.prepare("SELECT data FROM l_records WHERE kind='feedback' AND id=?").bind(anon.id).first()).data
+  const history = JSON.stringify([...(await h.db.prepare('SELECT actor_id,digest,result FROM l_commands').all()).results.filter(r => r.result.includes(anon.id)), ...(await h.db.prepare('SELECT actor_id FROM l_events WHERE entity_id=?').bind(anon.id).all()).results])
+  assert.ok(history.includes('actor_id') && [sam.id, samState.actor.id, ts.id, ts.clockId].every(id => !stored.includes(id) && !history.includes(id)), 'only keyed digests link the answer to its author')
+  assert.deepEqual([samState.feedback.find(f => f.id === anon.id).clockId, (await h.send('/app/time', undefined, sam.cookie)).text.includes('How was your shift')], [ts.clockId, false])
   const flagged = (await h.state(priya.cookie)).feedback.find(f => f.rating === 2)
   assert.ok(flagged.managerName && flagged.staffId === alex.id && (await h.state(priya.cookie)).feedback.find(f => f.rating === 4).managerName === null)
   const page = (await h.send('/app/time?week=2026-10-12&site=all', undefined, priya.cookie)).text, byManager = (await h.send(`/app/time?week=2026-10-12&site=all&manager=${encodeURIComponent(flagged.managerName)}`, undefined, priya.cookie)).text

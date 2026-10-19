@@ -35,10 +35,10 @@ export async function commit(c:Context,before:State,name:string,commandId:string
  else guard("EXISTS(SELECT 1 FROM oa_operators WHERE id=? AND status='active')",c.a.id)
  for(const k of kinds) { const old=new Map(before[k].map(r=>[r.id,JSON.stringify(r)]));for(const r of c.s[k])if(old.get(r.id)!==JSON.stringify(r))q.push(c.db.prepare('INSERT INTO l_records(kind,id,revision,data) VALUES(?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET revision=excluded.revision,data=excluded.data').bind(k,r.id,r.revision,JSON.stringify(r))) }
  q.push(...c.sql)
- q.push(c.db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),c.a.id,c.a.role,name,c.entity,c.now))
+ q.push(c.db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),c.storedActor??c.a.id,c.a.role,name,c.entity,c.now))
  q.push(c.db.prepare('UPDATE l_meta SET version=version+1,timezone=? WHERE id=1').bind(c.s.timezone))
  const response={ok:true,result,version:before.version+1}
- q.push(c.db.prepare('INSERT INTO l_commands(id,actor_id,digest,result,created_at) VALUES(?,?,?,?,?)').bind(commandId,c.a.id,digest,JSON.stringify(response),c.now))
+ q.push(c.db.prepare('INSERT INTO l_commands(id,actor_id,digest,result,created_at) VALUES(?,?,?,?,?)').bind(commandId,c.storedActor??c.a.id,c.storedDigest??digest,JSON.stringify(response),c.now))
  q.push(c.db.prepare('DELETE FROM l_guard'))
  try { await c.db.batch(q) } catch(e) { const replay=await saved(c.db,commandId,c.a,digest);if(replay)return replay;const message=e instanceof Error?e.message:String(e);if(/constraint|CHECK|UNIQUE/i.test(message))fail('State changed or identity conflicts; reload before retrying',409);throw e }
  return response

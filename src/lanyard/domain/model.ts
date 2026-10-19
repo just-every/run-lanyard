@@ -4,7 +4,8 @@ export const kinds = ['availability','leave','rosters','shifts','clocks','timesh
 export type Kind = typeof kinds[number]
 export type Staff = { id:string; name:string; email:string; payroll_id:string|null; role:'staff'|'manager'; active:number; version:number; erased_at:string|null; position:string|null; rate_cents:number|null; site:string|null }
 export type State = {version:number;timezone:string;staff:Staff[];claims:any[]} & Record<Kind,Row[]>
-export type Context = { a:Actor; s:State; now:string; sql:D1PreparedStatement[]; db:D1Database; entity:string }
+// secret: the installation secret for keyed digests; storedActor/storedDigest replace the actor id and input digest kept in history (FEEDBACK-001 anonymity).
+export type Context = { a:Actor; s:State; now:string; sql:D1PreparedStatement[]; db:D1Database; entity:string; secret?:string; storedActor?:string; storedDigest?:string }
 export function fail(message:string,status=400):never { throw Object.assign(new Error(message),{status}) }
 export function need(value:unknown,message:string,status=400):asserts value { if(!value) fail(message,status) }
 export function object(value:unknown):Record<string,any> { need(value && typeof value==='object' && !Array.isArray(value),'Expected an object'); return value as Record<string,any> }
@@ -23,4 +24,6 @@ export function prepare(a:Actor) { need(['owner','manager','agent'].includes(a.r
 export function self(a:Actor) { need(a.role!=='agent'&&a.staffId,'Your session is not linked to active staff',403); return a.staffId }
 export function staff(c:Context,id:unknown) { const r=c.s.staff.find(v=>v.id===text(id,'staffId'));need(r&&r.active&&!r.erased_at,'Active staff required');return r }
 export async function sha(value:string) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(v=>v.toString(16).padStart(2,'0')).join('') }
+/** An HMAC-SHA256 digest keyed by the installation secret: stable inside one installation, meaningless outside it. */
+export async function keyed(secret:string,value:string) { const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);return [...new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(value)))].map(v=>v.toString(16).padStart(2,'0')).join('') }
 export function canonical(value:any):string { if(Array.isArray(value))return '['+value.map(canonical).join(',')+']';if(value&&typeof value==='object')return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k])).join(',')+'}';return JSON.stringify(value) }
