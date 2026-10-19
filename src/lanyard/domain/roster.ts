@@ -1,9 +1,13 @@
 import {type Context,type Row,type State,keys,text,need,prepare,manager,self,staff,work,get,exact,put,overlap} from './model'
 import {localDate} from './settings'
+import {patternFit,patternOn} from './patterns'
 // Glove's prepare/approve split and Dial's occurrence fences: publication acts
 // on the exact draft and all conflicts are checked inside its state version.
-/** Availability windows cover the whole time (adjacent windows may chain). */
+/** An AVAIL-001 unavailable block wins; else the effective pattern's blocks or dated windows cover the whole time (adjacent ones chain). */
 export function available(s:State,staffId:string,w:Record<string,any>) {
+ const pattern=patternFit(s,staffId,w)
+ if(pattern?.unavailable)return false
+ if(pattern?.covered)return true
  const windows=s.availability.filter(a=>a.staffId===staffId).sort((a,b)=>a.start.localeCompare(b.start))
  let through=w.start;for(const v of windows)if(v.start<=through&&v.end>through)through=v.end
  return through>=w.end
@@ -13,10 +17,15 @@ export function conflicts(c:Context,shifts:Row[],week:string) {
  const errors:{shiftId:string;staffId:string;reason:string}[]=[]
  for(const s of shifts) {
   const person=c.s.staff.find(p=>p.id===s.staffId)
-  const reason=!person?.active||person.erased_at?'Staff inactive':!available(c.s,s.staffId,s)?'Outside availability':onLeave(c.s,s.staffId,s)?'Approved leave':null
+  const reason=!person?.active||person.erased_at?'Staff inactive':patternFit(c.s,s.staffId,s)?.unavailable?'Marked unavailable':!available(c.s,s.staffId,s)?'Outside availability':onLeave(c.s,s.staffId,s)?'Approved leave':null
   if(reason)errors.push({shiftId:s.id,staffId:s.staffId,reason})
   const others=[...shifts.filter(x=>x.id!==s.id),...c.s.shifts.filter(x=>x.status==='published'&&c.s.rosters.find(r=>r.id===x.rosterId)?.week!==week)]
   if(others.some(x=>x.staffId===s.staffId&&overlap(x,s)))errors.push({shiftId:s.id,staffId:s.staffId,reason:'Overlapping shift'})
+ }
+ // AVAIL-001: a person's week past the maximum weekly hours of their pattern on that Monday flags their last shift.
+ for(const id of new Set(shifts.map(x=>x.staffId))) {
+  const mine=shifts.filter(x=>x.staffId===id).sort((a,b)=>a.start.localeCompare(b.start)),max=patternOn(c.s,id,week)?.maxHours
+  if(typeof max==='number'&&mine.reduce((n,x)=>n+x.minutes,0)>max*60)errors.push({shiftId:mine[mine.length-1].id,staffId:id,reason:'Over maximum weekly hours'})
  }
  return errors
 }

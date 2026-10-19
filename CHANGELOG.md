@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- AVAIL-001: weekly availability patterns with available, preferred and unavailable blocks, effective dates, one-off dates and weekly hours, optional manager approval, and collision lists.
 - SCHEDULE-002: managers copy days between weeks, save and apply week templates and add recurring shifts with end dates and skipped dates, each as a rechecked draft.
 - BREAK-002: owners turn on an automatic meal deduction per cafe; staff confirm or report the meal at clock-out, and reported or unanswered meals are flagged for approval.
 - SCHEDULE-005: managers print the published week as a PDF by cafe, position or person, each copy recorded and marked superseded when the week changes, and open a read-only wall display.

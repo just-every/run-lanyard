@@ -7,6 +7,7 @@ import {whoIsWorking} from './team'
 import {allowedNote,approveLeave,leaveRulesCard,teamLeave} from './leave'
 import {printCard} from './print'
 import {repeatCard} from './templates'
+import {collisionNote,patternForm,patternList} from './patterns'
 
 const range=(r:any,tz:string)=>`${h(when(r.start,tz))} – ${h(when(r.end,tz))}`
 /** One shift as editable fields; the browser serializes every row into the hidden `shifts` field. */
@@ -31,7 +32,8 @@ function availability(s:any,back:string) {
  const tz=venue(s),list=rows(s,'availability').filter(r=>manager(s)||r.staffId===s.actor.staffId)
  const table=list.length?`<table class="list"><thead><tr><th>Person</th><th>Available</th><th><span class="sr-only">Edit</span></th></tr></thead><tbody>${list.map(r=>`<tr><td>${h(person(s,r.staffId))}</td><td>${range(r,tz)}</td><td>${disclosure('Edit',form('availability.save',back,exact(r)+hidden('staffId',r.staffId)+utc('start','Available from',r.start)+utc('end','Available until',r.end),'Save availability','','secondary'),false,'inline-menu')}</td></tr>`).join('')}</tbody></table>`:empty('No availability recorded yet. A shift can be published only inside its person’s availability.','calendar')
  const add=manager(s)?disclosure('Record availability',form('availability.save',back,staffSelect(s)+utc('start','Available from')+utc('end','Available until'),'Save availability','','secondary')):''
- return `<details class="card fold"><summary><h2>Availability</h2><span class="card-note">${h(list.length)} window${list.length===1?'':'s'}</span></summary>${add}${table}</details>`
+ const waiting=rows(s,'patterns').some(r=>r.status==='pending')
+ return `<details class="card fold"${waiting?' open':''}><summary><h2>Availability</h2><span class="card-note">${h(list.length)} window${list.length===1?'':'s'}</span></summary>${add}${manager(s)?patternForm(s,back,true):''}${table}${patternList(s,back)}</details>`
 }
 function timeOff(s:any,back:string) {
  const tz=venue(s),list=rows(s,'leave')
@@ -40,9 +42,9 @@ function timeOff(s:any,back:string) {
  return card('Time off',table,`<p class="card-note">${h(list.filter(r=>r.status==='pending').length)} waiting</p>`)
 }
 function mine(s:any,back:string) {
- const body=`<div class="split">${disclosure('Add availability',form('availability.save',back,utc('start','Available from')+utc('end','Available until'),'Save availability','','secondary'))}${disclosure('Request time off',allowedNote(s)+form('leave.request',back,utc('start','Time off starts')+utc('end','Time off ends')+field('reason','Reason','','text','required maxlength="500"'),'Request time off','','secondary'))}</div>`
+ const body=`<div class="split">${patternForm(s,back)}${disclosure('Add availability',form('availability.save',back,utc('start','Available from')+utc('end','Available until'),'Save availability','','secondary'))}${disclosure('Request time off',allowedNote(s)+form('leave.request',back,utc('start','Time off starts')+utc('end','Time off ends')+field('reason','Reason','','text','required maxlength="500"'),'Request time off','','secondary'))}</div>`
  return card('My availability and time off',body)
 }
 export function planner(s:any,w:Week,back:string,extras:any={}) {
- return [manager(s)?'':whoIsWorking(s,w),self(s)?mine(s,back):'',manager(s)?build(s,w,back)+repeatCard(s,w,back)+printCard(s,w,back,extras)+forecastCard(s,w,back)+teamLeave(s,w):'',timeOff(s,back),manager(s)?leaveRulesCard(s,back):'',availability(s,back)].join('')
+ return [collisionNote(s,extras),manager(s)?'':whoIsWorking(s,w),self(s)?mine(s,back):'',manager(s)?build(s,w,back)+repeatCard(s,w,back)+printCard(s,w,back,extras)+forecastCard(s,w,back)+teamLeave(s,w):'',timeOff(s,back),manager(s)?leaveRulesCard(s,back):'',availability(s,back)].join('')
 }

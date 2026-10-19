@@ -4,6 +4,7 @@
 import {type Context,type Row,type State,keys,text,need,manager,self,get,exact,put,overlap} from './model'
 import {available,onLeave} from './roster'
 import {localDate} from './settings'
+import {patternFit} from './patterns'
 
 const WEEK_LIMIT=40*60, DAY_LIMIT=8*60
 type Fit={staffId:string;before:number;after:number;reason?:'overtime'|'already on'|'unavailable'|'time off';shiftId?:string;overlap?:number}
@@ -29,7 +30,9 @@ export function fit(s:State,staffId:string,shift:Row):Fit {
 export function shortlist(s:State,shift:Row) {
  const caller=s.staff.find(p=>p.id===shift.staffId),order={'overtime':0,'already on':1,'time off':2,'unavailable':3}
  const team=s.staff.filter(p=>p.id!==shift.staffId&&p.active&&!p.erased_at&&(!caller?.position||p.position===caller.position)).map(p=>fit(s,p.id,shift))
- return {qualified:team.filter(f=>!f.reason).sort((a,b)=>a.after-b.after),leftOut:team.filter(f=>f.reason).sort((a,b)=>order[a.reason!]-order[b.reason!]||(a.overlap??0)-(b.overlap??0)||a.after-b.after)}
+ // AVAIL-001: whoever's effective pattern marks the whole shift preferred ranks first.
+ const preferred=(f:Fit)=>patternFit(s,f.staffId,shift)?.preferred?0:1
+ return {qualified:team.filter(f=>!f.reason).sort((a,b)=>preferred(a)-preferred(b)||a.after-b.after),leftOut:team.filter(f=>f.reason).sort((a,b)=>order[a.reason!]-order[b.reason!]||(a.overlap??0)-(b.overlap??0)||a.after-b.after)}
 }
 export function cover(c:Context,name:string,p:Record<string,any>) {
  if(name==='shift.callout') {

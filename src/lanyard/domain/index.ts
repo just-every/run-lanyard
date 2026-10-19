@@ -15,10 +15,11 @@ import {localDate} from './settings'
 import {postings} from './postings'
 import {mealRules} from './mealrules'
 import {templates} from './templates'
+import {patterns} from './patterns'
 import {postingPdf} from '../print'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -44,6 +45,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=postings(c,name,p)
  if(result===undefined)result=mealRules(c,name,p)
  if(result===undefined)result=templates(c,name,p)
+ if(result===undefined)result=patterns(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
@@ -59,7 +61,7 @@ export async function snapshot(db:D1Database,identity:Actor):Promise<object> {
  const result:Record<string,any>={actor:{id:a.id,email:agent?undefined:a.email,name:agent?undefined:identity.name,role:a.role,staffId:a.staffId},version:s.version,settings:{timezone:s.timezone},staff}
  for(const k of kinds)result[k]=s[k]
  if(!manages&&!agent) {
-  for(const k of ['availability','leave','clocks','timesheets'] as const)result[k]=s[k].filter(r=>r.staffId===a.staffId)
+  for(const k of ['availability','leave','clocks','timesheets','patterns'] as const)result[k]=s[k].filter(r=>r.staffId===a.staffId)
   // Staff see their own published shifts, the ones they called out of and the ones offered to them, never others' hours.
   result.offers=s.offers.filter(o=>o.staffId===a.staffId);const offered=new Set(result.offers.map((o:any)=>o.shiftId))
   result.shifts=s.shifts.filter(r=>r.status==='published'&&(r.staffId===a.staffId||r.callout?.staffId===a.staffId||offered.has(r.id))).map(({callout,...r})=>callout?{...r,callout:{staffId:callout.staffId===a.staffId?callout.staffId:undefined,note:callout.staffId===a.staffId?callout.note:undefined,at:callout.at,covered:Boolean(callout.coveredBy)}}:r)

@@ -336,6 +336,44 @@ test('SCHEDULE-002: a saved week is applied to a holiday week at the same wall t
   assert.equal(octoberOf(s), weekA)
 }))
 
+test('AVAIL-001: a staff weekly pattern waits for approval, lists the published shift it collides with, governs only from its first day, flags unavailable blocks, exception dates and the weekly maximum, and ranks a preferred teammate first for cover', () => run(async h => {
+  const place = p => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site: 'Ocean Beach' })
+  const alex = await h.person('Alex'), ben = await h.person('Ben'), cara = await h.person('Cara'), priya = await h.person('Priya', 'manager')
+  for (const p of [alex, ben, cara]) await place(p)
+  for (const p of [ben, cara]) await h.cmd('availability.save', { staffId: p.id, start: '2027-05-30T07:00:00Z', end: '2027-06-14T07:00:00Z' })
+  // The old pattern (entered by a manager, so effective at once): every day 6 am – 10 pm from May 1, 2027.
+  await h.cmd('pattern.save', { staffId: alex.id, from: '2027-05-01', blocks: 'Mon available 06:00-22:00\nTue available 06:00-22:00\nWed available 06:00-22:00\nThu available 06:00-22:00\nFri available 06:00-22:00\nSat available 06:00-22:00\nSun available 06:00-22:00' }, priya.cookie)
+  // 7:00 am – 3:00 pm PDT on a date.
+  const at = (p, d, from = '14:00', to = '22:00') => ({ staffId: p.id, start: `2027-${d}T${from}:00Z`, end: `2027-${d}T${to}:00Z`, breakMinutes: 30 })
+  const week = await h.cmd('roster.prepare', { week: '2027-06-07', shifts: [at(alex, '06-07'), at(alex, '06-10'), at(ben, '06-08')] })
+  await h.cmd('roster.publish', { id: week.id, revision: week.revision }, priya.cookie)
+  const mondayShift = week.shifts.find(x => x.start === '2027-06-07T14:00:00.000Z')
+  await h.cmd('availability.policy', { requireApproval: true }, alex.cookie, 403)
+  await h.cmd('availability.policy', { requireApproval: true }, priya.cookie)
+  // Alex's new pattern from Sun Jun 6: never Mondays, Tuesdays preferred, other days 6 am – 4 pm, not Wed Jun 9; at most 30 hours.
+  const blocks = 'Mon unavailable 00:00-24:00\nTue preferred 06:00-16:00\nWed available 06:00-16:00\nThu available 06:00-16:00\nFri available 06:00-16:00\nSat available 06:00-16:00\nSun available 06:00-16:00'
+  const pending = await h.cmd('pattern.save', { from: '2027-06-06', blocks, exceptions: '2027-06-09 unavailable', preferredHours: 24, maxHours: 30 }, alex.cookie)
+  assert.equal(pending.status, 'pending'); assert.deepEqual(pending.collisions.map(x => x.shiftId), [mondayShift.id])
+  // Still pending: the old pattern decides, so a Monday and the exception Wednesday draw no conflicts.
+  assert.deepEqual((await h.cmd('roster.prepare', { week: '2027-06-07', shifts: [at(alex, '06-07'), at(alex, '06-09'), at(ben, '06-08')] }, priya.cookie)).conflicts, [])
+  await h.cmd('pattern.decide', { id: pending.id, revision: 1, decision: 'approved' }, alex.cookie, 403)
+  const approved = await h.cmd('pattern.decide', { id: pending.id, revision: 1, decision: 'approved' }, priya.cookie)
+  assert.deepEqual(approved.collisions.map(x => x.shiftId), [mondayShift.id])
+  // Before Jun 6 the old pattern still governs (Mon May 31 is fine); from Jun 6 the new one does.
+  assert.deepEqual((await h.cmd('roster.prepare', { week: '2027-05-31', shifts: [at(alex, '05-31'), at(alex, '06-06')] }, priya.cookie)).conflicts, [])
+  const after = await h.cmd('roster.prepare', { week: '2027-06-07', shifts: [at(alex, '06-07'), at(alex, '06-09'), at(alex, '06-10', '23:00', '23:59'), at(ben, '06-08')] }, priya.cookie)
+  const reasons = Object.fromEntries(after.conflicts.map(x => [after.shifts.find(s => s.id === x.shiftId).start.slice(5, 16), x.reason]))
+  assert.deepEqual(reasons, { '06-07T14:00': 'Marked unavailable', '06-09T14:00': 'Marked unavailable', '06-10T23:00': 'Outside availability' })
+  const heavy = await h.cmd('roster.prepare', { week: '2027-06-14', shifts: ['06-15', '06-17', '06-18', '06-19', '06-20'].map(d => at(alex, d)) }, priya.cookie)
+  assert.deepEqual(heavy.conflicts.map(x => [heavy.shifts.find(s => s.id === x.shiftId).start, x.reason]), [['2027-06-20T14:00:00.000Z', 'Over maximum weekly hours']])
+  // Ben calls out of Tuesday: Alex (preferred that day, 7.5 h on) ranks above Cara (0 h on).
+  const tuesday = (await h.state(ben.cookie)).shifts.find(x => x.start === '2027-06-08T14:00:00.000Z')
+  const { shift: called } = await h.cmd('shift.callout', { id: tuesday.id, revision: tuesday.revision, note: 'Sick' }, ben.cookie)
+  assert.deepEqual(called.callout.qualified.map(f => f.staffId), [alex.id, cara.id])
+  const page = await h.send('/app/schedule?week=2027-06-07', undefined, alex.cookie)
+  assert.match(page.text, /Tue preferred 06:00-16:00/); assert.match(page.text, /Except 2027-06-09 unavailable/)
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }

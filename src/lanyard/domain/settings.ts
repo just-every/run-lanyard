@@ -15,6 +15,17 @@ export function localDate(instant:string,timeZone:string):string {
  return `${part('year')}-${part('month')}-${part('day')}`
 }
 
+/** An instant's venue wall date and HH:MM. */
+export function wall(instant:string|number,tz:string) {
+ const p=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(instant)).map(x=>[x.type,x.value]))
+ return {date:`${p.year}-${p.month}-${p.day}`,time:`${p.hour}:${p.minute}`}
+}
+/** The UTC instant of a venue wall date and time (the later instant when a DST change repeats it). */
+export function instantAt(day:string,time:string,tz:string) {
+ const target=Date.parse(`${day}T${time}:00Z`);let guess=target
+ for(let i=0;i<3;i++){const w=wall(guess,tz);guess+=target-Date.parse(`${w.date}T${w.time}:00Z`)}
+ return new Date(guess).toISOString()
+}
 export function settings(c:Context,name:string,p:Record<string,any>) {
  if(name!=='settings.save')return undefined
  need(c.a.role==='owner','Owner required',403);keys(p,['timezone'])

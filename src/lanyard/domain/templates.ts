@@ -4,6 +4,7 @@
 // and overlaps are rechecked and nothing is published or confirmed by copying.
 import {type Context,type Row,keys,text,integer,need,manager,put,get,exact} from './model'
 import {draftWeek} from './roster'
+import {instantAt,wall} from './settings'
 
 type Slot={staffId:string;day:number;start:string;end:string;breakMinutes:number;label:string;site:string}
 const addDays=(date:string,n:number)=>new Date(Date.parse(date+'T00:00:00Z')+n*86400000).toISOString().slice(0,10)
@@ -12,17 +13,6 @@ const date=(v:unknown,label:string)=>{const d=text(v,label,10);need(isDate(d),`I
 const monday=(v:unknown)=>{const d=date(v,'week');need(new Date(d+'T00:00:00Z').getUTCDay()===1,'Week must be a Monday YYYY-MM-DD');return d}
 const clockTime=(v:unknown,label:string)=>{const t=text(v,label,5);need(/^([01]\d|2[0-3]):[0-5]\d$/.test(t),`Invalid ${label}: use HH:MM`);return t}
 
-/** An instant's venue wall date and HH:MM. */
-function wall(instant:string|number,tz:string) {
- const p=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(instant)).map(x=>[x.type,x.value]))
- return {date:`${p.year}-${p.month}-${p.day}`,time:`${p.hour}:${p.minute}`}
-}
-/** The UTC instant of a venue wall date and time (the later instant when a DST change repeats it). */
-export function instantAt(day:string,time:string,tz:string) {
- const target=Date.parse(`${day}T${time}:00Z`);let guess=target
- for(let i=0;i<3;i++){const w=wall(guess,tz);guess+=target-Date.parse(`${w.date}T${w.time}:00Z`)}
- return new Date(guess).toISOString()
-}
 /** A week's current rows: its draft when one is open, else its published revision. */
 function currentRows(c:Context,week:string) {
  const r=c.s.rosters.find(x=>x.week===week&&x.status==='draft')??c.s.rosters.find(x=>x.week===week&&x.status==='published')
