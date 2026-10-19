@@ -421,9 +421,17 @@ test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, ro
   for (const [action, role, entityId] of [['roster.publish', 'manager', week.id], ['time.approve', 'manager', approved.id], ['payroll.export', 'owner', batch.id], ['payroll.download', 'owner', batch.id], ['payroll.acknowledge', 'owner', batch.id], ['time.approve', 'owner', corrected.id]])
     assert.ok(events.some(e => e.action === action && e.actorRole === role && e.entityId === entityId && e.actorId && !Number.isNaN(Date.parse(e.at))), `${action} by ${role}`)
   assert.equal(events.find(e => e.action === 'time.approve' && e.entityId === approved.id).actorId, approved.approvedBy)
-  // Management activity is role-scoped: staff read none of it.
-  assert.deepEqual((await h.state(alex.cookie)).events, [])
-  assert.deepEqual((await h.state(manager.cookie)).events.map(e => e.id), events.map(e => e.id))
+  // AUDIT-001 readers: the owner reads all of it; a manager reads activity about people at their cafe; staff read their own events.
+  for (const e of events) assert.deepEqual(Object.keys(e).sort(), ['action', 'actorId', 'actorRole', 'at', 'entityId', 'id'])
+  const remote = await h.person('Remy', 'manager'), moved = await h.cmd('staff.save', { id: remote.id, revision: remote.revision, name: 'Remy', email: remote.email, payrollId: 'REMY', role: 'manager', active: true, site: 'Oakland' })
+  const rules = await h.cmd('team.visibility', { site: 'Oakland', scope: 'position', hidden: [] }, remote.cookie)
+  const s0 = await h.state(), all = s0.events, near = (await h.state(manager.cookie)).events, far = (await h.state(remote.cookie)).events, own = (await h.state(alex.cookie)).events
+  assert.ok([moved.id, rules.id].every(id => all.some(e => e.entityId === id)), 'the owner reads every event')
+  assert.deepEqual(near.map(e => e.id), all.filter(e => ![moved.id, rules.id].includes(e.entityId)).map(e => e.id), 'the cafe manager reads everything about the cafe’s people, nothing about Oakland')
+  assert.deepEqual([...new Set(far.map(e => e.entityId))].sort(), [moved.id, rules.id].sort(), 'the Oakland manager reads only Oakland activity')
+  const mine = new Set([alex.id, ...['availability', 'shifts', 'timesheets'].flatMap(k => s0[k].filter(r => r.staffId === alex.id).map(r => r.id))])
+  assert.ok(own.length && own.every(e => mine.has(e.entityId)), 'staff read only events on their own records')
+  assert.ok(own.some(e => e.action === 'time.approve' && e.entityId === approved.id) && !own.some(e => ['roster.publish', 'payroll.export', 'payroll.download'].includes(e.action)))
 }))
 
 test('agent prepares drafts but cannot approve through any human or agent door; key revocation is immediate', () => run(async h => {

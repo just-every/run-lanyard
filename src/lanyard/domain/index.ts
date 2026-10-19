@@ -17,6 +17,7 @@ import {mealRules} from './mealrules'
 import {templates} from './templates'
 import {patterns} from './patterns'
 import {postingPdf} from '../print'
+import {type Event,readable} from './activity'
 export {actor}
 export type {Actor} from './model'
 const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide']
@@ -54,8 +55,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  return commit(c,before,name,commandId,digest,result)
 }
 export async function snapshot(db:D1Database,identity:Actor):Promise<object> {
- // The activity list is read beside the records whenever the signed-in role can see it.
- const a0=await live(db,identity),events=['owner','manager'].includes(a0.role)?db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at FROM l_events ORDER BY at DESC,id DESC LIMIT 100').all():null
+ const a0=await live(db,identity),events=a0.role==='agent'?null:db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at FROM l_events ORDER BY at DESC,id DESC').all<Event>()
  const s=await load(db),a=fresh(a0,s),manages=['owner','manager'].includes(a.role),agent=a.role==='agent'
  const staff=s.staff.filter(p=>manages||agent||p.id===a.staffId).map(p=>agent?{id:p.id,name:p.name,active:!!p.active,position:p.position,site:p.site}:{id:p.id,name:p.name,email:p.email,payrollId:p.payroll_id,role:p.role,active:!!p.active,revision:p.version,erasedAt:p.erased_at,position:p.position,site:p.site,...(manages?{hourlyRateCents:p.rate_cents}:{})})
  const result:Record<string,any>={actor:{id:a.id,email:agent?undefined:a.email,name:agent?undefined:identity.name,role:a.role,staffId:a.staffId},version:s.version,settings:{timezone:s.timezone},staff}
@@ -76,7 +76,8 @@ export async function snapshot(db:D1Database,identity:Actor):Promise<object> {
   result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,...r})=>r)
   result.batches=s.batches.map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,...l}:any)=>l)}))
  }
- result.events=manages?(await (events??db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at FROM l_events ORDER BY at DESC,id DESC LIMIT 100').all())).results:[]
+ // AUDIT-001: each role reads only its own slice of the activity list.
+ result.events=events?readable(s,a,(await events).results):[]
  return result
 }
 export async function batchCsv(db:D1Database,identity:Actor,id:string):Promise<string> {
