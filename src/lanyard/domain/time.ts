@@ -1,8 +1,15 @@
 // Gauge time's submitted -> approved revision flow, adapted to hours only;
 // Glove field capture preserves device time and command identity on retries.
-import {type Context,keys,text,need,self,staff,instant,integer,work,prepare,manager,get,exact,put,overlap} from './model'
+import {type Context,type Row,keys,text,need,self,staff,instant,integer,work,prepare,manager,get,exact,put,overlap} from './model'
 function clearOverlap(c:Context,staffId:string,w:Record<string,any>,rootId?:string) {
  need(!c.s.timesheets.some(t=>t.staffId===staffId&&t.status!=='superseded'&&t.rootId!==rootId&&overlap(t,w)),'Time overlaps another submitted or approved entry',409)
+}
+/** One exact-revision approval; every check runs before anything is written. TIME-008 approves each bulk item through it. */
+export function approve(c:Context,r:Row) {
+ need(r.status==='submitted','Only submitted time can be approved',409);need(r.staffId!==c.a.staffId,'You cannot approve your own time',403);staff(c,r.staffId);clearOverlap(c,r.staffId,r,r.rootId)
+ if(r.corrects){const old=get(c.s,'timesheets',r.corrects);need(old.status==='approved','Correction source changed',409);put(c,'timesheets',{...old,status:'superseded',supersededBy:r.id},old)}
+ const exported=c.s.claims.filter(cl=>cl.root_id===r.rootId).reduce((n,cl)=>n+cl.minutes,0)
+ return put(c,'timesheets',{...r,status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now},r)
 }
 export function time(c:Context,name:string,p:Record<string,any>) {
  if(name==='clock.in'||name==='clock.out') {
@@ -27,10 +34,7 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   return {...r,approvalRequired:'time.approve',approval:{id:r.id,revision:r.revision}}
  }
  if(name==='time.approve') {
-  manager(c.a);keys(p,['id','revision']);const r=get(c.s,'timesheets',p.id);exact(r,p);need(r.status==='submitted','Only submitted time can be approved',409);need(r.staffId!==c.a.staffId,'You cannot approve your own time',403);staff(c,r.staffId);clearOverlap(c,r.staffId,r,r.rootId)
-  if(r.corrects){const old=get(c.s,'timesheets',r.corrects);need(old.status==='approved','Correction source changed',409);put(c,'timesheets',{...old,status:'superseded',supersededBy:r.id},old)}
-  const exported=c.s.claims.filter(cl=>cl.root_id===r.rootId).reduce((n,cl)=>n+cl.minutes,0)
-  return put(c,'timesheets',{...r,status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now},r)
+  manager(c.a);keys(p,['id','revision']);const r=get(c.s,'timesheets',p.id);exact(r,p);return approve(c,r)
  }
  return undefined
 }

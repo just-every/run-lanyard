@@ -3,6 +3,7 @@
 import {h,rows,person,manager,self,form,field,hidden,utc,exact,staffSelect,disclosure,card,status,empty,avatar,titleRow,venue,moment,staffOf} from './shared'
 import {type Week} from './week'
 import {dateKey,day,hours,span} from './format'
+import {bulkControls,bulkResult,filterOf,shown} from './approvals'
 
 const timeFields=(s:any,r:any={})=>staffSelect(s,r.staffId)+utc('start','Work starts',r.start)+utc('end','Work ends',r.end)+field('breakMinutes','Meal minutes',r.breakMinutes??0,'number','required min="0" max="1440"')+field('reason','Reason for manual entry or correction','','text','required maxlength="120"')+(r.id?hidden('corrects',r.id):'')
 function clockCard(s:any,tz:string) {
@@ -15,14 +16,15 @@ function line(s:any,r:any,tz:string,back:string,canManage:boolean,showDay=false)
  return `<tr${r.status==='superseded'?' class="superseded"':''}><td class="who">${avatar(person(s,r.staffId))}<span>${h(person(s,r.staffId))}</span></td>${showDay?`<td class="day">${h(day(dateKey(r.start,tz)))}</td>`:''}<td class="span" data-label="Clocked">${h(span(r.start,r.end,tz))}</td><td class="num meal" data-label="Meal">${h(r.breakMinutes)} min</td><td class="num hrs" data-label="Hours">${h(hours(r.minutes))}</td><td class="src" data-label="Source">${h(r.reason)}${r.corrects?' · correction':''}<small>Revision ${h(r.revision)}</small></td><td class="st" data-label="Status">${status(r.status)}</td><td class="act"><div class="row-actions">${approve}${correct}</div></td></tr>`
 }
 const head=(showDay=false)=>`<thead><tr><th>Person</th>${showDay?'<th>Day</th>':''}<th>Clocked</th><th class="num">Meal</th><th class="num">Hours</th><th>Source</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead>`
-export function time(s:any,w:Week,now:number,back:string) {
+export function time(s:any,w:Week,now:number,back:string,q:URLSearchParams,extras:any) {
  const tz=venue(s),canManage=manager(s),inSite=(r:any)=>!w.site||staffOf(s,r.staffId)?.site===w.site||!staffOf(s,r.staffId)?.site
  const all=rows(s,'timesheets').filter(inSite),week=all.filter(r=>w.days.includes(dateKey(r.start,tz)))
  const worked=week.filter(r=>r.status!=='superseded').reduce((n,r)=>n+r.minutes,0)
  const title=canManage?`${w.site||'All cafes'} · ${hours(worked)} hrs worked`:'My time'
  // Approvals are never hidden by the cafe filter: a cover may be someone else's home cafe.
  const waiting=canManage?rows(s,'timesheets').filter(r=>r.status==='submitted'&&r.staffId!==s.actor.staffId):[]
- const toApprove=waiting.length?card('To approve',`<table class="list stack time-list">${head(true)}<tbody>${waiting.map(r=>line(s,r,tz,back,canManage,true)).join('')}</tbody></table>`,`<p class="card-note">${h(waiting.length)} waiting</p>`,'approve'):''
+ const f=filterOf(q),list=shown(s,waiting,f),report=canManage?bulkResult(s,extras):''
+ const toApprove=waiting.length||report?card('To approve',`${report}${bulkControls(s,list,f,q,back)}${list.length?`<table class="list stack time-list">${head(true)}<tbody>${list.map(r=>line(s,r,tz,back,canManage,true)).join('')}</tbody></table>`:empty(waiting.length?'No waiting timesheets match this filter.':'Nothing is waiting for approval.')}`,`<p class="card-note">${h(list.length)} of ${h(waiting.length)} waiting</p>`,'approve'):''
  const days=w.days.map(d=>({d,list:week.filter(r=>dateKey(r.start,tz)===d)})).filter(v=>v.list.length)
  const table=days.length?`<table class="list banded stack time-list">${head()}${days.map(v=>`<tbody><tr class="band"><th colspan="7">${h(day(v.d))}<span>${h(hours(v.list.filter(r=>r.status!=='superseded').reduce((n,r)=>n+r.minutes,0)))} hrs</span></th></tr>${v.list.map(r=>line(s,r,tz,back,canManage)).join('')}</tbody>`).join('')}</table>`:empty(canManage?`No time recorded for the week of ${day(w.week)}. Staff clock in from their phones, or record worked time below.`:'No time recorded this week. Use the clock to record your work.')
  const manual=canManage?card('Record worked time',form('time.prepare',back,timeFields(s),'Prepare timesheet','','secondary'),'<p class="card-note">For a missed clock-in</p>'):''

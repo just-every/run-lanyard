@@ -42,7 +42,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   if (params.has('days')) input.days = params.getAll('days')
   if (params.has('hidden')) input.hidden = params.getAll('hidden')
   for (const key of ['revision', 'breakMinutes']) if (key in input) input[key] = Number(input[key])
-  for (const key of ['shifts', 'ids']) if (input[key]) { try { input[key] = JSON.parse(String(input[key])) } catch { fail(`Invalid ${key}`) } }
+  for (const key of ['shifts', 'ids', 'items']) if (input[key]) { try { input[key] = JSON.parse(String(input[key])) } catch { fail(`Invalid ${key}`) } }
   if ('active' in input) input.active = input.active === 'on' || input.active === 'true' || input.active === '1'
   return input
 }

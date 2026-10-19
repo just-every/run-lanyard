@@ -28,6 +28,8 @@ Submitted time from every cafe waits in **To approve** at the top of **Time**. C
 
 You cannot approve your own hours, including when you are a manager. Another manager or the owner must approve them.
 
+To approve many at once, filter **To approve** by cafe, position, dates and state, then choose **Approve N shown**. States are **Clean** (the person's own clock, nothing flagged), **Edited** (a correction of approved hours), **Unconfirmed** (entered by a manager or agent) and **Exception** (flagged at capture). Lanyard approves exactly the revisions you saw: anything changed since, flagged, outside the filter or your own is skipped, and the result names each skip and why. Every approved entry records its own approval, as if you had approved it alone.
+
 ## Correct approved hours
 
 On the latest approved entry, open **Correct**. Enter the corrected full work period and break, explain the change, then select **Prepare correction**. Keep the same person.

@@ -8,9 +8,10 @@ import {settings} from './settings'
 import {cover} from './cover'
 import {forecast} from './forecast'
 import {team,teamFor} from './team'
+import {approvals} from './approvals'
 export {actor}
 export type {Actor} from './model'
-const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility']
+const commands=['settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -30,6 +31,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=cover(c,name,p)
  if(result===undefined)result=forecast(c,name,p)
  if(result===undefined)result=team(c,name,p)
+ if(result===undefined)result=approvals(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>

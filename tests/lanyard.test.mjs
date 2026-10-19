@@ -107,6 +107,49 @@ test('ROSTER-004: staff see their cafe’s published team by name, position and 
   assert.deepEqual((await view(lee)).names, ['Lee'])
 }))
 
+test('TIME-008: a manager filters a 60-person week to clean timesheets and approves the shown revisions at once; changed, own, foreign-cafe and unfiltered items are skipped with reasons', () => run(async h => {
+  const place = (p, site) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site })
+  const clocked = async (p, d) => {
+    await h.cmd('clock.in', { commandId: crypto.randomUUID(), capturedAt: `2026-10-${d}T14:00:00Z` }, p.cookie)
+    return (await h.cmd('clock.out', { commandId: crypto.randomUUID(), capturedAt: `2026-10-${d}T22:00:00Z`, breakMinutes: 30 }, p.cookie)).timesheet
+  }
+  // 60 people: 28 clock on their phones (Base allows 30 invitations per address in 15 minutes); a manager entered the other 32's time.
+  const priya = await h.person('Priya', 'manager'), morgan = await h.person('Morgan', 'manager'), lee = await h.person('Lee')
+  const team = []; for (let i = 0; i < 25; i++) team.push(await h.person(`Barista${i}`))
+  for (const p of [priya, morgan, ...team]) await place(p, 'Ocean Beach')
+  await place(lee, 'North Park')
+  const entered = []
+  for (let i = 0; i < 32; i++) {
+    const p = await h.cmd('staff.save', { name: `Counter ${i}`, email: `counter${i}@venue.example`, payrollId: `C${i}`, role: 'staff', active: true, position: 'Barista', site: 'Ocean Beach' })
+    entered.push(await h.cmd('time.prepare', { staffId: p.id, start: `2026-10-${12 + (i % 7)}T14:00:00Z`, end: `2026-10-${12 + (i % 7)}T18:00:00Z`, breakMinutes: 0, reason: 'Missed clock-in' }))
+  }
+  const sheets = []; for (const [i, p] of team.entries()) sheets.push(await clocked(p, 12 + (i % 7)))
+  const own = await clocked(priya, 13), foreign = await clocked(lee, 13), cover = await clocked(morgan, 14)
+  // Priya filters Ocean Beach to clean time: 26 of the 59 waiting (not her own, not North Park, not the hand-entered time).
+  const page = await h.send('/app/time?week=2026-10-12&cafe=Ocean%20Beach&state=clean', undefined, priya.cookie)
+  assert.match(page.text, /Approve 26 shown/); assert.match(page.text, /26 of 59 waiting/)
+  const pins = JSON.parse(page.text.match(/name="items" value="([^"]+)"/)[1].replaceAll('&quot;', '"'))
+  assert.deepEqual(pins.map(x => x.id).sort(), [...sheets, cover].map(t => t.id).sort())
+  // Before she submits, Morgan decides one included timesheet on his own.
+  await h.cmd('time.approve', { id: sheets[5].id, revision: 1 }, morgan.cookie)
+  const items = [...pins, { id: own.id, revision: 1 }, { id: foreign.id, revision: 1 }, { id: entered[0].id, revision: 1 }]
+  const body = new URLSearchParams({ site: 'Ocean Beach', position: '', from: '', to: '', state: 'clean', items: JSON.stringify(items) })
+  const posted = await h.mf.dispatchFetch(h.origin + '/app/action?name=time.approveMany&returnTo=' + encodeURIComponent('/app/time?cafe=Ocean Beach&state=clean'), { method: 'POST', headers: { origin: h.origin, cookie: priya.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: body.toString(), redirect: 'manual' })
+  const html = await posted.text()
+  assert.equal(posted.status, 200, html); assert.match(html, /Approved 25 · skipped 4/)
+  for (const reason of ['Changed since you reviewed it', 'Your own time', 'Outside the filter']) assert.ok(html.includes(reason), reason)
+  const s = await h.state(), byId = new Map(s.timesheets.map(t => [t.id, t])), me = (await h.state(priya.cookie)).actor.id
+  const approved = [...sheets.filter((_, i) => i !== 5), cover].map(t => t.id)
+  for (const id of approved) { const t = byId.get(id); assert.deepEqual([t.status, t.revision, t.approvedBy], ['approved', 2, me]) }
+  assert.equal(byId.get(sheets[5].id).approvedBy, (await h.state(morgan.cookie)).actor.id)
+  for (const t of [own, foreign, ...entered]) assert.deepEqual([byId.get(t.id).status, byId.get(t.id).revision], ['submitted', 1])
+  // Audit: one time.approve decision by Priya per approved revision, at the approval time, and nothing for the skipped ones.
+  const decisions = s.events.filter(e => e.action === 'time.approve' && e.actorId === me)
+  assert.deepEqual(decisions.map(e => e.entityId).sort(), [...approved].sort())
+  assert.ok(decisions.every(e => e.actorRole === 'manager' && e.at === byId.get(e.entityId).approvedAt))
+  await h.cmd('time.approveMany', { state: 'clean', items: [{ id: own.id, revision: 1 }] }, team[1].cookie, 403)
+}))
+
 test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }
