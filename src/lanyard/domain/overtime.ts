@@ -1,3 +1,4 @@
+import {rateBasis} from './workforce'
 // COST-002: in-week overtime risk from actual hours. A person's workweek (Monday to Sunday on the
 // venue clock) is projected as the time recorded before the as-of instant plus their published
 // shifts starting at or after it, at every cafe. Above 40 hours the owner and the managers of the
@@ -64,5 +65,5 @@ export function overtime(c:Context,name:string,p:Record<string,any>) {
  need(project(c.s,r.staffId,weekOf(c.s,r.start),c.now).overtimeMinutes>0,'No overtime is projected for this shift’s person',409)
  const to=text(p.staffId,'substitute',80);need(substitutes(c.s,r,c.now).some(x=>x.staffId===to),'This person is not a qualified substitute without overtime',409)
  const {confirmedAt,confirmedBy,...rest}=r
- return put(c,'shifts',{...rest,staffId:to,substitute:{from:r.staffId,by:c.a.id,at:c.now,reason:'projected overtime'}},r)
+ return put(c,'shifts',{...rest,staffId:to,rateBasis:rateBasis(c.s,to,r),substitute:{from:r.staffId,by:c.a.id,at:c.now,reason:'projected overtime'}},r)
 }

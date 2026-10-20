@@ -1,3 +1,4 @@
+import {priced} from './workforce'
 // TIME-009: what an approver sees for one timesheet: scheduled, captured and payable times side
 // by side, variance against the shift, breaks taken against the cafe's meal rule, the punch's
 // network (CLOCK-007), job and cafe, rounding effect, open exceptions, cost, and the person's
@@ -17,7 +18,7 @@ export function review(s:State,t:Row) {
  const person=s.staff.find(p=>p.id===t.staffId),captured=t.captured??{start:t.start,end:t.end,breakMinutes:t.breakMinutes,minutes:t.rounding?.capturedMinutes??t.minutes}
  const rule=clock?mealRuleFor(s,clock):undefined,week=mondayOf(s,t.start)
  const mine=s.timesheets.filter(x=>x.staffId===t.staffId&&['submitted','approved','returned'].includes(x.status)&&mondayOf(s,x.start)===week&&x.start<=t.start)
- const running=mine.reduce((n,x)=>n+x.minutes,0),rate=person?.rate_cents
+ const running=mine.reduce((n,x)=>n+x.minutes,0),basis=priced(s,t.staffId,{...t,job:t.job??shift?.job??'',site:t.site||shift?.site||person?.site||''})
  return {
   scheduled:shift?{start:shift.start,end:shift.end,minutes:shift.minutes}:null,
   captured,
@@ -29,7 +30,7 @@ export function review(s:State,t:Row) {
   job:person?.position??null,site:shift?siteOf(s,shift):person?.site??'',
   roundingMinutes:t.minutes-captured.minutes,
   exceptions:t.exceptions??[],
-  costCents:typeof rate==='number'?Math.round(t.minutes*rate/60):null,
+  costCents:basis.costCents,
   week:{week,runningMinutes:running,overtimeMinutes:Math.max(0,running-WEEK)},
  }
 }

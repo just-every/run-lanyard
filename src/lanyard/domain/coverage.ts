@@ -1,3 +1,4 @@
+import {priced} from './workforce'
 // COVER-003: a coverage case follows the published assignment. An accepted offer
 // is the in-app acknowledgment; only a recorded replacement punch verifies cover.
 import {type Actor,type Row,type State,instant,manager} from './model'
@@ -22,7 +23,7 @@ export function coverageCase(s:State,x:Row,asOf:string) {
  const noShowAt=rule?new Date(Date.parse(x.start)+rule.noShowMinutes*60000).toISOString():null
  const missed=Boolean(c.coveredBy&&!clock&&!approvedTime&&noShowAt&&asOf>=noShowAt)
  const status=clock?'verified':asOf>=x.end?'expired':missed?'reopened':c.coveredBy?'assigned':'waiting'
- const shiftCents=(id:string)=>{const rate=s.staff.find(p=>p.id===id)?.rate_cents;return typeof rate==='number'?Math.round(x.minutes*rate/60):null}
+ const shiftCents=(id:string)=>priced(s,id,x).costCents
  const originalShiftCents=shiftCents(c.staffId)
  const offers=coverageOffers(s,x,asOf).map((o):Row=>{const candidateShiftCents=shiftCents(o.staffId)
   return {...o,cost:{...cost(project(s,o.staffId,weekOf(s,x.start),asOf,[{...x,staffId:o.staffId}],[x.id])),shiftCents:candidateShiftCents,originalShiftCents,differenceCents:candidateShiftCents!==null&&originalShiftCents!==null?candidateShiftCents-originalShiftCents:null}}

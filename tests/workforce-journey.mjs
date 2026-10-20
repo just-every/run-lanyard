@@ -93,6 +93,9 @@ export async function workforceApi(h) {
  assert.equal((await h.state()).timesheets.find(x=>x.id===time.id).rateBasis.costCents,39600)
  assert.equal((await h.state()).batches.find(x=>x.id===batch.id).lines[0].rateBasis.costCents,39600)
  await h.cmd('payroll.export',pin(batch))
+ const historical=await h.send(`/api/lanyard/intervals?site=Ocean%20Beach&date=${on}&size=60`,undefined,h.owner);assert.equal(historical.status,200);assert.equal(historical.value.intervals.reduce((n,x)=>n+x.actual.cents,0),39600,'interval report retains approved job-rate costs after retroactive edits')
+ const sales=await h.send(`/api/lanyard/sales?site=Ocean%20Beach&week=${week}`,undefined,h.owner);assert.equal(sales.status,200);assert.equal(sales.value.days[0].laborCents,9600,'published costs survive profile edits and reassignment')
+ const dashboard=await h.send(`/api/lanyard/dashboard?site=Ocean%20Beach&asOf=${week}T18:00:00Z`,undefined,h.owner);assert.equal(dashboard.status,200);assert.equal(dashboard.value.labor[0].scheduledCents,39600,'three published assignments plus the filled pickup retain their respective rates')
  await h.cmd('earnings.save',{estimates:false,statementUrl:''})
  const hidden=await h.state(alex.cookie);assert.deepEqual(hidden.workforce[0].rates,[]);assert.ok(hidden.workforce[0].versions.every(v=>!v.rates),'disabled estimates hide historical rates too')
  await h.cmd('earnings.save',{revision:hidden.earnings[0].revision,estimates:true,statementUrl:''})
@@ -108,8 +111,12 @@ export async function workforceBrowser() {
  const h=await harness(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  try {
   const f=await workforceFixture(h),draft=await h.cmd('roster.prepare',{week:f.week,shifts:[f.shift(f.week),f.shift(days(f.week,1))]})
+  await h.cmd('roster.publish',pin(draft));await h.cmd('roster.prepare',{week:f.week,shifts:[f.shift(f.week),f.shift(days(f.week,1))]})
+  const hour=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',hour:'numeric',hourCycle:'h23'}).format(new Date(f.shift(f.week).start)))
+  for(let i=0;i<4;i++)await h.cmd('sales.save',{site:'Ocean Beach',date:f.week,hour:hour+i,metric:'sales',value:'1000.00'})
   // Changing the rate after review must leave the browser's cost unchanged.
   await h.cmd('workforce.save',{...f.input,...pin(f.profile),rates:[{job:f.bar.id,from:'2020-01-01',cents:9900}]})
+  const oldDay=`${new Date().getUTCFullYear()-1}-06-03`;await h.cmd('time.prepare',{staffId:f.alex.id,job:f.bar.id,site:'Ocean Beach',start:local(oldDay,'09:00'),end:local(oldDay,'13:00'),breakMinutes:0,reason:'Job-rate review evidence'})
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
   for(const width of [1440,390]) {
    const context=await browser.newContext({viewport:{width,height:1000}}),[name,...value]=h.owner.split('=')
@@ -121,6 +128,10 @@ export async function workforceBrowser() {
    assert.ok((await page.locator('.week .foot .total').innerText()).includes('$204.00'),'grid and review share retained costs')
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'PEOPLE-002 retained-cost screen fits viewport')
    if(process.env.WORKFORCE_SCREENS){await mkdir(process.env.WORKFORCE_SCREENS,{recursive:true});await review.scrollIntoViewIfNeeded();await page.screenshot({path:join(process.env.WORKFORCE_SCREENS,`review-${width}.png`)});await review.screenshot({path:join(process.env.WORKFORCE_SCREENS,`review-section-${width}.png`)});await page.locator('.week').scrollIntoViewIfNeeded();await page.screenshot({path:join(process.env.WORKFORCE_SCREENS,`grid-${width}.png`)})}
+   await page.goto(h.origin+`/app/intervals?site=Ocean%20Beach&date=${f.week}&size=60`,{waitUntil:'networkidle'});assert.ok((await page.locator('#intervals').innerText()).includes('2.4%'),'interval labor uses retained $24 job rate, not the edited $99 rate');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+   if(process.env.WORKFORCE_SCREENS)await page.screenshot({path:join(process.env.WORKFORCE_SCREENS,`intervals-${width}.png`),fullPage:true})
+   await page.goto(h.origin+'/app/time?site=Ocean%20Beach',{waitUntil:'networkidle'});assert.ok((await page.locator('#approve .review').first().innerText()).includes('cost $396.00'),'pending manual time uses the selected job rate');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+   if(process.env.WORKFORCE_SCREENS){await page.locator('#approve').scrollIntoViewIfNeeded();await page.screenshot({path:join(process.env.WORKFORCE_SCREENS,`time-${width}.png`)});await page.locator('#approve').screenshot({path:join(process.env.WORKFORCE_SCREENS,`time-section-${width}.png`)})}
    assert.deepEqual(errors,[]);await context.close()
   }
   assert.equal(draft.shifts.length,2)

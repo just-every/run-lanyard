@@ -3,7 +3,7 @@
 // for a manager. Eligible staff see it with their own rate and request it; assignment rechecks
 // eligibility, adds the shift to the published week once and closes every other request.
 import {type Context,type Row,type State,keys,text,integer,need,manager,self,staff,get,exact,put,work} from './model'
-import {rateBasis} from './workforce'
+import {rateBasis,rateAt} from './workforce'
 import {fit} from './cover'
 import {localDate} from './settings'
 import {order,tiers,opensFor} from './offerorder'
@@ -29,8 +29,7 @@ export function offerLog(s:State,o:Record<string,any>,at:string) {
 }
 /** Open shifts the person may request (their tier has opened), each with their own hourly rate when it is theirs to see; never the pool or the offer log. */
 export function openFor(s:State,staffId:string,showRate:boolean,now:string) {
- const rate=s.staff.find(p=>p.id===staffId)?.rate_cents??null
- return s.openshifts.filter(o=>o.status==='open'&&opensFor(o,staffId)<=now&&!pickupFit(s,staffId,o).block).map(o=>({...o,pool:undefined,tiers:undefined,everyoneAt:undefined,ranking:undefined,...(showRate&&rate!==null?{hourlyRateCents:rate}:{})}))
+ return s.openshifts.filter(o=>o.status==='open'&&opensFor(o,staffId)<=now&&!pickupFit(s,staffId,o).block).map(o=>{const rate=rateAt(s,staffId,o.job??'',localDate(o.start,s.timezone)).cents;return {...o,pool:undefined,tiers:undefined,everyoneAt:undefined,ranking:undefined,...(showRate&&rate!==null?{hourlyRateCents:rate}:{})}})
 }
 /** Assigns the open shift: a published shift row in the week's published revision, other requests closed. */
 function assign(c:Context,o:Row,staffId:string,pickup:Row|null) {

@@ -98,7 +98,7 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   if(old){need(old.staffId===staffId,'Correction must keep the same staff');need(old.status==='approved','Correct the latest approved time',409);need(!c.s.timesheets.some(t=>t.corrects===old.id),'A correction already exists for this revision',409)}
   clearOverlap(c,staffId,w,old?.rootId)
   // BREAK-001: entered time is checked by its meal minutes; rest breaks are unknown without timed breaks.
-  const r=put(c,'timesheets',{job:text(p.job,'job',80,true),site:text(p.site,'site',80,true),staffId,...w,reason,corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,...breakOutcome(checkBreaks(c.s,staffId,null,w))});if(!old)r.rootId=r.id
+  const r=put(c,'timesheets',{job:p.job===undefined?old?.job??'':text(p.job,'job',80,true),site:p.site===undefined?old?.site??'':text(p.site,'site',80,true),staffId,...w,reason,corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,...breakOutcome(checkBreaks(c.s,staffId,null,w))});if(!old)r.rootId=r.id
   return {...r,approvalRequired:'time.approve',approval:{id:r.id,revision:r.revision}}
  }
  if(name==='time.edit') {

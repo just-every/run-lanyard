@@ -1,3 +1,4 @@
+import {priced} from './workforce'
 // DASH-001: one manager view of today and this week, scoped to the manager's home cafe (the
 // owner's: every cafe, or one chosen): who is on now and late (CLOCK-004), open and unconfirmed
 // shifts, pending approvals, overtime risk (COST-002), scheduled labor against the forecast sales,
@@ -35,7 +36,7 @@ export function dashboard(s:State,a:Actor,asOf:string,site='') {
  // Scheduled labor: this week's published shifts at each person's hourly rate (per shift, to the cent), against the cafe's forecast sales and budget.
  const cafes=[...new Set([...s.shifts.filter(x=>x.status==='published'&&inWeek(x.start)).map(x=>siteOf(s,x)),...s.forecasts.filter(f=>f.week===week).map(f=>f.site??'')])].filter(here).sort()
  const labor=cafes.map(cafe=>{
-  const cents=s.shifts.filter(x=>x.status==='published'&&inWeek(x.start)&&siteOf(s,x)===cafe).reduce((n,x)=>n+Math.round(x.minutes*(s.staff.find(p=>p.id===x.staffId)?.rate_cents??0)/60),0)
+  const cents=s.shifts.filter(x=>x.status==='published'&&inWeek(x.start)&&siteOf(s,x)===cafe).reduce((n,x)=>n+(priced(s,x.staffId,x).costCents??0),0)
   const f=s.forecasts.find(v=>v.week===week&&(v.site??'')===cafe),sales=f?f.days.reduce((n:number,v:number)=>n+v,0)*100:null
   const percent=sales?Math.round(cents/sales*1000)/10:null,e=salesWeek(s,week,cafe).entered
   // SALES-001: on the days with entered sales, their scheduled labor over those sales.

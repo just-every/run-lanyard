@@ -1,3 +1,4 @@
+import {priced} from './workforce'
 // REPORT-003: labor percentage and sales per labor hour by 15-, 30- or 60-minute interval for one cafe
 // and venue day, for scheduled hours (published shifts) and actual hours (live timesheets and open
 // punches up to now), overall and per position, against SALES-001 hourly sales. Each shift, timesheet or
@@ -7,7 +8,7 @@
 // that cafe's managers save named dayparts with a target labor percentage; an interval starting inside a
 // daypart whose actual labor percentage exceeds its target is flagged.
 import {type Context,type Row,type State,keys,text,integer,need,manager,put} from './model'
-import {instantAt} from './settings'
+import {instantAt,localDate} from './settings'
 import {siteOf} from './team'
 import {salesSite} from './sales'
 
@@ -28,7 +29,7 @@ const live=(t:Row)=>['submitted','approved','returned'].includes(t.status)
 const at=(v:string)=>Date.parse(v)
 export function intervalReport(s:State,site:string,date:string,size:number,now:string) {
  need(/^\d{4}-\d{2}-\d{2}$/.test(date),'Choose a day (YYYY-MM-DD)');need([15,30,60].includes(size),'Intervals are 15, 30 or 60 minutes')
- const tz=s.timezone,person=(id:string)=>s.staff.find(p=>p.id===id),rate=(id:string)=>person(id)?.rate_cents??0,role=(id:string)=>person(id)?.position||'Team'
+ const tz=s.timezone,person=(id:string)=>s.staff.find(p=>p.id===id),role=(id:string)=>person(id)?.position||'Team'
  const scheduled=s.shifts.filter(x=>x.status==='published'&&siteOf(s,x)===site)
  const worked=[...s.timesheets.filter(t=>live(t)&&siteOf(s,t)===site&&!s.timesheets.some(x=>x.corrects===t.id&&live(x))),...s.clocks.filter(k=>k.status==='open'&&k.start<now&&siteOf(s,k)===site).map(k=>({...k,end:now,minutes:Math.max(0,Math.floor((at(now)-at(k.start))/60000))}))]
  const sales=s.sales.filter(r=>r.site===site&&r.date===date&&r.metric==='sales'&&r.hour!==null)
@@ -36,7 +37,8 @@ export function intervalReport(s:State,site:string,date:string,size:number,now:s
  const count=(list:Row[],a:number,b:number)=>{
   const out={minutes:0,cents:0,byPosition:{} as Record<string,{minutes:number;cents:number}>}
   for(const x of list){const span=at(x.end)-at(x.start),overlap=Math.min(b,at(x.end))-Math.max(a,at(x.start));if(span<=0||overlap<=0)continue
-   const m=overlap/60000*x.minutes/(span/60000),c=m*rate(x.staffId)/60,r=role(x.staffId),g=out.byPosition[r]??={minutes:0,cents:0}
+   const basis=priced(s,x.staffId,x),date=localDate(new Date(Math.max(a,at(x.start))).toISOString(),tz),rate=basis.segments.find((v:any)=>v.date===date)?.cents??0
+   const m=overlap/60000*x.minutes/(span/60000),c=m*rate/60,r=role(x.staffId),g=out.byPosition[r]??={minutes:0,cents:0}
    out.minutes+=m;out.cents+=c;g.minutes+=m;g.cents+=c}
   const round=(v:{minutes:number;cents:number})=>({minutes:Math.round(v.minutes*100)/100,cents:Math.round(v.cents)})
   return {...round(out),byPosition:Object.fromEntries(Object.entries(out.byPosition).sort().map(([k,v])=>[k,round(v)]))}

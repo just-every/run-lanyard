@@ -1686,4 +1686,4 @@ test('SCHEDULE-001: visual service-week editing, resize, copy, bulk assignment, 
 
 
 test('PEOPLE-002: qualifications, expiring certificates, preferences, effective job rates, retained costs and inherited template/swap/pickup checks through HTTP',()=>run(async h=>{const {workforceApi}=await import('./workforce-journey.mjs');await workforceApi(h)}))
-test('PEOPLE-002: retained rate costs and minimum-hour warnings in schedule review and grid at 1440 and 390',async()=>{const {workforceBrowser}=await import('./workforce-journey.mjs');await workforceBrowser()})
+test('PEOPLE-002: retained rate costs in schedule/grid, interval reports and time review at 1440 and 390',async()=>{const {workforceBrowser}=await import('./workforce-journey.mjs');await workforceBrowser()})
