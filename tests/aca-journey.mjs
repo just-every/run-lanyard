@@ -48,7 +48,7 @@ export async function acaJourney() {
    await page.goto(h.origin+`/app/schedule?week=${week}&site=Ocean%20Beach`,{waitUntil:'networkidle'})
    assert.ok((await page.locator('#aca-warnings').innerText()).includes('Ben'));await shot('schedule','#aca-warnings')
    // The unsaved draft replaces this week's published shift, rather than doubling it.
-   const response=await h.send('/api/lanyard/schedule/review',{week,shifts:[{...shift,end:new Date(Date.parse(shift.start)+2*3600000).toISOString()}]})
+   const response=await h.send('/api/lanyard/schedule/review',{week,shifts:[{...shift,end:new Date(Date.parse(shift.start)+2*3600000).toISOString()}]},h.owner)
    assert.equal(response.status,200);assert.ok(!response.value.warnings.some(w=>w.kind==='aca'))
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'ACA-001 screens fit the viewport')
    assert.deepEqual(errors,[]);await context.close()
