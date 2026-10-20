@@ -4,6 +4,7 @@ import {handoverFixture,captureWork,pin} from './shiftwork-fixture.mjs'
 export async function handoverApi(h) {
  const f=await handoverFixture(h),{work,input,shift,alex,ben,manager,foreign}=f
  const planned=(await h.state()).shifts.find(x=>x.id===shift.id);assert.equal(planned.rateBasis.costCents,16500,'planned labor uses both job rates without adding the enclosing shift')
+ const scheduled=await h.send(`/api/lanyard/intervals?site=Ocean%20Beach&date=${f.week}&size=60`,undefined,manager.cookie);assert.equal(scheduled.value.intervals.reduce((n,p)=>n+p.scheduled.cents,0),16500)
  const notes=await h.state(alex.cookie);assert.deepEqual(notes.shiftwork[0].segments.map(p=>p.until),[240,480])
  for(const segments of [[{until:479,job:f.counter.id,area:'Short'}],[{until:240,job:f.counter.id,area:'Counter'},{until:240,job:f.kitchen.id,area:'Duplicate'}],[{until:480,job:'unknown',area:'Unknown'}]])await h.cmd('shiftwork.save',{...input,shiftRevision:shift.revision,revision:work.revision,segments},manager.cookie,segments[0].job==='unknown'?409:400)
  const answer=await h.cmd('shiftwork.respond',{shiftId:shift.id,shiftRevision:shift.revision,revision:work.revision,completed:work.tasks.map(t=>t.id),blocker:'Kitchen lock is jammed',attachment:{name:'lock.txt',type:'text/plain',data:Buffer.from('Maintenance inspected the lock').toString('base64')}},alex.cookie)

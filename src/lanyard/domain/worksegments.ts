@@ -39,7 +39,7 @@ export function reconcileSegments(s:State,staffId:string,x:Record<string,any>,pl
  return pieces.map(({weight,from,until,...p}:any)=>({...p,site:plan.site,rateBasis:rateBasis(s,staffId,{...p,site:plan.site})}))
 }
 export function segmentBasis(staffId:string,segments:any[]) {
- return {staffId,job:'',site:segments[0]?.site??'',segments:segments.flatMap(p=>p.rateBasis.segments.map((v:any)=>({...v,job:p.job,area:p.area}))),costCents:segments.some(p=>p.rateBasis.costCents===null)?null:segments.reduce((n,p)=>n+p.rateBasis.costCents,0)}
+ return {staffId,job:'',site:segments[0]?.site??'',workSegments:segments,segments:segments.flatMap(p=>p.rateBasis.segments.map((v:any)=>({...v,job:p.job,area:p.area}))),costCents:segments.some(p=>p.rateBasis.costCents===null)?null:segments.reduce((n,p)=>n+p.rateBasis.costCents,0)}
 }
 
 /** Every new assignment inheriting a handover plan rechecks each job and site. */

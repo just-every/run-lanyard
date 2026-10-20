@@ -30,7 +30,7 @@ const at=(v:string)=>Date.parse(v)
 export function intervalReport(s:State,site:string,date:string,size:number,now:string) {
  need(/^\d{4}-\d{2}-\d{2}$/.test(date),'Choose a day (YYYY-MM-DD)');need([15,30,60].includes(size),'Intervals are 15, 30 or 60 minutes')
  const tz=s.timezone,person=(id:string)=>s.staff.find(p=>p.id===id),role=(id:string)=>person(id)?.position||'Team'
- const scheduled=s.shifts.filter(x=>x.status==='published'&&siteOf(s,x)===site)
+ const scheduled=s.shifts.filter(x=>x.status==='published'&&siteOf(s,x)===site).flatMap(x=>x.rateBasis?.workSegments?.length?x.rateBasis.workSegments.map((p:any)=>({...x,...p})):x)
  const worked=[...s.timesheets.filter(t=>live(t)&&siteOf(s,t)===site&&!s.timesheets.some(x=>x.corrects===t.id&&live(x))).flatMap(t=>t.workSegments?.length?t.workSegments.map((p:any)=>({...t,...p})):t),...s.clocks.filter(k=>k.status==='open'&&k.start<now&&siteOf(s,k)===site).map(k=>({...k,end:now,minutes:Math.max(0,Math.floor((at(now)-at(k.start))/60000))}))]
  const sales=s.sales.filter(r=>r.site===site&&r.date===date&&r.metric==='sales'&&r.hour!==null)
  const parts=s.dayparts.filter(r=>r.site===site&&!r.removed)
