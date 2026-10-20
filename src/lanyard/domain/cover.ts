@@ -47,7 +47,7 @@ function manages(c:Context,r:Row) {
  * an explicitly saved COVER-004 tier rule keeps its own ranking and opening times. */
 function outreach(c:Context,r:Row,list:ReturnType<typeof shortlist>) {
  const log=tiers(c.s,replacementOrder(c.s,siteOf(c.s,r)),list.qualified,r,c.now)
- return log.tiers.flatMap((t,tier)=>t.staffIds.map(id=>{const f=list.qualified.find(v=>v.staffId===id)!;return put(c,'offers',{shiftId:r.id,shiftRevision:r.revision,fromStaffId:r.staffId,staffId:id,before:f.before,after:f.after,status:'sent',sentAt:t.opensAt,tier:tier+1,opensAt:t.opensAt,expiresAt:r.end})}))
+ return log.tiers.flatMap((t,tier)=>t.staffIds.map(id=>{const f=list.qualified.find(v=>v.staffId===id)!;return put(c,'offers',{shiftId:r.id,shiftRevision:r.revision,fromStaffId:r.staffId,staffId:id,before:f.before,after:f.after,status:'sent',createdAt:c.now,sentAt:t.opensAt,tier:tier+1,opensAt:t.opensAt,expiresAt:r.end})}))
 }
 export function cover(c:Context,name:string,p:Record<string,any>) {
  if(name==='shift.callout') {

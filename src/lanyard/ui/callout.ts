@@ -31,8 +31,10 @@ function leftOut(s:any,w:Week,list:any[]) {
 export function coverPopover(s:any,w:Week,x:any,back:string,waitLink:string) {
  const c=x.callout,qualified:any[]=c.qualified??[],at=new Date().toISOString(),coverage=coverageFor(s,x)
  const offers=rows(s,'offers').filter(o=>o.shiftId===x.id).map(o=>({...o,status:['sent','accepted'].includes(o.status)&&x.end<=at?'expired':o.status}))
+ const current=(o:any)=>o.shiftRevision===x.revision&&['sent','accepted'].includes(o.status)?1:0
+ offers.sort((a,b)=>current(b)-current(a)||(b.createdAt??b.sentAt).localeCompare(a.createdAt??a.sentAt)||(b.shiftRevision??0)-(a.shiftRevision??0))
  const rank:Record<string,number>={approved:0,accepted:0,declined:1,sent:2,closed:3,expired:4}
- const ordered=qualified.map(f=>({f,o:[...offers].reverse().find(o=>o.staffId===f.staffId)})).filter(v=>v.o).sort((a,b)=>rank[a.o.status]-rank[b.o.status])
+ const ordered=qualified.map(f=>({f,o:offers.find(o=>o.staffId===f.staffId)})).filter(v=>v.o).sort((a,b)=>rank[a.o.status]-rank[b.o.status])
  const list=ordered.map(({f,o})=>{
   const p=staffOf(s,o.staffId),site=p?.site&&p.site!==w.site?`<span class="from">${h(p.site)}</span>`:''
   const projection=coverage?.offers.find((v:any)=>v.id===o.id)?.cost
