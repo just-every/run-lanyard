@@ -27,7 +27,7 @@ export function review(s:State,t:Row) {
   variance:shift?{start:span(shift.start,captured.start),end:span(shift.end,captured.end),minutes:captured.minutes-shift.minutes}:null,
   breaks:{taken:t.breakMinutes,required:rule&&span(captured.start,captured.end)>rule.afterMinutes?rule.deductMinutes:0},
   network:t.network??null,photo:null,
-  job:person?.position??null,site:shift?siteOf(s,shift):person?.site??'',
+  job:s.jobs.find(j=>j.id===(t.job??shift?.job))?.name??person?.position??null,site:shift?siteOf(s,shift):person?.site??'',
   roundingMinutes:t.minutes-captured.minutes,
   exceptions:t.exceptions??[],
   costCents:basis.costCents,
