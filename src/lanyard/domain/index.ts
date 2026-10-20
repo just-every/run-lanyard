@@ -49,12 +49,13 @@ function fresh(a:Actor,s:State) {
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
  need(person,'Staff access revoked',403);return {...a,role:person.role}
 }
-export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string,net?:Context['net']):Promise<object> {
+export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string,net?:Context['net'],files?:R2Bucket):Promise<object> {
  need(commands.includes(name),'Unknown command',404);const a=await live(db,identity),p=object(input)
  if(a.role==='agent')need(['roster.prepare','time.prepare','payroll.prepare'].includes(name),'Agents may prepare drafts only; a human manager must approve',403)
  const commandId=name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID(),digest=await sha(canonical({name,input:p}))
  const previous=await saved(db,commandId,a,digest);if(previous)return previous
- const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret,net}
+ const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret,net,files,rollback:[]}
+ try {
  let result:any=settings(c,name,p)
  if(result===undefined)result=await people(c,name,p)
  if(result===undefined)result=roster(c,name,p)
@@ -99,7 +100,11 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
   result={...safe,lines:lines.map(({payrollId,...line}:any)=>line)}
  }
- return commit(c,before,name,commandId,digest,result)
+ return await commit(c,before,name,commandId,digest,result)
+ } catch(error) {
+  for(const rollback of c.rollback??[])await rollback()
+  throw error
+ }
 }
 export async function snapshot(db:D1Database,identity:Actor,secret?:string):Promise<object> {
  const a0=await live(db,identity),events=a0.role==='agent'?null:db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at FROM l_events ORDER BY at DESC,id DESC').all<Event>()
@@ -210,11 +215,11 @@ export async function noteAttachment(db:D1Database,identity:Actor,noteId:string,
  const a=await live(db,identity),s=await load(db);return noteFile(db,s,fresh(a,s),noteId,fileId)
 }
 /** LOG-001 reads: a logbook search, an incident's text export and an entry's attachment, for the owner and that cafe's managers. */
-export async function logbookRead(db:D1Database,identity:Actor,kind:'search'|'export'|'file',id='',q:{site?:string;category?:string;month?:string;fileId?:string}={}) {
+export async function logbookRead(db:D1Database,identity:Actor,kind:'search'|'export'|'file',id='',q:{site?:string;category?:string;month?:string;fileId?:string}={},files?:R2Bucket) {
  const a=await live(db,identity),s=await load(db),f=fresh(a,s)
  if(kind==='search')return searchLog(s,f,q)
  if(kind==='export')return incidentText(s,f,id)
- return logFile(db,s,f,id,q.fileId??'')
+ return logFile(db,s,f,id,q.fileId??'',files)
 }
 /** DASH-001: the operations dashboard as of an instant, for the owner (every cafe or one) and a manager (their cafe). */
 export async function dashboardRead(db:D1Database,identity:Actor,asOf:string,site:string) {

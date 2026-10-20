@@ -26,7 +26,7 @@ async function checkout(root) {
 }
 // Pacific Monday Oct 12, 2026, 7:00 am – 3:00 pm PDT; the 45-minute break is a later agreed correction.
 const work = staffId => ({ staffId, start: '2026-10-12T14:00:00Z', end: '2026-10-12T22:00:00Z', breakMinutes: 30 })
-test('ARCHIVE-001 and AUDIT-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 300_000 }, async () => {
+test('ARCHIVE-001, AUDIT-001 and LOG-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 300_000 }, async () => {
   const temporary = await mkdtemp(join(tmpdir(),'lanyard-archive-')), source=join(temporary,'source'), restored=join(temporary,'restored'), erased=join(temporary,'erased')
   let h
   try {
@@ -47,6 +47,7 @@ test('ARCHIVE-001 and AUDIT-001: public CLI archive round trip carries staff, sc
     const files=Object.fromEntries(await Promise.all([batch.id,delta.id].map(async id=>[id,(await h.send(`/api/lanyard/batches/${id}.csv`,undefined,h.owner)).text])))
     assert.match(files[batch.id],/450,7\.5000/);assert.match(files[delta.id],/-15,-0\.2500/)
     const csv=await readFile('tests/fixtures/staff.csv','utf8'),imported=await h.cmd('import.apply',{csv,fingerprint:(await h.cmd('import.preview',{csv})).fingerprint})
+    const logged=await h.cmd('log.save',{site:'',date:'2026-10-12',category:'incident',text:'Dish pit floor',attachments:[{name:'floor.txt',type:'text/plain',data:Buffer.from('floor inspection').toString('base64')},{name:'report.txt',type:'text/plain',data:Buffer.from('incident report').toString('base64')}]})
     const journal=await h.cmd('import.journal',{jobId:imported.job.id}),original=await h.state()
     const identity={auth:h.auth,owner:h.owner}
     await h.close();h=null
@@ -63,6 +64,8 @@ test('ARCHIVE-001 and AUDIT-001: public CLI archive round trip carries staff, sc
     assert.equal((await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agentKey.token}`})).status,401)
     const owner=await h.signIn(h.auth.OWNER_EMAIL),back=await h.state(owner)
     assert.deepEqual(back.agentKeys,[])
+    assert.deepEqual(back.logbook,original.logbook)
+    for(const [i,file] of logged.attachments.entries())assert.equal((await h.send(`/api/lanyard/logbook/${logged.id}/files/${file.id}`,undefined,owner)).text,['floor inspection','incident report'][i])
     for(const kind of ['staff','rosters','shifts','timesheets','batches'])assert.deepEqual(back[kind],original[kind],kind)
     assert.deepEqual(back.events.map(e=>e.id),original.events.map(e=>e.id))
     for(const [id,text] of Object.entries(files))assert.equal((await h.send(`/api/lanyard/batches/${id}.csv`,undefined,owner)).text,text)

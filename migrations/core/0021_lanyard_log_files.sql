@@ -1,0 +1,9 @@
+CREATE TABLE l_log_files (
+ id TEXT PRIMARY KEY,
+ entry_id TEXT NOT NULL,
+ object_key TEXT NOT NULL UNIQUE,
+ name TEXT NOT NULL,
+ type TEXT NOT NULL,
+ size INTEGER NOT NULL,
+ sha256 TEXT NOT NULL
+);

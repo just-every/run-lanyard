@@ -13,5 +13,11 @@
       "database_id": "local-foundation-only",
       "migrations_dir": "migrations/core"
     }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "lanyard-files"
+    }
   ]
 }

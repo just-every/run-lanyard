@@ -40,7 +40,7 @@ export async function people(c:Context,name:string,p:Record<string,any>) {
   const unused=await c.db.prepare(`SELECT CASE WHEN (${unusedSql}) THEN 1 ELSE 0 END AS ok`).bind(...values).first<{ok:number}>()
   need(unused?.ok===1,'Only unused, uninvited, non-imported staff can be erased; deactivate staff with employment history',409)
   c.sql.push(c.db.prepare(`INSERT INTO l_guard(id,ok) VALUES(?,CASE WHEN (${unusedSql}) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(),...values))
-  const portability=await createPortability({db:c.db,policy:archivePolicy})
+  const portability=await createPortability({db:c.db,buckets:{FILES:c.files!},policy:archivePolicy})
   c.sql.push(...await portability.redactionStatements(),...await portability.invalidateTransfersStatements())
   c.sql.push(c.db.prepare('INSERT INTO l_erasure_journal(staff_id,identity_hash,erased_at,actor_id) VALUES(?,?,?,?)').bind(old.id,await sha(old.email.toLowerCase()),c.now,c.a.id),c.db.prepare("DELETE FROM l_records WHERE kind='employment' AND json_extract(data,'$.staffId')=?").bind(old.id),c.db.prepare("UPDATE l_staff SET name='Erased staff',email=?,payroll_id=NULL,role='staff',active=0,version=version+1,erased_at=?,position=NULL,rate_cents=NULL,site=NULL WHERE id=?").bind(`erased-${old.id}@invalid.local`,c.now,old.id))
   // Keep identities and digests so old commands cannot replay erased PII.

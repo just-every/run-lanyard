@@ -29,7 +29,7 @@ async function execute(request: Request, env: Bindings, who: Actor, name: string
   if (name.startsWith('import.')) return importCommand(env.DB, who, name, input)
   if (name.startsWith('clockbrowser.')) return clockBrowserCommand(env, who, name, input)
   // CLOCK-007: a punch carries its network identity (edge client IP and enrolled-browser cookie).
-  return command(env.DB, who, name, input, env.SESSION_SECRET, name === 'clock.in' || name === 'clock.out' ? await networkOf(request, env) : undefined)
+  return command(env.DB, who, name, input, env.SESSION_SECRET, name === 'clock.in' || name === 'clock.out' ? await networkOf(request, env) : undefined, env.FILES)
 }
 
 /** CLOCK-007: an enrolment's token goes only into this response's HttpOnly cookie, never into the page or JSON. */
@@ -40,13 +40,22 @@ function withClockCookie(response: Response, result: unknown) {
 }
 
 async function inputBody(request: Request): Promise<Record<string, unknown>> {
-  // JOURNAL-001: a note form may carry one attachment, passed on as name, type and base64 bytes.
+  // JOURNAL-001 keeps its 1 MB attachment; LOG-001 accepts five 10 MB files.
   if (request.headers.get('content-type')?.includes('multipart/form-data')) {
-    if (Number(request.headers.get('content-length') ?? 0) > 1_500_000) fail('Request is too large', 413)
+    const log = new URL(request.url).searchParams.get('name') === 'log.save', maxFile = log ? 10_000_000 : 1_000_000
+    if (Number(request.headers.get('content-length') ?? 0) > (log ? 50_100_000 : 1_500_000)) fail('Request is too large', 413)
     const form = await request.formData(), input: Record<string, unknown> = {}
     for (const [key, value] of form) {
       if (typeof value === 'string') input[key] = key === 'mentions' ? [...((input[key] as string[] | undefined) ?? []), value] : value
-      else if (value.size) { const bytes = new Uint8Array(await value.arrayBuffer()); if (bytes.length > 1_000_000) fail('Attachments are 1 MB at most', 413); let raw = ''; for (const b of bytes) raw += String.fromCharCode(b); input[key] = { name: value.name || 'attachment', type: value.type || 'application/octet-stream', data: btoa(raw) } }
+      else if (value.size) {
+        if (value.size > maxFile) fail(log ? 'Attachments are 10 MB at most' : 'Attachments are 1 MB at most', 413)
+        if (log && (key !== 'attachments' || ((input.attachments as unknown[] | undefined)?.length ?? 0) >= 5)) fail('Provide at most five attachments', 400)
+        if (log) { input.attachments = [...((input.attachments as unknown[] | undefined) ?? []), { name: value.name || 'attachment', type: value.type || 'application/octet-stream', blob: value }]; continue }
+        const bytes = new Uint8Array(await value.arrayBuffer()), chunks: string[] = []
+        for (let i = 0; i < bytes.length; i += 8192) chunks.push(String.fromCharCode(...bytes.subarray(i, i + 8192)))
+        const file = { name: value.name || 'attachment', type: value.type || 'application/octet-stream', data: btoa(chunks.join('')) }
+        input[key] = file
+      }
     }
     if ('revision' in input) input.revision = Number(input.revision)
     return input
@@ -112,7 +121,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/logbook') return json(await logbookRead(env.DB, who, 'search', '', { site: url.searchParams.get('site') ?? '', category: url.searchParams.get('category') ?? '', month: url.searchParams.get('month') ?? '' }))
       const logged = path.match(/^\/api\/lanyard\/logbook\/([\w-]+)\/(export|files\/([\w-]+))$/)
       if (logged && logged[2] === 'export') { const { name, body } = await logbookRead(env.DB, who, 'export', logged[1]) as { name: string; body: string }; return new Response(body, { headers: { ...headers, 'content-type': 'text/plain; charset=utf-8', 'content-disposition': `attachment; filename="${name}"` } }) }
-      if (logged) { const { bytes, name, type } = await logbookRead(env.DB, who, 'file', logged[1], { fileId: logged[3] }) as { bytes: Uint8Array<ArrayBuffer>; name: string; type: string }; return new Response(bytes, { headers: { ...headers, 'content-type': type, 'content-disposition': `attachment; filename="${name.replace(/[^\w. -]/g, '_')}"`, 'x-content-type-options': 'nosniff' } }) }
+      if (logged) { const { bytes, name, type } = await logbookRead(env.DB, who, 'file', logged[1], { fileId: logged[3] }, env.FILES) as { bytes: Uint8Array<ArrayBuffer>; name: string; type: string }; return new Response(bytes, { headers: { ...headers, 'content-type': type, 'content-disposition': `attachment; filename="${name.replace(/[^\w. -]/g, '_')}"`, 'x-content-type-options': 'nosniff' } }) }
       const attached = path.match(/^\/api\/lanyard\/notes\/([\w-]+)\/files\/([\w-]+)$/)
       if (attached) { const { bytes, name, type } = await noteAttachment(env.DB, who, attached[1], attached[2]); return new Response(bytes, { headers: { ...headers, 'content-type': type, 'content-disposition': `attachment; filename="${name.replace(/[^\w. -]/g, '_')}"`, 'x-content-type-options': 'nosniff' } }) }
       if (path === '/api/lanyard/overtime') return json(await overtimeAlerts(env.DB, who, url.searchParams.get('week') ?? '', url.searchParams.get('asOf') ?? new Date().toISOString().replace(/\.\d+Z$/, 'Z')))

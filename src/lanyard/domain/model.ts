@@ -6,7 +6,7 @@ export type Staff = { id:string; name:string; email:string; payroll_id:string|nu
 export type State = {version:number;timezone:string;staff:Staff[];claims:any[]} & Record<Kind,Row[]>
 // secret: the installation secret for keyed digests; storedActor/storedDigest replace the actor id and input digest kept in history (FEEDBACK-001 anonymity).
 // net: a punch's network identity from the request (CLOCK-007).
-export type Context = { a:Actor; s:State; now:string; sql:D1PreparedStatement[]; db:D1Database; entity:string; secret?:string; storedActor?:string; storedDigest?:string; net?:{ip:string;browsers:{id:string;site:string}[]} }
+export type Context = { a:Actor; s:State; now:string; sql:D1PreparedStatement[]; db:D1Database; entity:string; files?:R2Bucket; rollback?:(()=>Promise<void>)[]; secret?:string; storedActor?:string; storedDigest?:string; net?:{ip:string;browsers:{id:string;site:string}[]} }
 export function fail(message:string,status=400):never { throw Object.assign(new Error(message),{status}) }
 export function need(value:unknown,message:string,status=400):asserts value { if(!value) fail(message,status) }
 export function object(value:unknown):Record<string,any> { need(value && typeof value==='object' && !Array.isArray(value),'Expected an object'); return value as Record<string,any> }

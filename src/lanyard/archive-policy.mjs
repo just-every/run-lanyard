@@ -2,6 +2,7 @@
 // their authors. Sessions, links, provider credentials and the outbox never travel.
 export default {
   product: 'workforce/lanyard',
+  buckets: { FILES: { prefix: 'logbook/', objectReferences: { table: 'l_log_files', keyColumn: 'object_key' } } },
   includeTables: ['oa_operators', 'oa_bootstrap', 'oa_invitation_cancellations'],
   excludeTables: ['l_agent_keys', 'l_clock_browsers'],
   replaceableTables: ['l_meta'],
