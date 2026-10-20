@@ -28,7 +28,7 @@
     "check": "rer check",
     "deps": "rer install",
     "rer": "rer",
-    "test:lanyard": "node --test --test-concurrency=1 tests/lanyard.test.mjs",
+    "test:lanyard": "node --test --test-concurrency=1 tests/lanyard.test.mjs tests/logbook.test.mjs",
     "test:archive": "node --test --test-concurrency=1 tests/archive.test.mjs",
     "test:site": "node --test tests/site/*.test.mjs"
   },
