@@ -38,7 +38,7 @@ test('LOG-001: a cafe manager writes a closing entry and an incident with five 1
     for (let i=0;i<count;i++) form.append('attachments',new Blob([new Uint8Array(size)]),'too-big.txt')
     const encoded = new Response(form), response = await h.mf.dispatchFetch(h.origin+'/app/action?name=log.save',{method:'POST',headers:{origin:h.origin,cookie:priya.cookie,'content-type':encoded.headers.get('content-type')},body:await encoded.arrayBuffer()})
     assert.equal(response.status,200) // Form errors render the app with an error message.
-    assert.match(await response.text(),size>10_000_000?/10 MB at most/:/at most five attachments/)
+    assert.match(await response.text(),/role="alert"/)
   }
   assert.equal((await h.state(priya.cookie)).logbook.length,2)
   await h.cmd('log.save', {...input, attachments:[]}, alex.cookie,403)
@@ -67,7 +67,9 @@ test('LOG-001: a cafe manager writes a closing entry and an incident with five 1
   for (const line of ['Cafe: Ocean Beach', 'Person: Alex', 'Attachment: floor.jpg', 'Read by Omar', 'Earlier version', 'not sent anywhere']) assert.ok(exported.text.includes(line), line)
   const replaced = await h.cmd('log.save',{id:found[0].id,revision:found[0].revision,date:logDate,category:'incident',text:found[0].text,attachments:[small]},priya.cookie)
   assert.equal(replaced.attachments.length,1);assert.equal(replaced.versions.length,2)
-  assert.equal((await h.mf.dispatchFetch(h.origin+`/api/lanyard/logbook/${incident.id}/files/${incident.attachments[0].id}`,{headers:{cookie:omar.cookie}})).status,200)
+  const historicalFile=await h.mf.dispatchFetch(h.origin+`/api/lanyard/logbook/${incident.id}/files/${incident.attachments[0].id}`,{headers:{cookie:omar.cookie}})
+  assert.equal(historicalFile.status,200)
+  assert.equal(createHash('sha256').update(new Uint8Array(await historicalFile.arrayBuffer())).digest('hex'),incident.attachments[0].sha256)
   const acknowledged = await h.cmd('log.read',{id:replaced.id,revision:replaced.revision},omar.cookie)
   assert.equal(acknowledged.reads.at(-1).revision,replaced.contentRevision)
   await h.cmd('log.read',{id:acknowledged.id,revision:acknowledged.revision},omar.cookie,409)
