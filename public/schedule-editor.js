@@ -3,7 +3,7 @@ window.LanyardSchedule={start({localToUTC}) {
  const form=document.querySelector('[data-roster-form]');if(!form)return
  const container=form.querySelector('[data-shift-rows]'),board=form.querySelector('[data-editor-board]'),live=form.querySelector('[data-live-review]'),status=form.querySelector('[data-editor-status]')
  const template=container.lastElementChild.cloneNode(true),undo=form.querySelector('[data-undo-shift]'),history=[]
- const fields=['staffId','start','end','breakMinutes','label','site'],rows=()=>[...container.querySelectorAll('.shift-input')],control=(r,k)=>r.querySelector(`[data-shift="${k}"]`)
+ const fields=['staffId','start','end','breakMinutes','label','site','job'],rows=()=>[...container.querySelectorAll('.shift-input')],control=(r,k)=>r.querySelector(`[data-shift="${k}"]`)
  const values=r=>Object.fromEntries(fields.map(k=>[k,control(r,k).value]))
  const snapshot=()=>rows().map(r=>({values:values(r),selected:r.querySelector('[data-select-shift]').checked}))
  let previous=JSON.stringify(snapshot()),request=0,timer,dragged

@@ -120,6 +120,9 @@ export async function workforceBrowser() {
   const oldDay=`${new Date().getUTCFullYear()-1}-06-03`;await h.cmd('time.prepare',{staffId:f.alex.id,job:f.bar.id,site:'Ocean Beach',start:local(oldDay,'09:00'),end:local(oldDay,'13:00'),breakMinutes:0,reason:'Job-rate review evidence'})
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
   for(const width of [1440,390]) {
+   const current=(await h.state()).workforce.find(p=>p.staffId===f.alex.id),reset=await h.cmd('workforce.save',{...f.input,...pin(current)})
+   await h.cmd('roster.prepare',{week:f.week,shifts:[f.shift(f.week),f.shift(days(f.week,1))]})
+   await h.cmd('workforce.save',{...f.input,...pin(reset),rates:[{job:f.bar.id,from:'2020-01-01',cents:9900}]})
    const context=await browser.newContext({viewport:{width,height:1000}}),[name,...value]=h.owner.split('=')
    await context.addCookies([{name,value:value.join('='),url:h.origin}])
    await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
@@ -133,6 +136,10 @@ export async function workforceBrowser() {
    if(process.env.WORKFORCE_SCREENS)await page.screenshot({path:join(process.env.WORKFORCE_SCREENS,`intervals-${width}.png`),fullPage:true})
    await page.goto(h.origin+'/app/time?site=Ocean%20Beach',{waitUntil:'networkidle'});assert.ok((await page.locator('#approve .review').first().innerText()).includes('Barista at Ocean Beach'));assert.ok((await page.locator('#approve .review').first().innerText()).includes('cost $396.00'),'pending manual time uses the selected job rate');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
    if(process.env.WORKFORCE_SCREENS){await page.locator('#approve').scrollIntoViewIfNeeded();await page.screenshot({path:join(process.env.WORKFORCE_SCREENS,`time-${width}.png`)});await page.locator('#approve').screenshot({path:join(process.env.WORKFORCE_SCREENS,`time-section-${width}.png`)})}
+   await page.goto(h.origin+`/app/schedule?week=${f.week}&site=Ocean%20Beach&view=draft`,{waitUntil:'networkidle'})
+   const editor=page.locator('[data-roster-form]');await editor.locator('[data-shift=label]').first().fill('Updated service label')
+   const [saved]=await Promise.all([page.waitForResponse(r=>r.url().includes('/app/action?name=roster.prepare')),editor.getByRole('button',{name:'Prepare draft',exact:true}).click()]);assert.equal(saved.status(),200)
+   const state=await h.state(),prepared=state.rosters.find(r=>r.week===f.week&&r.status==='draft');assert.ok(state.shifts.filter(x=>x.rosterId===prepared.id&&x.status==='draft').every(x=>x.job===f.bar.id),'PEOPLE-002: visual edits preserve assigned jobs through the real form door');assert.equal(await page.locator('.notice.error').count(),0)
    assert.deepEqual(errors,[]);await context.close()
   }
   assert.equal(draft.shifts.length,2)
