@@ -1149,7 +1149,7 @@ test('TIME-003: a missed clock-out opens an exception the employee corrects with
   await h.cmd('time.approve', { id: asked.id, revision: asked.revision }, omar.cookie)
 }))
 
-test('clock retry commits once and binds capture identity to body and person', () => run(async h => {
+test('CLOCK-002: ordered clock retries bind identity, retain conflicting captures for scoped review, respect revocation and use capture-date rounding', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   const input = { commandId: crypto.randomUUID(), capturedAt: '2026-10-12T00:00:00Z' }
   const first = await h.cmd('clock.in', input, alex.cookie)
@@ -1163,6 +1163,54 @@ test('clock retry commits once and binds capture identity to body and person', (
   assert.equal(stopped.timesheet.minutes, 450)
   await h.cmd('time.approve', { id: stopped.timesheet.id, revision: 1 }, alex.cookie, 403)
   await h.cmd('time.approve', { id: stopped.timesheet.id, revision: 1 })
+  const priya = await h.person('Priya', 'manager'), lee = await h.person('Lee', 'manager')
+  await h.cmd('staff.save', {id:lee.id,revision:1,name:lee.name,email:lee.email,payrollId:'LEE',role:'manager',active:true,site:'Elsewhere'})
+  const capture = {name:'clock.in',input:{...input,capturedAt:'2026-10-12T01:00:00Z'}}
+  const reportInput = {commandId:crypto.randomUUID(),capture,error:'Command identity already used by another actor or body'}
+  const issue = await h.cmd('clock.report',reportInput,alex.cookie)
+  assert.deepEqual(await h.cmd('clock.report',reportInput,alex.cookie),issue)
+  assert.equal((await h.state()).clockissues.length,1)
+  assert.deepEqual((await h.state(sam.cookie)).clockissues,[])
+  assert.deepEqual((await h.state(lee.cookie)).clockissues,[])
+  assert.deepEqual((await h.state(priya.cookie)).clockissues[0].capture,capture)
+  await h.cmd('clockissue.resolve',{id:issue.id,revision:1,reason:'Not our cafe'},lee.cookie,403)
+  await h.cmd('clockissue.resolve',{id:issue.id,revision:1,reason:'Self'},alex.cookie,403)
+  const resolved = await h.cmd('clockissue.resolve',{id:issue.id,revision:1,reason:'Original shift already recorded; duplicate capture rejected'},priya.cookie)
+  assert.equal((await h.state(alex.cookie)).clockissues[0].resolution.reason,resolved.resolution.reason)
+  assert.equal((await h.state()).timesheets.length,1)
+  const originalActor=(await h.state(alex.cookie)).actor.id
+  await h.cmd('staff.save',{id:alex.id,revision:1,name:alex.name,email:alex.email,payrollId:'ALEX',role:'staff',active:false})
+  await h.cmd('clock.in',{commandId:'revoked-clock',capturedAt:'2026-10-13T00:00:00Z'},alex.cookie,403)
+  await h.cmd('clock.report',{...reportInput,commandId:'revoked-report'},alex.cookie,403)
+  assert.equal((await h.state()).clockissues.length,1)
+  const recovery={commandId:crypto.randomUUID(),actorId:originalActor,capture:{name:'clock.in',input:{commandId:'revoked-clock',capturedAt:'2026-10-13T00:00:00Z'}},error:'Staff access has been revoked or is not granted'}
+  await h.cmd('clock.recover',recovery,sam.cookie,403)
+  await h.cmd('clock.recover',recovery,lee.cookie,403)
+  const recovered=await h.cmd('clock.recover',recovery,priya.cookie)
+  assert.equal(recovered.staffId,alex.id);assert.equal(recovered.status,'unresolved')
+  assert.deepEqual(await h.cmd('clock.recover',recovery,priya.cookie),recovered)
+  assert.equal((await h.state()).clocks.length,1)
+  // Replay an entire offline shift and timed meal, after a newer rounding rule exists.
+  await h.cmd('roundrule.save',{site:'',from:'2026-10-01',method:'nearest',increment:15,apply:'capture'})
+  await h.cmd('roundrule.save',{site:'',from:'2026-10-13',method:'nearest',increment:5,apply:'capture'})
+  const events = [
+    ['clock.in',{commandId:'offline-in',capturedAt:'2026-10-12T14:07:00Z'}],
+    ['clock.breakStart',{commandId:'offline-meal',capturedAt:'2026-10-12T18:00:00Z',kind:'meal'}],
+    ['clock.breakEnd',{commandId:'offline-end-meal',capturedAt:'2026-10-12T18:30:00Z'}],
+    ['clock.out',{commandId:'offline-out',capturedAt:'2026-10-12T22:08:00Z',breakMinutes:0}],
+  ]
+  let last
+  for (const [name,input] of events) { last=await h.cmd(name,input,sam.cookie); assert.deepEqual(await h.cmd(name,input,sam.cookie),last) }
+  assert.equal(last.timesheet.minutes,465)
+  assert.equal(last.timesheet.rounding.increment,15)
+  assert.equal(last.timesheet.breakMinutes,30)
+  assert.ok(last.clock.breaks[0].receivedAt>last.clock.breaks[0].start)
+  assert.ok(last.clock.breaks[0].endReceivedAt>last.clock.breaks[0].end)
+  assert.ok(last.clock.closedReceivedAt>last.clock.end)
+  assert.equal((await h.state(sam.cookie)).clocks.length,1)
+  assert.equal((await h.state(sam.cookie)).timesheets.length,1)
+  const page=await h.send('/app/time',undefined,priya.cookie)
+  assert.match(page.text,/Original shift already recorded/)
 }))
 
 test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta', () => run(async h => {
@@ -1538,3 +1586,6 @@ test('AUTO-001: the owner previews and authorizes a cafe rule that approves only
   assert.ok(pay.includes('id="auto-approval"') && !pay.includes('Authorize v1'), 'the revoked rule is no longer offered for authorization')
   assert.deepEqual((await h.state(priya.cookie)).autorulePreviews, undefined)
 }))
+
+
+test('CLOCK-002: encrypted offline phone capture survives client restart and reconciles exactly once',async()=>{const {offlineJourney}=await import('./clock-offline-journey.mjs');await offlineJourney()})

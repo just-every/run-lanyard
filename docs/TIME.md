@@ -12,9 +12,9 @@ Clocking out creates a submitted timesheet. It appears under the week in **Time*
 
 ## If the connection drops
 
-Keep this browser page open. The clock retains the event's original capture time and command ID when a request fails. After reconnecting, use **Retry queued clock event** when it appears. The same capture keeps its identity, so retrying it cannot record duplicate time.
+The opened phone clock encrypts pending captures on this device, preserving their original times and command IDs across page closure or restart. You can clock in, time meal/rest breaks and clock out while disconnected. Reopen the app when connected and choose **Retry queued clock events**. Captures reconcile in order exactly once; **Clock history → Capture receipts** shows original and received times.
 
-Read the clock status before starting another event. This is a retry queue for clock captures, not a fully offline app. If the browser was closed or a clock capture cannot be accepted, ask a manager to record the missed time.
+Read the pending and unresolved counts. Rejected captures stay encrypted on this device and are submitted for manager review when authority is available. If access was revoked, the next authorized manager signing in on this device sees a count-only notice and can submit those originals for review. The manager records missing or corrected time separately, then resolves the capture with a reason. Signing out warns before deleting your saved local originals and key; cancel to retain and sync them.
 
 ## Record missed time
 

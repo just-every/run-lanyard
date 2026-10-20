@@ -1,23 +1,19 @@
-/* Form conveniences and a durable clock outbox. Application authorization stays on the server. */
+/* Form conveniences. Application authorization stays on the server. */
 (() => {
   document.querySelector('[data-signout]')?.addEventListener('click', async event => {
     const button = event.currentTarget; button.disabled = true
     try {
-      const response = await fetch('/auth/signout', {method:'POST',headers:{'content-type':'application/json'},body:'{}'})
-      if (!response.ok) throw new Error('Could not sign out')
-      location.assign('/signin')
+      await window.LanyardClock.signOut(button)
     } catch { button.disabled = false; button.textContent = 'Retry sign out' }
   })
   const timezone = document.body.dataset.timezone
   const wallFormat = new Intl.DateTimeFormat('en-GB-u-ca-gregory-nu-latn', {
     timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23',
   })
-  const displayFormat = new Intl.DateTimeFormat('en-US', {timeZone:timezone,dateStyle:'medium',timeStyle:'short'})
   const wallAt = instant => {
     const parts = Object.fromEntries(wallFormat.formatToParts(new Date(instant)).filter(p => p.type !== 'literal').map(p => [p.type,p.value]))
     return `${parts.year.padStart(4,'0')}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`
   }
-  const displayInstant = instant => `${displayFormat.format(new Date(instant))} (${timezone})`
   function localToUTC(value) {
     const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::(\d{2})(\.\d{1,3})?)?$/.exec(value)
     if (!match) throw new Error('Enter a complete local date and time.')
@@ -157,94 +153,5 @@
     })
   }
   const clock = document.querySelector('[data-clock]')
-  if (!clock) return
-  const form = clock.querySelector('[data-clock-form]')
-  const retry = clock.querySelector('[data-clock-retry]')
-  const message = clock.querySelector('[data-clock-status]')
-  const storageKey = `lanyard.clock.outbox.${clock.dataset.actor}`
-  let pending = null
-  let busy = false
-  const show = text => { message.textContent = text }
-  const update = () => {
-    retry.hidden = !pending
-    retry.disabled = busy
-    for (const button of form.querySelectorAll('button')) button.disabled = busy || Boolean(pending)
-  }
-  try {
-    const saved = localStorage.getItem(storageKey)
-    if (saved) pending = JSON.parse(saved)
-    if (pending && (!['clock.in','clock.out','clock.breakStart','clock.breakEnd'].includes(pending.name) || typeof pending.input?.commandId !== 'string' || typeof pending.input?.capturedAt !== 'string')) throw new Error('Invalid queue')
-    if (pending) show(`Queued ${{'clock.in':'clock-in','clock.out':'clock-out','clock.breakStart':'break start','clock.breakEnd':'break end'}[pending.name]} captured at ${displayInstant(pending.input.capturedAt)}. Retry to submit this same event.`)
-  } catch {
-    show('The saved clock queue cannot be read. Do not capture a replacement event until browser storage is available.')
-    for (const button of form.querySelectorAll('button')) button.disabled = true
-    return
-  }
-  const clear = () => { localStorage.removeItem(storageKey); pending = null }
-  async function send() {
-    if (!pending || busy) return
-    busy = true; update(); show('Sending captured clock event…')
-    let response
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 20000)
-    try {
-      response = await fetch('/api/lanyard/command', {method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',signal:controller.signal,body:JSON.stringify(pending)})
-    } catch {
-      show('Connection failed. Your original clock event is queued on this device; retry when connected.')
-      busy = false; update(); return
-    } finally { clearTimeout(timeout) }
-    let payload
-    try { payload = await response.json() } catch { payload = null }
-    if (response.ok && payload?.ok === true) {
-      try { clear() } catch {
-        show('Clock event accepted, but browser storage could not be cleared. Retry is safe with this same command ID.')
-        busy = false; update(); return
-      }
-      show('Clock event saved. Updating…')
-      window.location.reload(); return
-    }
-    const error = typeof payload?.error === 'string' ? payload.error : payload?.error?.message || payload?.message || `Request failed (${response.status}).`
-    if (response.status >= 400 && response.status < 500 && ![408,429].includes(response.status)) {
-      try { clear() } catch {
-        pending = null; busy = false; retry.hidden = true
-        for (const button of form.querySelectorAll('button')) button.disabled = true
-        show(`${error} The server rejected this event. Browser storage could not be cleared; clear this device’s saved Lanyard clock event before using the clock again.`)
-        return
-      }
-      show(`${error} This clock event was rejected and is not queued. Reload the page before capturing another event.`)
-      busy = false; update(); for (const button of form.querySelectorAll('button')) button.disabled = true; return
-    }
-    show(`${error} The original event remains queued; retry safely when available.`)
-    busy = false; update()
-  }
-  form.addEventListener('submit', event => {
-    event.preventDefault()
-    if (busy || pending) return
-    const input = {commandId:crypto.randomUUID(),capturedAt:new Date().toISOString()}
-    // A break button names its own command (BREAK-001); the form's command is clock-in, clock-out or break end.
-    const command = event.submitter?.dataset.command || form.dataset.command
-    // CLOCK-006: the punch's question fields travel as one answers object.
-    if (command === 'clock.in' || command === 'clock.out') {
-      const answers = {}
-      for (const [key, value] of new FormData(form)) if (key.startsWith('answer:') && value !== '') answers[key.slice(7)] = value
-      if (Object.keys(answers).length) input.answers = answers
-    }
-    if (command === 'clock.breakStart') input.kind = event.submitter.dataset.kind
-    if (command === 'clock.out') {
-      const data = new FormData(form), meal = data.get('meal'), note = data.get('breakNote')
-      input.breakMinutes = Number(data.get('breakMinutes'))
-      if (meal) input.meal = meal
-      if (data.get('waiveMeal')) input.waiveMeal = true
-      if (note) input.breakNote = note
-    }
-    const eventPayload = {name:command,input}
-    try { localStorage.setItem(storageKey,JSON.stringify(eventPayload)) } catch {
-      show('Browser storage is unavailable. The clock event was not sent; enable storage before capturing time.')
-      return
-    }
-    pending = eventPayload; update(); send()
-  })
-  retry.addEventListener('click', send)
-  window.addEventListener('online', () => { if(pending) send() })
-  update()
+  if (clock) window.LanyardClock.start(clock)
 })()
