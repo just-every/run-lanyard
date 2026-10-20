@@ -25,7 +25,7 @@ a manager edits a profile only for a person in their home cafe.
    the job of its matched shift.
 4. Read `/api/lanyard/state` to inspect profiles, job definitions, qualification
    conflicts, draft review warnings and exact `rateBasis` inputs on work and
-   payroll preparations. Staff get their own profile only. Coworker shift
+   payroll preparations. Managers read profiles and rate bases for their home cafe; the owner reads all. Staff get their own profile only. Coworker shift
    views and delegated agent views carry no rate snapshots. Turning employee
    estimates off also hides their profile's current and historical rates.
 

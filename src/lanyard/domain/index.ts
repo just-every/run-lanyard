@@ -127,8 +127,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.acaPlans=plansFor(s,a)
  result.acaCredits=manages?s.acaCredits.filter(r=>mayReadPerson(s,a,r.staffId)):[]
  result.acaReports=manages?acaReports(s,a,new Date().toISOString()):[]
- result.rateSnapshots=manages?s.rateSnapshots:[]
- result.workforce=agent?[]:s.workforce.filter(r=>manages||r.staffId===a.staffId).map(r=>!manages&&!earnSettings(s.earnings).estimates?{...r,rates:[],versions:r.versions.map(({rates,...v}:any)=>v)}:r)
+ result.rateSnapshots=manages?s.rateSnapshots.filter(r=>mayReadPerson(s,a,r.staffId)):[]
+ result.workforce=agent?[]:s.workforce.filter(r=>r.staffId===a.staffId||manages&&mayReadPerson(s,a,r.staffId)).map(r=>!manages&&!earnSettings(s.earnings).estimates?{...r,rates:[],versions:r.versions.map(({rates,...v}:any)=>v)}:r)
  result.clockissues=issuesFor(s,a)
  if(!manages&&!agent) {
   for(const k of ['availability','leave','clocks','timesheets','patterns'] as const)result[k]=s[k].filter(r=>r.staffId===a.staffId)
@@ -202,7 +202,10 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  if(!manages)result.autorules=[]
  if(a.role==='owner'){const now=new Date().toISOString();result.autorulePreviews=await Promise.all(s.autorules.filter(r=>r.status!=='revoked').map(r=>autoPreview(s,r,now)))}
  result.dayparts=manages?s.dayparts.filter(r=>!r.removed&&salesSite(s,a,r.site)):[]
- if(!manages){result.shifts=result.shifts.map(withoutRates);result.timesheets=result.timesheets.map(withoutRates);result.jobs=s.jobs.map(({versions,...r})=>r)}
+ const scopedRates=(r:any)=>manages&&mayReadPerson(s,a,r.staffId)?r:withoutRates(r)
+ result.shifts=result.shifts.map(scopedRates);result.timesheets=result.timesheets.map(scopedRates)
+ if(a.role==='manager')result.batches=result.batches.map((b:any)=>({...b,lines:b.lines.map(scopedRates)}))
+ if(!manages)result.jobs=s.jobs.map(({versions,...r})=>r)
  // AUDIT-001: each role reads only its own slice of the activity list.
  result.events=events?readable(s,a,(await events).results):[]
  return result

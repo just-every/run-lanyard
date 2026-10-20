@@ -100,6 +100,7 @@ export async function workforceApi(h) {
  const hidden=await h.state(alex.cookie);assert.deepEqual(hidden.workforce[0].rates,[]);assert.ok(hidden.workforce[0].versions.every(v=>!v.rates),'disabled estimates hide historical rates too')
  await h.cmd('earnings.save',{revision:hidden.earnings[0].revision,estimates:true,statementUrl:''})
  const a=await h.state(alex.cookie),b=await h.state(ben.cookie)
+ const foreignState=await h.state(foreign.cookie);assert.equal(foreignState.workforce.length,0);assert.ok(foreignState.shifts.every(x=>!x.rateBasis));assert.ok(foreignState.timesheets.every(x=>!x.rateBasis));assert.ok(foreignState.batches.every(b=>b.lines.every(x=>!x.rateBasis)));assert.deepEqual(foreignState.rateSnapshots,[])
  assert.equal(a.workforce.length,1);assert.equal(a.workforce[0].staffId,alex.id);assert.equal(b.workforce.length,1);assert.equal(b.workforce[0].staffId,ben.id)
  assert.ok(a.shifts.every(x=>!('rateBasis'in x)));assert.ok(a.timesheets.every(x=>!('rateBasis'in x)));assert.deepEqual(a.rateSnapshots,[])
  const key=await h.cmd('agent.create',{label:'Workforce preparation'}),agent=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${key.token}`})
