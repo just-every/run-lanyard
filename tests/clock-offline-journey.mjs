@@ -68,7 +68,8 @@ export async function offlineJourney() {
   assert.ok(saved.clocks[0].breaks[0].receivedAt>saved.clocks[0].breaks[0].start)
   await page.getByText('Clock history',{exact:true}).click()
   await page.getByText('Capture receipts',{exact:true}).click()
-  assert.match(await page.locator('.clock-list').innerText(),/received/)
+  const receiptTimes=await page.locator('.clock-list time').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('datetime')))
+  for(const receipt of [saved.clocks[0].receivedAt,saved.clocks[0].closedReceivedAt,saved.clocks[0].breaks[0].receivedAt,saved.clocks[0].breaks[0].endReceivedAt])assert.ok(receiptTimes.includes(receipt))
   assert.ok(saved.clocks[0].receivedAt>saved.clocks[0].start)
   await page.reload({waitUntil:'networkidle'})
   assert.equal((await h.state(alex.cookie)).timesheets.length,1,'reopening cannot duplicate accepted work')
@@ -105,7 +106,7 @@ export async function offlineJourney() {
   const recoveryNotice=page.locator('[data-clock-recovery]')
   await recoveryNotice.waitFor()
   const noticeText=await recoveryNotice.innerText()
-  assert.match(noticeText,/unsynced punches from a revoked session/i)
+  assert.equal(Number((await recoveryNotice.locator('[data-clock-recovery-count]').innerText()).match(/\d+/)?.[0]),1)
   assert.ok(!noticeText.includes('2026-10-13'));assert.ok(!noticeText.includes('Alex'))
   for(const width of [1440,390]){
    await page.setViewportSize({width,height:1000})
