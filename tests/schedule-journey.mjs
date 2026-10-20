@@ -29,7 +29,8 @@ export async function scheduleJourney(){
    const page=await context.newPage(),errors=[];page.on('pageerror',e=>{errors.push(e.message);console.log('SCHEDULE-001 page error:',e.message)})
    const open=()=>page.goto(h.origin+`/app/schedule?week=${week}&site=all&view=draft`,{waitUntil:'networkidle'})
    await open();const form=()=>page.locator('[data-roster-form]'),rows=()=>form().locator('.shift-input')
-   const submit=async(button,command)=>{const [response]=await Promise.all([page.waitForResponse(r=>r.url().includes('/app/action?name='+command)),page.waitForEvent('load'),button.click()]);assert.equal(response.status(),200);const html=await response.text();assert.equal(html.match(/<div class="notice error"[^>]*>(.*?)<\/div>/s)?.[1]??null,null,'command must save without an application error');await page.waitForLoadState('networkidle');return new URLSearchParams(response.request().postData())}
+   const submit=async(button,command)=>{const [response]=await Promise.all([page.waitForResponse(r=>r.url().includes('/app/action?name='+command)),page.waitForEvent('load'),button.click()]);assert.equal(response.status(),200);const html=await response.text();assert.equal(html.match(/<div class="notice error"[^>]*>(.*?)<\/div>/s)?.[1]??null,null,JSON.stringify({width,command,input:Object.fromEntries(new URLSearchParams(response.request().postData()))}));await page.waitForLoadState('networkidle');return new URLSearchParams(response.request().postData())}
+   const validSpans=async(stage)=>{const values=await rows().evaluateAll(rs=>rs.map(r=>Object.fromEntries(['staffId','start','end'].map(k=>[k,r.querySelector(`[data-shift="${k}"]`).value]))).filter(r=>r.staffId));for(const value of values)assert.ok(value.end>value.start&&value.start.slice(0,10)===value.end.slice(0,10),JSON.stringify({stage,width,value,values}))}
    const fill=async(row,who,day)=>{await row.locator('[data-shift=staffId]').selectOption(people[who].id);await row.locator('[data-shift=start]').fill(date(week,day)+'T08:00');await row.locator('[data-shift=end]').fill(date(week,day)+'T16:00');await row.locator('[data-shift=breakMinutes]').fill('30');await row.locator('[data-shift=label]').fill(who%2?'Kitchen':'Counter');await row.locator('[data-shift=site]').fill(who<2?'Harbor':'Market')}
    for(let i=0;i<8;i++){if(i){await form().locator('[data-add-shift]').click();assert.equal(await rows().count(),i+1,JSON.stringify(await page.evaluate(()=>({url:location.pathname,handler:!!document.querySelector('[data-add-shift]')?.onclick,status:document.querySelector('[data-editor-status]')?.textContent,board:document.querySelector('[data-editor-board]')?.textContent}))))}await fill(rows().nth(i),i%4,Math.floor(i/4))}
    await page.waitForFunction(()=>document.querySelectorAll('[data-editor-board] .editor-shift').length===8)
@@ -40,25 +41,33 @@ export async function scheduleJourney(){
    // A real drag changes one day while preserving the span. Keyboard duration resizing is also available on mobile.
    const movedIndex=await rows().evaluateAll((rs,{id,week})=>rs.findIndex(r=>r.querySelector('[data-shift=staffId]').value===id&&r.querySelector('[data-shift=start]').value.slice(0,10)===week),{id:people[0].id,week});const movedRow=rows().nth(movedIndex),before=await movedRow.locator('[data-shift=start]').inputValue()
    await form().locator('[data-editor-view]').selectOption('week')
-   if(width===1440)await page.locator(`.editor-shift[data-row="${movedIndex}"]`).dragTo(page.locator(`.editor-day[data-date="${date(week,2)}"]`),{sourcePosition:{x:10,y:10},targetPosition:{x:10,y:10}})
+   if(width===1440){
+    const source=page.locator(`.editor-shift[data-row="${movedIndex}"]`),target=page.locator(`.editor-day[data-date="${date(week,2)}"]`)
+    await source.scrollIntoViewIfNeeded();const from=await source.boundingBox(),to=await target.boundingBox();assert.ok(from&&to)
+    await page.mouse.move(from.x+12,from.y+12);await page.mouse.down();await page.mouse.move(from.x+35,from.y+24,{steps:5})
+    await page.locator('.editor-shift[data-dragging]').waitFor()
+    const dropY=Math.max(to.y+8,Math.min(from.y+12,to.y+to.height-8));await page.mouse.move(to.x+to.width/2,dropY,{steps:10});await page.mouse.move(to.x+to.width/2+2,dropY+1,{steps:2})
+    if(process.env.SCHEDULE_SCREENS){await mkdir(process.env.SCHEDULE_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.SCHEDULE_SCREENS,'dragging-1440.png')})}
+    await page.mouse.up()
+   }
    else{const end=await movedRow.locator('[data-shift=end]').inputValue();await movedRow.locator('[data-shift=start]').fill(date(week,2)+before.slice(10));await movedRow.locator('[data-shift=end]').fill(date(week,2)+end.slice(10));await movedRow.locator('[data-shift=end]').press('Tab')}
-   assert.equal((await movedRow.locator('[data-shift=start]').inputValue()).slice(0,10),date(week,2),await form().locator('[data-editor-status]').innerText());assert.notEqual(await movedRow.locator('[data-shift=start]').inputValue(),before)
+   assert.equal((await movedRow.locator('[data-shift=start]').inputValue()).slice(0,10),date(week,2),await form().locator('[data-editor-status]').innerText());assert.notEqual(await movedRow.locator('[data-shift=start]').inputValue(),before);await validSpans('move')
    const slider=page.locator('.editor-shift input[type=range]').first(),rowIndex=Number(await slider.locator('..').locator('..').getAttribute('data-row')),oldEnd=await rows().nth(rowIndex).locator('[data-shift=end]').inputValue()
    await slider.focus();await slider.press('ArrowRight');await slider.press('Tab')
-   assert.notEqual(await rows().nth(rowIndex).locator('[data-shift=end]').inputValue(),oldEnd)
+   assert.notEqual(await rows().nth(rowIndex).locator('[data-shift=end]').inputValue(),oldEnd);await validSpans('resize')
    const detail=form().locator('details').filter({has:page.locator('[data-bulk-apply]')});await detail.locator('summary').click()
    const copyIndices=await rows().evaluateAll((rs,{ids,week})=>ids.map(id=>rs.findIndex(r=>r.querySelector('[data-shift=staffId]').value===id&&r.querySelector('[data-shift=start]').value.slice(0,10)===week)),{ids:[people[1].id,people[2].id],week});for(const i of copyIndices)await rows().nth(i).locator('[data-select-shift]').check()
-   await form().locator('[data-copy-shifts]').click();assert.equal(await rows().count(),11,'eight originals, two copies and the blank row')
+   await form().locator('[data-copy-shifts]').click();await validSpans('copy');assert.equal(await rows().count(),11,'eight originals, two copies and the blank row')
    for(const i of copyIndices)await rows().nth(i).locator('[data-select-shift]').uncheck()
    for(const i of [9,10])await rows().nth(i).locator('[data-select-shift]').check()
    await form().locator('[data-bulk=days]').fill('3');await form().locator('[data-bulk=breakMinutes]').fill('20');await form().locator('[data-bulk=label]').fill('Closing');await form().locator('[data-bulk=site]').fill('Harbor')
-   await form().locator('[data-bulk-apply]').click();assert.equal(await rows().nth(9).locator('[data-shift=breakMinutes]').inputValue(),'20')
-   await form().locator('[data-undo-shift]').click();assert.equal(await rows().nth(9).locator('[data-shift=breakMinutes]').inputValue(),'30')
-   await form().locator('[data-bulk-apply]').click()
+   await form().locator('[data-bulk-apply]').click();await validSpans('bulk move');assert.equal(await rows().nth(9).locator('[data-shift=breakMinutes]').inputValue(),'20')
+   await form().locator('[data-undo-shift]').click();await validSpans('undo');assert.equal(await rows().nth(9).locator('[data-shift=breakMinutes]').inputValue(),'30')
+   await form().locator('[data-bulk-apply]').click();await validSpans('reapply bulk move')
    // Bulk assignment can use another person; this one does not overlap their current work.
    for(const i of [9,10])await rows().nth(i).locator('[data-select-shift]').uncheck()
    await rows().nth(9).locator('[data-select-shift]').check();await form().locator('[data-bulk=staffId]').selectOption(people[0].id);await form().locator('[data-bulk=days]').fill('0');await form().locator('[data-bulk-apply]').click()
-   assert.equal(await rows().nth(9).locator('[data-shift=staffId]').inputValue(),people[0].id)
+   assert.equal(await rows().nth(9).locator('[data-shift=staffId]').inputValue(),people[0].id);await validSpans('bulk assign')
    await form().locator('[data-editor-view]').selectOption(date(week,3));assert.equal(await page.locator('.editor-day').count(),1)
    await form().locator('[data-editor-view]').selectOption('week')
    const submitted=await submit(form().getByRole('button',{name:'Prepare draft',exact:true}),'roster.prepare');assert.equal(JSON.parse(submitted.get('shifts')).length,10)

@@ -7,6 +7,7 @@
 .editor-shift{padding:8px;background:var(--hibiscus-wash);border:1px dashed var(--claret);border-radius:var(--r-input);margin:8px 0;overflow-wrap:anywhere;cursor:grab}
 .editor-shift label{display:block;font-size:12px}
 .editor-shift input[type=range]{width:100%;min-width:0;padding:0}
+.editor-shift[data-dragging]{opacity:.65}
 .editor-shift strong,.editor-shift small{display:block}
 .shift-input{grid-template-columns:repeat(3,minmax(0,1fr));border-bottom:1px solid var(--rule);padding:12px 0}
 .schedule-review table{width:100%}.schedule-review td,.schedule-review th{padding:6px;text-align:left}
