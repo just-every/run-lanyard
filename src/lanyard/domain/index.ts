@@ -285,7 +285,8 @@ export async function previewSchedule(db:D1Database,identity:Actor,input:unknown
 /** ACA-001: native role/scoped report and an hours file for the filer; no provider action. */
 export async function acaRead(db:D1Database,identity:Actor,id:string,asOf:string,format:'json'|'csv') {
  const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
- const report=acaReports(s,f,asOf).find(r=>r.plan.id===id);need(report,'Not found',404)
+ const at=instant(asOf,'asOf');need(at<=new Date().toISOString(),'ACA reports cannot finalize a future reporting date')
+ const report=acaReports(s,f,at).find(r=>r.plan.id===id);need(report,'Not found',404)
  if(format==='json')return report
  const csv=acaCsv(report)
  await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,a.role,'aca.download',id,new Date().toISOString()).run()

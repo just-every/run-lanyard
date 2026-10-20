@@ -26,7 +26,7 @@ export async function acaJourney() {
    assert.ok((await page.locator('#aca').innerText()).includes('Pending measurement'))
    await shot('report')
    const evidence=page.locator('#aca details').filter({has:page.locator('summary').filter({hasText:'Ben · monthly hours and sources'})}).first()
-   await evidence.locator('summary').first().click();assert.ok((await evidence.innerText()).includes('employer-recorded'))
+   await evidence.locator('summary').first().click();await evidence.locator('li').first().waitFor({state:'visible'});assert.ok((await evidence.innerText()).includes('employer-recorded'))
    await shot('sources');await evidence.locator('summary').first().click()
    await page.getByText('Define a measurement plan',{exact:true}).click()
    const planForm=page.locator('form[action*="name=aca.plan.save"]'),year=new Date().getUTCFullYear()+1
