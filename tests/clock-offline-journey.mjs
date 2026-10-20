@@ -94,8 +94,8 @@ export async function offlineJourney() {
   await page.waitForFunction(()=>document.querySelectorAll('[data-clock-events] li').length===1)
   await h.cmd('staff.save',{id:alex.id,revision:1,name:alex.name,email:alex.email,payrollId:'ALEX',role:'staff',active:false})
   disconnected=false
-  await page.getByRole('button',{name:/Retry queued clock/}).click()
-  await page.waitForFunction(()=>document.querySelector('[data-clock-events]').textContent.includes('Unresolved'))
+  // Access was revoked while the employee was offline: no employee retry precedes manager sign-in.
+  await h.cmd('clock.in',{commandId:'revoked-direct',capturedAt:'2026-10-13T14:00:00Z'},alex.cookie,403)
   assert.equal((await h.state()).clocks.length,1)
   assert.equal((await h.state()).clockissues.length,1)
   // The next manager sign-in sees only a count until they submit the originals for review.
@@ -120,6 +120,8 @@ export async function offlineJourney() {
   await h.cmd('staff.save',{id:alex.id,revision:2,name:alex.name,email:alex.email,payrollId:'ALEX',role:'staff',active:true})
   await context.addCookies([{name,value:value.join('='),url:h.origin}])
   await page.close();page=await context.newPage();await open()
+  await page.waitForFunction(()=>document.querySelector('[data-clock-events]').textContent.includes('Unresolved'))
+  assert.equal((await h.state()).clocks.length,1,'a manager-reviewed original never replays after reactivation')
   for(const width of [1440,390]){
    await page.setViewportSize({width,height:1000})
    if(process.env.CLOCK_SCREENS)await page.screenshot({path:join(process.env.CLOCK_SCREENS,`unresolved-${width}.png`),fullPage:true})
