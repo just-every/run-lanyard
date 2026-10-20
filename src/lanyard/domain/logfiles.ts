@@ -40,8 +40,9 @@ export async function prepareLogFiles(bucket:R2Bucket,input:unknown):Promise<{fi
    const bytes=item.blob?new Uint8Array(await item.blob.arrayBuffer()):Uint8Array.from(atob(item.data!),ch=>ch.charCodeAt(0))
    const sha256=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(v=>v.toString(16).padStart(2,'0')).join('')
    const id=crypto.randomUUID(),file={id,key:`logbook/${id}`,name:item.name,type:item.type,size:item.size,sha256}
+   created.push(file.key)
    await bucket.put(file.key,bytes,{httpMetadata:{contentType:file.type}})
-   created.push(file.key);files.push(file)
+   files.push(file)
   }
  } catch(error) {
   try {await rollback()}
