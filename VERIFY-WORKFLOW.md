@@ -1,3 +1,10 @@
+Lanyard runs two push jobs in parallel: `app` keeps the production build,
+typecheck, product, site and runtime tests plus RER's hosted-output and hydration
+checks; `archive` runs the complete public CLI archive journey. Both must pass
+the stable `verify` aggregate. Each job has a 15-minute limit. The seed-owned
+`scripts/verify-app.mjs` rejects unknown `SEED_VERIFY_SHARD` values; without a
+selection, ordinary local verification runs every command.
+
 # Adopt the seed Verify workflow
 
 New foundation compositions and standalone reference exports receive

@@ -7,11 +7,17 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  checks:
+    name: ${{ matrix.shard }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [app, archive]
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 15
     env:
       CI: 'true'
+      SEED_VERIFY_SHARD: ${{ matrix.shard }}
       WRANGLER_SEND_METRICS: 'false'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1; action runtime Node 24
@@ -28,6 +34,21 @@ jobs:
         run: node scripts/edition-authoring/cli.mjs check
       - run: npm install --global pnpm@10.12.4
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      - if: matrix.shard == 'app'
+        run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec rer check --profile first-party
-      - run: pnpm exec rer verify --no-queue
+      - if: matrix.shard == 'app'
+        run: pnpm exec rer verify --no-queue
+      - if: matrix.shard == 'archive'
+        run: pnpm run verify:app
+
+  verify:
+    if: always()
+    needs: checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    steps:
+      - name: Require both verification shards
+        env:
+          RESULT: ${{ needs.checks.result }}
+        run: test "$RESULT" = success
