@@ -10,6 +10,12 @@ Staff capture worked time on their phone. A manager reviews each timesheet revis
 
 Clocking out creates a submitted timesheet. It appears under the week in **Time**. The app displays dates in the venue time zone, including when your phone is in another time zone.
 
+## Change job during a shift
+
+While clocked in, choose another **Job** (and **Cafe**, when your profile lists more than one) beside **Clock out**, then select **Change job**. You stay clocked in; the clock shows what you are working now and each change. A punch starts on its shift's job and cafe. Lanyard refuses a job you are not qualified for (job, skills and certifications on your profile), a cafe not listed on your profile and, where a cafe limits its web clock to approved networks, a change from another network (or flags it for approval). Changes wait for an ended break and keep their original time if the connection drops.
+
+At clock-out the punch becomes one timesheet split into job segments, which replace any work areas planned on the shift. Payable minutes are shared across segments by elapsed time (whole minutes, the earlier segment taking a tied remainder). Managers see each segment's job, cafe, hours, pay code (regular) and job rate; staff see their own segments without rates. Payroll files carry one row per job and cafe; a later correction exports only each segment's signed difference. Weekly overtime counts the whole punch, and an automatic approval rule always leaves a changed punch for a person.
+
 ## If the connection drops
 
 The opened phone clock encrypts pending captures on this device, preserving their original times and command IDs across page closure or restart. You can clock in, time meal/rest breaks and clock out while disconnected. Reopen the app when connected and choose **Retry queued clock events**. Captures reconcile in order exactly once; **Clock history → Capture receipts** shows original and received times.

@@ -1,6 +1,6 @@
 /* Actor-scoped encrypted captures. The server alone decides whether a capture is accepted. */
 (() => {
-  const names = {'clock.in':'Clock in','clock.out':'Clock out','clock.breakStart':'Start break','clock.breakEnd':'End break'}
+  const names = {'clock.in':'Clock in','clock.out':'Clock out','clock.breakStart':'Start break','clock.breakEnd':'End break','clock.transfer':'Change job'}
   const encoder = new TextEncoder(), decoder = new TextDecoder()
   const stopped = new Set(), channels = new Map()
   const databaseName = actor => `lanyard.clock.outbox.${actor}`
@@ -94,6 +94,10 @@
       return clock
     }
     if (capture.name === 'clock.breakEnd' && current && at > current.start) { current.end = at; return clock }
+    if (capture.name === 'clock.transfer' && !current && at > clock.start && (clock.transfers || []).every(item => at > item.at) && (clock.breaks || []).every(item => at >= item.end) && capture.input.job) {
+      clock.transfers = [...(clock.transfers || []),{at,job:capture.input.job,site:capture.input.site ?? null}]
+      return clock
+    }
     throw new Error('This event does not follow the current clock. Resolve the earlier captures first.')
   }
   function project(state) {
@@ -252,6 +256,10 @@
         if (Object.keys(answers).length) input.answers = answers
       }
       if (name === 'clock.breakStart') input.kind = event.submitter.dataset.kind
+      if (name === 'clock.transfer') {
+        input.job = data.get('transferJob') || ''
+        if (data.get('transferSite')) input.site = data.get('transferSite')
+      }
       if (name === 'clock.out') {
         input.breakMinutes = Number(data.get('breakMinutes'))
         if (data.get('meal')) input.meal = data.get('meal')

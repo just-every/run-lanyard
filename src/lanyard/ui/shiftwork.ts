@@ -25,7 +25,10 @@ export function shiftworkCard(s:any,w:Week,back:string) {
  if(!rendered&&!prior.length)return ''
  return card('Shift handover',rendered+(prior.length?disclosure('Prior handover responses',`<ul class="journal">${prior.map(a=>response(s,a)).join('')}</ul>`):''),'','handover')
 }
+// Each segment's job (and its cafe after a CLOCK-008 change), minutes, pay code and retained rate.
+const rateOf=(b:any)=>{const v=[...new Set((b?.segments??[]).map((x:any)=>x.cents))];return v.length&&v.every(x=>typeof x==='number')?` · ${v.map((x:any)=>`$${(x/100).toFixed(2)}`).join('–')}/hr`:''}
 export function segmentTime(s:any,t:any) {
  if(!t.workSegments?.length)return ''
- return `<small>Work areas</small>${t.workSegments.map((p:any)=>`<small>${h(rows(s,'jobs').find(j=>j.id===p.job)?.name??'Former job')} / ${h(p.area)}: ${h(hours(p.minutes))} hrs${typeof p.rateBasis?.costCents==='number'?` · $${h((p.rateBasis.costCents/100).toFixed(2))}`:p.rateBasis?' · cost incomplete':''}</small>`).join('')}<small>Total ${h(hours(t.workSegments.reduce((n:number,p:any)=>n+p.minutes,0)))} hrs; enclosing time ${h(hours(t.minutes))} hrs.</small>`
+ const moved=t.segmentPlan?.transfers
+ return `<small>${moved?'Job segments':'Work areas'}</small>${t.workSegments.map((p:any)=>`<small>${h(rows(s,'jobs').find(j=>j.id===p.job)?.name??(p.job?'Former job':'No job'))}${moved?(p.site?` at ${h(p.site)}`:''):` / ${h(p.area)}`}: ${h(hours(p.minutes))} hrs · regular${rateOf(p.rateBasis)}${typeof p.rateBasis?.costCents==='number'?` · $${h((p.rateBasis.costCents/100).toFixed(2))}`:p.rateBasis?' · cost incomplete':''}</small>`).join('')}<small>Total ${h(hours(t.workSegments.reduce((n:number,p:any)=>n+p.minutes,0)))} hrs; enclosing time ${h(hours(t.minutes))} hrs.</small>`
 }

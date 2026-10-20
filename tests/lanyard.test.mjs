@@ -1762,3 +1762,7 @@ test('SCHEDULE-004: native shift handover keeps revisioned notes/checklists and 
 test('SCHEDULE-004: blocker files, immutable job-area reconciliation, labor costs and once-only split payroll with signed corrections through native HTTP',()=>run(async h=>{const {handoverApi}=await import('./shiftwork-api.mjs');await handoverApi(h)}))
 
 test('SCHEDULE-004: managers publish counter/kitchen handovers, staff complete tasks with blocker files and managers reconcile labor and export payroll at 1440 and 390',async()=>{const {handoverBrowser}=await import('./shiftwork-browser.mjs');await handoverBrowser()})
+
+test('CLOCK-008: a phone job change splits the punch into qualified job segments with retained rates, refuses unqualified jobs and ineligible or off-network cafes, exports split payroll with signed per-job corrections and counts every segment toward weekly overtime through native HTTP',()=>run(async h=>{const {transferApi}=await import('./transfer-journey.mjs');await transferApi(h)}))
+
+test('CLOCK-008: staff change job from the phone clock and managers approve the job segments with rates and pay codes and export split payroll at 1440 and 390',async()=>{const {transferBrowser}=await import('./transfer-journey.mjs');await transferBrowser()})

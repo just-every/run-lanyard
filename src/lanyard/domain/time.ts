@@ -2,6 +2,7 @@
 // Glove field capture preserves device time and command identity on retries.
 import {rateBasis} from './workforce'
 import {segmentPlan,reconcileSegments,segmentBasis} from './worksegments'
+import {transferPlan} from './transfers'
 import {checkClockIn} from './clockrules'
 import {mealAtClockOut} from './mealrules'
 import {roundAtCapture,roundAtApproval} from './rounding'
@@ -52,7 +53,7 @@ function closeClock(c:Context,open:Row,at:string,breakMinutes:number,meal:unknow
  const w=work({start:open.start,end:at,breakMinutes:m.breakMinutes});clearOverlap(c,open.staffId,w)
  const check=checkBreaks(c.s,open.staffId,open.shiftId,w,timed,words.waive),out=breakOutcome(check,{exceptions:flags}),all:string[]=out.exceptions??flags
  const facts={...(timed.length?{breaks:timed}:{}),...(check?.waiver?{breakWaiver:{text:WAIVER,by:c.a.id,at:c.now}}:{}),...(words.note?{breakAttestation:{text:ATTEST_BREAKS,note:words.note,by:c.a.id,at:c.now}}:{}),...(out.premiums?.length?{premiums:out.premiums}:{})}
- const entry=put(c,'timesheets',{staffId:open.staffId,...w,...roundAtCapture(c.s,open,at,w.breakMinutes,w.minutes),segmentPlan:segmentPlan(c.s,open.staffId,w,open.shiftId),status:'submitted',reason,corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(all.length?{exceptions:all}:{}),...(m.deduction?{mealDeduction:m.deduction}:{}),...(open.network?{network:open.network}:{}),...facts,...extra});entry.rootId=entry.id
+ const entry=put(c,'timesheets',{staffId:open.staffId,...w,...roundAtCapture(c.s,open,at,w.breakMinutes,w.minutes),segmentPlan:transferPlan(c.s,open,at)??segmentPlan(c.s,open.staffId,w,open.shiftId),status:'submitted',reason,corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(all.length?{exceptions:all}:{}),...(m.deduction?{mealDeduction:m.deduction}:{}),...(open.network?{network:open.network}:{}),...facts,...extra});entry.rootId=entry.id
  const clock=put(c,'clocks',{...open,end:at,status:'closed',timesheetId:entry.id,closedReceivedAt:c.now,...extra},open);c.entity=entry.id
  return {clock,timesheet:entry}
 }

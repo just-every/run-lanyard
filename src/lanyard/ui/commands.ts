@@ -21,6 +21,7 @@ const human = [
  ['cover.approve','Manager','id, revision: an accepted offer; moves the shift to that person'],
  ['clock.in','Linked staff','commandId, capturedAt'],
  ['clock.out','Linked staff','commandId, capturedAt, breakMinutes'],
+ ['clock.transfer','Linked staff','commandId, capturedAt, job, site?: change job (or eligible cafe) on your open clock'],
  ['time.approve','Manager','id, revision; another person’s submitted time'],
  ['time.edit / time.return','Manager','id, revision, reason; edit adds start, end, breakMinutes (captured times are kept)'],
  ['time.request','Linked staff','start, end, breakMinutes, reason, attest: true; corrects?: your latest approved timesheet ID'],

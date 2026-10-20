@@ -28,7 +28,7 @@ export function reconcileSegments(s:State,staffId:string,x:Record<string,any>,pl
  if(!plan)return []
  const start=Date.parse(x.start),end=Date.parse(x.end),origin=Date.parse(plan.shiftStart)
  const pieces=plan.segments.map((p:any,i:number)=>{
-  const a=Math.max(start,i===0?start:origin+p.from*60000),b=Math.min(end,i===plan.segments.length-1?end:origin+p.until*60000)
+  const a=Math.max(start,i===0?start:Math.round(origin+p.from*60000)),b=Math.min(end,i===plan.segments.length-1?end:Math.round(origin+p.until*60000))
   return {...p,start:new Date(a).toISOString(),end:new Date(Math.max(a,b)).toISOString(),weight:Math.max(0,b-a)}
  }).filter((p:any)=>p.weight>0)
  const total=pieces.reduce((n:number,p:any)=>n+p.weight,0)
@@ -36,7 +36,8 @@ export function reconcileSegments(s:State,staffId:string,x:Record<string,any>,pl
  for(const p of pieces)p.minutes=Math.floor(x.minutes*p.weight/total)
  let left=x.minutes-pieces.reduce((n:number,p:any)=>n+p.minutes,0)
  for(const p of [...pieces].sort((a,b)=>(x.minutes*b.weight/total-b.minutes)-(x.minutes*a.weight/total-a.minutes)||a.from-b.from))if(left-->0)p.minutes++
- return pieces.map(({weight,from,until,...p}:any)=>({...p,site:plan.site,rateBasis:rateBasis(s,staffId,{...p,site:plan.site})}))
+ // CLOCK-008 transfer segments carry their own cafe; SCHEDULE-004 areas share the plan's.
+ return pieces.map(({weight,from,until,...p}:any)=>({...p,site:p.site||plan.site,rateBasis:rateBasis(s,staffId,{...p,site:p.site||plan.site})}))
 }
 export function segmentBasis(staffId:string,segments:any[]) {
  return {staffId,job:'',site:segments[0]?.site??'',workSegments:segments,segments:segments.flatMap(p=>p.rateBasis.segments.map((v:any)=>({...v,job:p.job,area:p.area}))),costCents:segments.some(p=>p.rateBasis.costCents===null)?null:segments.reduce((n,p)=>n+p.rateBasis.costCents,0)}
