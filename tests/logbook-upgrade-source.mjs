@@ -12,5 +12,5 @@ try{
  const edit=await h.cmd('log.save',{id:first.id,revision:read.revision,date:'2026-10-12',category:'incident',text:'Corrected closing note'},priya.cookie)
  const last=await h.cmd('log.read',{id:edit.id,revision:edit.revision},omar.cookie)
  assert.equal(last.contentRevision,undefined,'capture genuine pre-content-revision production records')
- await writeFile(process.argv[3],JSON.stringify({id:first.id,fileId:first.attachment.id,omar:omar.email,priya:priya.email,rawReadRevisions:last.reads.map(r=>r.revision)}),{mode:0o600})
+ await writeFile(process.argv[3],JSON.stringify({id:first.id,fileId:first.attachment.id,omar:omar.email,priya:priya.email,rawReadRevisions:last.reads.map(r=>r.revision),originalReads:last.reads}),{mode:0o600})
 }finally{await h.close()}
