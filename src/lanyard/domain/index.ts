@@ -6,6 +6,7 @@ import {time} from './time'
 import {payroll} from './payroll'
 import {settings} from './settings'
 import {cover} from './cover'
+import {coverageCases} from './coverage'
 import {forecast} from './forecast'
 import {team,teamFor} from './team'
 import {approvals} from './approvals'
@@ -43,7 +44,7 @@ import {dayparts,intervalReport} from './intervals'
 import {autoRules,autoApprove,preview as autoPreview} from './autorules'
 export {actor}
 export type {Actor} from './model'
-const commands=['autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
+const commands=['cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -141,6 +142,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
   result.overtime=upcoming(s,a,now)
   // CLOCK-004: the live attendance board for the manager's cafe (every cafe for the owner).
   result.attendance=board(s,a,now)
+  result.coverageCases=coverageCases(s,a,now)
   // DASH-001: today's and this week's operations for the manager's cafe (every cafe for the owner).
   result.dashboard=dashboard(s,a,now)
   // COVER-004: each open shift's access-to-hours standing where its cafe has the rule on.
@@ -150,6 +152,9 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
    const moves=[...(give?[{to:w.toId,shift:give,skip:take?[take.id]:[]}]:[]),...(take&&give?[{to:w.fromId,shift:take,skip:[give.id]}]:[])]
    return {...w,cost:moves.map(m=>cost(project(s,m.to,weekOf(s,m.shift.start),now,[m.shift],m.skip)))}})
  }
+ // COVER-003: pending offers expire at shift end; history stays intact.
+ result.offers=result.offers.map((o:any)=>{const x=s.shifts.find(x=>x.id===o.shiftId);return x?{...o,legacy:!Number.isInteger(o.shiftRevision),expiresAt:x.end,status:['sent','accepted'].includes(o.status)&&x.end<=new Date().toISOString()?'expired':o.status}:o})
+ if(!manages)result.coverageCases=[]
  // CLOCK-004: who is handling an attendance alert is for managers only.
  if(!manages)result.attendacks=[]
  // COVER-004: employment type and start date: managers read everyone's, a person their own; agents none.
@@ -250,4 +255,10 @@ export async function intervalsRead(db:D1Database,identity:Actor,site:string,dat
 export async function autoRulePreview(db:D1Database,identity:Actor,id:string) {
  const a=await live(db,identity);need(a.role==='owner','Owner required',403);const s=await load(db)
  return autoPreview(s,get(s,'autorules',id),new Date().toISOString())
+}
+
+/** COVER-003: the manager's coverage cases at an explicit reporting instant. */
+export async function coverageRead(db:D1Database,identity:Actor,asOf:string,site:string) {
+ const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
+ return coverageCases(s,f,instant(asOf,'asOf'),site)
 }

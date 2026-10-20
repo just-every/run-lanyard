@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -125,6 +125,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       const attached = path.match(/^\/api\/lanyard\/notes\/([\w-]+)\/files\/([\w-]+)$/)
       if (attached) { const { bytes, name, type } = await noteAttachment(env.DB, who, attached[1], attached[2]); return new Response(bytes, { headers: { ...headers, 'content-type': type, 'content-disposition': `attachment; filename="${name.replace(/[^\w. -]/g, '_')}"`, 'x-content-type-options': 'nosniff' } }) }
       if (path === '/api/lanyard/overtime') return json(await overtimeAlerts(env.DB, who, url.searchParams.get('week') ?? '', url.searchParams.get('asOf') ?? new Date().toISOString().replace(/\.\d+Z$/, 'Z')))
+      if (path === '/api/lanyard/coverage') return json({ rows: await coverageRead(env.DB, who, url.searchParams.get('asOf') ?? new Date().toISOString(), url.searchParams.get('site') ?? '') })
       if (path === '/api/lanyard/attendance') return json(await attendanceBoard(env.DB, who, url.searchParams.get('asOf') ?? new Date().toISOString().replace(/\.\d+Z$/, 'Z'), url.searchParams.get('site') ?? ''))
       const story = path.match(/^\/api\/lanyard\/shifts\/([\w-]+)\/history$/)
       if (story) return json(await scheduleHistory(env.DB, who, 'shift', story[1]))

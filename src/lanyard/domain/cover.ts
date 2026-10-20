@@ -7,6 +7,7 @@ import {localDate} from './settings'
 import {patternFit} from './patterns'
 import {replacementOrder,tiers} from './offerorder'
 import {siteOf} from './team'
+import {coverageCase} from './coverage'
 
 const WEEK_LIMIT=40*60, DAY_LIMIT=8*60
 type Fit={staffId:string;before:number;after:number;reason?:'overtime'|'already on'|'unavailable'|'time off';shiftId?:string;overlap?:number}
@@ -36,31 +37,64 @@ export function shortlist(s:State,shift:Row) {
  const preferred=(f:Fit)=>patternFit(s,f.staffId,shift)?.preferred?0:1
  return {qualified:team.filter(f=>!f.reason).sort((a,b)=>preferred(a)-preferred(b)||a.after-b.after),leftOut:team.filter(f=>f.reason).sort((a,b)=>order[a.reason!]-order[b.reason!]||(a.overlap??0)-(b.overlap??0)||a.after-b.after)}
 }
+/** A manager acts on the same cafe scope as the live attendance board. */
+function manages(c:Context,r:Row) {
+ manager(c.a)
+ if(c.a.role==='manager')need((c.s.staff.find(p=>p.id===c.a.staffId)?.site??'')===siteOf(c.s,r),'Only a manager of this cafe',403)
+}
+/** Each offer pins the assignment revision and expires at its real shift end.
+ * With no saved cafe rule, the preferred-first shortlist is offered in that order;
+ * an explicitly saved COVER-004 tier rule keeps its own ranking and opening times. */
+function outreach(c:Context,r:Row,list:ReturnType<typeof shortlist>) {
+ const log=tiers(c.s,replacementOrder(c.s,siteOf(c.s,r)),list.qualified,r,c.now)
+ return log.tiers.flatMap((t,tier)=>t.staffIds.map(id=>{const f=list.qualified.find(v=>v.staffId===id)!;return put(c,'offers',{shiftId:r.id,shiftRevision:r.revision,fromStaffId:r.staffId,staffId:id,before:f.before,after:f.after,status:'sent',sentAt:t.opensAt,tier:tier+1,opensAt:t.opensAt,expiresAt:r.end})}))
+}
 export function cover(c:Context,name:string,p:Record<string,any>) {
  if(name==='shift.callout') {
   keys(p,['id','revision','note']);const r=get(c.s,'shifts',p.id);exact(r,p)
-  if(c.a.role!=='owner'&&c.a.role!=='manager')need(r.staffId===self(c.a),'Only your own shift',403)
+  if(c.a.role==='owner'||c.a.role==='manager')manages(c,r)
+  else need(r.staffId===self(c.a),'Only your own shift',403)
   need(c.a.role!=='agent','Staff or manager required',403);need(r.status==='published','Only a published shift can be called out',409)
   need(!r.callout,'This shift is already called out',409);need(r.end>c.now,'This shift has already ended',409)
   const list=shortlist(c.s,r),note=text(p.note,'note',280,true)
-  const shift=put(c,'shifts',{...r,callout:{staffId:r.staffId,note,at:c.now,by:c.a.id,qualified:list.qualified,leftOut:list.leftOut}},r)
-  // COVER-004: the cafe's replacement order; a later tier's offer reaches its person at its opening time.
-  const log=tiers(c.s,replacementOrder(c.s,siteOf(c.s,r)),list.qualified,r,c.now)
-  const offers=log.tiers.flatMap((t,tier)=>t.staffIds.map(id=>{const f=list.qualified.find(v=>v.staffId===id)!;return put(c,'offers',{shiftId:shift.id,staffId:id,before:f.before,after:f.after,status:'sent',sentAt:t.opensAt,tier:tier+1,opensAt:t.opensAt})}))
+  const shift=put(c,'shifts',{...r,site:siteOf(c.s,r),callout:{staffId:r.staffId,note,at:c.now,by:c.a.id,qualified:list.qualified,leftOut:list.leftOut}},r)
+  const offers=outreach(c,shift,list)
   c.entity=shift.id;return {shift,offers}
  }
  if(name==='cover.respond') {
   keys(p,['id','revision','decision','note']);const o=get(c.s,'offers',p.id);exact(o,p);need(o.staffId===self(c.a),'Only your own offer',403)
+  const r=get(c.s,'shifts',o.shiftId);need(r.end>c.now,'This offer expired at shift end',409)
+  need(r.status==='published'&&o.shiftRevision===r.revision,'The offered shift changed; ask for a fresh offer',409)
   need(['accepted','declined'].includes(p.decision),'Invalid decision');need(o.status==='sent','This offer is already answered or closed',409);need(!o.opensAt||o.opensAt<=c.now,'This offer has not reached you yet',409)
   return put(c,'offers',{...o,status:p.decision,note:text(p.note,'note',280,true),respondedAt:c.now},o)
  }
+ if(name==='cover.reopen') {
+  keys(p,['id','revision']);const r=get(c.s,'shifts',p.id);manages(c,r);exact(r,p)
+  need(r.status==='published'&&r.callout&&['waiting','reopened'].includes(coverageCase(c.s,r,c.now).status),'This coverage case is not waiting or reopened',409)
+  // Retain the assignment and all approvals. Each explicit reoffer closes only
+  // outstanding offers and records the fresh shortlist against a new revision.
+  const list=shortlist(c.s,{...r,staffId:r.callout.staffId})
+  list.qualified=list.qualified.filter(f=>f.staffId!==r.staffId)
+  list.leftOut=list.leftOut.filter(f=>f.staffId!==r.staffId)
+  for(const x of c.s.offers.filter(x=>x.shiftId===r.id&&['sent','accepted'].includes(x.status)))put(c,'offers',{...x,status:'closed',closedAt:c.now},x)
+  const shift=put(c,'shifts',{...r,callout:{...r.callout,qualified:list.qualified,leftOut:list.leftOut,reoffers:[...(r.callout.reoffers??[]),{at:c.now,by:c.a.id,staffId:r.staffId,shiftRevision:r.revision}]}},r)
+  const offers=outreach(c,shift,list)
+  c.entity=shift.id;return {shift,offers}
+ }
  if(name==='cover.approve') {
   manager(c.a);keys(p,['id','revision']);const o=get(c.s,'offers',p.id);exact(o,p);need(o.status==='accepted','Only an accepted offer can be approved',409)
-  const r=get(c.s,'shifts',o.shiftId);need(r.status==='published'&&r.callout&&!r.callout.coveredBy,'This shift is no longer waiting for cover',409)
+  const r=get(c.s,'shifts',o.shiftId);manages(c,r)
+  need(r.end>c.now,'This offer expired at shift end',409)
+  need(r.status==='published'&&r.callout&&o.shiftRevision===r.revision,'The offered shift changed; ask for a fresh offer',409)
+  need(!r.callout.coveredBy||coverageCase(c.s,r,c.now).status==='reopened','This shift is no longer waiting for cover',409)
+  need(o.staffId!==r.staffId&&o.staffId!==r.callout.staffId,'Offer must be for another replacement',409)
+  need(c.s.staff.some(p=>p.id===o.staffId&&p.active&&!p.erased_at),'Replacement is no longer active',409)
   const now=fit(c.s,o.staffId,r);need(!now.reason,`No longer qualified: ${now.reason}`,409)
   for(const x of c.s.offers.filter(x=>x.shiftId===r.id&&x.id!==o.id&&['sent','accepted'].includes(x.status)))put(c,'offers',{...x,status:'closed',closedAt:c.now},x)
-  put(c,'offers',{...o,status:'approved',approvedBy:c.a.id,approvedAt:c.now},o)
-  return put(c,'shifts',{...r,staffId:o.staffId,confirmedAt:o.respondedAt,confirmedBy:o.staffId,callout:{...r.callout,coveredBy:o.staffId,approvedBy:c.a.id,approvedAt:c.now}},r)
+  // Prior approved offers remain approved: a new approval never rewrites history.
+  put(c,'offers',{...o,status:'approved',approvedBy:c.a.id,approvedByName:c.a.staffId?c.s.staff.find(p=>p.id===c.a.staffId)?.name??'Former manager':'Owner',approvedAt:c.now},o)
+  const approvals=c.s.offers.filter(v=>v.shiftId===r.id&&v.status==='approved').sort((a,b)=>a.approvedAt.localeCompare(b.approvedAt)).map(v=>({offerId:v.id,staffId:v.staffId,fromStaffId:v.fromStaffId,shiftRevision:v.shiftRevision,approvedBy:v.approvedBy,approvedByName:v.approvedByName,approvedAt:v.approvedAt,acknowledgedAt:v.respondedAt}))
+  return put(c,'shifts',{...r,staffId:o.staffId,confirmedAt:o.respondedAt,confirmedBy:o.staffId,callout:{...r.callout,coveredBy:o.staffId,approvedBy:c.a.id,approvedAt:c.now,approvals}},r)
  }
  return undefined
 }

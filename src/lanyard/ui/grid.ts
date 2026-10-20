@@ -3,7 +3,7 @@
 import {h,avatar,manager,self,form,exact,field,rows,person} from './shared'
 import {type Week,type Row} from './week'
 import {clock,dateKey,day,dollars,hours,money,percent,span,weekday} from './format'
-import {coverPopover,calloutNote} from './callout'
+import {coverPopover,calloutNote,coverageFor} from './callout'
 import {contactLink} from './contacts'
 
 const keyOf=(date:string)=>weekday(date).toLowerCase()
@@ -22,13 +22,14 @@ function startsIn(x:any,now:number,tz:string) {
 function block(s:any,w:Week,x:any,now:number,back:string,guest:boolean) {
  const tz=w.tz,time=`<span class="t">${h(span(x.start,x.end,tz))}</span>`,label=x.label?`<span class="l">${h(x.label)}</span>`:''
  if(x.ghost) {
-  const cover=x.callout.coveredBy,inAt=rows(s,'clocks').find(c=>c.staffId===cover&&c.start>=new Date(Date.parse(x.start)-7200000).toISOString()&&c.start<=x.end)
-  return `<div class="shift ghost">${time}<span class="l">Called out ${h(clock(x.callout.at,tz))}</span><span class="note-line">${cover?`Covered by ${h(person(s,cover))}`:'Covered'}${inAt?` · <span class="done">in ${h(clock(inAt.start,tz))} ✓</span>`:' · closes at clock-in'}</span></div>`
+  const cover=x.callout.coveredBy,coverage=coverageFor(s,x),inAt=coverage?.clock
+  const state=coverage?.status==='reopened'?' · coverage reopened':coverage?.status==='expired'?' · expired without a recorded clock-in':inAt?` · <span class="done">in ${h(clock(inAt.start,tz))} ✓</span>`:' · closes at clock-in'
+  return `<div class="shift ghost">${time}<span class="l">Called out ${h(clock(x.callout.at,tz))}</span><span class="note-line">${cover?`Covered by ${h(person(s,cover))}`:'Covered'}${state}</span></div>`
  }
- const open=x.callout&&!x.callout.coveredBy
+ const coverage=coverageFor(s,x),reopened=coverage?.status==='reopened',open=x.callout&&(!x.callout.coveredBy||reopened)&&x.end>new Date(now).toISOString()
  const tone=open?' alert':w.view==='draft'?' draft':guest||(w.site&&x.site&&x.site!==w.site)?' cross':''
  const where=w.site&&x.site&&x.site!==w.site?`<span class="where">at ${h(x.site)}</span>`:''
- const summary=`${time}${label}${where}${open?`<span class="state">Uncovered · ${h(startsIn(x,now,tz))}</span><span class="mark" aria-hidden="true">!</span>`:''}`
+ const summary=`${time}${label}${where}${open?`<span class="state">${reopened?'Coverage reopened':'Uncovered'} · ${h(startsIn(x,now,tz))}</span><span class="mark" aria-hidden="true">!</span>`:''}`
  const mine=self(s)&&x.staffId===s.actor.staffId,canCall=x.status==='published'&&!x.callout&&x.end>new Date(now).toISOString()&&(mine||manager(s))
  const actions=[mine&&x.status==='published'&&!x.confirmedAt&&!x.callout?form('shift.confirm',back,exact(x),'Confirm shift'):'',
   canCall?form('shift.callout',back,exact(x)+field('note',mine?'Note for your manager (optional)':'Note from the call (optional)','','text','maxlength="280"'),mine?'I can’t make this shift':'Record a call-out','','quiet'):''].filter(Boolean)
@@ -65,7 +66,7 @@ export function grid(s:any,w:Week,now:number,back:string,q:URLSearchParams) {
   parts.push(`<div class="wk-row band" role="row"><div class="wk-cell" role="cell"><strong>${h(g.name)}</strong>${g.rate!==null&&manager(s)?`<span class="rate">${h(money(g.rate))}/hr</span>`:''}</div></div>`)
   for(const r of g.rows) {
    // The first uncovered call-out a manager can decide opens its shortlist in place.
-   const open=!shown&&manager(s)&&q.get('cover')!=='wait'?r.cells.flat().find(x=>x.callout&&!x.callout.coveredBy&&!x.ghost):undefined
+   const open=!shown&&manager(s)&&q.get('cover')!=='wait'?r.cells.flat().find(x=>x.callout&&(!x.callout.coveredBy||coverageFor(s,x)?.status==='reopened')&&x.end>new Date(now).toISOString()&&!x.ghost):undefined
    if(open)shown=true
    parts.push(personRow(s,w,r,now,back,open?{shift:open,html:coverPopover(s,w,open,back,link(w,{cover:'wait'}))}:undefined))
   }

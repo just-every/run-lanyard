@@ -25,8 +25,9 @@ export function siteOf(s:any,q:URLSearchParams,sites=sitesOf(s)) {
 /** `focus` (the Schedule) lets the default week follow an open call-out; other screens stay on this week. */
 export function weekModel(s:any,now:number,q:URLSearchParams,focus=false) {
  const tz=venue(s),today=dateKey(now,tz),thisWeek=mondayOf(today),at=new Date(now).toISOString()
+ const open=(x:any)=>x.callout&&(!x.callout.coveredBy||rows(s,'coverageCases').some(c=>c.shiftId===x.id&&c.status==='reopened'))&&x.end>at
  // The Schedule opens on this week, or on next week when only next week holds a call-out still waiting for cover.
- const waiting=(monday:string)=>rows(s,'shifts').some(x=>x.status==='published'&&x.callout&&!x.callout.coveredBy&&x.end>at&&mondayOf(dateKey(x.start,tz))===monday)
+ const waiting=(monday:string)=>rows(s,'shifts').some(x=>x.status==='published'&&open(x)&&mondayOf(dateKey(x.start,tz))===monday)
  const week=isMonday(q.get('week'))?q.get('week')!:focus&&manager(s)&&!waiting(thisWeek)&&waiting(addDays(thisWeek,7))?addDays(thisWeek,7):thisWeek
  const days=[0,1,2,3,4,5,6].map(i=>addDays(week,i)),sites=sitesOf(s)
  const site=siteOf(s,q,sites)
@@ -39,7 +40,7 @@ export function weekModel(s:any,now:number,q:URLSearchParams,focus=false) {
  const dayOf=(x:any)=>days.indexOf(dateKey(x.start,tz))
  // A shift someone called out of and a manager has covered stays visible in their row as a ghost.
  const ghosts=shifts.filter(x=>x.callout?.coveredBy&&x.callout.staffId)
- const callouts=shifts.filter(x=>x.callout&&!x.callout.coveredBy&&here(x))
+ const callouts=shifts.filter(x=>open(x)&&here(x))
  const accepted=rows(s,'offers').filter(o=>o.status==='accepted'&&callouts.some(x=>x.id===o.shiftId))
  const members=rows(s,'staff').filter(p=>(p.active&&(!site||p.site===site))||shifts.some(x=>x.staffId===p.id&&here(x)&&(!site||p.site===site)))
  const guests=rows(s,'staff').filter(p=>!members.includes(p)&&(shifts.some(x=>x.staffId===p.id&&here(x))||accepted.some(o=>o.staffId===p.id)))
@@ -51,7 +52,7 @@ export function weekModel(s:any,now:number,q:URLSearchParams,focus=false) {
   const cells=days.map((_,i)=>[...own.filter(x=>dayOf(x)===i),...ghosts.filter(x=>x.callout.staffId===p.id&&dayOf(x)===i).map(x=>({...x,ghost:true}))])
   return {person:p,guest,cells,minutes:shifts.filter(x=>x.staffId===p.id).reduce((n,x)=>n+x.minutes,0),extra:false,cover:accepted.find(o=>o.staffId===p.id)}
  }
- const rank=(r:Row)=>r.cells.flat().some(x=>x.callout&&!x.callout.coveredBy)?0:involved.has(r.person.id)?1:2
+ const rank=(r:Row)=>r.cells.flat().some(x=>open(x))?0:involved.has(r.person.id)?1:2
  const byGroup=new Map<string,Row[]>()
  for(const r of [...members.map(p=>build(p,false)),...guests.map(p=>build(p,true))]){const g=r.person.position||'Team';byGroup.set(g,[...(byGroup.get(g)??[]),r])}
  const rateOf=(list:Row[])=>{const rates=[...new Set(list.map(r=>r.person.hourlyRateCents).filter((v:any)=>typeof v==='number'))];return rates.length===1?rates[0] as number:null}
