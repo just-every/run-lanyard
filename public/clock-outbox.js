@@ -86,7 +86,7 @@
     const current = clock?.breaks?.find(item => !item.end)
     if (capture.name === 'clock.in' && !clock) return {start:at,status:'open',breaks:[]}
     if (!clock || at < clock.start) throw new Error('This event does not follow the current clock. Resolve the earlier captures first.')
-    if (capture.name === 'clock.out' && !current && at > clock.start) return null
+    if (capture.name === 'clock.out' && !current && at > clock.start && (clock.transfers || []).every(item => at > item.at)) return null
     if (capture.name === 'clock.breakStart' && !current && ['meal','rest'].includes(capture.input.kind)) {
       const last = clock.breaks?.at(-1)
       if (last?.end && at < last.end) throw new Error('A break must follow the previous break.')

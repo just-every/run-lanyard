@@ -2,7 +2,7 @@
 // Glove field capture preserves device time and command identity on retries.
 import {rateBasis} from './workforce'
 import {segmentPlan,reconcileSegments,segmentBasis} from './worksegments'
-import {transferPlan} from './transfers'
+import {transferPlan,currentOf} from './transfers'
 import {checkClockIn} from './clockrules'
 import {mealAtClockOut} from './mealrules'
 import {roundAtCapture,roundAtApproval} from './rounding'
@@ -79,8 +79,9 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   need(open,'No open clock to stop',409);need(!open.breaks?.some((b:any)=>!b.end),'End your break before clocking out',409)
   // TIME-007: a clock-out captured after the provisional close cannot end the punch; its end is confirmed or corrected instead.
   need(!provisional(c.s,open,at),'Your clock was provisionally closed; confirm or correct your end time',409)
-  // CLOCK-007: the clock-out is checked against the same cafe's networks; its flag joins the timesheet's.
-  const net=checkNetwork(c.s,cafeOf(c,staffId,open.shiftId),c.net),network=net.network?{...open.network,out:net.network}:open.network
+  need((open.transfers??[]).every((t:any)=>at>t.at),'Clock-out follows your last job change',409)
+  // CLOCK-007: the clock-out is checked against the networks of the cafe being worked (after any CLOCK-008 change); its flag joins the timesheet's.
+  const net=checkNetwork(c.s,currentOf(c.s,open).site,c.net),network=net.network?{...open.network,out:net.network}:open.network
   // CLOCK-006: clock-out answers join the clock-in ones on the punch and its timesheet; their flags become exceptions.
   const asked=answer(c,staffId,open.shiftId,'out',p.answers),answers=[...(open.answers??[]),...asked.answers],flags=[...net.exceptions,...asked.flags].filter(e=>!open.exceptions?.includes(e))
   const done=closeClock(c,{...open,exceptions:[...(open.exceptions??[]),...flags],...(network?{network}:{})},at,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,'Phone clock',answers.length?{answers}:{},breakWords(c,staffId,p))
