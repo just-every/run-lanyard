@@ -39,7 +39,7 @@ window.LanyardSchedule={start({localToUTC}) {
     node('strong',control(r,'staffId').selectedOptions[0].textContent,card);node('small',`${v.start.slice(11)} – ${v.end.slice(11)} · ${v.label||'Shift'}${v.site?' · '+v.site:''}`,card)
     node('small',`${v.breakMinutes} min meal`,card)
     const label=node('label','Duration in minutes',card),slider=node('input',undefined,label);slider.type='range';slider.min=Number(v.breakMinutes)+1;slider.max=2880;slider.step=1;slider.value=Math.round((Date.parse(v.end+'Z')-Date.parse(v.start+'Z'))/60000);slider.setAttribute('aria-label',`Resize ${control(r,'staffId').selectedOptions[0].textContent} shift`)
-    slider.addEventListener('change',()=>{control(r,'end').value=new Date(Date.parse(v.start+'Z')+Number(slider.value)*60000).toISOString().slice(0,16);changed('Shift resized; prepare a draft to save it.')})
+    slider.addEventListener('change',()=>{control(r,'end').value=new Date(Date.parse(control(r,'start').value+'Z')+Number(slider.value)*60000).toISOString().slice(0,16);changed('Shift resized; prepare a draft to save it.')})
     const edit=node('button','Edit or select',card);edit.type='button';edit.className='secondary small';edit.onclick=()=>{r.querySelector('[data-select-shift]').checked=true;control(r,'start').focus();r.scrollIntoView({block:'center',behavior:'smooth'})}
    })
   }
