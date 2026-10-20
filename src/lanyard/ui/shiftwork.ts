@@ -27,5 +27,5 @@ export function shiftworkCard(s:any,w:Week,back:string) {
 }
 export function segmentTime(s:any,t:any) {
  if(!t.workSegments?.length)return ''
- return `<small>Work areas — ${t.workSegments.map((p:any)=>`${h(rows(s,'jobs').find(j=>j.id===p.job)?.name??'Former job')} / ${h(p.area)}: ${h(hours(p.minutes))} hrs${p.rateBasis?.costCents!==undefined?` · $${h((p.rateBasis.costCents/100).toFixed(2))}`:''}`).join('; ')}. Total ${h(hours(t.workSegments.reduce((n:number,p:any)=>n+p.minutes,0)))} hrs; enclosing time ${h(hours(t.minutes))} hrs.</small>`
+ return `<small>Work areas</small>${t.workSegments.map((p:any)=>`<small>${h(rows(s,'jobs').find(j=>j.id===p.job)?.name??'Former job')} / ${h(p.area)}: ${h(hours(p.minutes))} hrs${typeof p.rateBasis?.costCents==='number'?` · $${h((p.rateBasis.costCents/100).toFixed(2))}`:p.rateBasis?' · cost incomplete':''}</small>`).join('')}<small>Total ${h(hours(t.workSegments.reduce((n:number,p:any)=>n+p.minutes,0)))} hrs; enclosing time ${h(hours(t.minutes))} hrs.</small>`
 }
