@@ -1,0 +1,7 @@
+# Shift handover API (SCHEDULE-004 partial)
+
+The native `/api/lanyard/command` door accepts `shiftwork.save` from the owner or a manager of the shift's cafe. Supply `shiftId`, `shiftRevision`, `notes` (up to 4000 characters), and `tasks` (up to 30 strings of 280 characters). When editing, supply the current instruction `revision` as well. Read `shiftwork` in `/api/lanyard/state` for the saved revision and generated task ids. Edits keep previous instruction versions for managers and create new task ids; prior confirmations never complete edited wording.
+
+The current assignee can send `shiftwork.respond` with `shiftId`, `shiftRevision`, instruction `revision`, `completed` (current task ids), and an optional `blocker` (up to 2000 characters). Responses are immutable handover entries in `taskanswers`, each carrying its author, timestamp, exact instruction revision and completed task wording. Send a later entry to update the handover; earlier entries remain. Managers inspect these entries through the same state door. An offered shift does not grant instructions before assignment. Reassignment or supersession removes the previous assignee's instruction access; their prior responses remain readable by them and the authorized cafe managers. Canceled shifts accept no new responses.
+
+The screen workflow, file attachments and job/area segments are still open. These operational records never change worked hours, labor cost or payroll, and never enter the printed or wall schedule. This API slice does not complete SCHEDULE-004.

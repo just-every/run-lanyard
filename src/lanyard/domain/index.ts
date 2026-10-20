@@ -2,6 +2,7 @@ import {type Actor,type Context,type State,kinds,object,text,need,sha,canonical,
 import {actor,live,load,saved,commit} from './storage'
 import {offline,issuesFor} from './offline'
 import {people} from './people'
+import {shiftWork,workFor,answersFor} from './shiftwork'
 import {roster,draftWeek} from './roster'
 import {scheduleReview} from './schedule-review'
 import {time} from './time'
@@ -56,7 +57,7 @@ function fresh(a:Actor,s:State) {
  need(person,'Staff access revoked',403);return {...a,role:person.role}
 }
 export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string,net?:Context['net'],files?:R2Bucket):Promise<object> {
- need(commands.includes(name)||['aca.plan.save','aca.credit.save','job.save','workforce.save'].includes(name),'Unknown command',404);const a=await live(db,identity),p=object(input)
+ need(commands.includes(name)||['aca.plan.save','aca.credit.save','job.save','workforce.save','shiftwork.save','shiftwork.respond'].includes(name),'Unknown command',404);const a=await live(db,identity),p=object(input)
  if(a.role==='agent')need(['roster.prepare','time.prepare','payroll.prepare'].includes(name),'Agents may prepare drafts only; a human manager must approve',403)
  const commandId=name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID(),digest=await sha(canonical({name,input:p}))
  const previous=await saved(db,commandId,a,digest);if(previous)return previous
@@ -65,6 +66,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  let result:any=settings(c,name,p)
  if(result===undefined)result=await people(c,name,p)
  if(result===undefined)result=roster(c,name,p)
+ if(result===undefined)result=shiftWork(c,name,p)
  if(result===undefined)result=time(c,name,p)
  if(result===undefined)result=await offline(c,name,p)
  if(result===undefined)result=await payroll(c,name,p)
@@ -130,6 +132,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.rateSnapshots=manages?s.rateSnapshots.filter(r=>mayReadPerson(s,a,r.staffId)):[]
  result.workforce=agent?[]:s.workforce.filter(r=>r.staffId===a.staffId||manages&&mayReadPerson(s,a,r.staffId)).map(r=>!manages&&!earnSettings(s.earnings).estimates?{...r,rates:[],versions:r.versions.map(({rates,...v}:any)=>v)}:r)
  result.clockissues=issuesFor(s,a)
+ result.shiftwork=workFor(s,a)
+ result.taskanswers=answersFor(s,a)
  if(!manages&&!agent) {
   for(const k of ['availability','leave','clocks','timesheets','patterns'] as const)result[k]=s[k].filter(r=>r.staffId===a.staffId)
   // Staff see their own published shifts, the ones they called out of and the ones offered to them, never others' hours.
