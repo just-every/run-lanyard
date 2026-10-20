@@ -1,6 +1,7 @@
 // Gauge time's submitted -> approved revision flow, adapted to hours only;
 // Glove field capture preserves device time and command identity on retries.
 import {rateBasis} from './workforce'
+import {segmentPlan,reconcileSegments,segmentBasis} from './worksegments'
 import {checkClockIn} from './clockrules'
 import {mealAtClockOut} from './mealrules'
 import {roundAtCapture,roundAtApproval} from './rounding'
@@ -21,7 +22,8 @@ export function approve(c:Context,submitted:Row) {
  if(r.corrects){const old=get(c.s,'timesheets',r.corrects);need(old.status==='approved','Correction source changed',409);put(c,'timesheets',{...old,status:'superseded',supersededBy:r.id},old)}
  const exported=c.s.claims.filter(cl=>cl.root_id===r.rootId).reduce((n,cl)=>n+cl.minutes,0)
  const clock=c.s.clocks.find(k=>k.id===r.clockId),shift=c.s.shifts.find(x=>x.id===clock?.shiftId),job=r.job??shift?.job??'',site=r.site??shift?.site??''
- return put(c,'timesheets',{...r,job,site,rateBasis:rateBasis(c.s,r.staffId,{...r,job,site}),status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now},r)
+ const plan=r.segmentPlan??segmentPlan(c.s,r.staffId,r,clock?.shiftId),workSegments=reconcileSegments(c.s,r.staffId,r,plan)
+ return put(c,'timesheets',{...r,job,site,segmentPlan:plan,workSegments,rateBasis:workSegments.length?segmentBasis(r.staffId,workSegments):rateBasis(c.s,r.staffId,{...r,job,site}),status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now},r)
 }
 const ATTEST='I confirm these times and breaks are accurate.'
 /** TIME-003: the employee's own attestation of times and breaks, recorded with its wording; only the person attests their own time. */
@@ -50,7 +52,7 @@ function closeClock(c:Context,open:Row,at:string,breakMinutes:number,meal:unknow
  const w=work({start:open.start,end:at,breakMinutes:m.breakMinutes});clearOverlap(c,open.staffId,w)
  const check=checkBreaks(c.s,open.staffId,open.shiftId,w,timed,words.waive),out=breakOutcome(check,{exceptions:flags}),all:string[]=out.exceptions??flags
  const facts={...(timed.length?{breaks:timed}:{}),...(check?.waiver?{breakWaiver:{text:WAIVER,by:c.a.id,at:c.now}}:{}),...(words.note?{breakAttestation:{text:ATTEST_BREAKS,note:words.note,by:c.a.id,at:c.now}}:{}),...(out.premiums?.length?{premiums:out.premiums}:{})}
- const entry=put(c,'timesheets',{staffId:open.staffId,...w,...roundAtCapture(c.s,open,at,w.breakMinutes,w.minutes),status:'submitted',reason,corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(all.length?{exceptions:all}:{}),...(m.deduction?{mealDeduction:m.deduction}:{}),...(open.network?{network:open.network}:{}),...facts,...extra});entry.rootId=entry.id
+ const entry=put(c,'timesheets',{staffId:open.staffId,...w,...roundAtCapture(c.s,open,at,w.breakMinutes,w.minutes),segmentPlan:segmentPlan(c.s,open.staffId,w,open.shiftId),status:'submitted',reason,corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(all.length?{exceptions:all}:{}),...(m.deduction?{mealDeduction:m.deduction}:{}),...(open.network?{network:open.network}:{}),...facts,...extra});entry.rootId=entry.id
  const clock=put(c,'clocks',{...open,end:at,status:'closed',timesheetId:entry.id,closedReceivedAt:c.now,...extra},open);c.entity=entry.id
  return {clock,timesheet:entry}
 }
@@ -98,7 +100,7 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   if(old){need(old.staffId===staffId,'Correction must keep the same staff');need(old.status==='approved','Correct the latest approved time',409);need(!c.s.timesheets.some(t=>t.corrects===old.id),'A correction already exists for this revision',409)}
   clearOverlap(c,staffId,w,old?.rootId)
   // BREAK-001: entered time is checked by its meal minutes; rest breaks are unknown without timed breaks.
-  const r=put(c,'timesheets',{job:p.job===undefined?old?.job??'':text(p.job,'job',80,true),site:p.site===undefined?old?.site??'':text(p.site,'site',80,true),staffId,...w,reason,corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,...breakOutcome(checkBreaks(c.s,staffId,null,w))});if(!old)r.rootId=r.id
+  const r=put(c,'timesheets',{job:p.job===undefined?old?.job??'':text(p.job,'job',80,true),site:p.site===undefined?old?.site??'':text(p.site,'site',80,true),staffId,...w,segmentPlan:old?.segmentPlan??segmentPlan(c.s,staffId,w),reason,corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,...breakOutcome(checkBreaks(c.s,staffId,null,w))});if(!old)r.rootId=r.id
   return {...r,approvalRequired:'time.approve',approval:{id:r.id,revision:r.revision}}
  }
  if(name==='time.edit') {
@@ -116,7 +118,7 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   const old=p.corrects?get(c.s,'timesheets',p.corrects):undefined
   if(old){need(old.staffId===staffId,'Only your own time',403);need(old.status==='approved','Correct the latest approved time',409);need(!c.s.timesheets.some(t=>t.corrects===old.id),'A correction already exists for this revision',409)}
   clearOverlap(c,staffId,w,old?.rootId)
-  const r=put(c,'timesheets',{staffId,...w,reason:text(p.reason,'reason',500),corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,requested:true,...breakOutcome(checkBreaks(c.s,staffId,null,w),{exceptions:[old?'employee correction':'missed punch']}),...attestation(c,staffId,p.attest,true)});if(!old)r.rootId=r.id
+  const r=put(c,'timesheets',{staffId,...w,segmentPlan:old?.segmentPlan??segmentPlan(c.s,staffId,w),reason:text(p.reason,'reason',500),corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,requested:true,...breakOutcome(checkBreaks(c.s,staffId,null,w),{exceptions:[old?'employee correction':'missed punch']}),...attestation(c,staffId,p.attest,true)});if(!old)r.rootId=r.id
   return r
  }
  if(name==='time.acknowledge') {

@@ -1757,3 +1757,8 @@ test('SCHEDULE-004: native shift handover keeps revisioned notes/checklists and 
  assert.equal((await h.send('/api/lanyard/agent/command',{name:'shiftwork.save',input:request},'',headers)).status,403)
  assert.equal((await h.send('/api/lanyard/state')).status,401)
 }))
+
+
+test('SCHEDULE-004: blocker files, immutable job-area reconciliation, labor costs and once-only split payroll with signed corrections through native HTTP',()=>run(async h=>{const {handoverApi}=await import('./shiftwork-api.mjs');await handoverApi(h)}))
+
+test('SCHEDULE-004: managers publish counter/kitchen handovers, staff complete tasks with blocker files and managers reconcile labor and export payroll at 1440 and 390',async()=>{const {handoverBrowser}=await import('./shiftwork-browser.mjs');await handoverBrowser()})

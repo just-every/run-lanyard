@@ -26,7 +26,7 @@ async function checkout(root) {
 }
 // Pacific Monday Oct 12, 2026, 7:00 am – 3:00 pm PDT; the 45-minute break is a later agreed correction.
 const work = staffId => ({ staffId, start: '2026-10-12T14:00:00Z', end: '2026-10-12T22:00:00Z', breakMinutes: 30 })
-test('ARCHIVE-001, AUDIT-001 and LOG-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
+test('ARCHIVE-001, AUDIT-001, LOG-001 and SCHEDULE-004: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
   const temporary = await mkdtemp(join(tmpdir(),'lanyard-archive-')), source=join(temporary,'source'), restored=join(temporary,'restored'), erased=join(temporary,'erased')
   let h
   try {
@@ -39,6 +39,8 @@ test('ARCHIVE-001, AUDIT-001 and LOG-001: public CLI archive round trip carries 
     const alex=await h.person('Alex')
     await h.cmd('availability.save',{staffId:alex.id,start:'2026-10-12T07:00:00Z',end:'2026-10-19T07:00:00Z'})
     const week=await h.cmd('roster.prepare',{week:'2026-10-12',shifts:[{...work(alex.id),label:'Morning service'}]});await h.cmd('roster.publish',{id:week.id,revision:week.revision})
+    const handoverShift=(await h.state()).shifts.find(x=>x.rosterId===week.id),handover=await h.cmd('shiftwork.save',{shiftId:handoverShift.id,shiftRevision:handoverShift.revision,notes:'Archive closing handover',tasks:['Check closing lock']})
+    const answer=await h.cmd('shiftwork.respond',{shiftId:handoverShift.id,shiftRevision:handoverShift.revision,revision:handover.revision,completed:[handover.tasks[0].id],blocker:'Lock needs repair',attachment:{name:'lock.txt',type:'text/plain',data:Buffer.from('Retained blocker file').toString('base64')}},alex.cookie)
     const first=await h.cmd('time.approve',{id:(await h.cmd('time.prepare',{...work(alex.id),reason:'Paper sheet'})).id,revision:1})
     const batch=await h.cmd('payroll.prepare',{}),exported=await h.cmd('payroll.export',{id:batch.id,revision:batch.revision})
     await h.cmd('payroll.acknowledge',{id:batch.id,revision:exported.revision,reference:'Payroll-import-101'})
@@ -65,6 +67,8 @@ test('ARCHIVE-001, AUDIT-001 and LOG-001: public CLI archive round trip carries 
     const owner=await h.signIn(h.auth.OWNER_EMAIL),back=await h.state(owner)
     assert.deepEqual(back.agentKeys,[])
     assert.deepEqual(back.logbook,original.logbook)
+    assert.deepEqual(back.shiftwork,original.shiftwork);assert.deepEqual(back.taskanswers,original.taskanswers)
+    assert.equal((await h.send(`/api/lanyard/handover/${answer.id}/files/${answer.attachment.id}`,undefined,owner)).text,'Retained blocker file')
     for(const [i,file] of logged.attachments.entries())assert.equal((await h.send(`/api/lanyard/logbook/${logged.id}/files/${file.id}`,undefined,owner)).text,['floor inspection','incident report'][i])
     for(const kind of ['staff','rosters','shifts','timesheets','batches'])assert.deepEqual(back[kind],original[kind],kind)
     assert.deepEqual(back.events.map(e=>e.id),original.events.map(e=>e.id))

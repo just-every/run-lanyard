@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { shiftAttachment, acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -57,7 +57,8 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
         input[key] = file
       }
     }
-    if ('revision' in input) input.revision = Number(input.revision)
+    for(const key of ['revision','shiftRevision'])if(key in input)input[key]=Number(input[key])
+    if(form.has('completed'))input.completed=form.getAll('completed');else if(new URL(request.url).searchParams.get('name')==='shiftwork.respond')input.completed=[]
     return input
   }
   const raw = await request.text()
@@ -82,7 +83,11 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
     input.contacts = names.map((name, i) => ({ name, relationship: relations[i] ?? '', phone: phones[i] ?? '' })).filter(x => x.name || x.relationship || x.phone)
     for (const key of ['contactName', 'contactRelationship', 'contactPhone']) delete input[key]
   }
-  for (const key of ['revision', 'breakMinutes']) if (key in input) input[key] = Number(input[key])
+  for (const key of ['revision', 'shiftRevision', 'breakMinutes']) if (key in input) input[key] = Number(input[key])
+  if(params.has('completed'))input.completed=params.getAll('completed');else if(new URL(request.url).searchParams.get('name')==='shiftwork.respond')input.completed=[]
+  if(params.has('taskLines')){input.tasks=String(input.taskLines).split(/\r?\n/).map(v=>v.trim()).filter(Boolean);delete input.taskLines}
+  if(params.has('taskText')){input.tasks=params.getAll('taskText').filter(v=>v.trim());delete input.taskText}
+  if(params.has('segmentUntil')){const until=params.getAll('segmentUntil'),job=params.getAll('segmentJob'),area=params.getAll('segmentArea');input.segments=until.map((v,i)=>({until:Number(v),job:job[i],area:area[i]})).filter((v,i)=>until[i]||v.job||v.area);for(const k of ['segmentUntil','segmentJob','segmentArea'])delete input[k]}
   for (const key of ['shifts', 'ids', 'items']) if (input[key]) { try { input[key] = JSON.parse(String(input[key])) } catch { fail(`Invalid ${key}`) } }
   if ('active' in input) input.active = input.active === 'on' || input.active === 'true' || input.active === '1'
   return input
@@ -128,6 +133,8 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       const logged = path.match(/^\/api\/lanyard\/logbook\/([\w-]+)\/(export|files\/([\w-]+))$/)
       if (logged && logged[2] === 'export') { const { name, body } = await logbookRead(env.DB, who, 'export', logged[1]) as { name: string; body: string }; return new Response(body, { headers: { ...headers, 'content-type': 'text/plain; charset=utf-8', 'content-disposition': `attachment; filename="${name}"` } }) }
       if (logged) { const { bytes, name, type } = await logbookRead(env.DB, who, 'file', logged[1], { fileId: logged[3] }, env.FILES) as { bytes: Uint8Array<ArrayBuffer>; name: string; type: string }; return new Response(bytes, { headers: { ...headers, 'content-type': type, 'content-disposition': `attachment; filename="${name.replace(/[^\w. -]/g, '_')}"`, 'x-content-type-options': 'nosniff' } }) }
+      const handover=path.match(/^\/api\/lanyard\/handover\/([\w-]+)\/files\/([\w-]+)$/)
+      if(handover){const file=await shiftAttachment(env.DB,who,handover[1],handover[2]);return new Response(file.bytes,{headers:{...headers,'content-type':file.type,'content-disposition':`attachment; filename="${file.name.replace(/[^\w. -]/g,'_')}"`}})}
       const attached = path.match(/^\/api\/lanyard\/notes\/([\w-]+)\/files\/([\w-]+)$/)
       if (attached) { const { bytes, name, type } = await noteAttachment(env.DB, who, attached[1], attached[2]); return new Response(bytes, { headers: { ...headers, 'content-type': type, 'content-disposition': `attachment; filename="${name.replace(/[^\w. -]/g, '_')}"`, 'x-content-type-options': 'nosniff' } }) }
       if (path === '/api/lanyard/overtime') return json(await overtimeAlerts(env.DB, who, url.searchParams.get('week') ?? '', url.searchParams.get('asOf') ?? new Date().toISOString().replace(/\.\d+Z$/, 'Z')))

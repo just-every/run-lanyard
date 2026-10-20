@@ -3,6 +3,8 @@ import {actor,live,load,saved,commit} from './storage'
 import {offline,issuesFor} from './offline'
 import {people} from './people'
 import {shiftWork,workFor,answersFor} from './shiftwork'
+import {checkSegmentAssignments} from './worksegments'
+import {handoverFile} from './shiftworkfiles'
 import {roster,draftWeek} from './roster'
 import {scheduleReview} from './schedule-review'
 import {time} from './time'
@@ -66,7 +68,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  let result:any=settings(c,name,p)
  if(result===undefined)result=await people(c,name,p)
  if(result===undefined)result=roster(c,name,p)
- if(result===undefined)result=shiftWork(c,name,p)
+ if(result===undefined)result=await shiftWork(c,name,p)
  if(result===undefined)result=time(c,name,p)
  if(result===undefined)result=await offline(c,name,p)
  if(result===undefined)result=await payroll(c,name,p)
@@ -103,6 +105,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=aca(c,name,p)
  if(result===undefined)result=workforce(c,name,p)
  need(result!==undefined,'Unknown command',404)
+ if(['roster.publish','shift.change','cover.approve','swap.decide','overtime.substitute','openshift.approve'].includes(name))checkSegmentAssignments(s,before)
  // AUTO-001: an active rule approves the clean punched time this command submitted.
  autoApprove(c,before)
  // TIME-004: whatever the command, time in a locked or closed pay period is rechecked before the write.
@@ -305,4 +308,8 @@ export async function acaRead(db:D1Database,identity:Actor,id:string,asOf:string
  const csv=acaCsv(report)
  await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,a.role,'aca.download',id,new Date().toISOString()).run()
  return csv
+}
+
+export async function shiftAttachment(db:D1Database,identity:Actor,answerId:string,fileId:string) {
+ const a=await live(db,identity),s=await load(db);return handoverFile(db,answersFor(s,fresh(a,s)),answerId,fileId)
 }

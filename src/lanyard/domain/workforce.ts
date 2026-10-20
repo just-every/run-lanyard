@@ -65,7 +65,7 @@ export function priced(s:State,id:string,x:Record<string,any>) {return x.rateBas
 /** Retain legacy cost inputs before the first rate/profile edit, without changing locked time. */
 export function freezeRates(c:Context,id:string){for(const x of [...c.s.shifts,...c.s.timesheets])if(x.staffId===id&&!x.rateBasis&&!c.s.rateSnapshots.some(r=>r.subjectId===x.id&&r.staffId===id))put(c,'rateSnapshots',{staffId:id,subjectId:x.id,basis:rateBasis(c.s,id,x)})}
 /** Rate snapshots in staff/agent views never disclose a coworker's wages. */
-export function withoutRates(row:Row){const {rateBasis,...safe}=row;return safe}
+export function withoutRates(row:Row){return hideRates(row) as Row}
 
 /** Public mutation answers follow the same wage exclusion as snapshots. */
 export function hideRates(v:any):any {if(Array.isArray(v))return v.map(hideRates);if(v&&typeof v==='object')return Object.fromEntries(Object.entries(v).filter(([k])=>k!=='rateBasis').map(([k,x])=>[k,hideRates(x)]));return v}
