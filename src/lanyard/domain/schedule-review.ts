@@ -1,6 +1,7 @@
 // SCHEDULE-001: current draft facts for publication review. This read never mutates
 // the draft, infers a changed-shift pairing, or turns an estimate into worked cost.
-import {type Context,type Row,type State} from './model'
+import {type Actor,type Context,type Row,type State} from './model'
+import {acaReports} from './aca-report'
 import {conflicts} from './roster'
 import {localDate} from './settings'
 import {coverageCase} from './coverage'
@@ -29,7 +30,7 @@ function difference(s:State,before:Row[],after:Row[]) {
 }
 
 /** Manager-only integration must enforce authority before exposing rates/review. */
-export function scheduleReview(s:State,week:string) {
+export function scheduleReview(s:State,week:string,reader?:Actor) {
  const draft=s.rosters.find(r=>r.week===week&&r.status==='draft')
  if(!draft)return null
  const published=s.rosters.find(r=>r.week===week&&r.status==='published')
@@ -77,6 +78,7 @@ export function scheduleReview(s:State,week:string) {
   return {site,days:daily,...total}
  })
  for(const gap of gaps)warnings.push({kind:'coverage',site:gap.site,date:gap.date,message:`${gap.kind==='call-out'?'Unresolved call-out':'Unfilled open shift'}: ${gap.position||'unassigned role'}.`})
+ if(reader)for(const report of acaReports(s,reader,new Date().toISOString(),{week,shifts}))for(const r of report.rows.filter(r=>r.warning))warnings.push({kind:'aca',site:s.staff.find(p=>p.id===r.staffId)?.site??'',message:`${r.name}: planned hours reach an ACA full-time threshold in ${report.plan.name}; ${r.projectedAverageWeeklyHours} weekly hours projected. Review the source-backed ACA report before publishing.`})
  return {week,id:draft.id,revision:draft.revision,publishedId:published?.id??null,publishedRevision:published?.revision??null,
   conflicts:conflicts({s} as Context,shifts,week),...difference(s,prior,shifts),days,sites,gaps:gaps.filter(g=>g.date>=week&&g.date<end),warnings}
 }

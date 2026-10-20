@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -75,6 +75,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   if (params.has('pool')) input.pool = params.getAll('pool')
   if (params.has('ranking')) input.ranking = params.getAll('ranking')
   if (params.has('mentions')) input.mentions = params.getAll('mentions')
+  if (params.has('staffIds')) input.staffIds = params.getAll('staffIds')
   // CONTACT-001: the form's rows of name, relationship and phone; blank rows are dropped.
   if (params.has('contactName')) {
     const names = params.getAll('contactName'), relations = params.getAll('contactRelationship'), phones = params.getAll('contactPhone')
@@ -108,6 +109,11 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (card?.[1] === 'app') { const contactCard = await contactRead(env.DB, who, card[2]); return renderApp(await state(env, who), path, { result: { contactCard } }) }
       if (card) return json(await contactRead(env.DB, who, card[2]))
       if (path === '/api/lanyard/state' || path === '/api/lanyard/agent/context') return json(await state(env, who))
+      const aca = path.match(/^\/api\/lanyard\/aca\/([\w-]+)(\.csv)?$/)
+      if (aca) {
+        const report=await acaRead(env.DB,who,aca[1],url.searchParams.get('asOf')??new Date().toISOString(),aca[2]?'csv':'json')
+        return aca[2]?new Response(report as string,{headers:{...headers,'content-type':'text/csv; charset=utf-8','content-disposition':`attachment; filename="lanyard-aca-${aca[1]}.csv"`}}):json(report)
+      }
       const file = path.match(/^\/api\/lanyard\/batches\/([\w-]+)\.csv$/)
       if (file) return new Response(await batchCsv(env.DB, who, file[1]), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-${file[1]}.csv"` } })
       if (path === '/api/lanyard/intervals' || path === '/app/intervals') {

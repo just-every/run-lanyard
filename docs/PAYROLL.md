@@ -42,3 +42,11 @@ Prepare and approve the correction in **Time**, then prepare a new payroll batch
 An unresolved correction blocks export of its earlier source. Finish reviewing the correction, then prepare payroll from the resulting approved time. Earlier exports stay available with their original bytes and history.
 
 Payroll sibling: [Envelope](https://github.com/just-every/run-envelope).
+
+## ACA hours for the filer
+
+The owner defines a variable-hour measurement group in **Payroll → ACA hours measurement**. Choose 3–12 complete calendar months, the administrative end (0–90 days later), and the stability end. The report separates the monthly 130-hour test from the standard look-back average of 30 hours per elapsed seven-day week. It counts current approved payable hours at every cafe and lists waiting time and corrections separately.
+
+Record paid non-work service from the employer’s records with a unique reference and reason. These credits are separate from punches, payroll earnings and leave balances. Correct the exact credit instead of duplicating it; zero minutes removes its contribution while keeping the prior versions. No provider has verified these manually entered facts.
+
+The report shows its source revisions, service and planned hours, stability dates and status. Future published shifts can raise a schedule warning; draft review replaces that week’s published shifts in its projection. A pending measurement remains pending. Managers read only their home cafe’s employees. Download the ACA CSV for the payroll provider or Willow preparing 1094-C/1095-C filings; Lanyard neither sends nor files it.

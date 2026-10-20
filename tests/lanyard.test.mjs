@@ -2,6 +2,50 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { run, harness } from './harness.mjs'
+import {acaPeople,acaYear,acaTrending,pin as acaPin} from './aca-fixture.mjs'
+
+test('ACA-001: a year of approved service for three variable-hour people, monthly and look-back status, paid leave, scoped projections and a traced filer export',()=>run(async h=>{
+ const people=await acaPeople(h),{alex,ben,cy,priya,omar}=people,{year,plan,days,entries,overnight}=await acaYear(h,people)
+ const read=async(cookie=h.owner,id=plan.id,query='')=>{const r=await h.send(`/api/lanyard/aca/${id}${query}`,undefined,cookie);assert.equal(r.status,200,r.text);return r.value}
+ let report=await read(),a=report.rows.find(r=>r.staffId===alex.id),b=report.rows.find(r=>r.staffId===ben.id),c=report.rows.find(r=>r.staffId===cy.id)
+ assert.equal(a.workedMinutes,days.length*480);assert.ok(a.averageWeeklyHours>30);assert.equal(a.status,'full-time');assert.equal(a.stabilityStart,`${year+1}-01-31`);assert.equal(a.stabilityEnd,`${year+2}-01-30`)
+ assert.equal(b.workedMinutes,12*480);assert.equal(b.status,'not-full-time');assert.equal(report.rows.length,3)
+ assert.deepEqual(c.sources.filter(x=>x.id===overnight.id).map(x=>[x.date,x.minutes]),[[`${year}-01-31`,230],[`${year}-02-01`,460]])
+ assert.equal(c.monthly.reduce((n,m)=>n+m.totalMinutes,0),c.totalMinutes)
+ const input={staffId:ben.id,date:`${year}-01-09`,minutes:240,category:'vacation',reference:'hr-paid-leave-one',reason:'Employer-approved vacation service'}
+ await h.cmd('aca.credit.save',input,ben.cookie,403);await h.cmd('aca.credit.save',input,priya.cookie,403)
+ let credit=await h.cmd('aca.credit.save',input)
+ await h.cmd('aca.credit.save',input,h.owner,409)
+ credit=await h.cmd('aca.credit.save',{...input,...acaPin(credit),minutes:480,reason:'Corrected to a full paid day'})
+ await h.cmd('aca.credit.save',{...input,id:credit.id,revision:1},h.owner,409)
+ report=await read();b=report.rows.find(r=>r.staffId===ben.id);assert.equal(b.paidLeaveMinutes,480);assert.equal(b.totalMinutes,13*480);assert.equal(credit.versions.length,1)
+ const before=(await h.state()).timesheets.length
+ assert.equal(before,entries.length,'paid leave never fabricates worked time')
+ const last=entries.findLast(t=>t.staffId===alex.id),correction=await h.cmd('time.prepare',{staffId:alex.id,start:last.start,end:new Date(Date.parse(last.end)-3600000).toISOString(),breakMinutes:0,reason:'Approved one-hour correction',corrects:last.id})
+ const pending=(await read()).rows.find(r=>r.staffId===alex.id);assert.equal(pending.workedMinutes,days.length*480);assert.ok(pending.incomplete.some(x=>x.id===correction.id&&x.reason.includes('correction')))
+ await h.cmd('time.approve',acaPin(correction));a=(await read()).rows.find(r=>r.staffId===alex.id);assert.equal(a.workedMinutes,days.length*480-60);assert.ok(!a.sources.some(x=>x.id===last.id));assert.ok(a.sources.some(x=>x.id===correction.id&&x.revision===2))
+ const filePath=`/api/lanyard/aca/${plan.id}.csv?asOf=${encodeURIComponent(report.asOf)}`,download=await h.send(filePath,undefined,h.owner),again=await h.send(filePath,undefined,h.owner)
+ assert.equal(download.status,200);assert.equal(download.text,again.text);assert.match(download.text,/measurement/);assert.match(download.text,/source: paid non-work/);assert.ok(download.text.includes(credit.reference));assert.ok(download.text.includes(correction.id));assert.ok(download.text.includes('"'+(days.length*480-60)+'"'))
+ assert.equal((await h.send(`/api/lanyard/aca/${plan.id}`,undefined,ben.cookie)).status,403)
+ assert.equal((await h.send(`/api/lanyard/aca/${plan.id}.csv`,undefined,'')).status,401)
+ assert.deepEqual((await read(priya.cookie)).rows.map(r=>r.staffId),[alex.id,ben.id]);assert.deepEqual((await read(omar.cookie)).rows.map(r=>r.staffId),[cy.id])
+ assert.ok(!(await h.send(`/api/lanyard/aca/${plan.id}.csv`,undefined,priya.cookie)).text.includes(cy.payrollId))
+ const agent=await h.cmd('agent.create',{label:'Preparation only'}),context=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agent.token}`})
+ assert.equal(context.status,200);assert.deepEqual(context.value.acaPlans,[]);assert.deepEqual(context.value.acaCredits,[]);assert.deepEqual(context.value.acaReports,[])
+ assert.deepEqual((await h.state(ben.cookie)).acaCredits,[])
+ const {plan:current,week,shift,threshold}=await acaTrending(h,people),trending=(await read(h.owner,current.id)).rows.find(r=>r.staffId===ben.id)
+ assert.ok(trending.totalMinutes<threshold&&trending.projectedMinutes>=threshold);assert.equal(trending.warning,true);assert.equal(trending.status,'pending')
+ assert.ok((await h.send(`/app/schedule?week=${week}`,undefined,priya.cookie)).text.includes('ACA projected hours'))
+ const small=await h.send('/api/lanyard/schedule/review',{week,shifts:[{...shift,end:new Date(Date.parse(shift.start)+2*3600000).toISOString()}]},priya.cookie)
+ assert.equal(small.status,200);assert.ok(!small.value.warnings.some(w=>w.kind==='aca'),'draft replaces the published week')
+ const large=await h.send('/api/lanyard/schedule/review',{week,shifts:[shift]},priya.cookie)
+ assert.ok(large.value.warnings.some(w=>w.kind==='aca'&&w.message.includes('Ben')))
+ await h.cmd('aca.plan.save',{name:'Bad',start:`${year}-01-01`,end:`${year}-02-28`,adminEnd:`${year}-02-28`,stabilityEnd:`${year+1}-02-28`,staffIds:[alex.id]},h.owner,400)
+ await h.cmd('aca.plan.save',{name:plan.name,start:plan.start,end:plan.end,adminEnd:plan.adminEnd,stabilityEnd:plan.stabilityEnd,staffIds:plan.staffIds,id:plan.id,revision:99},h.owner,409)
+ assert.ok((await h.state()).events.some(e=>e.action==='aca.download'))
+}))
+
+test('ACA-001: owners configure plans and paid service, inspect source-backed status, download the filer file and see scheduler warnings at 1440 and 390',async()=>{const {acaJourney}=await import('./aca-journey.mjs');await acaJourney()})
 
 // A new installation runs on US Pacific time: 7:00 am – 3:00 pm PDT on Mon Oct 12, 2026.
 const shift = staffId => ({ staffId, start: '2026-10-12T14:00:00Z', end: '2026-10-12T22:00:00Z', breakMinutes: 30, label: 'Morning service' })
