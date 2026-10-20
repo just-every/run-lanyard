@@ -45,10 +45,11 @@ export function acaReports(s:State,a:Actor,at:string,draft?:Draft) {
 }
 const cell=(v:unknown)=>{let s=String(v??'');if(/^[\s]*[=+\-@\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
 export function acaCsv(report:ReturnType<typeof acaReports>[number]) {
- const header=['record_type','employee','payroll_id','measurement_start','measurement_end','administrative_end','stability_start','stability_end','month_or_date','worked_minutes','paid_nonwork_minutes','total_service_minutes','planned_minutes','status','source_id','source_revision','source_reference','as_of']
+ const header=['record_type','employee','payroll_id','measurement_start','measurement_end','administrative_end','stability_start','stability_end','month_or_date','worked_minutes','paid_nonwork_minutes','total_service_minutes','planned_minutes','worked_hours','paid_nonwork_hours','total_service_hours','planned_hours','status','source_id','source_revision','source_reference','as_of']
  const rows=report.rows.flatMap(r=>{
   const base=[r.name,r.payrollId,report.plan.start,report.plan.end,report.plan.adminEnd,r.stabilityStart,r.stabilityEnd]
   return [['measurement',...base,'',r.workedMinutes,r.paidLeaveMinutes,r.totalMinutes,r.plannedMinutes,r.status,'','','',report.asOf],...r.monthly.map(m=>['monthly',...base,m.month,'','',m.totalMinutes,m.plannedMinutes,m.fullTime?'full-time':'not-full-time','','','',report.asOf]),...r.sources.map(p=>['source: '+p.kind,...base,p.date,p.kind==='approved time'?p.minutes:0,p.kind==='paid non-work'?p.minutes:0,p.kind==='planned shift'?0:p.minutes,p.kind==='planned shift'?p.minutes:0,'',p.id,p.revision,p.reference??'',report.asOf])]
  })
- return [header,...rows].map(r=>r.map(cell).join(',')).join('\r\n')+'\r\n'
+ const withHours=rows.map(r=>[...r.slice(0,13),...r.slice(9,13).map(v=>v===''?'':(Number(v)/60).toFixed(4)),...r.slice(13)])
+ return [header,...withHours].map(r=>r.map(cell).join(',')).join('\r\n')+'\r\n'
 }

@@ -9,6 +9,7 @@ test('ACA-001: a year of approved service for three variable-hour people, monthl
  const read=async(cookie=h.owner,id=plan.id,query='')=>{const r=await h.send(`/api/lanyard/aca/${id}${query}`,undefined,cookie);assert.equal(r.status,200,r.text);return r.value}
  let report=await read(),a=report.rows.find(r=>r.staffId===alex.id),b=report.rows.find(r=>r.staffId===ben.id),c=report.rows.find(r=>r.staffId===cy.id)
  assert.equal(a.workedMinutes,days.length*480);assert.ok(a.averageWeeklyHours>30);assert.equal(a.status,'full-time');assert.equal(a.stabilityStart,`${year+1}-01-31`);assert.equal(a.stabilityEnd,`${year+2}-01-30`)
+ assert.deepEqual(a.monthly.map(m=>[m.totalMinutes,m.fullTime]),Array.from({length:12},(_,i)=>{const month=`${year}-${String(i+1).padStart(2,'0')}`,minutes=days.filter(d=>d.startsWith(month)).length*480;return [minutes,minutes>=130*60]}),'monthly 130-hour results reconcile to actual service independently of the annual look-back')
  assert.equal(b.workedMinutes,12*480);assert.equal(b.status,'not-full-time');assert.equal(report.rows.length,3)
  assert.deepEqual(c.sources.filter(x=>x.id===overnight.id).map(x=>[x.date,x.minutes]),[[`${year}-01-31`,230],[`${year}-02-01`,460]])
  assert.equal(c.monthly.reduce((n,m)=>n+m.totalMinutes,0),c.totalMinutes)
@@ -25,7 +26,7 @@ test('ACA-001: a year of approved service for three variable-hour people, monthl
  const pending=(await read()).rows.find(r=>r.staffId===alex.id);assert.equal(pending.workedMinutes,days.length*480);assert.ok(pending.incomplete.some(x=>x.id===correction.id&&x.reason.includes('correction')))
  await h.cmd('time.approve',acaPin(correction));a=(await read()).rows.find(r=>r.staffId===alex.id);assert.equal(a.workedMinutes,days.length*480-60);assert.ok(!a.sources.some(x=>x.id===last.id));assert.ok(a.sources.some(x=>x.id===correction.id&&x.revision===2))
  const filePath=`/api/lanyard/aca/${plan.id}.csv?asOf=${encodeURIComponent(report.asOf)}`,download=await h.send(filePath,undefined,h.owner),again=await h.send(filePath,undefined,h.owner)
- assert.equal(download.status,200);assert.equal(download.text,again.text);assert.match(download.text,/measurement/);assert.match(download.text,/source: paid non-work/);assert.ok(download.text.includes(credit.reference));assert.ok(download.text.includes(correction.id));assert.ok(download.text.includes('"'+(days.length*480-60)+'"'))
+ assert.equal(download.status,200);assert.equal(download.text,again.text);assert.match(download.text,/measurement/);assert.match(download.text,/source: paid non-work/);assert.ok(download.text.includes(credit.reference));assert.ok(download.text.includes(correction.id));assert.ok(download.text.includes('"'+(days.length*480-60)+'"'));assert.ok(download.text.includes('"'+((days.length*480-60)/60).toFixed(4)+'"'),'filer file carries hours as well as exact source minutes')
  assert.equal((await h.send(`/api/lanyard/aca/${plan.id}`,undefined,ben.cookie)).status,403)
  assert.equal((await h.send(`/api/lanyard/aca/${plan.id}.csv`,undefined,'')).status,401)
  assert.deepEqual((await read(priya.cookie)).rows.map(r=>r.staffId),[alex.id,ben.id]);assert.deepEqual((await read(omar.cookie)).rows.map(r=>r.staffId),[cy.id])
