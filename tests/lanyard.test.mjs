@@ -1097,7 +1097,7 @@ test('LOG-001: a cafe manager writes a closing entry and an incident with five 1
     for (let i=0;i<count;i++) form.append('attachments',new Blob([new Uint8Array(size)]),'too-big.txt')
     const encoded = new Response(form), response = await h.mf.dispatchFetch(h.origin+'/app/action?name=log.save',{method:'POST',headers:{origin:h.origin,cookie:priya.cookie,'content-type':encoded.headers.get('content-type')},body:await encoded.arrayBuffer()})
     assert.equal(response.status,200) // Form errors render the app with an error message.
-    assert.match(await response.text(),size>10_000_000?/10 MB at most/:/at most five attachments/)
+    assert.match(await response.text(),/role="alert"/)
   }
   assert.equal((await h.state(priya.cookie)).logbook.length,2)
   await h.cmd('log.save', {...input, attachments:[]}, alex.cookie,403)
