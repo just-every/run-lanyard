@@ -2,6 +2,7 @@
 // it creates a native read receipts there, then uses public CLI archive doors to
 // move it into this checkout. No historical timestamps or consent are invented.
 import assert from 'node:assert/strict'
+import {createRequire} from 'node:module'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
 import {cp,mkdir,mkdtemp,readFile,rm,symlink} from 'node:fs/promises'
@@ -44,6 +45,27 @@ try{
  assert.equal(acknowledged.reads.at(-1).revision,3)
  assert.equal(acknowledged.reads.length,3)
  await h.cmd('log.read',{id:acknowledged.id,revision:acknowledged.revision},omar,409)
+ if(process.argv.includes('--screens')){
+  const {chromium}=createRequire(join(root,'package.json'))('@playwright/test')
+  const owner=await h.signIn(h.auth.OWNER_EMAIL)
+  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+  try{
+   await mkdir('/tmp/lanyard-r8-log-upgrade-screens',{recursive:true})
+   for(const width of [1440,390]){
+    const context=await browser.newContext({viewport:{width,height:1000}}),[name,...value]=omar.split('=')
+    await context.addCookies([{name,value:value.join('='),url:h.origin}]);const page=await context.newPage()
+    await page.route('**/*',async route=>{
+     const path=new URL(route.request().url()).pathname
+     if(path.startsWith('/fonts/')||path.endsWith('.css')||path==='/lanyard.js')try{return await route.fulfill({body:await readFile(join(root,'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':'font/woff2'})}catch{}
+     await route.continue()
+    })
+    await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'})
+    const log=page.locator('#logbook');assert.equal(await log.locator('form[action*="log.read"]').count(),0)
+    await log.screenshot({path:`/tmp/lanyard-r8-log-upgrade-screens/receipts-${width}.png`});await context.close()
+   }
+  }finally{await browser.close()}
+ }
  console.log('LOG-001 legacy archive receipt journey passed')
 }finally{
  await h?.close();process.chdir(root);await rm(temporary,{recursive:true,force:true})
