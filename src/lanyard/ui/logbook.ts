@@ -2,7 +2,7 @@
 // mentions, links, an attachment, read receipts and earlier versions; search by category and
 // month; a new or corrected entry (multipart, for the attachment); an incident's text export.
 import {h,rows,card,empty,person,disclosure,textarea,field,exact} from './shared'
-import {entryFiles} from '../domain/logbook'
+import {entryFiles} from '../domain/logformat'
 import {day} from './format'
 import {sitesOf} from './week'
 
