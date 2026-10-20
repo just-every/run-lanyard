@@ -30,6 +30,7 @@ html.rer-themed .lanyard-app pre.csv{white-space:pre-wrap;overflow-wrap:anywhere
 .counts dt{font-size:12px;color:var(--muted)}
 .counts dd{margin:0;font-weight:700;font-size:18px}
 .credential{user-select:all}
+html.rer-themed .lanyard-app dl.command-docs{display:block}
 .command-docs dt{font-weight:600;margin-top:14px}
 .command-docs dd{margin:4px 0 0;color:var(--muted)}
 
