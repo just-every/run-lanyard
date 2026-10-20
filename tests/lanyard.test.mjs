@@ -1687,3 +1687,73 @@ test('SCHEDULE-001: visual service-week editing, resize, copy, bulk assignment, 
 
 test('PEOPLE-002: qualifications, expiring certificates, preferences, effective job rates, retained costs and inherited template/swap/pickup checks through HTTP',()=>run(async h=>{const {workforceApi}=await import('./workforce-journey.mjs');await workforceApi(h)}))
 test('PEOPLE-002: retained rate costs in schedule/grid, interval reports and time review at 1440 and 390',async()=>{const {workforceBrowser}=await import('./workforce-journey.mjs');await workforceBrowser()})
+
+test('SCHEDULE-004: native shift handover keeps revisioned notes/checklists and immutable blockers; reassignment, offers, cancellation and supersession fence instructions while authors retain their own responses',()=>run(async h=>{
+ const {days,monday}=await import('./workforce-journey.mjs'),pin=r=>({id:r.id,revision:r.revision})
+ const alex=await h.person('Alex'),ben=await h.person('Ben'),cy=await h.person('Cy'),morgan=await h.person('Morgan','manager'),taylor=await h.person('Taylor','manager')
+ for(const p of [alex,ben,cy,morgan,taylor])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,position:'Counter',site:p===taylor?'Mission':'Ocean Beach'})
+ const week=days(monday(new Date().toISOString().slice(0,10)),14),start=week+'T16:00:00Z',end=week+'T20:00:00Z'
+ for(const p of [alex,ben,cy])await h.cmd('availability.save',{staffId:p.id,start:days(week,-1)+'T00:00:00Z',end:days(week,7)+'T00:00:00Z'})
+ const draft=await h.cmd('roster.prepare',{week,shifts:[{staffId:alex.id,start,end,breakMinutes:0,label:'Service'}]})
+ let shift=draft.shifts[0],request={shiftId:shift.id,shiftRevision:shift.revision,notes:'Private safe handover',tasks:['Sanitize counter','Lock kitchen']}
+ await h.cmd('shiftwork.save',request,morgan.cookie,409)
+ await h.cmd('roster.publish',pin(draft));shift=(await h.state()).shifts.find(x=>x.id===shift.id)
+ const shiftPin=()=>({shiftId:shift.id,shiftRevision:shift.revision})
+ request={...request,...shiftPin()}
+ await h.cmd('shiftwork.save',request,alex.cookie,403);await h.cmd('shiftwork.save',request,taylor.cookie,403)
+ const work=await h.cmd('shiftwork.save',request,morgan.cookie)
+ assert.equal(work.notes,request.notes);assert.equal(work.tasks.length,2);assert.ok(work.by&&work.at)
+ assert.deepEqual((await h.state(ben.cookie)).shiftwork,[]);assert.deepEqual((await h.state(taylor.cookie)).shiftwork,[])
+ const mine=(await h.state(alex.cookie)).shiftwork[0];assert.equal(mine.notes,work.notes);assert.ok(!('versions'in mine))
+ const response={...shiftPin(),revision:work.revision,completed:[work.tasks[0].id],blocker:'Kitchen lock jammed'}
+ await h.cmd('shiftwork.respond',response,ben.cookie,403)
+ const answer=await h.cmd('shiftwork.respond',response,alex.cookie)
+ assert.deepEqual(answer.completed,[work.tasks[0]]);assert.equal(answer.workRevision,work.revision);assert.equal(answer.staffId,alex.id);assert.ok(answer.by&&answer.at)
+ assert.deepEqual((await h.state(morgan.cookie)).taskanswers,[answer]);assert.deepEqual((await h.state(ben.cookie)).taskanswers,[]);assert.deepEqual((await h.state(taylor.cookie)).taskanswers,[])
+ await h.cmd('shiftwork.respond',{...response,completed:[work.tasks[0].id,work.tasks[0].id]},alex.cookie,409)
+ const beforeBad=(await h.state()).version
+ await h.cmd('shiftwork.save',{...request,revision:work.revision,tasks:Array(31).fill('Too many')},morgan.cookie,400)
+ await h.cmd('shiftwork.save',{...request,revision:work.revision,notes:'x'.repeat(4001)},morgan.cookie,400)
+ assert.equal((await h.state()).version,beforeBad)
+ const changed=await h.cmd('shiftwork.save',{...request,revision:work.revision,notes:'Changed private handover',tasks:['Recheck counter','Lock kitchen']},morgan.cookie)
+ assert.deepEqual(changed.versions[0].tasks,work.tasks);assert.equal(changed.versions[0].notes,work.notes);assert.equal(changed.versions[0].revision,1)
+ await h.cmd('shiftwork.save',{...request,revision:work.revision},morgan.cookie,409)
+ await h.cmd('shiftwork.respond',response,alex.cookie,409)
+ await h.cmd('shiftwork.respond',{...response,revision:changed.revision},alex.cookie,409)
+ const later=await h.cmd('shiftwork.respond',{...shiftPin(),revision:changed.revision,completed:[changed.tasks[1].id],blocker:''},alex.cookie)
+ assert.equal(later.workRevision,2);assert.deepEqual((await h.state()).taskanswers.find(x=>x.id===answer.id),answer)
+ // Instructions never enter print, wall, worked time or payroll.
+ const posted=await h.cmd('schedule.post',{week,site:'Ocean Beach'})
+ const pdf=await h.mf.dispatchFetch(`${h.origin}/api/lanyard/postings/${posted.id}.pdf`,{headers:{cookie:h.owner}}),pdfText=Buffer.from(await pdf.arrayBuffer()).toString('latin1')
+ await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+ const wall=await h.send(`/app/wall?week=${week}&site=Ocean%20Beach`,undefined,h.owner)
+ assert.equal(wall.status,200)
+ for(const out of [pdfText,wall.text,JSON.stringify(posted)])for(const secret of [work.notes,changed.notes,answer.blocker,...work.tasks.map(t=>t.text)])assert.ok(!out.includes(secret),secret)
+ const state=await h.state();assert.deepEqual(state.timesheets,[]);assert.deepEqual(state.batches,[]);assert.equal(state.shifts.find(x=>x.id===shift.id).minutes,240)
+ // An offer is not assignment. In-place cover moves instructions to its assignee.
+ await h.cmd('shift.callout',{...pin(shift),note:'Unavailable'},alex.cookie)
+ shift=(await h.state()).shifts.find(x=>x.id===shift.id)
+ assert.equal((await h.state(ben.cookie)).offers.length,1);assert.deepEqual((await h.state(ben.cookie)).shiftwork,[])
+ const offer=(await h.state(ben.cookie)).offers[0],accepted=await h.cmd('cover.respond',{...pin(offer),decision:'accepted'},ben.cookie)
+ assert.deepEqual((await h.state(ben.cookie)).shiftwork,[])
+ await h.cmd('cover.approve',pin(accepted),morgan.cookie)
+ shift=(await h.state()).shifts.find(x=>x.id===shift.id)
+ assert.deepEqual((await h.state(alex.cookie)).shiftwork,[]);assert.equal((await h.state(ben.cookie)).shiftwork[0].id,work.id)
+ assert.deepEqual((await h.state(alex.cookie)).taskanswers.map(x=>x.id).sort(),[answer.id,later.id].sort());assert.deepEqual((await h.state(ben.cookie)).taskanswers,[])
+ await h.cmd('shiftwork.respond',{...shiftPin(),revision:changed.revision,completed:[],blocker:'Former assignee'},alex.cookie,403)
+ const benAnswer=await h.cmd('shiftwork.respond',{...shiftPin(),revision:changed.revision,completed:[],blocker:'Handover accepted; lock still jammed'},ben.cookie)
+ // Supersession retains the instruction lineage, but grants only the new assignee.
+ const moved=await h.cmd('shift.change',{...pin(shift),staffId:cy.id,reason:'Coverage handover'},morgan.cookie)
+ const oldShift=shift;shift=moved.shift
+ assert.deepEqual((await h.state(ben.cookie)).shiftwork,[]);assert.equal((await h.state(cy.cookie)).shiftwork[0].id,work.id)
+ assert.deepEqual((await h.state(ben.cookie)).taskanswers,[benAnswer]);assert.deepEqual((await h.state(cy.cookie)).taskanswers,[])
+ await h.cmd('shiftwork.respond',{shiftId:oldShift.id,shiftRevision:oldShift.revision+1,revision:changed.revision,completed:[],blocker:'Obsolete shift'},ben.cookie,409)
+ await h.cmd('shiftwork.respond',{...shiftPin(),revision:changed.revision,completed:[],blocker:'Current assignee'},cy.cookie)
+ await h.cmd('shift.cancel',{...pin(shift),reason:'Service canceled'},morgan.cookie)
+ assert.deepEqual((await h.state(cy.cookie)).shiftwork,[]);assert.equal((await h.state(cy.cookie)).taskanswers.length,1)
+ assert.equal((await h.state(morgan.cookie)).taskanswers.length,4);assert.equal((await h.state(morgan.cookie)).shiftwork[0].versions.length,1)
+ const key=await h.cmd('agent.create',{label:'No handover access'}),headers={authorization:`Bearer ${key.token}`}
+ const agent=await h.send('/api/lanyard/agent/context',undefined,'',headers);assert.equal(agent.status,200);assert.deepEqual(agent.value.shiftwork,[]);assert.deepEqual(agent.value.taskanswers,[])
+ assert.equal((await h.send('/api/lanyard/agent/command',{name:'shiftwork.save',input:request},'',headers)).status,403)
+ assert.equal((await h.send('/api/lanyard/state')).status,401)
+}))
