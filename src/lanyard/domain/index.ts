@@ -2,7 +2,8 @@ import {type Actor,type Context,type State,kinds,object,text,need,sha,canonical,
 import {actor,live,load,saved,commit} from './storage'
 import {offline,issuesFor} from './offline'
 import {people} from './people'
-import {roster} from './roster'
+import {roster,draftWeek} from './roster'
+import {scheduleReview} from './schedule-review'
 import {time} from './time'
 import {payroll} from './payroll'
 import {settings} from './settings'
@@ -115,6 +116,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  const staff=s.staff.filter(p=>manages||agent||p.id===a.staffId).map(p=>agent?{id:p.id,name:p.name,active:!!p.active,position:p.position,site:p.site}:{id:p.id,name:p.name,email:p.email,payrollId:p.payroll_id,role:p.role,active:!!p.active,revision:p.version,erasedAt:p.erased_at,position:p.position,site:p.site,...(manages||(p.id===a.staffId&&earnSettings(s.earnings).estimates)?{hourlyRateCents:p.rate_cents}:{})})
  const result:Record<string,any>={actor:{id:a.id,email:agent?undefined:a.email,name:agent?undefined:identity.name,role:a.role,staffId:a.staffId},version:s.version,settings:{timezone:s.timezone},staff}
  for(const k of kinds)result[k]=s[k]
+ result.scheduleReviews=manages?s.rosters.filter(r=>r.status==='draft').map(r=>scheduleReview(s,r.week)):[]
  result.clockissues=issuesFor(s,a)
  if(!manages&&!agent) {
   for(const k of ['availability','leave','clocks','timesheets','patterns'] as const)result[k]=s[k].filter(r=>r.staffId===a.staffId)
@@ -264,4 +266,12 @@ export async function autoRulePreview(db:D1Database,identity:Actor,id:string) {
 export async function coverageRead(db:D1Database,identity:Actor,asOf:string,site:string) {
  const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
  return coverageCases(s,f,instant(asOf,'asOf'),site)
+}
+
+/** Read-only review of unsaved rows through the current native manager authority. */
+export async function previewSchedule(db:D1Database,identity:Actor,input:unknown) {
+ const a=await live(db,identity),s=await load(db);manager(fresh(a,s));const p=object(input)
+ const c={a,s,db,now:new Date().toISOString(),sql:[],entity:''} as import('./model').Context
+ draftWeek(c,p.week,p.shifts)
+ return scheduleReview(s,String(p.week))
 }

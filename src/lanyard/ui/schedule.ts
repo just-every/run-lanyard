@@ -11,6 +11,7 @@ import {askbar} from './askbar'
 import {planner} from './planner'
 import {conflictList} from './shell'
 import {day} from './format'
+import {reviewCard} from './schedule-review'
 import {dashboardCard} from './dashboard'
 
 function draftBanner(s:any,w:Week,back:string,extras:any) {
@@ -23,5 +24,5 @@ function draftBanner(s:any,w:Week,back:string,extras:any) {
 export function schedule(s:any,w:Week,extras:any,now:number,back:string,q:URLSearchParams) {
  const home=w.site||staffOf(s,s.actor.staffId)?.site,title=manager(s)?`${w.site||'All cafes'} · ${w.headcount} staff`:`${home?home+' · ':''}My shifts`
  const noPeople=manager(s)&&!rows(s,'staff').length?`<div class="banner"><p>Add your team in People first, then build the week here.</p><a class="button primary" href="/app/people#add">Add people</a></div>`:''
- return `${titleRow(title,s,now)}${manager(s)?dashboardCard(s):''}${offerCards(s,w.tz,back)}${swapCards(s,w.tz,back)}${openShiftCards(s,w.tz,back)}${manager(s)?overtimeCard(s,w.week,w.tz,back):''}${historyCard(s,w.week,w.tz,manager(s))}${noPeople}${draftBanner(s,w,back,extras)}<section class="schedule" aria-label="Schedule">${grid(s,w,now,back,q)}</section>${askbar(s)}<div class="below">${planner(s,w,back,extras)}</div>`
+ return `${titleRow(title,s,now)}${manager(s)?dashboardCard(s):''}${offerCards(s,w.tz,back)}${swapCards(s,w.tz,back)}${openShiftCards(s,w.tz,back)}${manager(s)?overtimeCard(s,w.week,w.tz,back):''}${historyCard(s,w.week,w.tz,manager(s))}${noPeople}${reviewCard(s,s.scheduleReviews?.find((r:any)=>r?.week===w.week),w.tz)}${draftBanner(s,w,back,extras)}<section class="schedule" aria-label="Schedule">${grid(s,w,now,back,q)}</section>${askbar(s)}<div class="below">${planner(s,w,back,extras)}</div>`
 }

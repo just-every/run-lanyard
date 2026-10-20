@@ -1,0 +1,11 @@
+import {h,person,card} from './shared'
+import {money,hours,when} from './format'
+export function reviewCard(s:any,review:any,tz:string) {
+ if(!review)return ''
+ const shift=(x:any)=>`${h(person(s,x.staffId))} · ${h(when(x.start,tz))} – ${h(when(x.end,tz))} · ${h(x.breakMinutes)} min meal${x.label?' · '+h(x.label):''}${x.site?' · '+h(x.site):''}`
+ const warnings=[...review.conflicts.map((c:any)=>`${person(s,c.staffId)}: ${c.reason}`),...review.warnings.map((w:any)=>`${w.site||'Cafe'}${w.date?' · '+w.date:''}: ${w.message}`)]
+ const diff=`<h3>Employee-facing change preview</h3><p>After publication, each employee sees only changes to their own shifts. Changed shifts appear as removed and added; notices have not been sent.</p><ul>${review.removed.map((x:any)=>`<li>Removed: ${shift(x)}</li>`).join('')}${review.added.map((x:any)=>`<li>Added: ${shift(x)}</li>`).join('')}</ul><p>${h(review.unchanged.length)} unchanged shifts.</p>`
+ const days=`<table><thead><tr><th>Day</th><th>People / shifts</th><th>Hours</th><th>Estimated cost</th><th>Known gaps</th></tr></thead><tbody>${review.days.map((d:any)=>`<tr><td>${h(d.date)}</td><td>${h(d.headcount)} / ${h(d.shifts)}</td><td>${h(hours(d.minutes))}</td><td>${h(money(d.costCents))}${d.unrated?' · incomplete':''}</td><td>${h(d.gaps)}</td></tr>`).join('')}</tbody></table>`
+ const sites=review.sites.map((v:any)=>`<p>${h(v.site||'Cafe')}: ${h(money(v.costCents))} scheduled estimate · ${v.forecastCents===null?'no sales forecast':h(money(v.forecastCents))+' forecast sales'} · ${v.budgetCents===null?'no budget':h(money(v.budgetCents))+' labor budget'}</p>`).join('')
+ return `<div class="schedule-review" data-saved-review>${card('Review draft before publishing',`<p>Revision ${h(review.revision)} · ${h(review.added.length)} added · ${h(review.removed.length)} removed. Costs use current USD hourly rates, whole elapsed shift minutes less meals, rounded to cents per shift. These scheduled estimates exclude overtime and premiums and use the current rate entries.</p>${warnings.length?`<ul class="conflicts">${warnings.map((w:string)=>`<li>${h(w)}</li>`).join('')}</ul>`:'<p>No known conflicts or budget warnings.</p>'}${days}${sites}${diff}`)}</div>`
+}

@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -135,6 +135,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       const printed = path.match(/^\/api\/lanyard\/postings\/([\w-]+)\.pdf$/)
       if (printed) { const { bytes, name } = await schedulePdf(env.DB, who, printed[1]); return new Response(bytes, { headers: { ...headers, 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${name}"` } }) }
     } else {
+      if (path === '/api/lanyard/schedule/review') return json(await previewSchedule(env.DB, who, await inputBody(request)))
       if (path === '/app/action') {
         const input = await inputBody(request), name = url.searchParams.get('name') ?? ''
         if (name === 'staff.save' && !('active' in input)) input.active = false

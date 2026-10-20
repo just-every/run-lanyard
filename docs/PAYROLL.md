@@ -40,3 +40,5 @@ After your provider accepts the file, open **Record provider acknowledgement**, 
 Prepare and approve the correction in **Time**, then prepare a new payroll batch. The line carries only the positive or negative difference from hours already exported for that timesheet's history. It does not resend the whole corrected duration.
 
 An unresolved correction blocks export of its earlier source. Finish reviewing the correction, then prepare payroll from the resulting approved time. Earlier exports stay available with their original bytes and history.
+
+Payroll sibling: [Envelope](https://github.com/just-every/run-envelope).

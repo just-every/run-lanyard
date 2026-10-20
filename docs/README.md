@@ -21,3 +21,5 @@ Publish the week's schedule, let staff clock in by phone, and export approved ho
 - [Source and reuse](SOURCES.md): the foundation and open-source patterns used by Lanyard.
 
 Lanyard exports hours to your existing payroll process. It does not calculate wages, overtime or premiums, submit payroll to a provider or pay staff. Map its documented CSV to your payroll provider before using real data.
+
+Payroll sibling: [Envelope](https://github.com/just-every/run-envelope).

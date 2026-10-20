@@ -91,54 +91,7 @@
       for (const input of form.querySelectorAll('input[data-utc]')) event.formData.set(input.name,toAPI(input))
     })
   })
-  // Shift rows are convenience controls with no submitted names: on submit they become the
-  // hidden `shifts` field (UTC instants), the same input agents send to roster.prepare.
-  const roster = document.querySelector('[data-roster-form]')
-  if (roster) {
-    const container = roster.querySelector('[data-shift-rows]')
-    const current = roster.querySelector('[data-current-rows]')
-    const template = container.firstElementChild.cloneNode(true)
-    const output = roster.querySelector('[data-shifts-output]')
-    roster.querySelector('[data-add-shift]').addEventListener('click', () => {
-      const row = template.cloneNode(true)
-      container.append(row)
-      row.querySelector('select').focus()
-    })
-    roster.addEventListener('click', event => {
-      if (event.target.closest('[data-remove-shift]')) event.target.closest('.shift-input').remove()
-    })
-    const refuse = (input, message, event) => { input.setCustomValidity(message); input.reportValidity(); event.preventDefault() }
-    roster.addEventListener('submit', event => {
-      const shifts = []
-      // New rows join the week's current shifts unless the manager chose to replace them.
-      const keep = roster.querySelector('[data-keep]')
-      const rows = [...container.querySelectorAll('.shift-input'), ...(current && keep?.checked ? current.querySelectorAll('.shift-input') : [])]
-      for (const row of rows) {
-        const control = key => row.querySelector(`[data-shift="${key}"]`)
-        const value = key => control(key).value.trim()
-        if (![value('staffId'),value('start'),value('end'),value('label')].some(Boolean)) continue
-        for (const key of ['staffId','start','end']) {
-          const input = control(key)
-          if (!input.value) {
-            if (input.closest('details')) input.closest('details').open = true
-            return refuse(input, 'Complete this shift or remove it before preparing the draft.', event)
-          }
-        }
-        const site = control('site') ? value('site') : ''
-        const shift = {staffId:value('staffId'),breakMinutes:Number(value('breakMinutes')),...(value('label') ? {label:value('label')} : {}),...(site ? {site} : {})}
-        for (const key of ['start','end']) {
-          const input = control(key)
-          try { shift[key] = localToUTC(input.value) } catch (error) {
-            if (input.closest('details')) input.closest('details').open = true
-            return refuse(input, error.message, event)
-          }
-        }
-        shifts.push(shift)
-      }
-      if (!shifts.length) return refuse(container.querySelector('[data-shift="staffId"]') || roster.querySelector('[data-add-shift]'), 'Add at least one shift.', event)
-      output.value = JSON.stringify(shifts)
-    })
-  }
+  window.LanyardSchedule?.start({localToUTC})
   // The pay-week checkboxes choose the timesheets; the hidden `ids` field carries them.
   const payroll = document.querySelector('[data-payroll-form]')
   if (payroll) {

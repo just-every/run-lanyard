@@ -10,7 +10,7 @@ const weekOf = ms => {
 }
 const pin = row => ({ id: row.id, revision: row.revision })
 
-test('COVER-003: preferred in-app offers expire; exact approvals retain assignments and history through a scoped no-show reoffer until a real clock verifies coverage', () => run(async h => {
+test('COVER-003 / SCHEDULE-001: preferred in-app offers expire; exact approvals retain assignments and history through a scoped no-show reoffer until a real clock verifies coverage', () => run(async h => {
   const ana = await h.person('Ana'), ben = await h.person('Ben'), zoe = await h.person('Zoe'), cy = await h.person('Cy')
   const priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager')
   for (const p of [ana, ben, zoe, cy, priya, omar]) {
@@ -74,6 +74,9 @@ test('COVER-003: preferred in-app offers expire; exact approvals retain assignme
   const reopened = (await read()).find(c => c.shiftId === running.id)
   assert.deepEqual([reopened.status, reopened.actionable, reopened.staffId, reopened.clock], ['reopened', true, zoe.id, null])
   assert.equal(reopened.reopenedAt, reopened.noShowAt)
+  const reviewInput={week:weekOf(start),shifts:[{staffId:firstAssignment.staffId,start:running.start,end:running.end,breakMinutes:running.breakMinutes,site:'Ocean Beach'}]}
+  const review=await h.send('/api/lanyard/schedule/review',reviewInput,priya.cookie)
+  assert.equal(review.status,200);assert.ok(review.value.gaps.some(g=>g.id===running.id),'SCHEDULE-001 keeps replacement no-show gaps visible before publication')
   const page = await h.send(`/app/schedule?week=${weekOf(start)}&site=Ocean%20Beach`, undefined, priya.cookie)
   assert.equal(page.status, 200)
   assert.match(page.text, /name=cover.reopen/)
@@ -96,6 +99,8 @@ test('COVER-003: preferred in-app offers expire; exact approvals retain assignme
   const verified = (await read()).find(c => c.shiftId === running.id)
   assert.deepEqual([verified.status, verified.actionable, verified.clock.clockId], ['verified', false, clock.id])
   assert.deepEqual(verified.approvals.map(a => a.staffId), [zoe.id, ben.id])
+  const afterClock=await h.send('/api/lanyard/schedule/review',{...reviewInput,shifts:reviewInput.shifts.map(x=>({...x,staffId:ben.id}))},priya.cookie)
+  assert.ok(!afterClock.value.gaps.some(g=>g.id===running.id),'SCHEDULE-001 clears that gap only after real coverage evidence')
   assert.equal(verified.offers.find(o => o.id === firstYes.id).status, 'approved', 'the prior approval remains intact')
   const history=(await h.send(`/api/lanyard/shifts/${running.id}/history`,undefined,zoe.cookie)).value
   assert.deepEqual(history.events.filter(e=>e.action==='covered').map(e=>e.staffId),[zoe.id,ben.id])
