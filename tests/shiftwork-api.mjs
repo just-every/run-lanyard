@@ -28,7 +28,7 @@ export async function handoverApi(h) {
  const exported=await h.cmd('payroll.export',pin(batch),manager.cookie)
  await h.cmd('payroll.export',pin(competing),manager.cookie,409)
  const first=await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,manager.cookie),second=await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,manager.cookie)
- assert.equal(first.text,second.text);assert.ok(first.text.includes(f.counter.id)&&first.text.includes(f.kitchen.id));assert.ok(first.text.includes('Front counter')&&first.text.includes('Kitchen close'))
+ assert.equal(first.text,second.text);assert.ok(first.text.split('\r\n').filter(l=>l.startsWith('ALEX,')).every(l=>l.endsWith(captured.start+','+captured.end)),'each split row preserves the enclosing captured timestamps as well as its area bounds');assert.ok(first.text.includes(f.counter.id)&&first.text.includes(f.kitchen.id));assert.ok(first.text.includes('Front counter')&&first.text.includes('Kitchen close'))
  const correction=await h.cmd('time.prepare',{staffId:alex.id,start:captured.start,end:captured.end,breakMinutes:59,reason:'Agreed meal correction',corrects:approved.id})
  approved=await h.cmd('time.approve',pin(correction),manager.cookie)
  assert.deepEqual(approved.workSegments.map(p=>p.minutes),[226,225],'one remaining payable minute goes to the earlier area on a tied remainder');assert.equal(approved.minutes,451)
