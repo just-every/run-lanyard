@@ -2,6 +2,7 @@
 import {createPortability} from '@runeditrun/rer/modules/portability'
 // @ts-ignore The archive policy is shared with Base's JavaScript CLI.
 import archivePolicy from '../archive-policy.mjs'
+import {freezeRates} from './workforce'
 import {requestFlags,overrideOf} from './leaverules'
 import {employment,employmentOf} from './offerorder'
 import {type Context,keys,text,integer,need,manager,self,staff,window,get,exact,put,sha,overlap} from './model'
@@ -22,6 +23,7 @@ export async function people(c:Context,name:string,p:Record<string,any>) {
   const email=text(p.email,'email',254).toLowerCase();need(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),'Invalid email')
   need(!await c.db.prepare('SELECT 1 FROM l_erasure_journal WHERE identity_hash=?').bind(await sha(email)).first(),'Identity was erased; restore fence prevents reimport',409)
   need(typeof p.active==='boolean','Explicit active flag required');need(['staff','manager'].includes(p.role),'Invalid role')
+  if(old&&old.rate_cents!==cents(p.hourlyRate))freezeRates(c,old.id)
   const r={id:old?.id??crypto.randomUUID(),name:text(p.name,'name',160),email,payroll_id:text(p.payrollId,'payrollId',100,true)||null,role:p.role,active:p.active?1:0,version:(old?.version??0)+1,erased_at:null,position:text(p.position,'position',80,true)||null,rate_cents:cents(p.hourlyRate),site:text(p.site,'site',80,true)||null}
   need(!c.s.staff.some(v=>v.id!==r.id&&(v.email.toLowerCase()===email||(r.payroll_id!==null&&v.payroll_id===r.payroll_id))),'Email or payroll ID is already used',409)
   c.sql.push(c.db.prepare('INSERT INTO l_staff(id,name,email,payroll_id,role,active,version,position,rate_cents,site) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,email=excluded.email,payroll_id=excluded.payroll_id,role=excluded.role,active=excluded.active,version=excluded.version,position=excluded.position,rate_cents=excluded.rate_cents,site=excluded.site').bind(r.id,r.name,r.email,r.payroll_id,r.role,r.active,r.version,r.position,r.rate_cents,r.site));employment(c,r.id,!old,p);c.entity=r.id

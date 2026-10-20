@@ -1,4 +1,5 @@
 import {type Context,type Row,type State,keys,text,need,prepare,manager,self,staff,work,get,exact,put,overlap} from './model'
+import {qualification,rateBasis,profileOf} from './workforce'
 import {localDate} from './settings'
 import {patternFit,patternOn} from './patterns'
 import {link,actorName} from './history'
@@ -20,13 +21,14 @@ export function conflicts(c:Context,shifts:Row[],week:string) {
  for(const s of shifts) {
   const person=c.s.staff.find(p=>p.id===s.staffId)
   const reason=!person?.active||person.erased_at?'Staff inactive':patternFit(c.s,s.staffId,s)?.unavailable?'Marked unavailable':!available(c.s,s.staffId,s)?'Outside availability':onLeave(c.s,s.staffId,s)?'Approved leave':null
+  const unqualified=qualification(c.s,s.staffId,s);if(unqualified)errors.push({shiftId:s.id,staffId:s.staffId,reason:unqualified})
   if(reason)errors.push({shiftId:s.id,staffId:s.staffId,reason})
   const others=[...shifts.filter(x=>x.id!==s.id),...c.s.shifts.filter(x=>x.status==='published'&&c.s.rosters.find(r=>r.id===x.rosterId)?.week!==week)]
   if(others.some(x=>x.staffId===s.staffId&&overlap(x,s)))errors.push({shiftId:s.id,staffId:s.staffId,reason:'Overlapping shift'})
  }
  // AVAIL-001: a person's week past the maximum weekly hours of their pattern on that Monday flags their last shift.
  for(const id of new Set(shifts.map(x=>x.staffId))) {
-  const mine=shifts.filter(x=>x.staffId===id).sort((a,b)=>a.start.localeCompare(b.start)),max=patternOn(c.s,id,week)?.maxHours
+  const mine=shifts.filter(x=>x.staffId===id).sort((a,b)=>a.start.localeCompare(b.start)),max=Math.min(patternOn(c.s,id,week)?.maxHours??168,profileOf(c.s,id)?.maxHours??168)
   if(typeof max==='number'&&mine.reduce((n,x)=>n+x.minutes,0)>max*60)errors.push({shiftId:mine[mine.length-1].id,staffId:id,reason:'Over maximum weekly hours'})
  }
  return errors
@@ -38,7 +40,7 @@ export function draftWeek(c:Context,weekInput:unknown,inputs:any) {
  // Replaced private draft rows remain archived, but are never published history.
  const prior=c.s.rosters.find(r=>r.week===week&&r.status==='draft');if(prior){for(const s of c.s.shifts.filter(s=>s.rosterId===prior.id&&s.status!=='replaced-draft'))put(c,'shifts',{...s,status:'replaced-draft'},s)}
  const r=put(c,'rosters',{week,timezone:c.s.timezone,status:'draft',preparedBy:c.a.id,preparedAt:c.now},prior)
- const shifts=inputs.map((value:any)=>{need(value&&typeof value==='object'&&!Array.isArray(value),'Invalid shift');keys(value,['staffId','start','end','breakMinutes','label','site']);const w=work(value),date=localDate(w.start,c.s.timezone),person=staff(c,value.staffId);need(date>=week&&date<weekEnd,'Shift must start in the selected venue week');return put(c,'shifts',{rosterId:r.id,staffId:person.id,...w,label:text(value.label,'label',120,true),site:text(value.site,'site',80,true)||person.site||'',status:'draft'})})
+ const shifts=inputs.map((value:any)=>{need(value&&typeof value==='object'&&!Array.isArray(value),'Invalid shift');keys(value,['staffId','start','end','breakMinutes','label','site','job']);const w=work(value),date=localDate(w.start,c.s.timezone),person=staff(c,value.staffId);need(date>=week&&date<weekEnd,'Shift must start in the selected venue week');const job=text(value.job,'job',80,true),site=text(value.site,'site',80,true)||person.site||'';return put(c,'shifts',{rateBasis:rateBasis(c.s,person.id,{...w,job,site}),job,rosterId:r.id,staffId:person.id,...w,label:text(value.label,'label',120,true),site:text(value.site,'site',80,true)||person.site||'',status:'draft'})})
  c.entity=r.id;return {...r,shifts,conflicts:conflicts(c,shifts,week),approvalRequired:'roster.publish',approval:{id:r.id,revision:r.revision}}
 }
 export function roster(c:Context,name:string,p:Record<string,any>) {

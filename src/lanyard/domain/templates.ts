@@ -8,7 +8,7 @@ import {draftOpenShift} from './openshifts'
 import {instantAt,wall} from './settings'
 
 // A slot with no staffId is a position-only row (COVER-002): applying it adds an open shift to the draft.
-type Slot={staffId:string;day:number;start:string;end:string;breakMinutes:number;label:string;site:string;position?:string}
+type Slot={staffId:string;day:number;start:string;end:string;breakMinutes:number;label:string;site:string;position?:string;job?:string}
 const addDays=(date:string,n:number)=>new Date(Date.parse(date+'T00:00:00Z')+n*86400000).toISOString().slice(0,10)
 const isDate=(d:string)=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d
 const date=(v:unknown,label:string)=>{const d=text(v,label,10);need(isDate(d),`Invalid ${label}: use YYYY-MM-DD`);return d}
@@ -20,14 +20,14 @@ function currentRows(c:Context,week:string) {
  const r=c.s.rosters.find(x=>x.week===week&&x.status==='draft')??c.s.rosters.find(x=>x.week===week&&x.status==='published')
  return r?c.s.shifts.filter(x=>x.rosterId===r.id&&x.status===r.status).sort((a,b)=>a.start.localeCompare(b.start)||String(a.staffId).localeCompare(String(b.staffId))):[]
 }
-const input=(x:Row)=>({staffId:x.staffId,start:x.start,end:x.end,breakMinutes:x.breakMinutes,label:x.label??'',site:x.site??''})
+const input=(x:Row)=>({staffId:x.staffId,start:x.start,end:x.end,breakMinutes:x.breakMinutes,label:x.label??'',site:x.site??'',job:x.job??''})
 function slotOf(c:Context,week:string,x:Row):Slot {
  const a=wall(x.start,c.s.timezone),b=wall(x.end,c.s.timezone)
- return {staffId:x.staffId,day:Math.round((Date.parse(a.date)-Date.parse(week))/86400000),start:a.time,end:b.time,breakMinutes:x.breakMinutes,label:x.label??'',site:x.site??''}
+ return {staffId:x.staffId,day:Math.round((Date.parse(a.date)-Date.parse(week))/86400000),start:a.time,end:b.time,breakMinutes:x.breakMinutes,label:x.label??'',site:x.site??'',job:x.job??''}
 }
 function rowOf(c:Context,week:string,s:Slot) {
  const day=addDays(week,s.day),start=instantAt(day,s.start,c.s.timezone),end=instantAt(s.end>s.start?day:addDays(day,1),s.end,c.s.timezone)
- return {staffId:s.staffId,start,end,breakMinutes:s.breakMinutes,label:s.label,site:s.site}
+ return {staffId:s.staffId,start,end,breakMinutes:s.breakMinutes,label:s.label,site:s.site,job:s.job??''}
 }
 const dayList=(v:unknown)=>{if(v===undefined)return [0,1,2,3,4,5,6];const list=(Array.isArray(v)?v:[v]).map(d=>integer(typeof d==='string'?Number(d):d,'day',0,6));need(list.length>0,'Choose at least one day');return [...new Set(list)]}
 /** The week's posted open shifts, and those its open draft carries. */
@@ -56,7 +56,7 @@ export function templates(c:Context,name:string,p:Record<string,any>) {
   return addToWeek(c,week,currentRows(c,from).map(x=>slotOf(c,from,x)).filter(s=>days.includes(s.day)))
  }
  if(name==='recurrence.save') {
-  manager(c.a);keys(p,['id','revision','staffId','days','start','end','breakMinutes','label','site','from','until','except','removed'])
+  manager(c.a);keys(p,['id','revision','staffId','days','start','end','breakMinutes','label','site','job','from','until','except','removed'])
   const old=p.id?get(c.s,'recurrences',p.id):undefined;if(old)exact(old,p)
   if(p.removed===true||p.removed==='true'){need(old,'Choose a recurring shift to remove',404);return put(c,'recurrences',{...old,removed:true,removedBy:c.a.id,removedAt:c.now},old)}
   const person=c.s.staff.find(v=>v.id===text(p.staffId,'staffId'));need(person&&person.active&&!person.erased_at,'Active staff required')
@@ -65,11 +65,11 @@ export function templates(c:Context,name:string,p:Record<string,any>) {
   const except=(typeof p.except==='string'?p.except.split(/[\s,]+/).filter(Boolean):p.except??[]) as unknown[]
   need(Array.isArray(except)&&except.length<=100,'Invalid skipped dates')
   const breakMinutes=integer(typeof p.breakMinutes==='string'?Number(p.breakMinutes):p.breakMinutes??0,'breakMinutes',0,1440)
-  return put(c,'recurrences',{staffId:person.id,days:dayList(p.days),start:clockTime(p.start,'start'),end:clockTime(p.end,'end'),breakMinutes,label:text(p.label,'label',120,true),site:text(p.site,'site',80,true),from,until,except:except.map(d=>date(d,'skipped date')),savedBy:c.a.id,savedAt:c.now},old)
+  return put(c,'recurrences',{job:text(p.job,'job',80,true),staffId:person.id,days:dayList(p.days),start:clockTime(p.start,'start'),end:clockTime(p.end,'end'),breakMinutes,label:text(p.label,'label',120,true),site:text(p.site,'site',80,true),from,until,except:except.map(d=>date(d,'skipped date')),savedBy:c.a.id,savedAt:c.now},old)
  }
  if(name==='recurrence.apply') {
   manager(c.a);keys(p,['week']);const week=monday(p.week)
-  const slots=c.s.recurrences.filter(r=>!r.removed).flatMap(r=>[0,1,2,3,4,5,6].filter(i=>{const d=addDays(week,i);return r.days.includes(i)&&d>=r.from&&d<=r.until&&!r.except.includes(d)}).map(day=>({staffId:r.staffId,day,start:r.start,end:r.end,breakMinutes:r.breakMinutes,label:r.label,site:r.site})))
+  const slots=c.s.recurrences.filter(r=>!r.removed).flatMap(r=>[0,1,2,3,4,5,6].filter(i=>{const d=addDays(week,i);return r.days.includes(i)&&d>=r.from&&d<=r.until&&!r.except.includes(d)}).map(day=>({staffId:r.staffId,day,start:r.start,end:r.end,breakMinutes:r.breakMinutes,label:r.label,site:r.site,job:r.job??''})))
   need(slots.length,'No recurring shifts fall in this week',409)
   return addToWeek(c,week,slots)
  }

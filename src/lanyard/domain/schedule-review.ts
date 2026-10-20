@@ -1,6 +1,7 @@
 // SCHEDULE-001: current draft facts for publication review. This read never mutates
 // the draft, infers a changed-shift pairing, or turns an estimate into worked cost.
 import {type Actor,type Context,type Row,type State} from './model'
+import {priced,profileOf} from './workforce'
 import {acaReports} from './aca-report'
 import {conflicts} from './roster'
 import {localDate} from './settings'
@@ -9,10 +10,10 @@ import {coverageCase} from './coverage'
 const dateAfter=(date:string,n:number)=>new Date(Date.parse(date+'T00:00:00Z')+n*86400000).toISOString().slice(0,10)
 const siteOf=(s:State,x:Row)=>x.site||s.staff.find(p=>p.id===x.staffId)?.site||''
 function view(s:State,x:Row) {
- return {id:x.id,staffId:x.staffId,start:x.start,end:x.end,breakMinutes:x.breakMinutes,minutes:x.minutes,label:x.label??'',site:siteOf(s,x)}
+ return {id:x.id,staffId:x.staffId,start:x.start,end:x.end,breakMinutes:x.breakMinutes,minutes:x.minutes,label:x.label??'',site:siteOf(s,x),job:x.job??''}
 }
 type ShiftView=ReturnType<typeof view>
-const signature=(x:ShiftView)=>JSON.stringify([x.staffId,x.start,x.end,x.breakMinutes,x.minutes,x.label,x.site])
+const signature=(x:ShiftView)=>JSON.stringify([x.staffId,x.start,x.end,x.breakMinutes,x.minutes,x.label,x.site,x.job])
 
 /** Exact multiset comparison: identical duplicate rows cancel only one for one. */
 function difference(s:State,before:Row[],after:Row[]) {
@@ -50,8 +51,8 @@ export function scheduleReview(s:State,week:string,reader?:Actor) {
   let costCents=0
   const unrated=new Set<string>()
   for(const x of list) {
-   const rate=s.staff.find(p=>p.id===x.staffId)?.rate_cents
-   if(typeof rate==='number')costCents+=Math.round(x.minutes*rate/60)
+   const basis=priced(s,x.staffId,x)
+   if(basis.costCents!==null)costCents+=basis.costCents
    else unrated.add(x.staffId)
   }
   return {headcount:new Set(list.map(x=>x.staffId)).size,shifts:list.length,minutes:list.reduce((n,x)=>n+x.minutes,0),costCents,unrated:unrated.size}
@@ -77,6 +78,7 @@ export function scheduleReview(s:State,week:string,reader?:Actor) {
   else if(budgetPercent===null)warnings.push({kind:'missing budget',site,message:'No labor budget percentage is set for this cafe and week.'})
   return {site,days:daily,...total}
  })
+ for(const id of new Set(shifts.map(x=>x.staffId))){const p=profileOf(s,id),minutes=shifts.filter(x=>x.staffId===id).reduce((n,x)=>n+x.minutes,0);if(p&&minutes<p.minHours*60)warnings.push({kind:'minimum hours',site:s.staff.find(v=>v.id===id)?.site??'',message:`${s.staff.find(v=>v.id===id)?.name}: scheduled below employer-recorded minimum weekly hours (${p.minHours}).`})}
  for(const gap of gaps)warnings.push({kind:'coverage',site:gap.site,date:gap.date,message:`${gap.kind==='call-out'?'Unresolved call-out':'Unfilled open shift'}: ${gap.position||'unassigned role'}.`})
  if(reader)for(const report of acaReports(s,reader,new Date().toISOString(),{week,shifts}))for(const r of report.rows.filter(r=>r.warning))warnings.push({kind:'aca',site:s.staff.find(p=>p.id===r.staffId)?.site??'',message:`${r.name}: planned hours reach an ACA full-time threshold in ${report.plan.name}; ${r.projectedAverageWeeklyHours} weekly hours projected. Review the source-backed ACA report before publishing.`})
  return {week,id:draft.id,revision:draft.revision,publishedId:published?.id??null,publishedRevision:published?.revision??null,

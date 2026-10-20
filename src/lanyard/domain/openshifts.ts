@@ -3,6 +3,7 @@
 // for a manager. Eligible staff see it with their own rate and request it; assignment rechecks
 // eligibility, adds the shift to the published week once and closes every other request.
 import {type Context,type Row,type State,keys,text,integer,need,manager,self,staff,get,exact,put,work} from './model'
+import {rateBasis} from './workforce'
 import {fit} from './cover'
 import {localDate} from './settings'
 import {order,tiers,opensFor} from './offerorder'
@@ -34,7 +35,7 @@ export function openFor(s:State,staffId:string,showRate:boolean,now:string) {
 /** Assigns the open shift: a published shift row in the week's published revision, other requests closed. */
 function assign(c:Context,o:Row,staffId:string,pickup:Row|null) {
  const r=c.s.rosters.find(x=>x.week===o.week&&x.status==='published');need(r,'Publish this week before filling its open shifts',409)
- const shift=put(c,'shifts',{rosterId:r.id,staffId,start:o.start,end:o.end,breakMinutes:o.breakMinutes,minutes:o.minutes,label:o.label,site:o.site,status:'published',confirmedAt:c.now,confirmedBy:staffId,openShiftId:o.id})
+ const shift=put(c,'shifts',{job:o.job??'',rateBasis:rateBasis(c.s,staffId,o),rosterId:r.id,staffId,start:o.start,end:o.end,breakMinutes:o.breakMinutes,minutes:o.minutes,label:o.label,site:o.site,status:'published',confirmedAt:c.now,confirmedBy:staffId,openShiftId:o.id})
  for(const x of c.s.pickups.filter(x=>x.openShiftId===o.id&&x.status==='requested'&&x.id!==pickup?.id))put(c,'pickups',{...x,status:'closed',closedAt:c.now},x)
  if(pickup)put(c,'pickups',{...pickup,status:'approved',approvedBy:c.a.id,approvedAt:c.now},pickup)
  put(c,'openshifts',{...o,status:'filled',filledBy:staffId,shiftId:shift.id,filledAt:c.now},o)
@@ -51,17 +52,17 @@ function recheck(c:Context,o:Row,staffId:string,mine:boolean) {
  return f
 }
 /** Open shift rows a draft carries (SCHEDULE-002 position-only template rows); posted when the draft is published. */
-export function draftOpenShift(c:Context,rosterId:string,week:string,slot:{start:string;end:string;breakMinutes:number;label:string;site:string;position:string}) {
- const w=work(slot);return put(c,'openshifts',{week,rosterId,site:slot.site,position:slot.position,...w,label:slot.label,pool:null,approval:'manager',status:'draft',postedBy:c.a.id,postedAt:c.now})
+export function draftOpenShift(c:Context,rosterId:string,week:string,slot:{start:string;end:string;breakMinutes:number;label:string;site:string;position:string;job?:string}) {
+ const w=work(slot);return put(c,'openshifts',{job:slot.job??'',week,rosterId,site:slot.site,position:slot.position,...w,label:slot.label,pool:null,approval:'manager',status:'draft',postedBy:c.a.id,postedAt:c.now})
 }
 export function openShifts(c:Context,name:string,p:Record<string,any>) {
  if(name==='openshift.post') {
-  manager(c.a);keys(p,['site','position','start','end','breakMinutes','label','pool','approval','order','rule','size','minutes','ranking'])
+  manager(c.a);keys(p,['site','position','start','end','breakMinutes','label','job','pool','approval','order','rule','size','minutes','ranking'])
   const w=work({...p,breakMinutes:typeof p.breakMinutes==='string'?Number(p.breakMinutes):p.breakMinutes??0});need(w.start>c.now,'Post open shifts that have not started')
   need(APPROVAL.includes(p.approval),'Choose approved pickup or manager approval');scoped(c,text(p.site,'site',80,true))
   const pool=p.pool===undefined||p.pool===''?null:(Array.isArray(p.pool)?p.pool:[p.pool]).map((id:unknown)=>staff(c,id).id)
   need(!pool||pool.length>0&&pool.length<=200,'Choose 1–200 people for the pool')
-  const row={week:weekOf(c.s,w.start),rosterId:null,site:text(p.site,'site',80,true),position:text(p.position,'position',80,true),...w,label:text(p.label,'label',120,true),pool,approval:p.approval,...order(c,p),status:'open',postedBy:c.a.id,postedAt:c.now}
+  const row={job:text(p.job,'job',80,true),week:weekOf(c.s,w.start),rosterId:null,site:text(p.site,'site',80,true),position:text(p.position,'position',80,true),...w,label:text(p.label,'label',120,true),pool,approval:p.approval,...order(c,p),status:'open',postedBy:c.a.id,postedAt:c.now}
   return put(c,'openshifts',{...row,...offerLog(c.s,row,c.now)})
  }
  if(name==='openshift.request') {

@@ -2,6 +2,7 @@
 // offers it to every qualified teammate who stays inside overtime, each answers,
 // and a manager approves one accepted offer. Only the cover's clock-in closes it.
 import {type Context,type Row,type State,keys,text,need,manager,self,get,exact,put,overlap} from './model'
+import {qualification,rateBasis,profileOf} from './workforce'
 import {available,onLeave} from './roster'
 import {localDate} from './settings'
 import {patternFit} from './patterns'
@@ -10,7 +11,7 @@ import {siteOf} from './team'
 import {coverageCase} from './coverage'
 
 const WEEK_LIMIT=40*60, DAY_LIMIT=8*60
-type Fit={staffId:string;before:number;after:number;reason?:'overtime'|'already on'|'unavailable'|'time off';shiftId?:string;overlap?:number}
+type Fit={staffId:string;before:number;after:number;reason?:'overtime'|'already on'|'unavailable'|'time off'|'not qualified'|'maximum hours';shiftId?:string;overlap?:number}
 
 /** Minutes a person is already published for in the shift's workweek and on its day. */
 function load(s:State,staffId:string,shift:Row,skip:string[]) {
@@ -22,16 +23,18 @@ function load(s:State,staffId:string,shift:Row,skip:string[]) {
 /** One teammate measured against the shift (ignoring shifts they would give up, for a swap): qualified, or the reason they are left out. */
 export function fit(s:State,staffId:string,shift:Row,skip:string[]=[]):Fit {
  const {week,day,clash}=load(s,staffId,shift,skip),f:Fit={staffId,before:week,after:week+shift.minutes}
+ if(qualification(s,staffId,shift))return {...f,reason:'not qualified'}
  if(clash)return {...f,reason:'already on',shiftId:clash.id,overlap:(Math.min(Date.parse(clash.end),Date.parse(shift.end))-Math.max(Date.parse(clash.start),Date.parse(shift.start)))/60000}
  if(!available(s,staffId,shift))return {...f,reason:'unavailable'}
  if(onLeave(s,staffId,shift))return {...f,reason:'time off'}
+ if(f.after>(profileOf(s,staffId)?.maxHours??168)*60)return {...f,reason:'maximum hours'}
  if(f.after>WEEK_LIMIT||day+shift.minutes>DAY_LIMIT)return {...f,reason:'overtime'}
  return f
 }
 /** Teammates in the caller's position (everyone, if positions are not set): qualified by least hours after,
  * left out by reason (overtime first, then whoever overlaps the shift least: the nearest to covering it). */
 export function shortlist(s:State,shift:Row) {
- const caller=s.staff.find(p=>p.id===shift.staffId),order={'overtime':0,'already on':1,'time off':2,'unavailable':3}
+ const caller=s.staff.find(p=>p.id===shift.staffId),order={'overtime':0,'already on':1,'time off':2,'unavailable':3,'not qualified':4,'maximum hours':5}
  const team=s.staff.filter(p=>p.id!==shift.staffId&&p.active&&!p.erased_at&&(!caller?.position||p.position===caller.position)).map(p=>fit(s,p.id,shift))
  // AVAIL-001: whoever's effective pattern marks the whole shift preferred ranks first.
  const preferred=(f:Fit)=>patternFit(s,f.staffId,shift)?.preferred?0:1
@@ -94,7 +97,7 @@ export function cover(c:Context,name:string,p:Record<string,any>) {
   // Prior approved offers remain approved: a new approval never rewrites history.
   put(c,'offers',{...o,status:'approved',approvedBy:c.a.id,approvedByName:c.a.staffId?c.s.staff.find(p=>p.id===c.a.staffId)?.name??'Former manager':'Owner',approvedAt:c.now},o)
   const approvals=c.s.offers.filter(v=>v.shiftId===r.id&&v.status==='approved').sort((a,b)=>a.approvedAt.localeCompare(b.approvedAt)).map(v=>({offerId:v.id,staffId:v.staffId,fromStaffId:v.fromStaffId,shiftRevision:v.shiftRevision,approvedBy:v.approvedBy,approvedByName:v.approvedByName,approvedAt:v.approvedAt,acknowledgedAt:v.respondedAt}))
-  return put(c,'shifts',{...r,staffId:o.staffId,confirmedAt:o.respondedAt,confirmedBy:o.staffId,callout:{...r.callout,coveredBy:o.staffId,approvedBy:c.a.id,approvedAt:c.now,approvals}},r)
+  return put(c,'shifts',{...r,staffId:o.staffId,rateBasis:rateBasis(c.s,o.staffId,r),confirmedAt:o.respondedAt,confirmedBy:o.staffId,callout:{...r.callout,coveredBy:o.staffId,approvedBy:c.a.id,approvedAt:c.now,approvals}},r)
  }
  return undefined
 }

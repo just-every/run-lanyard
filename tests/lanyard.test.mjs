@@ -1683,3 +1683,7 @@ test('SCHEDULE-001: live review is read-only, persists conflicts and budgets, co
 }))
 
 test('SCHEDULE-001: visual service-week editing, resize, copy, bulk assignment, undo and reviewed publish work at 1440 and 390',async()=>{const {scheduleJourney}=await import('./schedule-journey.mjs');await scheduleJourney()})
+
+
+test('PEOPLE-002: qualifications, expiring certificates, preferences, effective job rates, retained costs and inherited template/swap/pickup checks through HTTP',()=>run(async h=>{const {workforceApi}=await import('./workforce-journey.mjs');await workforceApi(h)}))
+test('PEOPLE-002: retained rate costs and minimum-hour warnings in schedule review and grid at 1440 and 390',async()=>{const {workforceBrowser}=await import('./workforce-journey.mjs');await workforceBrowser()})

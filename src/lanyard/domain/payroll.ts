@@ -1,6 +1,7 @@
 // Willow payroll's reviewed file + immutable SHA + unique source claims.
 // Each correction exports only the signed difference from prior claimed time.
 import {type Context,type Row,keys,text,need,prepare,manager,staff,get,exact,put,sha} from './model'
+import {priced} from './workforce'
 import {provisional} from './closerules'
 import {heldByPeriod} from './periods'
 function cell(value:unknown,numeric=false) { let s=String(value??'');if(!numeric&&/^[\s]*[=+\-@\t\r]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s }
@@ -26,7 +27,7 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
   // TIME-007: a provisionally closed punch is never exported; it is listed as held until confirmed or corrected and approved.
   const held=[...c.s.clocks.filter(k=>provisional(c.s,k,c.now)).map(k=>({clockId:k.id,staffId:k.staffId,start:k.start,reason:'provisional close'})),...unclaimed.filter(t=>heldByPeriod(c.s,t)).map(t=>({timeId:t.id,staffId:t.staffId,start:t.start,reason:'pay period open'}))]
   need(selected.length>0&&selected.length<=500,`No approved unexported time, or too many entries${held.length?`; ${held.length} provisionally closed punch${held.length===1?'':'es'} held until confirmed`:''}`,409)
-  const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).flatMap((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);const base={timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,corrects:t.corrects,rootId:t.rootId};return [{...base,minutes:t.exportMinutes},...premiumLines(c,t,base)]})
+  const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).flatMap((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);const base={timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,corrects:t.corrects,rootId:t.rootId,rateBasis:priced(c.s,t.staffId,t)};return [{...base,minutes:t.exportMinutes},...premiumLines(c,t,base)]})
   const r=put(c,'batches',{status:'draft',lines,held,csvPreview:csv(lines),preparedBy:c.a.id,preparedAt:c.now})
   return {...r,approvalRequired:'payroll.export',approval:{id:r.id,revision:r.revision}}
  }

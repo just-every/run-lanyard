@@ -46,6 +46,7 @@ import {dayparts,intervalReport} from './intervals'
 import {autoRules,autoApprove,preview as autoPreview} from './autorules'
 import {aca,plansFor,mayReadPerson} from './aca'
 import {acaReports,acaCsv} from './aca-report'
+import {workforce,withoutRates,hideRates} from './workforce'
 export {actor}
 export type {Actor} from './model'
 const commands=['clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
@@ -55,7 +56,7 @@ function fresh(a:Actor,s:State) {
  need(person,'Staff access revoked',403);return {...a,role:person.role}
 }
 export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string,net?:Context['net'],files?:R2Bucket):Promise<object> {
- need(commands.includes(name)||['aca.plan.save','aca.credit.save'].includes(name),'Unknown command',404);const a=await live(db,identity),p=object(input)
+ need(commands.includes(name)||['aca.plan.save','aca.credit.save','job.save','workforce.save'].includes(name),'Unknown command',404);const a=await live(db,identity),p=object(input)
  if(a.role==='agent')need(['roster.prepare','time.prepare','payroll.prepare'].includes(name),'Agents may prepare drafts only; a human manager must approve',403)
  const commandId=name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID(),digest=await sha(canonical({name,input:p}))
  const previous=await saved(db,commandId,a,digest);if(previous)return previous
@@ -98,15 +99,18 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=dayparts(c,name,p)
  if(result===undefined)result=await autoRules(c,name,p)
  if(result===undefined)result=aca(c,name,p)
+ if(result===undefined)result=workforce(c,name,p)
  need(result!==undefined,'Unknown command',404)
  // AUTO-001: an active rule approves the clean punched time this command submitted.
  autoApprove(c,before)
  // TIME-004: whatever the command, time in a locked or closed pay period is rechecked before the write.
  guardPeriods(c,before)
+ if(a.role==='agent'&&name==='roster.prepare')result={...result,shifts:result.shifts.map(withoutRates)}
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
-  result={...safe,lines:lines.map(({payrollId,...line}:any)=>line)}
+  result={...safe,lines:lines.map(({payrollId,rateBasis,...line}:any)=>line)}
  }
+ if(!['owner','manager'].includes(a.role))result=hideRates(result)
  return await commit(c,before,name,commandId,digest,result)
  } catch(error) {
   for(const rollback of c.rollback??[])await rollback()
@@ -123,6 +127,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.acaPlans=plansFor(s,a)
  result.acaCredits=manages?s.acaCredits.filter(r=>mayReadPerson(s,a,r.staffId)):[]
  result.acaReports=manages?acaReports(s,a,new Date().toISOString()):[]
+ result.rateSnapshots=manages?s.rateSnapshots:[]
+ result.workforce=agent?[]:s.workforce.filter(r=>manages||r.staffId===a.staffId).map(r=>!manages&&!earnSettings(s.earnings).estimates?{...r,rates:[],versions:r.versions.map(({rates,...v}:any)=>v)}:r)
  result.clockissues=issuesFor(s,a)
  if(!manages&&!agent) {
   for(const k of ['availability','leave','clocks','timesheets','patterns'] as const)result[k]=s[k].filter(r=>r.staffId===a.staffId)
@@ -139,7 +145,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  if(agent) {
   result.clocks=[];result.teamviews=[];result.leave=s.leave.filter(r=>r.status==='approved').map(r=>({id:r.id,staffId:r.staffId,start:r.start,end:r.end,status:r.status,revision:r.revision}))
   result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,network,answers,...r})=>r)
-  result.batches=s.batches.map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,...l}:any)=>l)}))
+  result.batches=s.batches.map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,rateBasis,...l}:any)=>l)}))
  }
  // COVER-001: managers read every swap; a person reads the swaps they are in, with both names, and their own swap choices.
  const named=(w:any)=>({...w,fromName:s.staff.find(p=>p.id===w.fromId)?.name??'Former staff',toName:s.staff.find(p=>p.id===w.toId)?.name??'Former staff'})
@@ -196,6 +202,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  if(!manages)result.autorules=[]
  if(a.role==='owner'){const now=new Date().toISOString();result.autorulePreviews=await Promise.all(s.autorules.filter(r=>r.status!=='revoked').map(r=>autoPreview(s,r,now)))}
  result.dayparts=manages?s.dayparts.filter(r=>!r.removed&&salesSite(s,a,r.site)):[]
+ if(!manages){result.shifts=result.shifts.map(withoutRates);result.timesheets=result.timesheets.map(withoutRates);result.jobs=s.jobs.map(({versions,...r})=>r)}
  // AUDIT-001: each role reads only its own slice of the activity list.
  result.events=events?readable(s,a,(await events).results):[]
  return result

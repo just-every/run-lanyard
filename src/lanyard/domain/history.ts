@@ -3,6 +3,7 @@
 // cancellation of one shift publishes a new revision of the week with a reason; swaps, call-out
 // cover and overtime substitutes change the published row in place. A shift's history is read from
 // its rows across revisions; two revisions compare by lineage; the week's change log exports as CSV.
+import {rateBasis} from './workforce'
 import {type Actor,type Context,type Row,type State,keys,text,need,manager,get,exact,put,work,staff,fail} from './model'
 import {conflicts} from './roster'
 import {siteOf} from './team'
@@ -48,7 +49,7 @@ export function history(c:Context,name:string,p:Record<string,any>) {
   need(w.start!==r.start||w.end!==r.end||to!==r.staffId,'Change the time or the person',400);need(w.start>c.now,'Move a shift to a time that has not started')
   const date=localDate(w.start,c.s.timezone),end=new Date(Date.parse(week+'T00:00:00Z')+7*86400000).toISOString().slice(0,10);need(date>=week&&date<end,'A moved shift stays in its week')
   const action=w.start!==r.start||w.end!==r.end?'moved':'reassigned'
-  return revise(c,r,action,reason,x=>{const {confirmedAt,confirmedBy,swap,substitute,callout,...rest}=x;return {...rest,...w,staffId:to}})
+  return revise(c,r,action,reason,x=>{const {confirmedAt,confirmedBy,swap,substitute,callout,...rest}=x;return {...rest,...w,staffId:to,rateBasis:rateBasis(c.s,to,{...x,...w})}})
  }
  if(name==='shift.cancel') {
   manager(c.a);keys(p,['id','revision','reason']);const r=get(c.s,'shifts',p.id);exact(r,p)

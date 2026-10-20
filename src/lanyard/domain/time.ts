@@ -1,5 +1,6 @@
 // Gauge time's submitted -> approved revision flow, adapted to hours only;
 // Glove field capture preserves device time and command identity on retries.
+import {rateBasis} from './workforce'
 import {checkClockIn} from './clockrules'
 import {mealAtClockOut} from './mealrules'
 import {roundAtCapture,roundAtApproval} from './rounding'
@@ -19,7 +20,8 @@ export function approve(c:Context,submitted:Row) {
  need(r.status==='submitted','Only submitted time can be approved',409);need(r.staffId!==c.a.staffId,'You cannot approve your own time',403);staff(c,r.staffId);clearOverlap(c,r.staffId,r,r.rootId)
  if(r.corrects){const old=get(c.s,'timesheets',r.corrects);need(old.status==='approved','Correction source changed',409);put(c,'timesheets',{...old,status:'superseded',supersededBy:r.id},old)}
  const exported=c.s.claims.filter(cl=>cl.root_id===r.rootId).reduce((n,cl)=>n+cl.minutes,0)
- return put(c,'timesheets',{...r,status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now},r)
+ const clock=c.s.clocks.find(k=>k.id===r.clockId),shift=c.s.shifts.find(x=>x.id===clock?.shiftId),job=r.job??shift?.job??'',site=r.site??shift?.site??''
+ return put(c,'timesheets',{...r,job,site,rateBasis:rateBasis(c.s,r.staffId,{...r,job,site}),status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now},r)
 }
 const ATTEST='I confirm these times and breaks are accurate.'
 /** TIME-003: the employee's own attestation of times and breaks, recorded with its wording; only the person attests their own time. */
@@ -91,12 +93,12 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   return closeClock(c,open,end,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,reason,{provisional:{end:mark.end,due:mark.due,confirmedBy:c.a.id},...attestation(c,open.staffId,p.attest)},breakWords(c,open.staffId,p))
  }
  if(name==='time.prepare') {
-  prepare(c.a);keys(p,['staffId','start','end','breakMinutes','reason','corrects']);const staffId=staff(c,p.staffId).id,w=work(p);need(w.end<=c.now,'Time cannot end in the future');const reason=text(p.reason,'reason',500)
+  prepare(c.a);keys(p,['staffId','start','end','breakMinutes','reason','corrects','job','site']);const staffId=staff(c,p.staffId).id,w=work(p);need(w.end<=c.now,'Time cannot end in the future');const reason=text(p.reason,'reason',500)
   const old=p.corrects?get(c.s,'timesheets',p.corrects):undefined
   if(old){need(old.staffId===staffId,'Correction must keep the same staff');need(old.status==='approved','Correct the latest approved time',409);need(!c.s.timesheets.some(t=>t.corrects===old.id),'A correction already exists for this revision',409)}
   clearOverlap(c,staffId,w,old?.rootId)
   // BREAK-001: entered time is checked by its meal minutes; rest breaks are unknown without timed breaks.
-  const r=put(c,'timesheets',{staffId,...w,reason,corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,...breakOutcome(checkBreaks(c.s,staffId,null,w))});if(!old)r.rootId=r.id
+  const r=put(c,'timesheets',{job:text(p.job,'job',80,true),site:text(p.site,'site',80,true),staffId,...w,reason,corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,...breakOutcome(checkBreaks(c.s,staffId,null,w))});if(!old)r.rootId=r.id
   return {...r,approvalRequired:'time.approve',approval:{id:r.id,revision:r.revision}}
  }
  if(name==='time.edit') {
