@@ -4,10 +4,9 @@
 import assert from 'node:assert/strict'
 import {execFile} from 'node:child_process'
 import {promisify} from 'node:util'
-import {cp,mkdir,mkdtemp,rm,symlink} from 'node:fs/promises'
+import {cp,mkdir,mkdtemp,readFile,rm,symlink} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join,resolve} from 'node:path'
-import {pathToFileURL} from 'node:url'
 import {harness} from './harness.mjs'
 const exec=promisify(execFile),root=process.cwd(),legacy=resolve(process.argv[process.argv.indexOf('--legacy-root')+1]??'')
 assert.ok(process.argv.includes('--legacy-root'),'Pass --legacy-root pointing at a pre-pin production checkout')
@@ -25,20 +24,9 @@ let h
 try{
  await checkout(legacy,source);await checkout(root,destination)
  await exec(process.execPath,[join(source,'node_modules/wrangler/bin/wrangler.js'),'d1','migrations','apply','foundation','--local'],{cwd:source,env:{...process.env,CI:'true',WRANGLER_SEND_METRICS:'false'},maxBuffer:2e6})
- process.chdir(legacy)
- const old=await import(pathToFileURL(join(legacy,'tests/harness.mjs')).href)
- h=await old.harness({root:source})
- const ana=await h.person('Ana'),ben=await h.person('Ben')
- const date=new Date();date.setUTCDate(date.getUTCDate()+7+(8-date.getUTCDay())%7)
- const week=date.toISOString().slice(0,10),start=week+'T18:00:00Z',end=week+'T21:00:00Z'
- for(const p of [ana,ben])await h.cmd('availability.save',{staffId:p.id,start:week+'T00:00:00Z',end:week+'T23:59:00Z'})
- const draft=await h.cmd('roster.prepare',{week,shifts:[{staffId:ana.id,start,end,breakMinutes:0}]})
- await h.cmd('roster.publish',{id:draft.id,revision:draft.revision})
- const shift=(await h.state()).shifts.find(x=>x.status==='published')
- const called=await h.cmd('shift.callout',{id:shift.id,revision:shift.revision,note:'Legacy acceptance kept for review'},ana.cookie)
- const yes=await h.cmd('cover.respond',{id:called.offers[0].id,revision:called.offers[0].revision,decision:'accepted'},ben.cookie)
- assert.equal(yes.shiftRevision,undefined,'the source is genuinely pre-pin production code')
- await h.close();h=null;process.chdir(root)
+ const metadata=join(temporary,'native-offer.json')
+ await exec(process.execPath,[join(root,'tests/legacy-coverage-source.mjs'),source,metadata],{cwd:legacy,env:process.env,maxBuffer:2e6})
+ const {ana,ben,called,yes}=JSON.parse(await readFile(metadata,'utf8'))
  await run(source,['export','--output',archive,'--no-queue'])
  await run(destination,['import','--input',archive,'--yes','--no-queue'])
  h=await harness({root:destination,owner:'excluded-source-session'})

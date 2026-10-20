@@ -11,10 +11,10 @@ export function calloutNote(x:any,tz:string) {
 export const coverageFor=(s:any,x:any)=>rows(s,'coverageCases').find(c=>c.shiftId===x.id)
 const first=(name:string)=>name.split(/\s+/)[0]
 function badge(o:any,tz:string) {
- if(!Number.isInteger(o.shiftRevision))return '<span class="badge wait">Legacy · refresh required</span>'
+ if(!Number.isInteger(o.shiftRevision))return '<span class="badge wait" aria-label="Legacy offer; refresh required" title="Legacy offer; refresh required">?</span>'
  if(o.status==='accepted'||o.status==='approved')return `<span class="badge yes" aria-label="Accepted">✓</span><span class="at">${h(clock(o.respondedAt,tz))}</span>`
- if(o.status==='expired')return '<span class="badge no" aria-label="Expired">Expired</span>'
- if(o.status==='closed')return '<span class="badge wait" aria-label="Closed">Closed</span>'
+ if(o.status==='expired')return '<span class="badge no" aria-label="Expired" title="Expired">!</span>'
+ if(o.status==='closed')return '<span class="badge wait" aria-label="Closed" title="Closed">—</span>'
  if(o.status==='declined')return `<span class="badge no" aria-label="Declined">×</span><span class="at">${h(clock(o.respondedAt,tz))}</span>`
  if(o.opensAt&&o.opensAt>new Date().toISOString())return `<span class="badge wait" aria-label="Not offered yet">T${h(o.tier)}</span><span class="at">opens ${h(clock(o.opensAt,tz))}</span>`
  return `<span class="badge wait" aria-label="No reply yet">···</span>`
@@ -37,8 +37,9 @@ export function coverPopover(s:any,w:Week,x:any,back:string,waitLink:string) {
   const p=staffOf(s,o.staffId),site=p?.site&&p.site!==w.site?`<span class="from">${h(p.site)}</span>`:''
   const projection=coverage?.offers.find((v:any)=>v.id===o.id)?.cost
   const cost=projection?`<span class="quote">Shift ${projection.shiftCents===null?'rate not set':h(money(projection.shiftCents))}${projection.differenceCents===null?' · cost difference unknown':` · ${projection.differenceCents>=0?'+':'−'}${h(money(Math.abs(projection.differenceCents)))} vs original`} · ${h(hours(projection.overtimeMinutes))} projected overtime hrs${projection.premiumCents===null?' · premium unknown':` · ${h(money(projection.premiumCents))} premium`}</span>`:''
+  const legacy=!Number.isInteger(o.shiftRevision)?'<span class="quote">Legacy offer: shift revision was not recorded. Refresh the case for fresh acceptance and approval.</span>':''
   const quote=o.note?`<q>${h(o.note)}</q>`:o.status==='sent'&&!(o.opensAt>new Date().toISOString())?'<span class="waiting">No reply yet</span>':''
-  return `<li class="candidate ${h(o.status)}">${avatar(p?.name??'?',site?'cross':'')}<span class="who"><strong>${h(p?.name??'Former staff')}</strong>${site}</span><span class="hrs">${h(hours(f.before))} → ${h(hours(f.after))}</span><span class="reply">${badge(o,w.tz)}</span>${quote?`<span class="quote">${quote}</span>`:''}${cost}</li>`
+  return `<li class="candidate ${h(o.status)}">${avatar(p?.name??'?',site?'cross':'')}<span class="who"><strong>${h(p?.name??'Former staff')}</strong>${site}</span><span class="hrs">${h(hours(f.before))} → ${h(hours(f.after))}</span><span class="reply">${badge(o,w.tz)}</span>${quote?`<span class="quote">${quote}</span>`:''}${cost}${legacy}</li>`
  }).join('')
  const accepted=ordered.filter(v=>v.o.status==='accepted'&&v.o.shiftRevision===x.revision),pending=ordered.filter(v=>v.o.status==='sent'&&v.o.shiftRevision===x.revision)
  const approve=accepted.map(v=>form('cover.approve',back,exact(v.o),`Approve ${first(person(s,v.o.staffId))}`,'class="approve"','primary')).join('')
