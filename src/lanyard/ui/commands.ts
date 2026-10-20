@@ -39,7 +39,7 @@ const human = [
  ['autorule.revoke','Owner','id, revision: final'],
  ['daypart.save','Owner or cafe manager','site, name, start, end (HH:MM), targetPercent; revision when editing; removed: true to remove'],
  ['contact.save','Linked staff or manager','contacts: up to 3 of { name, relationship, phone (US, with area code) } (your own; replaces the list); revision when editing'],
- ['log.save','Owner or cafe manager','site, date, category (sales, incident, maintenance, staffing or menu), text, mentions?: that cafe\'s managers, shiftId?, staffId?, timesheetId? (an attendance exception), attachment? (1 MB); id + revision to correct (keeps the earlier version)'],
+ ['log.save','Owner or cafe manager','site, date, category (sales, incident, maintenance, staffing or menu), text, mentions?: that cafe\'s managers, shiftId?, staffId?, timesheetId? (an attendance exception), attachments?: up to 5 files, 10 MB each (multipart attachments or JSON {name,type,data: base64}); id + revision to correct (keeps the earlier version)'],
  ['log.read','Owner or cafe manager','id, revision: acknowledges a logbook entry you did not write (read receipt)'],
  ['period.save','Owner','start, end (YYYY-MM-DD, inclusive venue dates, up to 31 days, no overlap): defines a pay period'],
  ['period.signoff','Linked staff or manager','id, revision: signs off an open pay period (staff: one holding your time)'],
