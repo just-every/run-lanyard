@@ -37,7 +37,7 @@ export async function handoverBrowser() {
    const work=await captureWork(h,f)
    await as(f.manager.cookie);await open(schedule);assert.ok((await handover.innerText()).includes('Kitchen lock needs maintenance'));await shot('manager-handover','#handover')
    await open(`/app/time?week=${f.week}&site=Ocean%20Beach`)
-   await submit(page.locator('form[action*="name=time.approve"]'),'Approve')
+   await submit(page.locator('#approve form[action*="name=time.approve&"]'),'Approve')
    assert.ok((await page.locator('.time-list').innerText()).includes('Work areas — Counter / Front counter: 4.0 hrs'))
    assert.ok((await page.locator('.time-list').innerText()).includes('Kitchen / Kitchen close: 4.0 hrs'))
    assert.ok((await page.locator('.time-list').innerText()).includes('Total 8.0 hrs; enclosing time 8.0 hrs'))
