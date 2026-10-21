@@ -4,6 +4,7 @@ import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
 import { clockBrowserCommand, clockBrowsers, clockCookie, networkOf } from './clockbrowsers'
+import { comparisonRead } from './comparison-read'
 import { timezone as zone } from './domain/settings'
 
 const headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin' }
@@ -70,6 +71,9 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   }
   if (!request.headers.get('content-type')?.includes('application/x-www-form-urlencoded')) fail('Use JSON or a form', 415)
   const params = new URLSearchParams(raw), input: Record<string, unknown> = Object.fromEntries(params)
+  if (params.has('scopes')) input.scopes = params.getAll('scopes')
+  if (params.has('cafes')) input.cafes = params.getAll('cafes')
+  if (params.has('comparisonConsent')) input.comparisonConsent = params.get('comparisonConsent') === 'on'
   if (params.has('tags') || new URL(request.url).searchParams.get('name') === 'fairness.policy.save') input.tags = params.getAll('tags')
   if (params.has('days')) input.days = params.getAll('days')
   if (params.has('hidden')) input.hidden = params.getAll('hidden')
@@ -122,6 +126,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         }
         return renderApp(view,path+url.search)
       }
+      if (path === '/api/lanyard/agent/fairness/compare') return json(await comparisonRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/fairness/compare') return json(await fairnessCompare(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/fairness') return json(await fairnessRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       // CONTACT-001: the audited emergency contact card, as a screen and as JSON.
