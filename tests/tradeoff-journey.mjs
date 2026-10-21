@@ -222,7 +222,7 @@ export async function tradeoffOvertimeApi(h) {
  assert.ok(g.reasons.some(r=>r.includes('base rate is missing')))
 }
 
-async function overtimeFixture(h,f) {
+export async function overtimeFixture(h,f) {
  for(const p of [f.alex,f.ben])await h.cmd('pattern.save',{from:f.week,blocks:f.full,preferredHours:44,maxHours:60},p.cookie)
  const shifts=[{staffId:f.alex.id,site:'Ocean Beach',start:local(f.week,'08:00'),end:local(f.week,'16:00'),breakMinutes:0},
   {staffId:f.alex.id,site:'Ocean Beach',start:local(f.week,'18:00'),end:local(f.week,'22:00'),breakMinutes:0},
