@@ -87,9 +87,9 @@ export async function noticesBrowser() {
    const [name,...value]=h.owner.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
    await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js'))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
    const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message))
-   const shot=async key=>{if(process.env.NOTICE_SCREENS){await mkdir(process.env.NOTICE_SCREENS,{recursive:true});await page.locator('#reminder-inbox').screenshot({path:join(process.env.NOTICE_SCREENS,`${key}-${width}.png`)})}}
+   const shot=async key=>{if(process.env.NOTICE_SCREENS){await mkdir(process.env.NOTICE_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.NOTICE_SCREENS,`${key}-page-${width}.png`)});await page.locator('#reminder-inbox').screenshot({path:join(process.env.NOTICE_SCREENS,`${key}-${width}.png`)})}}
    for(const screen of ['schedule','time']){
-    await page.goto(h.origin+`/app/${screen}?week=${f.week}`,{waitUntil:'networkidle'})
+    await page.goto(h.origin+`/app/${screen}?week=${f.week}&site=all`,{waitUntil:'networkidle'})
     assert.ok((await page.locator('#reminder-inbox').innerText()).includes('In Lanyard only'))
     await shot(screen)
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
@@ -99,7 +99,7 @@ export async function noticesBrowser() {
    await shot('settings')
    await Promise.all([page.waitForResponse(r=>r.url().includes('name=noticerule.save')),form.getByRole('button',{name:'Save reminder settings',exact:true}).click()])
    assert.equal(await page.locator('.notice.error').count(),0)
-   assert.equal((await f.state()).noticerules[0].ackMinutes,8)
+   assert.equal((await f.state()).noticerules.find(r=>r.site==='').ackMinutes,8)
    await shot('saved');assert.deepEqual(errors,[]);await context.close()
   }
  }finally{await browser.close();await h.close()}
