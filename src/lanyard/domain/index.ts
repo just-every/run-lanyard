@@ -179,10 +179,10 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
   result.dashboard=dashboard(s,a,now)
   // COVER-004: each open shift's access-to-hours standing where its cafe has the rule on.
   result.openshifts=result.openshifts.map((o:any)=>{const x=accessToHours(s,o as any,now);return x?{...o,accessToHours:x}:o})
-  result.pickups=result.pickups.map((x:any)=>{const o=s.openshifts.find(v=>v.id===x.openShiftId);return x.status==='requested'&&o?{...x,cost:cost(project(s,x.staffId,o.week,now,[{...o,staffId:x.staffId} as any]))}:x})
+  result.pickups=result.pickups.map((x:any)=>{const o=s.openshifts.find(v=>v.id===x.openShiftId);return x.status==='requested'&&o?{...x,cost:cost(project(s,x.staffId,localDate(o.start,s.timezone),now,[{...o,staffId:x.staffId} as any]))}:x})
   result.swaps=result.swaps.map((w:any)=>{if(!['proposed','accepted'].includes(w.status))return w;const give=shiftOf(w.give.shiftId),take=w.take?shiftOf(w.take.shiftId):undefined
    const moves=[...(give?[{to:w.toId,shift:give,skip:take?[take.id]:[]}]:[]),...(take&&give?[{to:w.fromId,shift:take,skip:[give.id]}]:[])]
-   return {...w,cost:moves.map(m=>cost(project(s,m.to,weekOf(s,m.shift.start),now,[m.shift],m.skip)))}})
+   return {...w,cost:moves.map(m=>cost(project(s,m.to,localDate(m.shift.start,s.timezone),now,[m.shift],m.skip)))}})
  }
  // COVER-003: pending offers expire at shift end; history stays intact.
  result.offers=result.offers.map((o:any)=>{const x=s.shifts.find(x=>x.id===o.shiftId);return x?{...o,legacy:!Number.isInteger(o.shiftRevision),expiresAt:x.end,status:['sent','accepted'].includes(o.status)&&x.end<=new Date().toISOString()?'expired':o.status}:o})

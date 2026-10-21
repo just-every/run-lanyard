@@ -7,7 +7,6 @@ import {rateBasis} from './workforce'
 // remaining shift; pending pickups and swaps show the same projection before approval.
 import {type Actor,type Context,type Row,type State,keys,text,need,manager,get,exact,put} from './model'
 import {fit} from './cover'
-import {weekOf} from './openshifts'
 import {siteOf} from './team'
 import {localDate} from './settings'
 
@@ -35,7 +34,7 @@ export const cost=(p:ReturnType<typeof project>)=>({staffId:p.staffId,projectedM
 
 /** Teammates in the person's position (everyone, when unset) who are free for the shift and stay at or under 40 projected hours with it. */
 export function substitutes(s:State,shift:Row,at:string) {
- const owner=s.staff.find(p=>p.id===shift.staffId),week=weekOf(s,shift.start)
+ const owner=s.staff.find(p=>p.id===shift.staffId),week=localDate(shift.start,s.timezone)
  return s.staff.filter(p=>p.id!==shift.staffId&&p.active&&!p.erased_at&&(!owner?.position||p.position===owner.position)).flatMap(p=>{
   const f=fit(s,p.id,shift);if(f.reason&&f.reason!=='overtime')return []
   const after=project(s,p.id,week,at,[shift]).projectedMinutes;return after<=WEEK?[{staffId:p.id,name:p.name,projectedMinutes:after}]:[]
@@ -55,8 +54,9 @@ export function alertsFor(s:State,a:Actor,week:string,at:string) {
 }
 /** The weeks a manager's screens show alerts for: the current week and every later week with published shifts. */
 export function upcoming(s:State,a:Actor,now:string) {
- const first=weekOf(s,now),weeks=[...new Set([first,...s.shifts.filter(x=>x.status==='published'&&x.start>=now).map(x=>weekOf(s,x.start))])].sort()
- return weeks.flatMap(w=>alertsFor(s,a,w,now))
+ const dates=[...new Set([localDate(now,s.timezone),...s.shifts.filter(x=>x.status==='published'&&x.start>=now).map(x=>localDate(x.start,s.timezone))])].sort()
+ const seen=new Set<string>()
+ return dates.flatMap(d=>alertsFor(s,a,d,now)).filter(r=>{const key=r.staffId+'|'+r.week;if(seen.has(key))return false;seen.add(key);return true})
 }
 export function overtime(c:Context,name:string,p:Record<string,any>) {
  if(name!=='overtime.substitute')return undefined
@@ -64,7 +64,7 @@ export function overtime(c:Context,name:string,p:Record<string,any>) {
  manager(c.a);keys(p,['shiftId','revision','staffId']);const r=get(c.s,'shifts',p.shiftId);exact(r,p)
  need(r.status==='published'&&!r.callout,'Only a published shift that is not called out',409);need(r.start>c.now,'This shift has already started',409)
  if(c.a.role==='manager')need((c.s.staff.find(v=>v.id===c.a.staffId)?.site??'')===siteOf(c.s,r),'Only a manager of this shift’s cafe can reassign it',403)
- need(project(c.s,r.staffId,weekOf(c.s,r.start),c.now).overtimeMinutes>0,'No overtime is projected for this shift’s person',409)
+ need(project(c.s,r.staffId,localDate(r.start,c.s.timezone),c.now).overtimeMinutes>0,'No overtime is projected for this shift’s person',409)
  const to=text(p.staffId,'substitute',80);need(substitutes(c.s,r,c.now).some(x=>x.staffId===to),'This person is not a qualified substitute without overtime',409)
  const {confirmedAt,confirmedBy,...rest}=r
  return put(c,'shifts',{...rest,staffId:to,rateBasis:rateBasis(c.s,to,r),substitute:{from:r.staffId,by:c.a.id,at:c.now,reason:'projected overtime'}},r)

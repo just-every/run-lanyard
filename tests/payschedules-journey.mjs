@@ -3,6 +3,7 @@ import {mkdir,readFile} from 'node:fs/promises'
 import {join} from 'node:path'
 import {chromium} from '@playwright/test'
 import {harness} from './harness.mjs'
+import {days,local} from './workforce-journey.mjs'
 export const pin=r=>({id:r.id,revision:r.revision})
 export async function payFixture(h) {
  const alex=await h.person('Alex'),ben=await h.person('Ben'),manager=await h.person('Morgan','manager')
@@ -91,6 +92,17 @@ export async function payScheduleApi(h) {
  assert.equal(firstWeek.lines.find(l=>l.overtimeKey).minutes,300,'first-period date never resets the workweek')
  assert.equal(firstWeek.lines.filter(l=>!l.overtimeKey).reduce((n,l)=>n+l.minutes,0),300)
  await h.cmd('payroll.export',pin(firstWeek))
+ // A Sunday pickup belongs to the workweek beginning that Sunday, even
+ // though it sits in the previous Monday-starting visual roster week.
+ const risk=await h.person('Risk'),today=new Date().toISOString().slice(0,10),sun=days(today,(7-new Date(today+'T00:00:00Z').getUTCDay())%7||7),mon=days(sun,1)
+ await h.cmd('paygroup.save',{...spec,name:'Sunday pickup',cadence:'weekly',from:sun,staffIds:[risk.id]})
+ await h.cmd('availability.save',{staffId:risk.id,start:local(sun,'00:00'),end:local(days(sun,7),'00:00')})
+ const scheduled=await h.cmd('roster.prepare',{week:mon,shifts:[0,1,2,3].map(n=>({staffId:risk.id,start:local(days(mon,n),'09:00'),end:local(days(mon,n),'18:00'),breakMinutes:0}))})
+ await h.cmd('roster.publish',pin(scheduled))
+ const sunday=await h.cmd('openshift.post',{site:'',position:'',start:local(sun,'09:00'),end:local(sun,'18:00'),breakMinutes:0,approval:'manager',pool:[risk.id]})
+ const request=await h.cmd('openshift.request',pin(sunday),risk.cookie)
+ const preview=(await h.state(manager.cookie)).pickups.find(p=>p.id===request.id)
+ assert.deepEqual([preview.cost.projectedMinutes,preview.cost.overtimeMinutes],[2700,300],'Sunday pickup plus 36 hours later in its own workweek')
  // Weekly and monthly recurrence, leap-day/month/year transitions, and a
  // different workweek day are defined through the same public command door.
  const cal=await h.person('Cal'),dee=await h.person('Dee')
