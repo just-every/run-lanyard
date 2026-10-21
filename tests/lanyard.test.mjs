@@ -1812,3 +1812,11 @@ test('FAIR-001: a manager inspects preference gaps, downloads inputs, changes th
 
 test('TRADEOFF-001: fixed-slot alternatives explain cost, fairness, coverage and unknown inputs without publishing or waiving hard constraints',()=>run(async h=>{const {tradeoffApi,tradeoffOvertimeApi}=await import('./tradeoff-journey.mjs');await tradeoffApi(h);await run(other=>tradeoffOvertimeApi(other));const {comparisonScopeApi}=await import('./comparison-scope-journey.mjs');await run(other=>comparisonScopeApi(other))}))
 test('TRADEOFF-001: a manager inspects explained alternatives, downloads facts and explicitly publishes the selected draft at 1440 and 390',async()=>{const {tradeoffBrowser}=await import('./tradeoff-journey.mjs');await tradeoffBrowser();const {comparisonScopeBrowser}=await import('./comparison-scope-journey.mjs');await comparisonScopeBrowser()})
+
+
+test('AUTO-001: Sunday workweeks keep 40-hour captured time eligible, hold 41 hours for human review and start a fresh Sunday independently of the prior week',()=>run(async h=>{const {workweekApi}=await import('./autorules-workweek-journey.mjs');await workweekApi(h)}))
+test('AUTO-001: owner preview, authorization and next-workweek approval preserve the overtime hold on Payroll at 1440 and 390',async()=>{const {workweekBrowser}=await import('./autorules-workweek-journey.mjs');await workweekBrowser()})
+
+
+test('SCHEDULE-002 and COVER-002: position-only templates add to an empty week privately, retain draft slots, publish without assigned shifts and fill once; assigned edits preserve positions and archive superseded draft rows',()=>run(async h=>{const {openTemplateApi}=await import('./open-template-journey.mjs');await openTemplateApi(h)}))
+test('SCHEDULE-002 and COVER-002: a manager saves, applies, reviews and publishes a position-only week, then fills an employee pickup at 1440 and 390',async()=>{const {openTemplateBrowser}=await import('./open-template-journey.mjs');await openTemplateBrowser()})

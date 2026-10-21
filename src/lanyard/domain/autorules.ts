@@ -11,7 +11,7 @@
 import {type Context,type Row,type State,keys,text,need,get,exact,put,sha,canonical} from './model'
 import {siteOf} from './team'
 import {project} from './overtime'
-import {weekOf} from './openshifts'
+import {localDate} from './settings'
 import {holidayBasis} from './holidays'
 import {approve} from './time'
 
@@ -37,7 +37,7 @@ export function reasons(s:State,rule:Row,t:Row,now:string):string[] {
  if(t.corrects)out.push('correction')
  if(t.edited)out.push('edited by a manager')
  if(person?.role==='manager'||t.staffId===rule.authorizedStaffId)out.push('own time of a person who approves time')
- if(project(s,t.staffId,weekOf(s,t.start),now).actualMinutes>40*60)out.push('overtime')
+ if(project(s,t.staffId,localDate(t.start,s.timezone),now).actualMinutes>40*60)out.push('overtime')
  return out
 }
 export async function preview(s:State,rule:Row,now:string) {

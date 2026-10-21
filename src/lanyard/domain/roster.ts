@@ -3,7 +3,7 @@ import {qualification,rateBasis,profileOf} from './workforce'
 import {localDate} from './settings'
 import {patternFit,patternOn} from './patterns'
 import {link,actorName} from './history'
-import {offerLog} from './openshifts'
+import {offerLog,draftOpenShift} from './openshifts'
 // Glove's prepare/approve split and Dial's occurrence fences: publication acts
 // on the exact draft and all conflicts are checked inside its state version.
 /** An AVAIL-001 unavailable block wins; else the effective pattern's blocks or dated windows cover the whole time (adjacent ones chain). */
@@ -34,21 +34,24 @@ export function conflicts(c:Context,shifts:Row[],week:string) {
  return errors
 }
 /** A new draft revision of a week from shift rows (each checked), listing conflicts; nothing reaches staff until roster.publish. */
-export function draftWeek(c:Context,weekInput:unknown,inputs:any) {
+export function draftWeek(c:Context,weekInput:unknown,inputs:any,openInputs?:Record<string,any>[]) {
  const week=text(weekInput,'week',10),monday=new Date(week+'T00:00:00Z');need(/^\d{4}-\d{2}-\d{2}$/.test(week)&&Number.isFinite(monday.getTime())&&monday.toISOString().slice(0,10)===week&&monday.getUTCDay()===1,'Week must be a Monday YYYY-MM-DD')
- need(Array.isArray(inputs)&&inputs.length>0&&inputs.length<=250,'Provide 1–250 shifts');const weekEnd=new Date(monday.getTime()+7*86400000).toISOString().slice(0,10)
+ // Editing assigned rows retains the draft's open positions; template additions supply the combined rows explicitly.
+ openInputs??=c.s.openshifts.filter(o=>o.week===week&&o.status==='draft')
+ need(Array.isArray(inputs)&&inputs.length+openInputs.length>0&&inputs.length+openInputs.length<=250,'Provide 1–250 shifts');const weekEnd=new Date(monday.getTime()+7*86400000).toISOString().slice(0,10)
  // Replaced private draft rows remain archived, but are never published history.
- const prior=c.s.rosters.find(r=>r.week===week&&r.status==='draft');if(prior){for(const s of c.s.shifts.filter(s=>s.rosterId===prior.id&&s.status!=='replaced-draft'))put(c,'shifts',{...s,status:'replaced-draft'},s)}
+ const prior=c.s.rosters.find(r=>r.week===week&&r.status==='draft');if(prior){for(const s of c.s.shifts.filter(s=>s.rosterId===prior.id&&s.status!=='replaced-draft'))put(c,'shifts',{...s,status:'replaced-draft'},s);for(const o of c.s.openshifts.filter(o=>o.rosterId===prior.id&&o.status==='draft'))put(c,'openshifts',{...o,status:'replaced-draft'},o)}
  const r=put(c,'rosters',{week,timezone:c.s.timezone,status:'draft',preparedBy:c.a.id,preparedAt:c.now},prior)
  const shifts=inputs.map((value:any)=>{need(value&&typeof value==='object'&&!Array.isArray(value),'Invalid shift');keys(value,['staffId','start','end','breakMinutes','label','site','job']);const w=work(value),date=localDate(w.start,c.s.timezone),person=staff(c,value.staffId);need(date>=week&&date<weekEnd,'Shift must start in the selected venue week');const job=text(value.job,'job',80,true),site=text(value.site,'site',80,true)||person.site||'';return put(c,'shifts',{rateBasis:rateBasis(c.s,person.id,{...w,job,site}),job,rosterId:r.id,staffId:person.id,...w,label:text(value.label,'label',120,true),site:text(value.site,'site',80,true)||person.site||'',status:'draft'})})
- c.entity=r.id;return {...r,shifts,conflicts:conflicts(c,shifts,week),approvalRequired:'roster.publish',approval:{id:r.id,revision:r.revision}}
+ const openShifts=openInputs.map(value=>{const date=localDate(value.start,c.s.timezone);need(date>=week&&date<weekEnd,'Shift must start in the selected venue week');return draftOpenShift(c,r.id,week,value as any)})
+ c.entity=r.id;return {...r,shifts,openShifts,conflicts:conflicts(c,shifts,week),approvalRequired:'roster.publish',approval:{id:r.id,revision:r.revision}}
 }
 export function roster(c:Context,name:string,p:Record<string,any>) {
  if(name==='roster.prepare') {
   prepare(c.a);keys(p,['week','shifts']);return draftWeek(c,p.week,p.shifts)
  }
  if(name==='roster.publish') {
-  manager(c.a);keys(p,['id','revision','reason']);const r=get(c.s,'rosters',p.id);exact(r,p);need(r.status==='draft','Only drafts can be published',409);need(r.timezone===c.s.timezone,'Venue timezone changed; prepare this roster again',409);const shifts=c.s.shifts.filter(s=>s.rosterId===r.id&&s.status==='draft'),issues=conflicts(c,shifts,r.week);need(shifts.length>0,'Empty roster',409);need(!issues.length,issues.map(x=>x.reason).join('; '),409)
+  manager(c.a);keys(p,['id','revision','reason']);const r=get(c.s,'rosters',p.id);exact(r,p);need(r.status==='draft','Only drafts can be published',409);need(r.timezone===c.s.timezone,'Venue timezone changed; prepare this roster again',409);const shifts=c.s.shifts.filter(s=>s.rosterId===r.id&&s.status==='draft'),issues=conflicts(c,shifts,r.week);need(shifts.length>0||c.s.openshifts.some(o=>o.rosterId===r.id&&o.status==='draft'),'Empty roster',409);need(!issues.length,issues.map(x=>x.reason).join('; '),409)
   // SCHEDULE-006: each row continues the shift line it repeats from the current revision.
   const lines=link(c.s,r.week,shifts)
   for(const old of c.s.rosters.filter(x=>x.week===r.week&&x.status==='published')){put(c,'rosters',{...old,status:'superseded'},old);for(const s of c.s.shifts.filter(s=>s.rosterId===old.id&&s.status==='published'))put(c,'shifts',{...s,status:'superseded'},s)}

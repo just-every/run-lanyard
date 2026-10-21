@@ -4,7 +4,6 @@
 // and overlaps are rechecked and nothing is published or confirmed by copying.
 import {type Context,type Row,keys,text,integer,need,manager,put,get,exact} from './model'
 import {draftWeek} from './roster'
-import {draftOpenShift} from './openshifts'
 import {instantAt,wall} from './settings'
 
 // A slot with no staffId is a position-only row (COVER-002): applying it adds an open shift to the draft.
@@ -37,9 +36,9 @@ function addToWeek(c:Context,week:string,slots:Slot[]) {
  need(slots.length>0,'Nothing to add to this week',409)
  const active=(id:string)=>c.s.staff.some(p=>p.id===id&&p.active&&!p.erased_at),people=slots.filter(s=>s.staffId)
  const leftOut=[...new Set(people.filter(s=>!active(s.staffId)).map(s=>s.staffId))].map(staffId=>({staffId,reason:'No longer active'}))
- const draft=draftWeek(c,week,[...currentRows(c,week).map(input),...people.filter(s=>active(s.staffId)).map(s=>rowOf(c,week,s))])
- const openShifts=slots.filter(s=>!s.staffId).map(s=>draftOpenShift(c,draft.id,week,{...rowOf(c,week,s),position:s.position??''}));c.entity=draft.id
- return {...draft,openShifts,leftOut}
+ const pending=c.s.openshifts.filter(o=>o.week===week&&o.status==='draft')
+ const draft=draftWeek(c,week,[...currentRows(c,week).map(input),...people.filter(s=>active(s.staffId)).map(s=>rowOf(c,week,s))],[...pending,...slots.filter(s=>!s.staffId).map(s=>({...rowOf(c,week,s),position:s.position??''}))])
+ return {...draft,leftOut}
 }
 
 export function templates(c:Context,name:string,p:Record<string,any>) {
