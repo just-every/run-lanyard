@@ -40,7 +40,7 @@ function confirmed(s:State,x:Row,since:string) {
  // Taking an approved swap or cover is already a personal confirmation, even
  // when the employee's acceptance preceded the manager's assignment decision.
  const swap=swapHistory(x).at(-1)
- if(swap?.to===x.staffId&&swap.at===since&&s.swaps.some(w=>w.id===swap.id&&w.status==='approved'))return true
+ if(swap&&swap.to===x.staffId&&swap.at===since&&s.swaps.some(w=>w.id===swap.id&&w.status==='approved'))return true
  return x.callout?.coveredBy===x.staffId&&x.callout.approvedAt===since&&stamp(x.confirmedAt)
 }
 function received(s:State,x:Row,now:string) {
