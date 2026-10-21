@@ -329,13 +329,13 @@ A Deputy buyer's day-one reviews (17 October 2026, rounds 1 and 2) named the wee
 
 ## Status
 
-Judged from the code and tests at commit `08c0f774bba81062020f8a690136e257876e586d` (21 October 2026).
+Judged from the code and tests at commit `a57e389a5167eca4dcc6772a13b23849736c9e4f` (21 October 2026).
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 15 | 1 | 0 | 16 |
-| Target and push further | 38 | 30 | 42 | 110 |
-| All | 53 | 31 | 42 | 126 |
+| Target and push further | 39 | 29 | 42 | 110 |
+| All | 54 | 30 | 42 | 126 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -398,7 +398,7 @@ Judged from the code and tests at commit `08c0f774bba81062020f8a690136e257876e58
 | `BREAK-001` | Timed meals breaks and exceptions | target | done | `src/lanyard/domain/breaks.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/domain/approvals.ts`; `src/lanyard/ui/breaks.ts`; `public/lanyard.js`; `tests/lanyard.test.mjs` |  |
 | `BREAK-002` | Automatic meal deductions with employee attestation | target | done | `src/lanyard/domain/mealrules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/mealrules.ts`; `public/lanyard.js`; `tests/lanyard.test.mjs` |  |
 | `TIME-003` | Missed punches employee review and exception resolution | target | done | `src/lanyard/domain/time.ts`; `src/lanyard/domain/approvals.ts`; `src/lanyard/ui/cases.ts`; `tests/lanyard.test.mjs` |  |
-| `TIME-004` | Payroll period locks and controlled reopening | target | partial | `src/lanyard/domain/periods.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/ui/periods.ts`; `tests/lanyard.test.mjs` | Timesheet locks, signoffs, owner-only reopening, export rechecks and linked adjustments exist. The period guard checks changed timesheets only: a backdated clock-in can still add a punch inside a locked period. |
+| `TIME-004` | Payroll period locks and controlled reopening | target | done | `src/lanyard/domain/periods.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/ui/periods.ts`; `tests/lanyard.test.mjs` |  |
 | `TIME-005` | Punch rounding and snap-to-schedule | target | done | `src/lanyard/domain/rounding.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/rounding.ts`; `src/lanyard/ui/time.ts`; `tests/lanyard.test.mjs` |  |
 | `TIME-006` | Early clock-in window and unscheduled punches | target | done | `src/lanyard/domain/clockrules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/clockrules.ts`; `tests/lanyard.test.mjs` |  |
 | `TIME-007` | Forgotten clock-out reminder cap and provisional close | target | partial | `src/lanyard/domain/closerules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/ui/closerules.ts`; `tests/lanyard.test.mjs` | In-app reminders, provisional marks, confirmation/correction and payroll/bulk-approval holds exist. Provisional punches remain open in stored state, and overtime projection and interval actual labor count them through the reporting instant instead of stopping at their provisional end. |

@@ -22,6 +22,12 @@ const claimed=(s:State,t:Row)=>s.claims.some(cl=>cl.time_id===t.id&&cl.time_revi
  * may only be marked superseded by an approved adjustment) and new time is a linked adjustment.
  */
 export function guardPeriods(c:Context,before:State) {
+ // Captures and break/job changes are time writes too, even before a timesheet exists.
+ const clocks=new Map(before.clocks.map(k=>[k.id,k]))
+ for(const k of c.s.clocks) {
+  const was=clocks.get(k.id);if(was&&JSON.stringify(was)===JSON.stringify(k))continue
+  for(const row of was?[was,k]:[k])need(periodOf(c.s,row)?.status!=='locked','This pay period is locked; the owner reopens it with a reason before time changes',409)
+ }
  const old=new Map(before.timesheets.map(t=>[t.id,t]))
  for(const t of c.s.timesheets) {
   const was=old.get(t.id);if(was&&JSON.stringify(was)===JSON.stringify(t))continue

@@ -1104,6 +1104,15 @@ test('TIME-004: the owner defines a pay period, employees and a manager sign off
   await h.cmd('period.lock', { id: period.id, revision: period.revision }, priya.cookie, 403)
   period = await h.cmd('period.lock', { id: period.id, revision: period.revision })
   assert.deepEqual([period.status, period.locked.length], ['locked', 2])
+  // Offline captures retain their venue date: even 06:30Z on Monday is Sunday here.
+  const beforeCapture = await h.state()
+  const capture = { commandId: 'locked-period-capture', capturedAt: '2026-10-12T15:00:00Z' }
+  await h.cmd('clock.in', capture, alex.cookie, 409)
+  await h.cmd('clock.in', { commandId: 'locked-last-date', capturedAt: '2026-10-19T06:30:00Z' }, ben.cookie, 409)
+  const afterCapture = await h.state()
+  assert.deepEqual(afterCapture.clocks, beforeCapture.clocks)
+  assert.deepEqual(afterCapture.timesheets, beforeCapture.timesheets)
+  assert.deepEqual(afterCapture.events, beforeCapture.events, 'refused captures write no activity')
   // Locked: an ordinary manager neither corrects the time nor reopens the period.
   await h.cmd('time.prepare', at(alex.id, '13', { breakMinutes: 45, corrects: a.id }), omar.cookie, 409)
   await h.cmd('period.reopen', { id: period.id, revision: period.revision, reason: 'Missed break' }, omar.cookie, 403)
@@ -1112,6 +1121,12 @@ test('TIME-004: the owner defines a pay period, employees and a manager sign off
   await h.cmd('period.reopen', { id: period.id, revision: period.revision }, h.owner, 400)
   period = await h.cmd('period.reopen', { id: period.id, revision: period.revision, reason: 'Alex took a 45-minute break' })
   assert.deepEqual([period.status, period.signoffs, period.reopens.map(x => x.reason)], ['open', [], ['Alex took a 45-minute break']])
+  // The same rejected command can be retried after an authorized reopen.
+  const captured = await h.cmd('clock.in', capture, alex.cookie)
+  assert.deepEqual(await h.cmd('clock.in', capture, alex.cookie), captured)
+  await h.cmd('period.lock', { id: period.id, revision: period.revision }, h.owner, 409)
+  const stopped = await h.cmd('clock.out', { commandId: 'reopened-period-out', capturedAt: '2026-10-12T15:30:00Z', breakMinutes: 0 }, alex.cookie)
+  await h.cmd('time.approve', { id: stopped.timesheet.id, revision: stopped.timesheet.revision }, priya.cookie)
   await h.cmd('payroll.export', { id: stale.id, revision: stale.revision }, h.owner, 409)
   const fixed = await h.cmd('time.approve', { id: (await h.cmd('time.prepare', at(alex.id, '13', { breakMinutes: 45, corrects: a.id }), priya.cookie)).id, revision: 1 }, h.owner)
   await h.cmd('period.lock', { id: period.id, revision: period.revision }, h.owner, 409)
