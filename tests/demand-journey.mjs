@@ -92,7 +92,9 @@ export async function demandApi(h) {
   const response=await bearer('/api/lanyard/agent/command',credential,{name,input:name==='demand.override'?overrideInput:forecastInput})
   assert.equal(response.status,403,response.text)
  }
- const event=(await h.state()).events.find(x=>x.action==='comparison.read'&&JSON.parse(x.entityId).kind==='demand')
+ const events=(await h.state()).events.filter(x=>x.action==='comparison.read'&&JSON.parse(x.entityId).kind==='demand')
+ assert.deepEqual(events.map(x=>JSON.parse(x.entityId).date).sort(),[T,f.plus(T,1)])
+ const event=events.find(x=>JSON.parse(x.entityId).date===T)
  assert.deepEqual(JSON.parse(event.entityId),{keyId:scoped.id,site:'Ocean Beach',kind:'demand',date:T});assert.equal(event.actorRole,'agent')
  await h.cmd('agent.revoke',{id:scoped.id});assert.equal((await bearer(path)).status,401)
  return {...f,v1,v2,rule:saved}
