@@ -44,6 +44,7 @@ export async function failedBulkBrowser() {
   const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
   try{
    const f=await failedBulkFixture(h),page=await context.newPage()
+   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
    await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
    const [name,...value]=h.owner.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
    await page.goto(`${h.origin}/app/time?week=2025-11-24&cafe=Ocean%20Beach`,{waitUntil:'networkidle'})
