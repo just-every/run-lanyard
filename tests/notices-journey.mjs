@@ -17,7 +17,7 @@ export async function noticesFixture(h) {
  await cmd('attendrule.save',{site:'',graceMinutes:5,noShowMinutes:15})
  await cmd('closerule.save',{site:'',graceMinutes:0,capHours:12})
  const shifts=[{staffId:alex.id,start:at(60),end:at(180),breakMinutes:0},{staffId:ben.id,start:at(-30),end:at(180),breakMinutes:0},{staffId:cy.id,start:at(-480),end:at(-60),breakMinutes:0}]
- for(const p of [alex,ben,cy])await cmd('availability.save',{staffId:p.id,start:at(-1440),end:at(2880)})
+ for(const p of [alex,ben,cy,manager])await cmd('availability.save',{staffId:p.id,start:at(-1440),end:at(2880)})
  const weekOf=t=>{const d=new Date(t),n=(d.getUTCDay()+6)%7;return iso(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-n)).slice(0,10)}
  for(const week of new Set(shifts.map(x=>weekOf(x.start)))){const r=await cmd('roster.prepare',{week,shifts:shifts.filter(x=>weekOf(x.start)===week)});await cmd('roster.publish',pin(r))}
  await cmd('clock.in',{commandId:crypto.randomUUID(),capturedAt:at(-480)},cy.cookie,200,-480)
