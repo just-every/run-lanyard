@@ -124,7 +124,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(a.role==='agent'&&name==='roster.prepare')result={...result,shifts:result.shifts.map(withoutRates)}
  if(a.role==='agent'&&name==='payroll.prepare') {
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
-  result={...safe,lines:lines.map(({payrollId,rateBasis,...line}:any)=>line)}
+  result={...safe,lines:lines.map(({payrollId,rateBasis,...line}:any)=>withoutRates(line))}
  }
  if(!['owner','manager'].includes(a.role))result=hideRates(result)
  return await commit(c,before,name,commandId,digest,result)
@@ -170,7 +170,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  if(agent) {
   result.clocks=[];result.teamviews=[];result.leave=s.leave.filter(r=>r.status==='approved').map(r=>({id:r.id,staffId:r.staffId,start:r.start,end:r.end,status:r.status,revision:r.revision}))
   result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,network,answers,...r})=>r)
-  result.batches=s.batches.map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,rateBasis,...l}:any)=>l)}))
+  result.batches=s.batches.map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,rateBasis,...l}:any)=>withoutRates(l))}))
  }
  // COVER-001: managers read every swap; a person reads the swaps they are in, with both names, and their own swap choices.
  const named=(w:any)=>({...w,fromName:s.staff.find(p=>p.id===w.fromId)?.name??'Former staff',toName:s.staff.find(p=>p.id===w.toId)?.name??'Former staff'})
