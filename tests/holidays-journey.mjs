@@ -24,7 +24,7 @@ export async function holidayBrowser() {
    await rule.getByLabel('Cafe',{exact:true}).fill('Ocean Beach');await rule.getByLabel('Effective from').fill('2026-01-01');await rule.getByLabel('Worked holiday premium',{exact:true}).selectOption('added');await rule.getByLabel('Value: raw multiplier (at least 1) or added cents/hour (at least 0)').fill('250');await rule.getByLabel('Paid non-work minutes').fill('480');await rule.getByLabel('Holiday payroll code').fill('HOL-2026');await submit(rule,'holidayrule.save','Save holiday rule')
    await card.getByText('Holiday pay rules',{exact:true}).click();assert.ok((await card.innerText()).includes('$2.50/hour added'));await card.scrollIntoViewIfNeeded();await shot('holiday-setup')
    await card.getByText('Eligibility · 2025-11-27',{exact:true}).click()
-   const cy=card.locator('tr').filter({has:page.getByText('Cy',{exact:true})}),ben=card.locator('tr').filter({has:page.getByText('Ben',{exact:true})})
+   const cy=card.locator('tr:visible').filter({has:page.getByText('Cy',{exact:true})}),ben=card.locator('tr:visible').filter({has:page.getByText('Ben',{exact:true})}).filter({hasText:'· Worked'})
    assert.ok((await ben.innerText()).includes('Ineligible'));assert.ok((await ben.innerText()).includes('2025-11-28'))
    await cy.getByLabel('Source record reference').fill('cy-holiday-browser');await submit(cy.locator('form'),'holidaypay.approve','Approve non-work holiday pay')
    await card.getByText('Approved non-work holiday pay',{exact:true}).click();assert.ok((await card.innerText()).includes('$160.00'));await card.scrollIntoViewIfNeeded();await shot('holiday-eligibility')

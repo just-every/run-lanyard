@@ -41,7 +41,7 @@ function reviews(s:any) {
 export function holidaysCard(s:any) {
  if(!manager(s))return ''
  const paid=rows(s,'holidaypay')
- const approved=paid.length?disclosure('Approved non-work holiday pay',`<ul class="swap-list">${paid.map(r=>`<li><strong>${h(person(s,r.staffId))}</strong> · ${h(r.date)} · ${h(hours(r.minutes))} hrs · ${h(money(r.costCents))} · ${h(r.code)}</li>`).join('')}</ul>`):''
+ const approved=paid.length?disclosure('Approved non-work holiday pay',`<ul class="swap-list">${paid.map(r=>`<li><strong>${h(person(s,r.staffId))}</strong> · ${h(r.date)} · ${h(hours(r.minutes))} hrs · ${h(money(r.costCents))} · ${h(r.code)}${owner(s)?disclosure('Correct non-work pay',form('holidaypay.correct',back,exact(r)+field('minutes','Correct paid minutes (zero reverses)',r.minutes,'number','required min="0" max="1440"')+field('reason','Correction reason','','text','required maxlength="500"'),'Approve correction','','secondary small')):''}</li>`).join('')}</ul>`):''
  return card('Holiday pay',calendar(s)+(owner(s)?rules(s):'')+reviews(s)+approved,'','holidays')
 }
 

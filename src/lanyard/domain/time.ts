@@ -1,6 +1,7 @@
 // Gauge time's submitted -> approved revision flow, adapted to hours only;
 // Glove field capture preserves device time and command identity on retries.
 import {holidayBasis} from './holidays'
+import {localDate} from './settings'
 import {rateBasis} from './workforce'
 import {segmentPlan,reconcileSegments,segmentBasis} from './worksegments'
 import {transferPlan,currentOf} from './transfers'
@@ -22,6 +23,7 @@ export function approve(c:Context,submitted:Row) {
  const r=roundAtApproval(c.s,submitted)
  need(r.status==='submitted','Only submitted time can be approved',409);need(r.staffId!==c.a.staffId,'You cannot approve your own time',403);staff(c,r.staffId);clearOverlap(c,r.staffId,r,r.rootId)
  if(r.corrects){const old=get(c.s,'timesheets',r.corrects);need(old.status==='approved','Correction source changed',409);put(c,'timesheets',{...old,status:'superseded',supersededBy:r.id},old)}
+ need(!c.s.holidaypay.some(p=>p.staffId===r.staffId&&p.minutes>0&&p.date>=localDate(r.start,c.s.timezone)&&p.date<=localDate(new Date(Date.parse(r.end)-1).toISOString(),c.s.timezone)),'Correct non-work holiday pay to zero before approving worked holiday time',409)
  const exported=c.s.claims.filter(cl=>cl.root_id===r.rootId).reduce((n,cl)=>n+cl.minutes,0)
  const clock=c.s.clocks.find(k=>k.id===r.clockId),shift=c.s.shifts.find(x=>x.id===clock?.shiftId),job=r.job??shift?.job??'',site=r.site??shift?.site??''
  const plan=r.segmentPlan??segmentPlan(c.s,r.staffId,r,clock?.shiftId),workSegments=reconcileSegments(c.s,r.staffId,r,plan)

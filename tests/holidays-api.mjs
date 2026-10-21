@@ -54,6 +54,18 @@ export async function holidayApi(h) {
  await h.cmd('holiday.seed',{site:'Ocean Beach',year:2025},alex.cookie,403)
  await h.cmd('holidayrule.save',{site:'Ocean Beach'},manager.cookie,403)
  // Schedule review and visible week cost include a fresh added-rate holiday rule.
+ // A later worked record cannot coexist with approved non-work holiday pay.
+ const cyWork=await h.cmd('time.prepare',{staffId:cy.id,start:f.spec(cy,'2025-11-27').start,end:f.spec(cy,'2025-11-27').end,breakMinutes:0,reason:'Recovered worked holiday record'})
+ await h.cmd('time.approve',pin(cyWork),manager.cookie,409)
+ const paid=(await h.state()).holidaypay.find(r=>r.id===pay.id)
+ await h.cmd('holidaypay.correct',{...pin(paid),minutes:0,reason:'Reverse non-work input before approving actual work'})
+ const reversal=await h.cmd('payroll.prepare',{});assert.deepEqual(reversal.lines.map(l=>[l.minutes,l.costCents]),[[-480,-16000]])
+ await h.cmd('payroll.export',pin(reversal))
+ await h.cmd('time.approve',pin(cyWork),manager.cookie)
+ const final=await h.cmd('payroll.prepare',{});assert.ok(final.lines.every(l=>l.staffId===cy.id&&!l.holidayPayId));await h.cmd('payroll.export',pin(final))
+ const service=(await h.send(`/api/lanyard/aca/${plan.id}`,undefined,h.owner)).value.rows[0]
+ assert.equal(service.paidLeaveMinutes,0);assert.equal(service.workedMinutes,1440)
+
  const draft=await h.cmd('roster.prepare',{week:'2025-12-01',shifts:[f.companyShift]})
  const schedule=await h.send('/api/lanyard/schedule/review',{week:'2025-12-01',shifts:[f.companyShift]},h.owner)
  assert.equal(schedule.status,200);assert.equal(schedule.value.sites.reduce((n,x)=>n+x.costCents,0),18400)

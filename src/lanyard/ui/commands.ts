@@ -5,6 +5,11 @@ const preparation = [
  ['payroll.prepare','ids?: array of approved, unexported timesheet IDs'],
 ]
 const human = [
+ ['holiday.seed','Owner','site, year: seed observed federal dates without replacing employer edits'],
+ ['holiday.save','Owner','site, date, name, enabled; id + revision when editing'],
+ ['holidayrule.save','Owner','site, from, mode (multiplier or added), value (total multiplier or added cents/hour), nonWorkMinutes, beforeAfter, code; id + revision when editing'],
+ ['holidaypay.approve','Owner','staffId, site, date, reference, digest from the exact non-work holiday review'],
+ ['holidaypay.correct','Owner','id, revision, minutes, reason: reviewed signed adjustment; zero reverses non-work pay before approving worked time'],
  ['settings.save','Owner','timezone: named IANA venue time zone; fixed after the first published week'],
  ['staff.save','Owner','name, email, role (staff or manager), active; payrollId optional until export; position, hourlyRate (dollars), site (home cafe), employmentType (part-time, full-time or empty) and startDate (YYYY-MM-DD) optional; id + revision when editing'],
  ['forecast.save','Manager','week: Monday YYYY-MM-DD; site; days: seven whole-dollar sales forecasts, Monday to Sunday; budgetPercent optional'],
