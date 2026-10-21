@@ -1,8 +1,9 @@
+import {lanyardScheduled} from '../src/lanyard/scheduled'
 // The production HTTP/auth handlers, exercised on real workerd + D1.
 import { authResponse, type Bindings } from '../src/auth.server'
 import { installedHomeResponse } from '../src/installed-home'
 import { lanyardResponse } from '../src/lanyard/http'
-export default { async fetch(request: Request, env: Bindings) {
+export default { scheduled: lanyardScheduled, async fetch(request: Request, env: Bindings) {
   // Test clock edge only: exercise the production credential expiry without database edits.
   const realDate=Date, now=Date.now, testTime=request.headers.get('x-test-now')
   if(testTime!==null){

@@ -1880,3 +1880,6 @@ test('TIME-009: policy meals, waiver thresholds, full paid-rest counts and unkno
 test('TIME-009: managers compare taken and required meals and paid rests and filter exceptions at 1440 and 390',async()=>{const {breakReviewBrowser}=await import('./break-review-journey.mjs');await breakReviewBrowser()})
 
 test('LEARN-001: retained pre-service manual forecasts reconcile to corrected daily and complete hourly sales; missing outcomes and no-show signals stay unknown under native cafe scope without policy or schedule writes',()=>run(async h=>{const {learningApi}=await import('./learning-journey.mjs');await learningApi(h)}))
+
+test('durable in-Lanyard reminders survive cron replay and restart, withdraw on resolution and escalate once',()=>run(async h=>{const {noticesApi}=await import('./notices-journey.mjs');await noticesApi(h)}))
+test('reminder inbox and manager settings work on Schedule and Time at 1440 and 390',async()=>{const {noticesBrowser}=await import('./notices-journey.mjs');await noticesBrowser()})
