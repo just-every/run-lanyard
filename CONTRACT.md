@@ -334,8 +334,8 @@ Judged from the code and tests at commit `a57e389a5167eca4dcc6772a13b23849736c9e
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 15 | 1 | 0 | 16 |
-| Target and push further | 40 | 28 | 42 | 110 |
-| All | 55 | 29 | 42 | 126 |
+| Target and push further | 41 | 27 | 42 | 110 |
+| All | 56 | 28 | 42 | 126 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -367,7 +367,7 @@ Judged from the code and tests at commit `a57e389a5167eca4dcc6772a13b23849736c9e
 | `SCHEDULE-003` | Cross-site coverage and double-booking prevention | target | partial | `src/lanyard/domain/roster.ts`; `src/lanyard/domain/settings.ts` | Global overlaps and a single venue timezone exist; sites, multiple local calendars, travel/rest and cross-site cost/coverage controls do not. |
 | `SCHEDULE-004` | Shift notes tasks and work-area segments | target | done | `src/lanyard/domain/shiftwork.ts`; `src/lanyard/domain/worksegments.ts`; `src/lanyard/domain/segmentpay.ts`; `src/lanyard/domain/shiftworkfiles.ts`; `src/lanyard/ui/shiftwork.ts`; `tests/lanyard.test.mjs`; `tests/shiftwork-api.mjs`; `tests/shiftwork-browser.mjs`; `tests/archive.test.mjs` | |
 | `LEAVE-001` | PTO balances and staffing-aware time off | target | partial | `src/lanyard/domain/people.ts`; `tests/lanyard.test.mjs` | Dated leave request/approval exists; balances, accruals, policy and payroll/HR mapping are absent. |
-| `AVAIL-001` | Recurring availability preferences and approval | target | partial | `src/lanyard/domain/patterns.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/domain/cover.ts`; `src/lanyard/ui/patterns.ts`; `tests/lanyard.test.mjs` | Effective patterns, approval, exceptions and preferred ranking exist. Saving or approving a lower weekly maximum does not list the published shifts it makes conflicting; collision reporting checks availability blocks only. |
+| `AVAIL-001` | Recurring availability preferences and approval | target | done | `src/lanyard/domain/patterns.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/domain/cover.ts`; `src/lanyard/ui/patterns.ts`; `tests/lanyard.test.mjs`; `tests/availability-limit-journey.mjs` |  |
 | `LEAVE-002` | Time-off blackout dates limits and team leave calendar | target | done | `src/lanyard/domain/leaverules.ts`; `src/lanyard/domain/people.ts`; `src/lanyard/ui/leave.ts`; `tests/lanyard.test.mjs` |  |
 | `LEAVE-003` | Paid sick and safe leave jurisdiction presets | target | missing |  | No sick or safe leave accrual, jurisdiction presets or balance export. |
 | `MINOR-001` | Minor work-hour limits and permits | target | missing |  | No date of birth, work permit or minor-hour rules. |

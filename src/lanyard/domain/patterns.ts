@@ -4,6 +4,7 @@
 // is effective; the newest approved pattern starting on or before a date governs it.
 import {type Context,type State,type Row,keys,text,integer,need,manager,self,staff,put,get,exact} from './model'
 import {localDate,instantAt} from './settings'
+import {profileOf} from './workforce'
 
 type Block={day:number;kind:string;start:string;end:string}
 type Exception={date:string;kind:string;start?:string;end?:string}
@@ -46,10 +47,23 @@ export function patternFit(s:State,staffId:string,w:Record<string,any>) {
  const cover=(kinds:string[])=>{let through=w.start;for(const v of windows.filter(v=>kinds.includes(v.kind)).sort((a,b)=>a.start.localeCompare(b.start)))if(v.start<=through&&v.end>through)through=v.end;return through>=w.end}
  return {covered:cover(['available','preferred','prefer-not']),unavailable:windows.some(v=>v.kind==='unavailable'&&v.start<w.end&&v.end>w.start),preferred:cover(['preferred']),preferNot:windows.some(v=>v.kind==='prefer-not'&&v.start<w.end&&v.end>w.start),known:governed.every(x=>Boolean(x.p))}
 }
+/** The same Monday-effective weekly maximum used for draft publication and pattern review. */
+export function weeklyMaximumConflicts(s:State,shifts:Row[],week:string) {
+ return [...new Set(shifts.map(x=>x.staffId))].flatMap(id=>{
+  const mine=shifts.filter(x=>x.staffId===id).sort((a,b)=>a.start.localeCompare(b.start)),max=Math.min(patternOn(s,id,week)?.maxHours??168,profileOf(s,id)?.maxHours??168)
+  return mine.reduce((n,x)=>n+x.minutes,0)>max*60?[{shiftId:mine[mine.length-1].id,staffId:id,reason:'Over maximum weekly hours'}]:[]
+ })
+}
 /** Published shifts from the pattern's first day that it would flag. */
 function collisions(s:State,p:Record<string,any>,now:string) {
  const trial={...s,patterns:[...s.patterns.filter(x=>x.id!==p.id),{...p,status:'approved',decidedAt:'9999'}]} as State
- return s.shifts.filter(x=>x.staffId===p.staffId&&x.status==='published'&&x.end>now&&localDate(x.start,s.timezone)>=p.from&&(!p.until||localDate(x.start,s.timezone)<=p.until)).filter(x=>{const f=patternFit(trial,p.staffId,x);return f&&(!f.covered||f.unavailable)}).map(x=>({shiftId:x.id,start:x.start,end:x.end}))
+ const published=s.shifts.filter(x=>x.staffId===p.staffId&&x.status==='published')
+ const over=new Set(s.rosters.filter(r=>r.status==='published'&&r.week>=p.from&&(!p.until||r.week<=p.until)&&patternOn(trial,p.staffId,r.week)?.id===p.id).flatMap(r=>weeklyMaximumConflicts(trial,published.filter(x=>x.rosterId===r.id),r.week).map(x=>x.shiftId)))
+ return published.filter(x=>x.end>now).filter(x=>{
+  if(over.has(x.id))return true
+  const date=localDate(x.start,s.timezone);if(date<p.from||p.until&&date>p.until)return false
+  const f=patternFit(trial,p.staffId,x);return f&&(!f.covered||f.unavailable)
+ }).map(x=>({shiftId:x.id,start:x.start,end:x.end}))
 }
 const hours=(v:unknown,label:string)=>v===undefined||v===''||v===null?null:integer(typeof v==='string'?Number(v):v,label,0,168)
 
@@ -66,7 +80,8 @@ export function patterns(c:Context,name:string,p:Record<string,any>) {
   const preferredHours=hours(p.preferredHours,'preferred hours'),maxHours=hours(p.maxHours,'maximum hours');need(preferredHours===null||maxHours===null||preferredHours<=maxHours,'Preferred hours exceed the maximum')
   const own=staffId===c.a.staffId,pending=own&&c.s.availrules[0]?.requireApproval===true
   const r={staffId,from,until,blocks,exceptions:exceptionsOf(p.exceptions),preferredHours,maxHours,status:pending?'pending':'approved',submittedBy:c.a.id,submittedAt:c.now,...(pending?{}:{decidedBy:c.a.id,decidedAt:c.now})}
-  return {...put(c,'patterns',r),collisions:collisions(c.s,r,c.now)}
+  const saved=put(c,'patterns',r)
+  return {...saved,collisions:collisions(c.s,saved,c.now)}
  }
  if(name==='pattern.decide') {
   manager(c.a);keys(p,['id','revision','decision']);const r=get(c.s,'patterns',p.id);exact(r,p);need(r.status==='pending','Already decided',409)

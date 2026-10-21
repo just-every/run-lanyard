@@ -690,6 +690,21 @@ test('AVAIL-001: a staff weekly pattern waits for approval, lists the published 
   assert.deepEqual(called.callout.qualified.map(f => f.staffId), [alex.id, cara.id])
   const page = await h.send('/app/schedule?week=2027-06-07', undefined, alex.cookie)
   assert.match(page.text, /Tue preferred 06:00-16:00/); assert.match(page.text, /Except 2027-06-09 unavailable/)
+  // A lower weekly maximum collides even when every availability block still covers the shifts.
+  const full = 'Mon available 06:00-22:00\nTue available 06:00-22:00'
+  await h.cmd('pattern.save', { staffId: ben.id, from: '2027-06-06', blocks: full, maxHours: 15 }, priya.cookie)
+  const next = await h.cmd('roster.prepare', { week: '2027-06-14', shifts: [at(ben, '06-14'), at(ben, '06-15')] }, priya.cookie)
+  assert.deepEqual(next.conflicts, [], 'exactly the maximum is allowed')
+  await h.cmd('roster.publish', { id: next.id, revision: next.revision }, priya.cookie)
+  const last = next.shifts.find(x => x.start.startsWith('2027-06-15'))
+  const lower = await h.cmd('pattern.save', { from: '2027-06-07', until: '2027-06-20', blocks: full, maxHours: 14 }, ben.cookie)
+  assert.deepEqual(lower.collisions.map(x => x.shiftId), [last.id], 'saving previews the published last shift over the weekly cap')
+  assert.deepEqual((await h.cmd('roster.prepare', { week: '2027-06-14', shifts: [at(ben, '06-14'), at(ben, '06-15')] }, priya.cookie)).conflicts, [], 'pending maximum does not affect scheduling')
+  const decided = await h.cmd('pattern.decide', { id: lower.id, revision: lower.revision, decision: 'approved' }, priya.cookie)
+  assert.deepEqual(decided.collisions.map(x => x.shiftId), [last.id], 'approval returns the same published collision')
+  const limited = await h.cmd('roster.prepare', { week: '2027-06-14', shifts: [at(ben, '06-14'), at(ben, '06-15')] }, priya.cookie)
+  assert.deepEqual(limited.conflicts.map(x => [limited.shifts.find(y => y.id === x.shiftId).start, x.reason]), [['2027-06-15T14:00:00.000Z', 'Over maximum weekly hours']])
+  assert.deepEqual((await h.cmd('pattern.save', { staffId: ben.id, from: '2027-06-21', blocks: full, maxHours: 0 }, priya.cookie)).collisions, [], 'a future maximum does not relabel earlier published work')
 }))
 
 test('EARN-001: an employee reconciles their week’s scheduled, regular, overtime and pending hours and estimate to approved records; turning estimates off hides the amount; no coworker data', () => run(async h => {
@@ -1855,3 +1870,5 @@ test('SCHEDULE-002 and COVER-002: position-only templates add to an empty week p
 test('SCHEDULE-002 and COVER-002: a manager saves, applies, reviews and publishes a position-only week, then fills an employee pickup at 1440 and 390',async()=>{const {openTemplateBrowser}=await import('./open-template-journey.mjs');await openTemplateBrowser()})
 
 test('TIME-007: provisional job-segment labor stops at the scheduled end, stays reviewable and is replaced once on confirmation at 1440 and 390',async()=>{const {provisionalLaborBrowser}=await import('./provisional-labor-journey.mjs');await provisionalLaborBrowser()})
+
+test('AVAIL-001: staff saving and managers approving a lower weekly maximum see the affected published shift at 1440 and 390',async()=>{const {availabilityLimitBrowser}=await import('./availability-limit-journey.mjs');await availabilityLimitBrowser()})

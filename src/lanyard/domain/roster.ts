@@ -1,7 +1,7 @@
 import {type Context,type Row,type State,keys,text,need,prepare,manager,self,staff,work,get,exact,put,overlap} from './model'
-import {qualification,rateBasis,profileOf} from './workforce'
+import {qualification,rateBasis} from './workforce'
 import {localDate} from './settings'
-import {patternFit,patternOn} from './patterns'
+import {patternFit,weeklyMaximumConflicts} from './patterns'
 import {link,actorName} from './history'
 import {offerLog,draftOpenShift} from './openshifts'
 // Glove's prepare/approve split and Dial's occurrence fences: publication acts
@@ -26,11 +26,8 @@ export function conflicts(c:Context,shifts:Row[],week:string) {
   const others=[...shifts.filter(x=>x.id!==s.id),...c.s.shifts.filter(x=>x.status==='published'&&c.s.rosters.find(r=>r.id===x.rosterId)?.week!==week)]
   if(others.some(x=>x.staffId===s.staffId&&overlap(x,s)))errors.push({shiftId:s.id,staffId:s.staffId,reason:'Overlapping shift'})
  }
- // AVAIL-001: a person's week past the maximum weekly hours of their pattern on that Monday flags their last shift.
- for(const id of new Set(shifts.map(x=>x.staffId))) {
-  const mine=shifts.filter(x=>x.staffId===id).sort((a,b)=>a.start.localeCompare(b.start)),max=Math.min(patternOn(c.s,id,week)?.maxHours??168,profileOf(c.s,id)?.maxHours??168)
-  if(typeof max==='number'&&mine.reduce((n,x)=>n+x.minutes,0)>max*60)errors.push({shiftId:mine[mine.length-1].id,staffId:id,reason:'Over maximum weekly hours'})
- }
+ // AVAIL-001: publication and saved/approved pattern review share the weekly-limit check.
+ errors.push(...weeklyMaximumConflicts(c.s,shifts,week))
  return errors
 }
 /** A new draft revision of a week from shift rows (each checked), listing conflicts; nothing reaches staff until roster.publish. */
