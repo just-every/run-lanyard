@@ -26,7 +26,7 @@ async function checkout(root) {
 }
 // Pacific Monday Oct 12, 2026, 7:00 am – 3:00 pm PDT; the 45-minute break is a later agreed correction.
 const work = staffId => ({ staffId, start: '2026-10-12T14:00:00Z', end: '2026-10-12T22:00:00Z', breakMinutes: 30 })
-test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004 PAY-009 and PAYRULE-002: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
+test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009 and PAYRULE-002: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
   const temporary = await mkdtemp(join(tmpdir(),'lanyard-archive-')), source=join(temporary,'source'), restored=join(temporary,'restored'), erased=join(temporary,'erased')
   let h
   try {
@@ -37,6 +37,7 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004 PAY-009 and PAYRULE-002: pub
     const agentKey=await h.cmd('agent.create',{label:'Excluded secret'})
     // A working installation: an active employee on a published week, approved and corrected hours exported twice, and a staff CSV import with its journal.
     const alex=await h.person('Alex')
+    await h.cmd('staff.save',{id:alex.id,revision:1,name:alex.name,email:alex.email,payrollId:alex.payrollId,role:'staff',active:true,hourlyRate:'20.00'})
     await h.cmd('availability.save',{staffId:alex.id,start:'2026-10-12T07:00:00Z',end:'2026-10-19T07:00:00Z'})
     const week=await h.cmd('roster.prepare',{week:'2026-10-12',shifts:[{...work(alex.id),label:'Morning service'}]});await h.cmd('roster.publish',{id:week.id,revision:week.revision})
     const handoverShift=(await h.state()).shifts.find(x=>x.rosterId===week.id),handover=await h.cmd('shiftwork.save',{shiftId:handoverShift.id,shiftRevision:handoverShift.revision,notes:'Archive closing handover',tasks:['Check closing lock']})
@@ -45,6 +46,7 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004 PAY-009 and PAYRULE-002: pub
     await h.cmd('holidayrule.save',{site:'',from:'2026-01-01',mode:'multiplier',value:1.5,nonWorkMinutes:480,beforeAfter:false,code:'HOL'})
     const first=await h.cmd('time.approve',{id:(await h.cmd('time.prepare',{...work(alex.id),reason:'Paper sheet'})).id,revision:1})
     const batch=await h.cmd('payroll.prepare',{}),exported=await h.cmd('payroll.export',{id:batch.id,revision:batch.revision})
+    assert.ok(exported.lines.some(l=>l.holidayLine&&l.costCents===7500),'approved holiday premium is archived with the original payroll file')
     await h.cmd('payroll.acknowledge',{id:batch.id,revision:exported.revision,reference:'Payroll-import-101'})
     const fix=await h.cmd('time.prepare',{...work(alex.id),breakMinutes:45,corrects:first.id,reason:'Break correction agreed with Alex'});await h.cmd('time.approve',{id:fix.id,revision:1})
     const delta=await h.cmd('payroll.prepare',{});await h.cmd('payroll.export',{id:delta.id,revision:1})
