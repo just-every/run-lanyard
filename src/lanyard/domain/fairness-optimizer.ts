@@ -8,6 +8,7 @@ import {localDate} from './settings'
 import {rateBasis} from './workforce'
 import {scheduledHolidayCost} from './holidays'
 import {explainAlternatives} from './tradeoff'
+import {scheduledOvertime} from './tradeoff-overtime'
 
 const positionOf=(s:State,x:Row)=>s.jobs.find(j=>j.id===x.job)?.name??s.staff.find(p=>p.id===x.staffId)?.position??''
 const input=(x:Row)=>({staffId:x.staffId,start:x.start,end:x.end,breakMinutes:x.breakMinutes,label:x.label??'',site:x.site??'',job:x.job??''})
@@ -53,7 +54,9 @@ export async function compareFairness(s:State,a:Actor,week:string,site:string,we
  }
  const low=optimize(source,'low'),lowRows=source.map((x,i)=>({...x,staffId:low.assignments[i].staffId})),high=optimize(lowRows,'high')
  const result={week,site,weeks,source:{id:roster.id,revision:roster.revision,shifts:source.map(x=>({id:x.id,revision:x.revision,...input(x),minutes:x.minutes}))},method:'Local assignment search over all single moves and pair exchanges; a local optimum, not a global optimality certificate',low,high,difference:{costCents:low.cost.costCents===null||high.cost.costCents===null?null:high.cost.costCents-low.cost.costCents,coveredMinutes:high.coverage.minutes-low.coverage.minutes,coveredShifts:high.coverage.shifts-low.coverage.shifts},uncovered:s.openshifts.filter(x=>x.week===week&&x.site===site&&x.status==='open').map(x=>({id:x.id,start:x.start,end:x.end,minutes:x.minutes})),sourceWindow:{first:sourceReport.first,last:sourceReport.last}}
- const explained={...result,explanation:explainAlternatives(result)}
+ const staffIds=[...new Set([...source,...low.assignments,...high.assignments].map(x=>x.staffId))].sort()
+ const overtime={low:scheduledOvertime(s,source,source.map((x,i)=>({...x,staffId:low.assignments[i].staffId})),staffIds),high:scheduledOvertime(s,source,source.map((x,i)=>({...x,staffId:high.assignments[i].staffId})),staffIds)}
+ const explained={...result,explanation:explainAlternatives(result),scheduledOvertime:{...overtime,difference:{overtimeMinutes:overtime.low.overtimeMinutes===null||overtime.high.overtimeMinutes===null?null:overtime.high.overtimeMinutes-overtime.low.overtimeMinutes,premiumCents:overtime.low.premiumCents===null||overtime.high.premiumCents===null?null:overtime.high.premiumCents-overtime.low.premiumCents}}}
  const reviewed=structuredClone(explained)
  // Moving wall time alone is not a changed input; any newly opened/closed offer
  // changes the exported inclusion facts and therefore still invalidates review.
