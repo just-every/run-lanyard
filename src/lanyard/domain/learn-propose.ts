@@ -12,6 +12,7 @@ import {weekOf} from './openshifts'
 import {demandOutcome} from './demand-compare'
 import {datePlus,DEMAND_DEFAULTS} from './demand'
 import {learningReport} from './learning'
+import {requireComparison} from '../comparison-scope'
 
 export const MIN_PERIODS=3
 const usd=(c:number)=>'$'+(c/100).toFixed(2)
@@ -59,13 +60,16 @@ function setGrowth(c:Context,site:string,growthPercent:number) {
 }
 export async function learnCommand(c:Context,name:string,p:Record<string,any>) {
  if(name==='learn.propose') {
-  manager(c.a);keys(p,['site','weeks','digest'])
-  const site=text(p.site,'site',80,true),weeks=integer(typeof p.weeks==='string'?Number(p.weeks):p.weeks??8,'weeks',1,26);need(salesSite(c.s,c.a,site),'You do not tune this cafe',403)
-  const e=learnEvaluate(c.s,c.a,site,weeks,c.now),digest=await learnDigest(e)
+  if(c.a.role!=='agent')manager(c.a);keys(p,['site','weeks','digest'])
+  const site=text(p.site,'site',80,true),weeks=integer(typeof p.weeks==='string'?Number(p.weeks):p.weeks??8,'weeks',1,26)
+  if(c.a.role==='agent')await requireComparison(c.db,c.a,site)
+  else need(salesSite(c.s,c.a,site),'Not found',404)
+  const e=learnEvaluate(c.s,c.a.role==='agent'?{...c.a,role:'owner'}:c.a,site,weeks,c.now),digest=await learnDigest(e)
   need(digest===text(p.digest,'digest',64),'The evidence or assumptions changed since this proposal was reviewed; review it again',409)
   need(e.status==='proposal'&&e.proposal,`No change to propose: ${(e as any).reason}`,409)
   need(!versions(c.s,site).some(r=>r.status==='proposed'),'Decide the open proposal first',409)
-  return put(c,'learnproposals',{site,version:versions(c.s,site).length+1,status:'proposed',weeks,change:e.proposal,evaluation:e.evaluation,days:e.days,excluded:e.excluded,ruleRevision:e.ruleRevision,digest,proposedBy:c.a.id,proposedAt:c.now,decision:null})
+  if(c.a.role==='agent')c.storedActor=c.a.agentKeyId
+  return put(c,'learnproposals',{site,version:versions(c.s,site).length+1,status:'proposed',weeks,change:e.proposal,evaluation:e.evaluation,days:e.days,excluded:e.excluded,ruleRevision:e.ruleRevision,digest,proposedBy:c.storedActor??c.a.id,proposedRole:c.a.role,proposalReason:e.proposal.explanation,proposedAt:c.now,decision:null})
  }
  if(name==='learn.decide'||name==='learn.revert') {
   manager(c.a);keys(p,['id','revision','decision','reason'])

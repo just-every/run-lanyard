@@ -42,6 +42,11 @@ export async function learnApi(h) {
  const before=await h.state()
  await get(`/api/lanyard/learning/proposals?site=Ocean%20Beach&weeks=2`);assert.deepEqual((await h.state()).learnproposals,[])
  assert.equal((await read(alex.cookie)).status,403);assert.equal((await read(omar.cookie)).status,404)
+ for(const path of [`/api/lanyard/learning?site=Ocean%20Beach&week=${plus(today,-((new Date(today+'T12:00:00Z').getUTCDay()+6)%7))}&weeks=2`,'/api/lanyard/learning/proposals?site=Ocean%20Beach&weeks=2',`/api/lanyard/demand?site=Ocean%20Beach&date=${today}`,`/app/demand?site=Ocean%20Beach&date=${today}`]) {
+  assert.equal((await get(path,alex.cookie)).status,403,path)
+  assert.equal((await get(path,omar.cookie)).status,404,path)
+ }
+ for(const [cookie,status] of [[alex.cookie,403],[omar.cookie,404]])await cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:e.digest},cookie,status)
  const key=await h.cmd('agent.create',{label:'Preparation only'});assert.equal((await h.send('/api/lanyard/learning/proposals?site=Ocean%20Beach',undefined,'',{authorization:`Bearer ${key.token}`})).status,401)
  await cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:'0'.repeat(64)},priya.cookie,409);await cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:e.digest},alex.cookie,403)
  let p1=await cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:e.digest},priya.cookie)
@@ -69,6 +74,52 @@ export async function learnApi(h) {
  e=(await read()).value;let p3=await cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:e.digest},priya.cookie)
  p3=await cmd('learn.decide',{...pin(p3),decision:'declined',reason:'Waiting for the holiday week'},priya.cookie)
  state=await h.state();assert.deepEqual([p3.status,state.demandrules[0].growthPercent,state.learnproposals.map(x=>x.status).sort()],['declined',0,['declined','declined','reverted']])
+ // Every decision/revert is a native human action, including owner self-proposal and approval.
+ for(const [cookie,status] of [[alex.cookie,403],[omar.cookie,404]])for(const name of ['learn.decide','learn.revert'])await cmd(name,{...pin(p3),decision:'approved',reason:'Attempt outside authority'},cookie,status)
+ e=(await read()).value
+ let own=await cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:e.digest})
+ own=await cmd('learn.decide',{...pin(own),decision:'approved',reason:'Owner reviewed held-out improvement'})
+ assert.equal(own.status,'approved')
+ own=await cmd('learn.revert',{...pin(own),reason:'Owner restored baseline'})
+ const ownerId=(await h.state()).actor.id,managerId=(await h.state(priya.cookie)).actor.id
+ const events=(await h.state()).events
+ for(const [action,record,actorId,actorRole] of [['learn.propose',p1,managerId,'manager'],['learn.decide',p1,managerId,'manager'],['learn.propose',p2,managerId,'manager'],['learn.decide',p2,managerId,'manager'],['learn.revert',p2,managerId,'manager'],['learn.propose',own,ownerId,'owner'],['learn.decide',own,ownerId,'owner'],['learn.revert',own,ownerId,'owner']]) {
+  const event=events.find(x=>x.action===action&&x.entityId===record.id)
+  assert.ok(event,action);assert.equal(event.actorId,actorId);assert.equal(event.actorRole,actorRole);assert.ok(Number.isFinite(Date.parse(event.at)))
+ }
+ // comparison.read keys can inspect measured evidence and record its exact proposal, never decide it.
+ const scoped=await h.cmd('agent.create',{label:'Measured demand planner',scopes:['comparison.read'],cafes:['Ocean Beach'],comparisonConsent:true})
+ const bearer=(path,key=scoped,body)=>h.send(path,body,'',{...stamp(today),authorization:`Bearer ${key.token}`})
+ const agentCmd=(name,input,key=scoped)=>bearer('/api/lanyard/agent/command',key,{name,input})
+ const agentPath='/api/lanyard/agent/learning/proposals?site=Ocean%20Beach&weeks=2'
+ assert.equal((await bearer(agentPath,key)).status,403)
+ assert.equal((await agentCmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:e.digest},key)).status,403)
+ assert.equal((await bearer(agentPath.replace('Ocean%20Beach','Elsewhere'))).status,404)
+ assert.equal((await agentCmd('learn.propose',{site:'Elsewhere',weeks:2,digest:e.digest})).status,404)
+ const measured=(await bearer(agentPath)).value
+ assert.equal(measured.digest,(await read()).value.digest)
+ assert.equal((await agentCmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:'0'.repeat(64)})).status,409)
+ const frozen=await h.state()
+ const proposed=await agentCmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:measured.digest})
+ assert.equal(proposed.status,200,proposed.text)
+ const agentProposal=proposed.value.result
+ assert.equal(agentProposal.proposedBy,scoped.id);assert.equal(agentProposal.proposedRole,'agent');assert.ok(agentProposal.proposalReason)
+ for(const name of ['learn.decide','learn.revert'])for(const decision of ['approved','declined']) {
+  assert.equal((await agentCmd(name,{...pin(agentProposal),decision,reason:'Forbidden agent decision'})).status,403)
+  assert.equal((await h.send('/api/lanyard/command',{name,input:{...pin(agentProposal),decision,reason:'Forbidden human door'}},'',{authorization:`Bearer ${scoped.token}`})).status,401)
+ }
+ const recorded=await h.state()
+ assert.deepEqual(recorded.demandrules,frozen.demandrules);assert.deepEqual(recorded.sales,frozen.sales);assert.deepEqual(recorded.demandforecasts,frozen.demandforecasts)
+ const agentEvent=recorded.events.find(x=>x.action==='learn.propose'&&x.entityId===agentProposal.id)
+ assert.equal(agentEvent.actorId,scoped.id);assert.equal(agentEvent.actorRole,'agent')
+ await cmd('learn.decide',{...pin(agentProposal),decision:'declined',reason:'Human reviewed agent proposal'})
+ const declined=(await h.state()).events.find(x=>x.action==='learn.decide'&&x.entityId===agentProposal.id)
+ assert.equal(declined.actorId,ownerId);assert.equal(declined.actorRole,'owner')
+ const readEvent=(await h.state()).events.find(x=>x.action==='comparison.read'&&JSON.parse(x.entityId).kind==='learning')
+ assert.equal(JSON.parse(readEvent.entityId).keyId,scoped.id);assert.equal(JSON.parse(readEvent.entityId).site,'Ocean Beach')
+ await h.cmd('agent.revoke',{id:scoped.id})
+ assert.equal((await bearer(agentPath)).status,401);assert.equal((await agentCmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:measured.digest})).status,401)
+ state=await h.state()
  // No schedule or published roster is written by learning.
  assert.deepEqual([state.rosters,state.shifts],[before.rosters,before.shifts])
  return {window}
@@ -77,7 +128,12 @@ export async function learnBrowser() {
  const h=await harness(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  try{
   const f=await learnFixture(h),e=(await f.read()).value
-  await f.cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:e.digest})
+  const key=await h.cmd('agent.create',{label:'Measured forecast assistant',scopes:['comparison.read'],cafes:['Ocean Beach'],comparisonConsent:true})
+  const agentHeaders={...f.stamp(f.today),authorization:`Bearer ${key.token}`}
+  await h.send(`/api/lanyard/agent/demand?site=Ocean%20Beach&date=${f.today}`,undefined,'',agentHeaders)
+  await h.send('/api/lanyard/agent/learning/proposals?site=Ocean%20Beach&weeks=2',undefined,'',agentHeaders)
+  const recorded=await h.send('/api/lanyard/agent/command',{name:'learn.propose',input:{site:'Ocean Beach',weeks:2,digest:e.digest}},'',agentHeaders)
+  assert.equal(recorded.status,200,recorded.text)
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
   for(const width of [1440,390]){
    const context=await browser.newContext({viewport:{width,height:1100},extraHTTPHeaders:f.stamp(f.today)})
@@ -85,6 +141,12 @@ export async function learnBrowser() {
    await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js'))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
    const page=await context.newPage(),errors=[];page.on('pageerror',x=>errors.push(x.message))
    const shot=async key=>{if(process.env.LEARN_SCREENS){await mkdir(process.env.LEARN_SCREENS,{recursive:true});await page.locator('#learning').screenshot({path:join(process.env.LEARN_SCREENS,`${key}-${width}.png`)})}}
+   await page.goto(h.origin+'/app/agent',{waitUntil:'networkidle'})
+   const access=await page.locator('body').innerText()
+   for(const text of ['record a learning proposal','Measured forecast assistant',`forecast ${f.today}`,'learning 2 weeks'])assert.ok(access.includes(text),text)
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+   if(process.env.LEARN_SCREENS)await mkdir(process.env.LEARN_SCREENS,{recursive:true})
+   if(process.env.LEARN_SCREENS)await page.screenshot({path:join(process.env.LEARN_SCREENS,`access-${width}.png`),fullPage:true})
    await page.goto(h.origin+`/app/demand?site=Ocean%20Beach&date=${f.today}`,{waitUntil:'networkidle'})
    const text=await page.locator('#learning').innerText({timeout:5000}).catch(async()=>{throw Error('no learning card: '+(await page.locator('body').innerText()).slice(0,500))})
    for(const expected of ['Learning from forecast errors','6 comparable days','unresolved no-show','Fitted on 4 earlier days, held out 2 latest days','Growth would move from 0% to 30%'])assert.ok(text.includes(expected),expected)
@@ -98,6 +160,7 @@ export async function learnBrowser() {
    const revert=page.locator('form[action*="name=learn.revert"]');await revert.locator('[name=reason]').fill('Back to baseline')
    await Promise.all([page.waitForNavigation(),revert.getByRole('button',{name:/Revert/}).click()])
    assert.equal((await h.state()).demandrules[0].growthPercent,0);assert.deepEqual(errors,[])
+   await page.locator('#learning summary',{hasText:'Proposals and decisions'}).click();await shot('reverted')
    // Each width starts from an open proposal again.
    const next=(await f.read()).value;await f.cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:next.digest}).catch(()=>{})
    await context.close()

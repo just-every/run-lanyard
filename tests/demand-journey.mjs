@@ -72,6 +72,26 @@ export async function demandApi(h) {
  assert.equal((await read('Ocean Beach',T,f.alex.cookie)).status,403);assert.equal((await read('Pier',T,f.priya.cookie)).status,404);assert.equal((await read('Ocean Beach',T,f.omar.cookie)).status,404)
  const key=await h.cmd('agent.create',{label:'Preparation only'})
  assert.equal((await h.send(`/api/lanyard/demand?site=Ocean%20Beach&date=${T}`,undefined,'',{authorization:`Bearer ${key.token}`})).status,401)
+ const forecastInput={site:'Ocean Beach',date:T,digest:r.live.digest},overrideInput={...pin(v2),hour:10,dollars:'200',reason:'Attempt outside authority'}
+ await cmd('demand.override',overrideInput,f.alex.cookie,403)
+ const scoped=await h.cmd('agent.create',{label:'Forecast planner',scopes:['comparison.read'],cafes:['Ocean Beach'],comparisonConsent:true})
+ const bearer=(path,key=scoped,body,when=head())=>h.send(path,body,'',{...when,authorization:`Bearer ${key.token}`})
+ const path=`/api/lanyard/agent/demand?site=Ocean%20Beach&date=${T}`
+ assert.equal((await bearer(path,key)).status,403)
+ assert.equal((await bearer(path.replace('Ocean%20Beach','Pier'))).status,404)
+ const view=(await bearer(path)).value
+ assert.equal(view.live.status,r.live.status);assert.deepEqual(view.live.totals,r.live.totals)
+ assert.deepEqual(view.saved.totals,r.saved.totals);assert.deepEqual(view.versions.map(x=>x.version),[2,1])
+ assert.deepEqual(view.saved.hours[10].roles,r.saved.hours[10].roles)
+ const noPrivate=v=>{for(const [k,x] of Object.entries(v??{})){assert.ok(!/rate|payroll|email|contact|laborPercent|salesPerLaborHour|savedBy|overrideReason|inputs|sources|assumptions|digest/.test(k),k);if(x&&typeof x==='object')noPrivate(x)}}
+ noPrivate(view)
+ for(const name of ['demand.save','demand.override','demandrule.save']) {
+  const response=await bearer('/api/lanyard/agent/command',scoped,{name,input:name==='demand.override'?overrideInput:forecastInput})
+  assert.equal(response.status,403,response.text)
+ }
+ const event=(await h.state()).events.find(x=>x.action==='comparison.read'&&JSON.parse(x.entityId).kind==='demand')
+ assert.deepEqual(JSON.parse(event.entityId),{keyId:scoped.id,site:'Ocean Beach',kind:'demand',date:T});assert.equal(event.actorRole,'agent')
+ await h.cmd('agent.revoke',{id:scoped.id});assert.equal((await bearer(path)).status,401)
  return {...f,v1,v2,rule:saved}
 }
 export async function demandOutcomes(h) {
@@ -100,6 +120,10 @@ export async function demandOutcomes(h) {
  assert.deepEqual([o.summary.meanAbsoluteErrorCents,o.summary.observedHours,o.summary.signedErrorCents],[1000,2,0])
  assert.deepEqual(o.summary.staffing,{hours:2,requiredMinutes:450,scheduledMinutes:120,actualMinutes:120})
  assert.equal(o.hours.filter(x=>x.hour===10||x.hour===11).every(x=>x.scheduledMinutes===60&&x.actualMinutes===60),true)
+ const key=await h.cmd('agent.create',{label:'Outcome planner',scopes:['comparison.read'],cafes:['Ocean Beach'],comparisonConsent:true})
+ const delta=await h.send(`/api/lanyard/agent/demand?site=Ocean%20Beach&date=${T}`,undefined,'',{...head(plus(T,1)),authorization:`Bearer ${key.token}`})
+ assert.equal(delta.status,200,delta.text);assert.equal(delta.value.demandDelta.status,'compared')
+ assert.deepEqual(delta.value.demandDelta.hours.map(x=>[x.hour,x.errorCents,x.requiredMinutes,x.scheduledMinutes,x.actualMinutes]),[[10,1000,135,60,60],[11,-1000,315,60,60]])
  // A day before any saved forecast, and a day not yet over, stay explicit and unknown.
  assert.equal((await read('Ocean Beach',T,h.owner,head())).value.outcome.status,'service-day-not-complete')
  assert.equal((await read('Ocean Beach',f.plus(f.today,-1),h.owner,head())).value.outcome.status,'unknown')

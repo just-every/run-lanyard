@@ -4,11 +4,7 @@ import {type Actor,need} from './domain/model'
 import {load} from './domain/storage'
 import {compareFairness} from './domain/fairness-optimizer'
 
-const granted = `SELECT k.id FROM l_agent_keys k JOIN oa_operators o ON o.id=k.owner_id
- WHERE k.id=? AND k.owner_id=? AND k.revoked_at IS NULL AND k.expires_at>?
- AND o.role='owner' AND o.status='active' AND o.version=k.owner_version
- AND EXISTS(SELECT 1 FROM json_each(k.scopes_json) WHERE value='comparison.read')
- AND EXISTS(SELECT 1 FROM json_each(k.cafes_json) WHERE value=?)`
+import {comparisonGrant,recordComparisonRead} from './comparison-scope'
 
 type Money={status:'known'|'unknown'|'small-cell';cents:number|null;reasons:string[]}
 function money(cents:number|null,contributors:number,reasons:string[]=[]):Money {
@@ -48,7 +44,7 @@ function projection(c:Awaited<ReturnType<typeof compareFairness>>,person:(id:str
 
 export async function comparisonRead(db:D1Database,a:Actor,week:string,site:string,weeks:number) {
  need(a.role==='agent'&&a.agentKeyId,'Preparation key required',403)
- need(await db.prepare(granted).bind(a.agentKeyId,a.id,Date.now(),site).first(),'Not found',404)
+ need(await db.prepare(comparisonGrant).bind(a.agentKeyId,a.id,Date.now(),site).first(),'Not found',404)
  const s=await load(db),person=(id:string)=>s.staff.some(p=>p.id===id&&!p.erased_at)?id:'Former employee'
  let result:unknown
  try {
@@ -60,9 +56,6 @@ export async function comparisonRead(db:D1Database,a:Actor,week:string,site:stri
  }
  // Recheck the live grant in the same statement that records the read. A revoked,
  // expired or version-changed grant cannot return a previously calculated response.
- const receipt=await db.prepare(`INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at)
- SELECT ?,?,'agent','comparison.read',?,? WHERE EXISTS(${granted})`)
- .bind(crypto.randomUUID(),a.id,JSON.stringify({keyId:a.agentKeyId,site,week}),new Date().toISOString(),a.agentKeyId,a.id,Date.now(),site).run()
- need(receipt.meta.changes===1,'Agent credential expired or revoked',401)
+ await recordComparisonRead(db,a,site,{week})
  return result
 }

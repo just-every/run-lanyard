@@ -28,4 +28,10 @@ Use `GET /api/lanyard/agent/fairness/compare?week=YYYY-MM-DD&site=CAFE&weeks=8` 
 
 Each USD value is `{status, cents, reasons}`. `known` is an aggregate total, `small-cell` with null cents withholds a total with fewer than three nonzero employee contributors or a difference with fewer than three changed employees, and `unknown` with null cents retains missing input reasons. No withheld or unknown value is zero. Missing fairness inputs return an explicit unknown comparison rather than inventing alternatives. Scheduled weekly overtime remains an estimate, not payable or statutory overtime.
 
-Each scoped read is recorded in owner activity with key, cafe and week. Revocation, expiry and owner-version changes refuse subsequent reads. Archives and Staff CSV imports never grant scopes. This scope adds no commands: fairness draft preparation and publication still require a native owner or home-cafe manager session.
+Each scoped read is recorded in owner activity with key, cafe and week. Revocation, expiry and owner-version changes refuse subsequent reads. Archives and Staff CSV imports never grant scopes. Fairness draft preparation and publication still require a native owner or home-cafe manager session.
+
+## Forecasts and measured learning proposals
+
+Under the same `comparison.read` grant and named cafe limit, use `GET /api/lanyard/agent/demand?site=CAFE&date=YYYY-MM-DD` for forecast versions, hourly role demand and observed demand delta. Missing or incomplete inputs remain explicit. This projection omits raw sales rows, source identifiers, human free-text override reasons, personal attendance and labor cost fields.
+
+Use `GET /api/lanyard/agent/learning/proposals?site=CAFE&weeks=8` to inspect comparable days, excluded/unknown outcomes, the holdout comparison and the evidence digest. Then send `learn.propose` with `site`, `weeks` and that exact `digest` to the agent command endpoint. Changed evidence or assumptions require a fresh read. Recording a proposal never changes an assumption. Its audit identifies the key and role, with the measured reason retained on the proposal. Only a native owner or that cafe's manager approves, declines or reverts; even a scoped key cannot save or override a forecast or decide a proposal. Every scoped read is audited and the live grant is rechecked when recording a proposal.

@@ -76,7 +76,7 @@ function fresh(a:Actor,s:State) {
 }
 export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string,net?:Context['net'],files?:R2Bucket):Promise<object> {
  need(commands.includes(name)||['aca.plan.save','aca.credit.save','job.save','workforce.save','shiftwork.save','shiftwork.respond'].includes(name),'Unknown command',404);const a=await live(db,identity),p=object(input)
- if(a.role==='agent')need(['roster.prepare','time.prepare','payroll.prepare'].includes(name),'Agents may prepare drafts only; a human manager must approve',403)
+ if(a.role==='agent')need(['roster.prepare','time.prepare','payroll.prepare','learn.propose'].includes(name),'Agents may prepare drafts only; a human manager must approve',403)
  const commandId=name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID(),digest=await sha(canonical({name,input:p}))
  const previous=await saved(db,commandId,a,digest);if(previous)return previous
  const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret,net,files,rollback:[]}

@@ -1,6 +1,7 @@
 // Adapted from saved siblings glove-storage.ts: a false CHECK guard rolls back
 // the complete D1 batch, including source claims, audit and idempotent outcome.
 import {type Actor,type State,type Context,type Staff,kinds,need,fail,sha} from './model'
+import {comparisonGrant} from '../comparison-scope'
 export async function actor(db:D1Database,session:{userId:string;email:string;isOwner:boolean}):Promise<Actor> {
  const email=session.email.trim().toLowerCase();need(session.userId&&email,'Sign in required',403)
  const [erased,found]=await Promise.all([db.prepare('SELECT 1 FROM l_erasure_journal WHERE identity_hash=?').bind(await sha(email)).first(),db.prepare('SELECT * FROM l_staff WHERE email=? COLLATE NOCASE AND active=1 AND erased_at IS NULL').bind(email).first<Staff>()])
@@ -33,6 +34,8 @@ export async function commit(c:Context,before:State,name:string,commandId:string
  if(c.a.role==='staff'||c.a.role==='manager')guard('EXISTS(SELECT 1 FROM l_staff WHERE id=? AND email=? COLLATE NOCASE AND active=1 AND erased_at IS NULL AND role=?)',c.a.staffId,c.a.email,c.a.role)
  if(c.a.role==='owner'||c.a.role==='agent')guard("EXISTS(SELECT 1 FROM oa_operators WHERE id=? AND role='owner' AND status='active')",c.a.id)
  else guard("EXISTS(SELECT 1 FROM oa_operators WHERE id=? AND status='active')",c.a.id)
+ // Recheck the scoped key in the transaction that persists the proposal and its audit.
+ if(c.a.role==='agent'&&name==='learn.propose')guard(`EXISTS(${comparisonGrant})`,c.a.agentKeyId,c.a.id,Date.now(),c.s.learnproposals.find(r=>r.id===c.entity)?.site)
  for(const k of kinds) { const old=new Map(before[k].map(r=>[r.id,JSON.stringify(r)]));for(const r of c.s[k])if(old.get(r.id)!==JSON.stringify(r))q.push(c.db.prepare('INSERT INTO l_records(kind,id,revision,data) VALUES(?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET revision=excluded.revision,data=excluded.data').bind(k,r.id,r.revision,JSON.stringify(r))) }
  q.push(...c.sql)
  q.push(c.db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),c.storedActor??c.a.id,c.a.role,name,c.entity,c.now))

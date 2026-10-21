@@ -5,6 +5,7 @@ import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
 import { clockBrowserCommand, clockBrowsers, clockCookie, networkOf } from './clockbrowsers'
 import { comparisonRead } from './comparison-read'
+import {agentDemandRead,agentLearnRead} from './agent-demand'
 import { timezone as zone } from './domain/settings'
 
 const headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin' }
@@ -126,6 +127,8 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         }
         return renderApp(view,path+url.search)
       }
+      if (path === '/api/lanyard/agent/demand') return json(await agentDemandRead(env.DB,who,url.searchParams.get('site')??'',url.searchParams.get('date')??''))
+      if (path === '/api/lanyard/agent/learning/proposals') return json(await agentLearnRead(env.DB,who,url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/agent/fairness/compare') return json(await comparisonRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/fairness/compare') return json(await fairnessCompare(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/fairness') return json(await fairnessRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
