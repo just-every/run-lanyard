@@ -1,4 +1,4 @@
-// NOTICE-002a: current purposes only. Persistence, recipients and escalation belong
+// NOTICE-002: current purposes only. Persistence, recipients and escalation belong
 // to notices.ts; these subjects contain no copied reasons, rates or private notes.
 import {type Row,type State,canonical} from './model'
 import {confirmations,swapHistory} from './history'

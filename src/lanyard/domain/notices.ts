@@ -1,4 +1,4 @@
-// NOTICE-002a: durable in-app work. The same reconciliation runs in every command's
+// NOTICE-002: durable in-app work. The same reconciliation runs in every command's
 // transaction and from cron, so a decision cannot leave an obsolete follow-up live.
 import {type Actor,type Context,type Row,type State,canonical,keys,text,integer,need,manager,put,sha} from './model'
 import {noticeSubjects} from './notice-subjects'

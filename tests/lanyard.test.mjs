@@ -1883,3 +1883,4 @@ test('LEARN-001: retained pre-service manual forecasts reconcile to corrected da
 
 test('durable in-Lanyard reminders survive cron replay and restart, withdraw on resolution and escalate once',()=>run(async h=>{const {noticesApi}=await import('./notices-journey.mjs');await noticesApi(h)}))
 test('reminder inbox and manager settings work on Schedule and Time at 1440 and 390',async()=>{const {noticesBrowser}=await import('./notices-journey.mjs');await noticesBrowser()})
+test('reminders follow a changed revision, a missed meal, a closed offer and owner-only escalation',()=>run(async h=>{const {noticesCases}=await import('./notices-journey.mjs');await noticesCases(h)}))
