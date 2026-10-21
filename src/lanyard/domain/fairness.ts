@@ -15,7 +15,7 @@ export function preferenceReport(s:State,a:Actor,week:string,site:string,weeks=8
  const rows=people.flatMap(person=>Array.from({length:weeks},(_,i)=>{
   const on=dayAfter(first,i*7),end=dayAfter(on,6),published=s.rosters.find(r=>r.week===on&&r.status==='published')
   const shifts=s.shifts.filter(x=>x.staffId===person.id&&x.status==='published'&&(x.site||person.site||'')===site&&localDate(x.start,s.timezone)>=on&&localDate(x.start,s.timezone)<=end)
-  const patterns=Array.from({length:7},(_,d)=>{const date=dayAfter(on,d),p=patternOn(s,person.id,date);return {date,id:p?.id??null,revision:p?.revision??null,preferredHours:p?.preferredHours??null}})
+  const patterns=Array.from({length:7},(_,d)=>{const date=dayAfter(on,d),p=patternOn(s,person.id,date);return {date,id:p?.id??null,revision:p?.revision??null,preferredHours:p?.preferredHours??null,blocks:p?.blocks??null,exceptions:p?.exceptions??null}})
   const values=patterns.map(p=>p.preferredHours),known=values.every(v=>typeof v==='number'),stable=known&&new Set(values).size===1
   const preferredMinutes=stable?values[0]*60:null,scheduledMinutes=published?shifts.reduce((n,x)=>n+x.minutes,0):null
   const reasons=[...(!published?['No published week']:[]),...(!known?['Preferred hours missing on one or more days']:known&&!stable?['Preferred hours change within this week']:[])]

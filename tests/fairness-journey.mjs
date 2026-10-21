@@ -11,7 +11,7 @@ export async function fairnessApi(h) {
  assert.deepEqual([counter.samples,counter.excluded,counter.meanGapMinutes,counter.maxGapMinutes],[16,8,120,120])
  const alex=r.rows.filter(x=>x.staffId===f.alex.id),ben=r.rows.filter(x=>x.staffId===f.ben.id)
  assert.equal(alex.reduce((n,x)=>n+x.scheduledMinutes,0),8*480);assert.equal(ben.reduce((n,x)=>n+x.scheduledMinutes,0),8*240)
- for(const x of [...alex,...ben]){assert.equal(x.gapMinutes,Math.abs(x.scheduledMinutes-x.preferredMinutes));assert.equal(x.preferredShifts,1);assert.equal(x.patterns.length,7);assert.equal(x.shifts.length,1);assert.ok(x.patterns.every(p=>p.id&&p.revision===1));assert.ok(x.roster.id)}
+ for(const x of [...alex,...ben]){assert.equal(x.gapMinutes,Math.abs(x.scheduledMinutes-x.preferredMinutes));assert.equal(x.preferredShifts,1);assert.equal(x.patterns.length,7);assert.equal(x.shifts.length,1);assert.ok(x.patterns.every(p=>p.id&&p.revision===1&&p.blocks.some(b=>b.kind==='preferred')));assert.ok(x.roster.id)}
  for(const x of r.rows.filter(x=>x.staffId===f.unknown.id)){assert.equal(x.preferredMinutes,null);assert.equal(x.gapMinutes,null);assert.equal(x.scheduledMinutes,0)}
  assert.deepEqual(await f.read(f.manager.cookie),r)
  for(const cookie of [f.alex.cookie,f.foreign.cookie,''])assert.equal((await h.send(f.path,undefined,cookie)).status,cookie===f.foreign.cookie?404:cookie?403:401)
@@ -31,6 +31,7 @@ export async function fairnessApi(h) {
  await h.cmd('pattern.save',{from:days(f.week,-5),blocks:f.blocks,preferredHours:12},f.alex.cookie)
  const changed=await f.read();assert.equal(changed.rows.find(x=>x.staffId===f.alex.id&&x.week===days(f.week,-7)).gapMinutes,null);assert.equal(changed.rows.find(x=>x.staffId===f.alex.id&&x.week===f.week).gapMinutes,240)
  assert.ok(changed.rows.find(x=>x.staffId===f.alex.id&&x.week===days(f.week,-7)).reasons.some(x=>x.includes('change within')))
+ const summary=changed.groups.find(g=>g.position==='Counter');assert.deepEqual([summary.samples,summary.meanGapMinutes,summary.maxGapMinutes],[15,128,240])
  const page=await h.send(`/app/schedule?week=${f.week}&site=Ocean%20Beach`,undefined,f.manager.cookie);assert.equal(page.status,200);assert.match(page.text,/id="fairness"/)
  const staffPage=await h.send(`/app/schedule?week=${f.week}`,undefined,f.alex.cookie);assert.equal(staffPage.text.includes('id="fairness"'),false)
 }
