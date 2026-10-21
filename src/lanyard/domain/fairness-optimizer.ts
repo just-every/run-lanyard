@@ -7,6 +7,7 @@ import {conflicts,draftWeek} from './roster'
 import {localDate} from './settings'
 import {rateBasis} from './workforce'
 import {scheduledHolidayCost} from './holidays'
+import {explainAlternatives} from './tradeoff'
 
 const positionOf=(s:State,x:Row)=>s.jobs.find(j=>j.id===x.job)?.name??s.staff.find(p=>p.id===x.staffId)?.position??''
 const input=(x:Row)=>({staffId:x.staffId,start:x.start,end:x.end,breakMinutes:x.breakMinutes,label:x.label??'',site:x.site??'',job:x.job??''})
@@ -52,11 +53,12 @@ export async function compareFairness(s:State,a:Actor,week:string,site:string,we
  }
  const low=optimize(source,'low'),lowRows=source.map((x,i)=>({...x,staffId:low.assignments[i].staffId})),high=optimize(lowRows,'high')
  const result={week,site,weeks,source:{id:roster.id,revision:roster.revision,shifts:source.map(x=>({id:x.id,revision:x.revision,...input(x),minutes:x.minutes}))},method:'Local assignment search over all single moves and pair exchanges; a local optimum, not a global optimality certificate',low,high,difference:{costCents:low.cost.costCents===null||high.cost.costCents===null?null:high.cost.costCents-low.cost.costCents,coveredMinutes:high.coverage.minutes-low.coverage.minutes,coveredShifts:high.coverage.shifts-low.coverage.shifts},uncovered:s.openshifts.filter(x=>x.week===week&&x.site===site&&x.status==='open').map(x=>({id:x.id,start:x.start,end:x.end,minutes:x.minutes})),sourceWindow:{first:sourceReport.first,last:sourceReport.last}}
- const reviewed=structuredClone(result)
+ const explained={...result,explanation:explainAlternatives(result)}
+ const reviewed=structuredClone(explained)
  // Moving wall time alone is not a changed input; any newly opened/closed offer
  // changes the exported inclusion facts and therefore still invalidates review.
  for(const alternative of [reviewed.low,reviewed.high])alternative.measures.equity.asOf=''
- return {...result,digest:await sha(canonical(reviewed))}
+ return {...explained,digest:await sha(canonical(reviewed))}
 }
 export async function fairnessPrepare(c:Context,name:string,p:Record<string,any>) {
  if(name!=='fairness.prepare')return undefined

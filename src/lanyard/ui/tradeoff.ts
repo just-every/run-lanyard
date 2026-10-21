@@ -1,0 +1,11 @@
+import {h,disclosure} from './shared'
+const number=(n:any)=>typeof n==='number'?String(Math.round(n*100)/100):'unknown'
+const usd=(n:any)=>typeof n==='number'?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n/100):'unknown'
+const labels:Record<string,string>={spread:'Undesirable-shift spread',meanGapMinutes:'Mean preference gap (minutes)',maxGapMinutes:'Maximum preference gap (minutes)',violations:'Prefer-not violations'}
+export function tradeoffExplanation(c:any) {
+ const x=c.explanation
+ const cost=x.costDifferenceCents===null?'The estimated cost difference is unknown.':x.costDifferenceCents===0?'The two alternatives have the same estimated USD cost.':`The high fairness alternative costs ${usd(Math.abs(x.costDifferenceCents))} USD ${x.costDifferenceCents<0?'less':'more'} than the low fairness alternative.`
+ const metrics=x.fairness.map((v:any)=>`<li>${h(labels[v.measure])}: ${h(number(v.low))} → ${h(number(v.high))}; high minus low ${h(number(v.difference))}.</li>`).join('')
+ const coverage=x.coverage
+ return disclosure('Why the estimates differ',`<div id="tradeoff-explanation"><p>${h(cost)} ${h(x.changedAssignments.length)} service-slot assignments change between alternatives. Inspect the assignment changes and retained rate inputs below and in the download.</p><ul>${metrics}</ul><p>Scheduled coverage: ${h(coverage.lowSlots)} shifts / ${h(coverage.lowMinutes)} minutes at low priority; ${h(coverage.highSlots)} shifts / ${h(coverage.highMinutes)} minutes at high priority. Existing unfilled open work: ${h(coverage.uncoveredShifts)} shifts / ${h(coverage.uncoveredMinutes)} minutes.</p><h4>Missing inputs and estimate limits</h4><ul>${x.uncertainty.map((v:any)=>`<li>${h(v.reason)}</li>`).join('')}</ul><p>Choose an objective, inspect its inputs, then prepare the draft. Publication requires a separate human decision; a higher fairness priority cannot waive qualification, availability or break constraints.</p></div>`,true)
+}
