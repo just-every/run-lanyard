@@ -3,7 +3,7 @@ import {mkdir,readFile} from 'node:fs/promises'
 import {join} from 'node:path'
 import {chromium} from '@playwright/test'
 import {harness} from './harness.mjs'
-import {handoverFixture} from './shiftwork-fixture.mjs'
+import {handoverFixture,pin} from './shiftwork-fixture.mjs'
 
 // TIME-007: the unresolved punch stays reviewable while labor stops at its provisional end,
 // including CLOCK-008's job segments. Confirmation replaces that estimate exactly once.
@@ -32,6 +32,7 @@ export async function provisionalLaborBrowser() {
    const [response]=await Promise.all([page.waitForResponse(r=>r.url().includes('name=time.confirm')),reminder.getByRole('button',{name:'Confirm end time',exact:true}).click()]);assert.equal(response.status(),200);await page.waitForLoadState('networkidle')
    assert.equal(await page.locator('#clock-reminder').count(),0)
    const state=await h.state(f.alex.cookie);assert.equal(state.timesheets.length,1);assert.equal(state.timesheets[0].minutes,480);assert.equal(state.timesheets[0].status,'submitted')
+   await h.cmd('time.approve',pin(state.timesheets[0]),f.manager.cookie)
    await check();await as(f.manager.cookie);await page.goto(intervals,{waitUntil:'networkidle'});assert.equal(await page.locator('#intervals tbody tr').count(),8);await shot('confirmed-labor');await page.goto(h.origin+'/app/time?week='+f.week,{waitUntil:'networkidle'});assert.equal(await page.locator('#provisional').count(),0);await shot('confirmed-manager-time');assert.deepEqual(errors,[])
   }finally{await context.close();await h.close()}
  }}finally{await browser.close()}
