@@ -1,3 +1,5 @@
+import {fairnessCommands} from './fairness-policy'
+import {compareFairness,fairnessPrepare} from './fairness-optimizer'
 import {preferenceReport} from './fairness'
 import {type Actor,type Context,type State,kinds,object,text,need,sha,canonical,get,manager,instant} from './model'
 import {actor,live,load,saved,commit} from './storage'
@@ -61,7 +63,7 @@ import {holidayPay} from './holiday-pay'
 import {holidayReviews} from './holidays'
 export {actor}
 export type {Actor} from './model'
-const commands=['premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
+const commands=['fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -74,7 +76,9 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  const previous=await saved(db,commandId,a,digest);if(previous)return previous
  const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret,net,files,rollback:[]}
  try {
- let result:any=premiumCommand(c,name,p)
+ let result:any=fairnessCommands(c,name,p)
+ if(result===undefined)result=await fairnessPrepare(c,name,p)
+ if(result===undefined)result=premiumCommand(c,name,p)
  if(result===undefined)result=holidayCalendar(c,name,p)
  if(result===undefined)result=holidayPay(c,name,p)
  if(result===undefined)result=paySchedules(c,name,p)
@@ -143,6 +147,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  const staff=s.staff.filter(p=>manages||agent||p.id===a.staffId).map(p=>agent?{id:p.id,name:p.name,active:!!p.active,position:p.position,site:p.site}:{id:p.id,name:p.name,email:p.email,payrollId:p.payroll_id,role:p.role,active:!!p.active,revision:p.version,erasedAt:p.erased_at,position:p.position,site:p.site,...(manages||(p.id===a.staffId&&earnSettings(s.earnings).estimates)?{hourlyRateCents:p.rate_cents}:{})})
  const result:Record<string,any>={actor:{id:a.id,email:agent?undefined:a.email,name:agent?undefined:identity.name,role:a.role,staffId:a.staffId},version:s.version,settings:{timezone:s.timezone},staff}
  for(const k of kinds)result[k]=s[k]
+ for(const k of ['fairnesspolicies','fairnesscohorts'] as const)result[k]=manages?s[k].filter(r=>salesSite(s,a,r.site)):[]
+ result.fairnessrequests=agent?[]:s.fairnessrequests.filter(r=>r.staffId===a.staffId||manages&&mayReadPerson(s,a,r.staffId))
  result.scheduleReviews=manages?s.rosters.filter(r=>r.status==='draft').map(r=>scheduleReview(s,r.week,a)):[]
  result.acaPlans=plansFor(s,a)
  result.acaCredits=manages?s.acaCredits.filter(r=>mayReadPerson(s,a,r.staffId)):[]
@@ -356,4 +362,9 @@ export async function shiftAttachment(db:D1Database,identity:Actor,answerId:stri
 export async function fairnessRead(db:D1Database,identity:Actor,week:string,site:string,weeks:number) {
  const a=await live(db,identity),s=await load(db),f=fresh(a,s)
  return preferenceReport(s,f,week,site,weeks)
+}
+
+/** FAIR-001: native scoped alternatives; comparison has no writes. */
+export async function fairnessCompare(db:D1Database,identity:Actor,week:string,site:string,weeks:number) {
+ const a=await live(db,identity),s=await load(db);return compareFairness(s,fresh(a,s),week,site,weeks)
 }

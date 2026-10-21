@@ -1,5 +1,5 @@
-// AVAIL-001: recurring weekly availability. A pattern holds available, preferred and
-// unavailable blocks per weekday from an effective first day (to an optional last day),
+// AVAIL-001: recurring weekly availability. A pattern holds available, preferred,
+// prefer-not (available with a soft preference) and unavailable blocks per weekday from an effective first day (to an optional last day),
 // one-off date exceptions and preferred/maximum weekly hours. Only an approved pattern
 // is effective; the newest approved pattern starting on or before a date governs it.
 import {type Context,type State,type Row,keys,text,integer,need,manager,self,staff,put,get,exact} from './model'
@@ -7,7 +7,7 @@ import {localDate,instantAt} from './settings'
 
 type Block={day:number;kind:string;start:string;end:string}
 type Exception={date:string;kind:string;start?:string;end?:string}
-const KINDS=['available','preferred','unavailable'],DAYS=['mon','tue','wed','thu','fri','sat','sun']
+const KINDS=['available','preferred','prefer-not','unavailable'],DAYS=['mon','tue','wed','thu','fri','sat','sun']
 const addDays=(date:string,n:number)=>new Date(Date.parse(date+'T00:00:00Z')+n*86400000).toISOString().slice(0,10)
 const isDate=(d:string)=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d
 const weekdayOf=(date:string)=>(new Date(date+'T00:00:00Z').getUTCDay()+6)%7
@@ -17,14 +17,14 @@ const range=(v:string)=>{const m=/^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]|24):
 function blocksOf(v:unknown):Block[] {
  const list=typeof v==='string'?v.split(/\n|;/).map(x=>x.trim()).filter(Boolean).map(line=>{const [d,kind,times]=line.split(/\s+/);return {day:DAYS.indexOf((d??'').slice(0,3).toLowerCase()),kind,...range(times??'')}}):v
  need(Array.isArray(list)&&list.length<=50,'Give up to 50 weekly blocks')
- return list.map((b:any)=>{need(b&&Number.isInteger(b.day)&&b.day>=0&&b.day<=6,'Each block needs a weekday');need(KINDS.includes(b.kind),'Each block is available, preferred or unavailable');const r=range(`${b.start}-${b.end}`);return {day:b.day,kind:b.kind,...r}})
+ return list.map((b:any)=>{need(b&&Number.isInteger(b.day)&&b.day>=0&&b.day<=6,'Each block needs a weekday');need(KINDS.includes(b.kind),'Each block is available, preferred, prefer-not or unavailable');const r=range(`${b.start}-${b.end}`);return {day:b.day,kind:b.kind,...r}})
 }
 /** Lines such as "2026-11-26 unavailable" or "2026-11-27 available 09:00-13:00" as exceptions. */
 function exceptionsOf(v:unknown):Exception[] {
  if(v===undefined||v==='')return []
  const list=typeof v==='string'?v.split(/\n|;/).map(x=>x.trim()).filter(Boolean).map(line=>{const [date,kind,times]=line.split(/\s+/);return {date,kind,...(times?range(times):{})}}):v
  need(Array.isArray(list)&&list.length<=100,'Give up to 100 exceptions')
- return list.map((x:any)=>{need(typeof x?.date==='string'&&isDate(x.date),'Each exception needs a YYYY-MM-DD date');need(KINDS.includes(x.kind),'Each exception is available, preferred or unavailable');need(x.kind==='unavailable'||(x.start&&x.end),'An available exception needs its times');return {date:x.date,kind:x.kind,...(x.start?range(`${x.start}-${x.end}`):{})}})
+ return list.map((x:any)=>{need(typeof x?.date==='string'&&isDate(x.date),'Each exception needs a YYYY-MM-DD date');need(KINDS.includes(x.kind),'Each exception is available, preferred, prefer-not or unavailable');need(x.kind==='unavailable'||(x.start&&x.end),'An available exception needs its times');return {date:x.date,kind:x.kind,...(x.start?range(`${x.start}-${x.end}`):{})}})
 }
 /** The approved pattern governing a venue date, if any. */
 export function patternOn(s:State,staffId:string,date:string) {
@@ -44,7 +44,7 @@ export function patternFit(s:State,staffId:string,w:Record<string,any>) {
  const governed=days.map(d=>({d,p:patternOn(s,staffId,d)}));if(governed.every(x=>!x.p))return null
  const windows=governed.flatMap(x=>x.p?windowsOn(s,x.p,x.d):[])
  const cover=(kinds:string[])=>{let through=w.start;for(const v of windows.filter(v=>kinds.includes(v.kind)).sort((a,b)=>a.start.localeCompare(b.start)))if(v.start<=through&&v.end>through)through=v.end;return through>=w.end}
- return {covered:cover(['available','preferred']),unavailable:windows.some(v=>v.kind==='unavailable'&&v.start<w.end&&v.end>w.start),preferred:cover(['preferred'])}
+ return {covered:cover(['available','preferred','prefer-not']),unavailable:windows.some(v=>v.kind==='unavailable'&&v.start<w.end&&v.end>w.start),preferred:cover(['preferred']),preferNot:windows.some(v=>v.kind==='prefer-not'&&v.start<w.end&&v.end>w.start),known:governed.every(x=>Boolean(x.p))}
 }
 /** Published shifts from the pattern's first day that it would flag. */
 function collisions(s:State,p:Record<string,any>,now:string) {

@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { fairnessRead, shiftAttachment, tipCreditRead, acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { fairnessCompare, fairnessRead, shiftAttachment, tipCreditRead, acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -70,6 +70,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   }
   if (!request.headers.get('content-type')?.includes('application/x-www-form-urlencoded')) fail('Use JSON or a form', 415)
   const params = new URLSearchParams(raw), input: Record<string, unknown> = Object.fromEntries(params)
+  if (params.has('tags') || new URL(request.url).searchParams.get('name') === 'fairness.policy.save') input.tags = params.getAll('tags')
   if (params.has('days')) input.days = params.getAll('days')
   if (params.has('hidden')) input.hidden = params.getAll('hidden')
   if (params.has('flags')) input.flags = params.getAll('flags')
@@ -84,7 +85,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
     input.contacts = names.map((name, i) => ({ name, relationship: relations[i] ?? '', phone: phones[i] ?? '' })).filter(x => x.name || x.relationship || x.phone)
     for (const key of ['contactName', 'contactRelationship', 'contactPhone']) delete input[key]
   }
-  for (const key of ['revision', 'shiftRevision', 'breakMinutes']) if (key in input) input[key] = Number(input[key])
+  for (const key of ['revision', 'shiftRevision', 'breakMinutes', 'minutes', 'closeOpenHours']) if (key in input) input[key] = Number(input[key])
   if(params.has('completed'))input.completed=params.getAll('completed');else if(new URL(request.url).searchParams.get('name')==='shiftwork.respond')input.completed=[]
   if(params.has('taskLines')){input.tasks=String(input.taskLines).split(/\r?\n/).map(v=>v.trim()).filter(Boolean);delete input.taskLines}
   if(params.has('taskText')){input.tasks=params.getAll('taskText').filter(v=>v.trim());delete input.taskText}
@@ -114,10 +115,14 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         if(path==='/app/schedule'&&['owner','manager'].includes(who.role)) {
           const {weekModel}=await import('./ui/week'),w=weekModel(view,Date.now(),url.searchParams,true)
           const site=who.role==='manager'?view.staff.find((p:any)=>p.id===view.actor.staffId)?.site??'':w.site
-          return renderApp(view,path+url.search,{result:{fairness:await fairnessRead(env.DB,who,w.week,site,Number(url.searchParams.get('fairWeeks')??8))}})
+          const weeks=Number(url.searchParams.get('fairWeeks')??8),fairness=await fairnessRead(env.DB,who,w.week,site,weeks)
+          let comparison,comparisonError:string|undefined
+          if(url.searchParams.has('fairCompare'))try{comparison=await fairnessCompare(env.DB,who,w.week,site,weeks)}catch(error){if(Number((error as any)?.status)!==400)throw error;comparisonError=(error as Error).message}
+          return renderApp(view,path+url.search,{error:comparisonError,result:{fairness,fairnessCompare:comparison}})
         }
         return renderApp(view,path+url.search)
       }
+      if (path === '/api/lanyard/fairness/compare') return json(await fairnessCompare(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/fairness') return json(await fairnessRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       // CONTACT-001: the audited emergency contact card, as a screen and as JSON.
       const card = path.match(/^\/(app|api\/lanyard)\/contacts\/([\w-]+)$/)
@@ -166,7 +171,12 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         const input = await inputBody(request), name = url.searchParams.get('name') ?? ''
         if (name === 'staff.save' && !('active' in input)) input.active = false
         const result = await execute(request, env, who, name, input), { token, ...shown } = result as Record<string, unknown>
-        return withClockCookie(await renderApp(await state(env, who), back, { message: 'Saved.', result: name === 'import.preview' || name === 'sales.preview' ? { ...shown, csv: input.csv, mapping: input.mapping, site: input.site } : name.startsWith('clockbrowser.') ? shown : result }), name.startsWith('clockbrowser.') ? result : null)
+        let displayed:any=name === 'import.preview' || name === 'sales.preview' ? { ...shown, csv: input.csv, mapping: input.mapping, site: input.site } : name.startsWith('clockbrowser.') ? shown : result
+        if(name.startsWith('fairness.')&&['owner','manager'].includes(who.role)) {
+          const q=new URL(back,url.origin).searchParams
+          displayed={...displayed,fairness:await fairnessRead(env.DB,who,String(input.week??q.get('week')??''),String(input.site??q.get('site')??''),Number(input.weeks??q.get('fairWeeks')??8))}
+        }
+        return withClockCookie(await renderApp(await state(env, who), back, { message: 'Saved.', result: displayed }), name.startsWith('clockbrowser.') ? result : null)
       }
       if (path === '/api/lanyard/command' || path === '/api/lanyard/agent/command') {
         const body = await inputBody(request)

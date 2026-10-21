@@ -7,7 +7,7 @@ import {fairnessFixture} from './fairness-fixture.mjs'
 import {days,local} from './workforce-journey.mjs'
 export async function fairnessApi(h) {
  const f=await fairnessFixture(h),r=await f.read(),counter=r.groups.find(g=>g.position==='Counter')
- assert.equal(r.weeks,8);assert.equal(r.first,f.first);assert.equal(r.last,days(f.week,6))
+ assert.equal(r.totals.spread,null);assert.equal(r.cohorts.records.length,0);assert.ok(r.cohorts.unknownMembership.length>0);assert.equal(r.weeks,8);assert.equal(r.first,f.first);assert.equal(r.last,days(f.week,6))
  assert.deepEqual([counter.samples,counter.excluded,counter.meanGapMinutes,counter.maxGapMinutes],[16,8,120,120])
  const alex=r.rows.filter(x=>x.staffId===f.alex.id),ben=r.rows.filter(x=>x.staffId===f.ben.id)
  assert.equal(alex.reduce((n,x)=>n+x.scheduledMinutes,0),8*480);assert.equal(ben.reduce((n,x)=>n+x.scheduledMinutes,0),8*240)
