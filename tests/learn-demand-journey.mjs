@@ -145,7 +145,7 @@ export async function learnBrowser() {
    const shot=async key=>{if(process.env.LEARN_SCREENS){await mkdir(process.env.LEARN_SCREENS,{recursive:true});await page.locator('#learning').screenshot({path:join(process.env.LEARN_SCREENS,`${key}-${width}.png`)})}}
    await page.goto(h.origin+'/app/agent',{waitUntil:'networkidle'})
    const access=await page.locator('body').innerText()
-   for(const text of ['record a learning proposal','Measured forecast assistant',`forecast ${f.today}`,'learning 2 weeks'])assert.ok(access.includes(text),text)
+   assert.ok(access.includes(key.id),'The owner can identify the exact scoped key');assert.ok(access.includes(f.today),'The audited forecast day is visible');assert.equal(await page.locator('.credential').count(),0)
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
    if(process.env.LEARN_SCREENS)await mkdir(process.env.LEARN_SCREENS,{recursive:true})
    if(process.env.LEARN_SCREENS)await page.screenshot({path:join(process.env.LEARN_SCREENS,`access-${width}.png`),fullPage:true})

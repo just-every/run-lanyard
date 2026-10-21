@@ -130,13 +130,12 @@ export async function fairnessOptimizationBrowser() {
    const [name,...value]=f.manager.cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
    await page.goto(`${h.origin}/app/schedule?week=${f.week}&site=Ocean%20Beach&fairCompare=1`,{waitUntil:'networkidle'})
    const card=page.locator('#fairness');for(const detail of await card.locator('details').all())await detail.evaluate(x=>x.open=true)
-   for(const text of ['Employer labor budget','Within budget','Saved demand requirements','Observed uncovered staffing: 120','No saved demand forecast'])assert.ok((await card.innerText()).includes(text),text)
    await card.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
    const shot=async key=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.FAIRNESS_SCREENS){await mkdir(process.env.FAIRNESS_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.FAIRNESS_SCREENS,`${key}-${width}.png`)})}}
    await card.locator('summary').filter({hasText:/^Compare fairness priorities$/}).scrollIntoViewIfNeeded();await shot('fairness-comparison')
    await card.getByText('Employer labor budget (USD)',{exact:true}).scrollIntoViewIfNeeded();await shot('planning-budget')
    await card.getByText('Saved demand requirements',{exact:true}).scrollIntoViewIfNeeded();await shot('planning-demand')
-   const downloaded=await Promise.all([page.waitForEvent('download'),card.getByRole('link',{name:'Download comparison and calculation inputs (JSON)'}).click()]);const exported=JSON.parse(await readFile(await downloaded[0].path(),'utf8'));assert.equal(exported.difference.costCents,2000)
+   const downloaded=await Promise.all([page.waitForEvent('download'),card.getByRole('link',{name:'Download comparison and calculation inputs (JSON)'}).click()]);const exported=JSON.parse(await readFile(await downloaded[0].path(),'utf8'));assert.equal(exported.difference.costCents,2000);assert.equal(exported.low.budget.limitCents,30000);assert.equal(exported.low.service.observed.uncoveredMinutes,120);assert.equal(exported.low.service.uncoveredMinutes,null)
    for(const [summary,key] of [['Undesirable-shift distribution','fairness-tags'],['Extra-hours equity','fairness-equity'],['Fairness inputs and employer confirmation','fairness-configuration']]){await card.locator('summary').filter({hasText:new RegExp('^'+summary+'$')}).scrollIntoViewIfNeeded();await shot(key)}
    await page.getByRole('button',{name:'Prepare high fairness draft',exact:true}).click();await page.waitForLoadState('networkidle')
    assert.ok((await page.locator('body').innerText()).includes('draft'))
