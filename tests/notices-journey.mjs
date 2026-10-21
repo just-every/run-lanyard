@@ -22,7 +22,7 @@ export async function noticesFixture(h) {
  for(const week of new Set(shifts.map(x=>weekOf(x.start)))){const r=await cmd('roster.prepare',{week,shifts:shifts.filter(x=>weekOf(x.start)===week)});await cmd('roster.publish',pin(r))}
  await cmd('clock.in',{commandId:crypto.randomUUID(),capturedAt:at(-480)},cy.cookie,200,-480)
  await cmd('openshift.post',{site:'',position:'',start:at(20),end:at(120),breakMinutes:0,approval:'manager',order:'all'})
- const request=await cmd('time.request',{start:at(-180),end:at(-120),breakMinutes:0,reason:'Forgot the clock',attest:'I confirm these times and breaks are accurate.'},alex.cookie)
+ const request=await cmd('time.request',{start:at(-180),end:at(-120),breakMinutes:0,reason:'Forgot the clock',attest:true},alex.cookie)
  const date=at(0).slice(0,10),period=await cmd('period.save',{start:date,end:date})
  const tick=async m=>{const result=await (await h.mf.getWorker()).scheduled({scheduledTime:new Date(base+m*60000),cron:'*/15 * * * *'});assert.equal(result.outcome,'ok')}
  const state=async(c=h.owner,m=6)=>(await h.send('/api/lanyard/state',undefined,c,head(m))).value
