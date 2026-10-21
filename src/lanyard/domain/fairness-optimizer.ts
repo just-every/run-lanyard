@@ -21,7 +21,7 @@ function cost(s:State,rows:Row[]) {
 function coverage(rows:Row[]) {return {shifts:rows.length,minutes:rows.reduce((n,x)=>n+x.minutes,0),slots:rows.map(x=>({id:x.id,start:x.start,end:x.end,site:x.site,job:x.job,breakMinutes:x.breakMinutes,minutes:x.minutes}))}}
 export async function compareFairness(s:State,a:Actor,week:string,site:string,weeks=8) {
  manager(a)
- const sourceReport=preferenceReport(s,a,week,site,weeks)
+ const asOf=new Date().toISOString(),sourceReport=preferenceReport(s,a,week,site,weeks,{asOf})
  const roster=s.rosters.find(r=>r.week===week&&r.status==='published')
  need(roster,'Publish the source week before comparing assignment alternatives')
  const source=s.shifts.filter(x=>x.rosterId===roster.id&&x.status==='published'&&(x.site??'')===site).sort((a,b)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id))
@@ -30,7 +30,7 @@ export async function compareFairness(s:State,a:Actor,week:string,site:string,we
  need(pools.every(p=>p!==null),'Record effective role/site eligibility cohorts before comparing schedules')
  const valid=(rows:Row[])=>rows.every((x,i)=>pools[i]!.includes(x.staffId))&&!conflicts({s} as Context,[...s.shifts.filter(x=>x.rosterId===roster.id&&x.status==='published'&&(x.site??'')!==site),...rows],week).length
  need(valid(source),'Resolve the source week eligibility, availability or hours conflicts before comparing')
- const report=(rows:Row[])=>preferenceReport(trialState(s,week,source,rows),a,week,site,weeks)
+ const report=(rows:Row[])=>preferenceReport(trialState(s,week,source,rows),a,week,site,weeks,{asOf})
  const score=(rows:Row[])=>{const r=report(rows);return {...r.totals,costCents:cost(s,rows).costCents}}
  const original=score(source)
  need(original.spread!==null&&original.meanGapMinutes!==null&&original.maxGapMinutes!==null&&original.violations!==null,'Complete the cohort, tag policy and preference inputs before optimizing fairness')
@@ -52,7 +52,11 @@ export async function compareFairness(s:State,a:Actor,week:string,site:string,we
  }
  const low=optimize(source,'low'),lowRows=source.map((x,i)=>({...x,staffId:low.assignments[i].staffId})),high=optimize(lowRows,'high')
  const result={week,site,weeks,source:{id:roster.id,revision:roster.revision,shifts:source.map(x=>({id:x.id,revision:x.revision,...input(x),minutes:x.minutes}))},method:'Local assignment search over all single moves and pair exchanges; a local optimum, not a global optimality certificate',low,high,difference:{costCents:low.cost.costCents===null||high.cost.costCents===null?null:high.cost.costCents-low.cost.costCents,coveredMinutes:high.coverage.minutes-low.coverage.minutes,coveredShifts:high.coverage.shifts-low.coverage.shifts},uncovered:s.openshifts.filter(x=>x.week===week&&x.site===site&&x.status==='open').map(x=>({id:x.id,start:x.start,end:x.end,minutes:x.minutes})),sourceWindow:{first:sourceReport.first,last:sourceReport.last}}
- return {...result,digest:await sha(canonical(result))}
+ const reviewed=structuredClone(result)
+ // Moving wall time alone is not a changed input; any newly opened/closed offer
+ // changes the exported inclusion facts and therefore still invalidates review.
+ for(const alternative of [reviewed.low,reviewed.high])alternative.measures.equity.asOf=''
+ return {...result,digest:await sha(canonical(reviewed))}
 }
 export async function fairnessPrepare(c:Context,name:string,p:Record<string,any>) {
  if(name!=='fairness.prepare')return undefined

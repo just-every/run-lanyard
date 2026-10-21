@@ -25,13 +25,16 @@ export async function fairnessOptimizationApi(h) {
   assert.equal(alternative.cost.costCents,costs.reduce((n,x)=>n+x,0))
   assert.equal(alternative.coverage.minutes,alternative.coverage.slots.reduce((n,x)=>n+x.minutes,0))
  }
+ // Reconfirming unchanged eligibility during the window cannot reset the closing rotation.
+ await h.cmd('fairness.cohort.save',{site:'Ocean Beach',position:'Counter',from:days(f.first,28),staffIds:[f.alex.id,f.ben.id]})
+ const revised=await f.read();assert.deepEqual(revised.low.measures.totals,low.measures.totals);assert.deepEqual(revised.high.measures.totals,high.measures.totals)
  // Reporting and both alternatives stay independent of actual ratings and flags.
  await h.cmd('clock.in',{commandId:crypto.randomUUID(),capturedAt:local(f.first,'08:00')},f.alex.cookie)
  const clock=await h.cmd('clock.out',{commandId:crypto.randomUUID(),capturedAt:local(f.first,'16:00'),breakMinutes:0},f.alex.cookie)
  await h.cmd('feedback.submit',{timesheetId:clock.timesheet.id,rating:1,flags:['safety'],comment:'Follow up'},f.alex.cookie)
- assert.deepEqual(await f.read(),comparison)
+ assert.deepEqual(await f.read(),revised)
  for(const cookie of [f.alex.cookie,f.foreign.cookie,''])assert.equal((await h.send(f.path,undefined,cookie)).status,cookie===f.foreign.cookie?404:cookie?403:401)
- const prepare={week:f.week,site:'Ocean Beach',weeks:8,priority:'high',digest:comparison.digest}
+ const prepare={week:f.week,site:'Ocean Beach',weeks:8,priority:'high',digest:revised.digest}
  await h.cmd('fairness.prepare',prepare,f.alex.cookie,403)
  const draft=await h.cmd('fairness.prepare',prepare,f.manager.cookie);assert.deepEqual(draft.conflicts,[])
  assert.equal((await h.state()).rosters.find(x=>x.id===draft.id).status,'draft')
@@ -109,6 +112,10 @@ export async function fairnessOptimizationBrowser() {
    assert.ok((await page.locator('body').innerText()).includes('draft'))
    assert.equal((await h.state()).rosters.filter(x=>x.week===f.week&&x.status==='draft').length,1)
    await shot('fairness-draft')
+   const review=page.getByRole('link',{name:/Review draft revision/});if(await review.count())await review.click()
+   await page.getByRole('button',{name:'Publish this revision',exact:true}).click();await page.waitForLoadState('networkidle')
+   assert.equal((await h.state()).rosters.filter(x=>x.week===f.week&&x.status==='draft').length,0)
+   const published=await f.read(f.base);assert.ok(published.totals.spread<8);await shot('fairness-published')
   }finally{await context.close();await h.close()}
  }}finally{await browser.close()}
 }

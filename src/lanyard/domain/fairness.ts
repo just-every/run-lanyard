@@ -18,10 +18,10 @@ export function preferenceReport(s:State,a:Actor,week:string,site:string,weeks=8
  const people=s.staff.filter(p=>!p.erased_at&&(p.site??'')===site&&(p.active||s.shifts.some(x=>x.staffId===p.id&&x.status==='published'&&localDate(x.start,s.timezone)>=first&&localDate(x.start,s.timezone)<=last)))
  const rows:PreferenceRow[]=[]
  for(let i=0;i<weeks;i++) {
-  const on=dayAfter(first,i*7),dates=spanDays(on,dayAfter(on,6)),covered=new Set<string>()
+  const on=dayAfter(first,i*7),dates=spanDays(on,dayAfter(on,6)),covered=new Set<string>(),roles=new Set<string>()
   for(const {record:c} of windows)for(const m of c.members) {
    if(!dates.some(d=>cohortOn(s,site,c.position,d)?.id===c.id&&memberEligible(m,site,c.position,d)))continue
-   const person=s.staff.find(p=>p.id===m.staffId);if(person?.erased_at)continue
+   const person=s.staff.find(p=>p.id===m.staffId),key=m.staffId+'|'+c.position;if(person?.erased_at||roles.has(key))continue;roles.add(key)
    rows.push(preferenceRow(s,{id:m.staffId,name:person?.name??'Former employee',position:c.position},on,site,c));covered.add(m.staffId)
   }
   // Keep the original display rows, explicitly unconfirmed, when historical membership is unknown.

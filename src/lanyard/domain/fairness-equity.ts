@@ -3,7 +3,7 @@ import {type State,type Row} from './model'
 import {localDate,instantAt} from './settings'
 import {dayAfter} from './aca'
 import {cohortOn,memberEligible,requestOn,type EligibilityMember} from './fairness-policy'
-import {cohortWindows,shiftSite,roleMatches} from './fairness-measures'
+import {cohortWindows,shiftSite,spanDays,roleMatches} from './fairness-measures'
 
 const monday=(on:string)=>dayAfter(on,-((new Date(on+'T12:00:00Z').getUTCDay()+6)%7))
 function requestBasis(s:State,m:EligibilityMember,dates:string[]) {
@@ -55,15 +55,16 @@ export function equityMeasure(s:State,site:string,first:string,last:string,now?:
  const windowEnd=instantAt(dayAfter(last),'00:00',s.timezone),current=now??new Date().toISOString(),asOf=current<windowEnd?current:windowEnd
  const inputs=offerInputs(s,site,first,last,asOf),windows=cohortWindows(s,site,first,last)
  const missingLogs=s.openshifts.filter(o=>o.site===site&&o.status!=='draft'&&!o.tiers&&localDate(o.start,s.timezone)>=first&&localDate(o.start,s.timezone)<=last).map(o=>({id:o.id,revision:o.revision,reason:'Legacy open shift has no retained recipient offer log'}))
- const groups=windows.map(({record:c,dates})=>{
-  const people=c.members.filter(m=>m.employment?.type==='part-time').map(m=>({member:m,dates:dates.filter(on=>memberEligible(m,site,c.position,on))})).filter(m=>m.dates.length)
-  const bases=people.map(({member:m,dates})=>{const requested=requestBasis(s,m,dates),offers=inputs.filter(o=>o.cohortId===c.id&&o.staffId===m.staffId&&o.included)
+ const groups=[...new Set(windows.map(w=>w.record.position))].map(position=>{
+  const sources=windows.filter(w=>w.record.position===position),cohortIds=sources.map(w=>w.record.id),ids=[...new Set(sources.flatMap(w=>w.record.members.map(m=>m.staffId)))]
+  const people=ids.map(staffId=>({member:{staffId} as EligibilityMember,dates:spanDays(first,last).filter(on=>{const c=cohortOn(s,site,position,on),m=c?.members.find(m=>m.staffId===staffId);return Boolean(m&&m.employment?.type==='part-time'&&memberEligible(m,site,position,on))})})).filter(p=>p.dates.length)
+  const bases=people.map(({member:m,dates})=>{const requested=requestBasis(s,m,dates),offers=inputs.filter(o=>cohortIds.includes(o.cohortId??'')&&o.staffId===m.staffId&&o.included)
    const missingPosting=offers.some(o=>!o.request),requestsKnown=requested.minutes!==null
    return {staffId:m.staffId,offeredMinutes:offers.reduce((n,o)=>n+o.minutes,0),requestedMinutes:requested.minutes,requests:requested.inputs,offerIds:offers.map(o=>o.id),reasons:[...(!requestsKnown?['Requested extra minutes missing or changing within an eligible week']:[]),...(missingPosting?['One or more offers have no request recorded by posting time']:[])]}
   })
   const totalOfferedMinutes=bases.reduce((n,r)=>n+r.offeredMinutes,0),known=bases.length>0&&bases.every(r=>r.requestedMinutes!==null&&!r.reasons.length),totalRequestedMinutes=known?bases.reduce((n,r)=>n+r.requestedMinutes!,0):null
   const rows=bases.map(r=>{const offeredShare=!missingLogs.length&&totalOfferedMinutes>0?r.offeredMinutes/totalOfferedMinutes:null,requestedShare=totalRequestedMinutes? r.requestedMinutes!/totalRequestedMinutes:null;return {...r,offeredShare,requestedShare,shareGap:offeredShare!==null&&requestedShare!==null?offeredShare-requestedShare:null}})
-  return {cohortId:c.id,cohortRevision:c.revision,position:c.position,site,rows,totalOfferedMinutes,totalRequestedMinutes,reasons:[...(missingLogs.length?['Historical recipient offer logs are incomplete']:[]),...(!known?['Requested shares are unknown until every eligible part-time employee has explicit effective requests and posting-time request evidence']:[]),...(!totalOfferedMinutes?['No reached extra-hours offers in this window']:[]),...(totalRequestedMinutes===0?['Total requested extra hours is zero']:[])]}
+  return {cohortId:cohortIds[0],cohortIds,position,site,rows,totalOfferedMinutes,totalRequestedMinutes,reasons:[...(missingLogs.length?['Historical recipient offer logs are incomplete']:[]),...(!known?['Requested shares are unknown until every eligible part-time employee has explicit effective requests and posting-time request evidence']:[]),...(!totalOfferedMinutes?['No reached extra-hours offers in this window']:[]),...(totalRequestedMinutes===0?['Total requested extra hours is zero']:[])]}
  })
- return {definition:'Offered payable minutes count once per recipient and opportunity when its tier actually opened, whether accepted or declined. Requested extra minutes are explicitly recorded per eligible venue week; preferred hours are not a request. Shares compare eligible part-time employees in the same confirmed cohort.',asOf:asOf===windowEnd?windowEnd:'Current time, capped at the window end',groups,inputs,missingLogs,reasons:[...(!windows.length?['Historical role/site eligibility has not been confirmed']:[]),...(missingLogs.length?['Some historical recipient offers are unknown']:[])]}
+ return {definition:'Offered payable minutes count once per recipient and opportunity when its tier actually opened, whether accepted or declined. Requested extra minutes are explicitly recorded per eligible venue week; preferred hours are not a request. Shares compare eligible part-time employees in the same confirmed cohort.',asOf,groups,inputs,missingLogs,reasons:[...(!windows.length?['Historical role/site eligibility has not been confirmed']:[]),...(missingLogs.length?['Some historical recipient offers are unknown']:[])]}
 }
