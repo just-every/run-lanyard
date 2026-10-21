@@ -69,7 +69,7 @@ export async function noticesApi(h) {
  await f.cmd('period.signoff',pin((await f.state(h.owner,cutoff+6)).periods[0]),h.owner,200,cutoff+6)
  await f.cmd('period.lock',pin((await f.state(h.owner,cutoff+6)).periods[0]),h.owner,200,cutoff+6)
  assert.ok(!(await f.state(h.owner,cutoff+6)).notices.some(n=>['timesheet-review','payroll-review'].includes(n.kind)))
- const all=await stored();assert.equal(new Set(all.map(n=>JSON.stringify([n.kind,n.subject,n.basis,n.recipient,n.due,n.escalation]))).size,all.length)
+ const all=await stored();assert.equal(new Set(all.map(n=>JSON.stringify([n.kind,n.subject,n.basis,n.recipient,n.due]))).size,all.length)
  assert.ok(all.some(n=>n.status==='withdrawn'&&n.withdrawalReason),'withdrawals retain a reason')
  const safe=JSON.stringify((await f.state(h.owner,cutoff+6)).notices)
  for(const privateText of ['Forgot the clock','I am investigating','rate_cents','hourlyRate'])assert.ok(!safe.includes(privateText))

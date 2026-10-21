@@ -36,7 +36,7 @@ export async function reconcileNotices(c:Context,owner:Actor) {
   const people=x.employee?(c.s.staff.some(p=>p.id===x.staffId&&p.active&&!p.erased_at)?[x.staffId!]:[]):managers(c.s,x.site,x.staffId,owner)
   const rule=c.s.noticerules.find(r=>r.site===x.site),higher=people.some(id=>id!==owner.id)
   const add=async(recipient:string,due:string,escalation=false)=>{
-   const id=await sha(JSON.stringify([x.kind,x.subject,x.basis,recipient,due,escalation]))
+   const id=await sha(JSON.stringify([x.kind,x.subject,x.basis,recipient,due]))
    desired.set(id,{...x,recipient,due,escalation,escalationState:!higher&&!x.employee?'no higher manager':null})
   }
   for(const recipient of people)await add(recipient,x.due)
