@@ -18,7 +18,9 @@ function money(cents:number|null,contributors:number,reasons:string[]=[]):Money 
 }
 function fairness(r:any,person:(id:string)=>string) {
  return {
-  first:r.first,last:r.last,week:r.week,weeks:r.weeks,totals:r.totals,groups:r.groups,
+  first:r.first,last:r.last,week:r.week,weeks:r.weeks,
+  totals:{spread:r.totals.spread,meanGapMinutes:r.totals.meanGapMinutes,maxGapMinutes:r.totals.maxGapMinutes,violations:r.totals.violations,gapSamples:r.totals.gapSamples,gapExcluded:r.totals.gapExcluded,reasons:r.totals.reasons},
+  groups:r.groups.map((x:any)=>({position:x.position,samples:x.samples,excluded:x.excluded,meanGapMinutes:x.meanGapMinutes,maxGapMinutes:x.maxGapMinutes})),
   people:r.rows.map((x:any)=>({staffId:person(x.staffId),position:x.position,week:x.week,cohortId:x.cohortId,membership:x.membership,scheduledMinutes:x.scheduledMinutes,gapMinutes:x.gapMinutes,preferredShifts:x.preferredShifts,preferNotShifts:x.preferNotShifts,unknownBlockShifts:x.unknownBlockShifts,reasons:x.reasons})),
   cohorts:r.cohorts.records.map((x:any)=>({id:x.id,revision:x.revision,site:x.site,position:x.position,dates:x.dates})),
   undesirable:{reasons:r.undesirable.reasons,groups:r.undesirable.groups.map((x:any)=>({cohortId:x.cohortId,cohortIds:x.cohortIds,position:x.position,dates:x.dates,spread:x.spread,standardDeviation:x.standardDeviation,reasons:x.reasons,counts:x.counts.map((p:any)=>({staffId:person(p.staffId),count:p.count,tags:p.tags,eligibleDays:p.eligibleDays}))}))},
@@ -32,16 +34,16 @@ function projection(c:Awaited<ReturnType<typeof compareFairness>>,person:(id:str
  const changedPeople=new Set(changed.flatMap(x=>[x.fromStaffId,x.toStaffId])).size
  const nonzeroCost=(a:typeof c.low)=>new Set(a.cost.inputs.filter(x=>(x.basis.costCents??0)+(x.holiday.costCents??0)!==0).map(x=>x.staffId)).size
  const nonzeroPremium=(a:typeof c.low)=>new Set(a.scheduledOvertime.groups.filter(x=>x.premiumCents!==null&&x.premiumCents!==0).map(x=>x.staffId)).size
- const alt=(a:typeof c.low)=>({priority:a.priority,assignments:a.assignments.map(x=>({slotId:x.slotId,staffId:person(x.staffId)})),measures:fairness(a.measures,person),coverage:a.coverage,
+ const alt=(a:typeof c.low)=>({priority:a.priority,assignments:a.assignments.map(x=>({slotId:x.slotId,staffId:person(x.staffId)})),measures:fairness(a.measures,person),coverage:{shifts:a.coverage.shifts,minutes:a.coverage.minutes,slots:a.coverage.slots.map(x=>({id:x.id,start:x.start,end:x.end,site:x.site,job:x.job,breakMinutes:x.breakMinutes,minutes:x.minutes}))},
   cost:{currency:'USD',total:money(a.cost.costCents,nonzeroCost(a)),label:a.cost.label},
   scheduledOvertime:{label:a.scheduledOvertime.label,definition:a.scheduledOvertime.definition,overtimeMinutes:a.scheduledOvertime.overtimeMinutes,
    premium:money(a.scheduledOvertime.premiumCents,nonzeroPremium(a),a.scheduledOvertime.groups.flatMap(x=>x.reasons)),
    groups:a.scheduledOvertime.groups.map(x=>({staffId:person(x.staffId),week:x.week,end:x.end,knownMinutes:x.knownMinutes,minutes:x.minutes,overtimeMinutes:x.overtimeMinutes,missingWeeks:x.missingWeeks,reasons:x.reasons}))}})
  const premiumDifference=c.explanation.weeklyScheduledOvertime.premiumDifferenceCents
  return {status:'known',week:c.week,site:c.site,weeks:c.weeks,sourceWindow:c.sourceWindow,method:c.method,
-  low:alt(c.low),high:alt(c.high),uncovered:c.uncovered,
+  low:alt(c.low),high:alt(c.high),uncovered:c.uncovered.map(x=>({id:x.id,start:x.start,end:x.end,minutes:x.minutes})),
   difference:{cost:money(c.difference.costCents,changedPeople),premium:money(premiumDifference,changedPeople,c.low.scheduledOvertime.groups.concat(c.high.scheduledOvertime.groups).flatMap(x=>x.reasons)),coveredMinutes:c.difference.coveredMinutes,coveredShifts:c.difference.coveredShifts},
-  explanation:{fairness:c.explanation.fairness,changedAssignments:changed.map(x=>({slotId:x.slotId,fromStaffId:person(x.fromStaffId),toStaffId:person(x.toStaffId)})),coverage:c.explanation.coverage,serviceRisk:null,uncertainty:c.explanation.uncertainty}}
+  explanation:{fairness:c.explanation.fairness.map(x=>({measure:x.measure,low:x.low,high:x.high,difference:x.difference})),changedAssignments:changed.map(x=>({slotId:x.slotId,fromStaffId:person(x.fromStaffId),toStaffId:person(x.toStaffId)})),coverage:{lowSlots:c.explanation.coverage.lowSlots,highSlots:c.explanation.coverage.highSlots,lowMinutes:c.explanation.coverage.lowMinutes,highMinutes:c.explanation.coverage.highMinutes,uncoveredShifts:c.explanation.coverage.uncoveredShifts,uncoveredMinutes:c.explanation.coverage.uncoveredMinutes},serviceRisk:null,uncertainty:c.explanation.uncertainty}}
 }
 
 export async function comparisonRead(db:D1Database,a:Actor,week:string,site:string,weeks:number) {
