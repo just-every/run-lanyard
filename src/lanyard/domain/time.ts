@@ -22,13 +22,17 @@ export function approve(c:Context,submitted:Row) {
  // TIME-005: a rule that rounds at approval sets the payable time before anything is decided.
  const r=roundAtApproval(c.s,submitted)
  need(r.status==='submitted','Only submitted time can be approved',409);need(r.staffId!==c.a.staffId,'You cannot approve your own time',403);staff(c,r.staffId);clearOverlap(c,r.staffId,r,r.rootId)
- if(r.corrects){const old=get(c.s,'timesheets',r.corrects);need(old.status==='approved','Correction source changed',409);put(c,'timesheets',{...old,status:'superseded',supersededBy:r.id},old)}
+ const old=r.corrects?get(c.s,'timesheets',r.corrects):undefined
+ if(old)need(old.status==='approved','Correction source changed',409)
  need(!c.s.holidaypay.some(p=>p.staffId===r.staffId&&p.minutes>0&&p.date>=localDate(r.start,c.s.timezone)&&p.date<=localDate(new Date(Date.parse(r.end)-1).toISOString(),c.s.timezone)),'Correct non-work holiday pay to zero before approving worked holiday time',409)
  const exported=c.s.claims.filter(cl=>cl.root_id===r.rootId).reduce((n,cl)=>n+cl.minutes,0)
  const clock=c.s.clocks.find(k=>k.id===r.clockId),shift=c.s.shifts.find(x=>x.id===clock?.shiftId),job=r.job??shift?.job??'',site=r.site??shift?.site??''
  const plan=r.segmentPlan??segmentPlan(c.s,r.staffId,r,clock?.shiftId),workSegments=reconcileSegments(c.s,r.staffId,r,plan)
  const rated={...r,job,site,segmentPlan:plan,workSegments,rateBasis:workSegments.length?segmentBasis(r.staffId,workSegments):rateBasis(c.s,r.staffId,{...r,job,site})}
- return put(c,'timesheets',{...rated,holidayBasis:holidayBasis(c.s,rated),status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now},r)
+ const approved={...rated,holidayBasis:holidayBasis(c.s,rated),status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now}
+ // A bulk caller may catch a refusal: finish every check and calculation before changing either revision.
+ if(old)put(c,'timesheets',{...old,status:'superseded',supersededBy:r.id},old)
+ return put(c,'timesheets',approved,r)
 }
 const ATTEST='I confirm these times and breaks are accurate.'
 /** TIME-003: the employee's own attestation of times and breaks, recorded with its wording; only the person attests their own time. */

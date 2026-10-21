@@ -334,8 +334,8 @@ Judged from the code and tests at commit `771e1bc52a28c26e22bec0078f37d01c9e9658
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 15 | 1 | 0 | 16 |
-| Target and push further | 34 | 34 | 42 | 110 |
-| All | 49 | 35 | 42 | 126 |
+| Target and push further | 35 | 33 | 42 | 110 |
+| All | 50 | 34 | 42 | 126 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -402,7 +402,7 @@ Judged from the code and tests at commit `771e1bc52a28c26e22bec0078f37d01c9e9658
 | `TIME-005` | Punch rounding and snap-to-schedule | target | done | `src/lanyard/domain/rounding.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/rounding.ts`; `src/lanyard/ui/time.ts`; `tests/lanyard.test.mjs` |  |
 | `TIME-006` | Early clock-in window and unscheduled punches | target | done | `src/lanyard/domain/clockrules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/clockrules.ts`; `tests/lanyard.test.mjs` |  |
 | `TIME-007` | Forgotten clock-out reminder cap and provisional close | target | partial | `src/lanyard/domain/closerules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/ui/closerules.ts`; `tests/lanyard.test.mjs` | In-app reminders, provisional marks, confirmation/correction and payroll/bulk-approval holds exist. Provisional punches remain open in stored state, and overtime projection and interval actual labor count them through the reporting instant instead of stopping at their provisional end. |
-| `TIME-008` | Bulk timesheet approval with pinned revisions | target | partial | `src/lanyard/domain/approvals.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/approvals.ts`; `tests/lanyard.test.mjs` | Filtered exact-revision bulk approval and reasoned skips exist. A failed single approval is caught without rolling back its in-memory changes: a correction supersedes its source before the non-work holiday-pay check, so a skipped correction can still alter its source. |
+| `TIME-008` | Bulk timesheet approval with pinned revisions | target | done | `src/lanyard/domain/approvals.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/approvals.ts`; `tests/lanyard.test.mjs`; `tests/bulk-approval-journey.mjs` |  |
 | `TIME-009` | Timesheet approval review with schedule variance | target | partial | `src/lanyard/domain/review.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/review.ts`; `tests/lanyard.test.mjs` | Scheduled, captured and payable time, variance, network, cost, running totals and reasoned edit/send-back flows exist. Required-break comparison reads only automatic meal deductions; policy-required meals and paid rest requirements from BREAK-001 are absent. |
 | `POLICY-001` | US overtime meal and rest policy rules | target | partial | `src/lanyard/domain/breaks.ts`; `src/lanyard/domain/payschedules.ts`; `src/lanyard/domain/overtime.ts`; `tests/lanyard.test.mjs`; `tests/payschedules-journey.mjs` | Employer-configured meal/rest checks and premium inputs, configurable workweeks and weekly overtime classification/projection exist. Maintained federal/state presets, daily and double overtime, consecutive-day and minimum-rest rules, weighted-rate policy estimates, jurisdiction labels and preset-driven deduction/publication/swap checks remain absent. |
 | `POLICY-002` | Predictive scheduling and fair-workweek changes | target | partial | `src/lanyard/domain/offerorder.ts`; `src/lanyard/domain/postings.ts`; `src/lanyard/domain/history.ts`; `tests/lanyard.test.mjs` | Owner-controlled access-to-hours flags, retained offer logs and published-schedule posting/change records exist. Maintained fair-workweek presets, industry/size coverage, advance-notice and consent checks, rest constraints and schedule-change premium decisions are absent. |

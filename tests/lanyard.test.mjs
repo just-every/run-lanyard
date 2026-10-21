@@ -200,6 +200,8 @@ test('TIME-008: a manager filters a 60-person week to clean timesheets and appro
   assert.deepEqual(decisions.map(e => e.entityId).sort(), [...approved].sort())
   assert.ok(decisions.every(e => e.actorRole === 'manager' && e.at === byId.get(e.entityId).approvedAt))
   await h.cmd('time.approveMany', { state: 'clean', items: [{ id: own.id, revision: 1 }] }, team[1].cookie, 403)
+  const {failedBulkApi,failedBulkBrowser}=await import('./bulk-approval-journey.mjs')
+  await run(other=>failedBulkApi(other));await failedBulkBrowser()
 }))
 
 test('TIME-006 and TIME-008: an early clock-in is refused with its opening time or flagged, a clock-in without a shift is refused, flagged pending approval or allowed for a listed position, and flagged time is skipped by bulk approval until a manager approves it', () => run(async h => {
