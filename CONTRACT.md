@@ -334,8 +334,8 @@ Judged from the code and tests at commit `771e1bc52a28c26e22bec0078f37d01c9e9658
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 15 | 1 | 0 | 16 |
-| Target and push further | 33 | 35 | 42 | 110 |
-| All | 48 | 36 | 42 | 126 |
+| Target and push further | 34 | 34 | 42 | 110 |
+| All | 49 | 35 | 42 | 126 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -376,7 +376,7 @@ Judged from the code and tests at commit `771e1bc52a28c26e22bec0078f37d01c9e9658
 | `COVER-001` | Employee shift swaps with final approval | target | done | `src/lanyard/domain/swaps.ts`; `src/lanyard/domain/cover.ts`; `src/lanyard/ui/swaps.ts`; `tests/lanyard.test.mjs` |  |
 | `COVER-002` | Open shifts offers and pickup | target | partial | `src/lanyard/domain/openshifts.ts`; `src/lanyard/domain/templates.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/ui/openshifts.ts`; `tests/lanyard.test.mjs` | Open-shift posting, pools, pickup approval and atomic assignment exist. A saved template containing only position-only rows cannot create open shifts in an empty target week because draft preparation and publication require an assigned shift. |
 | `COVER-003` | Call-out replacement and verified coverage | target | done | `src/lanyard/domain/cover.ts`; `src/lanyard/domain/coverage.ts`; `src/lanyard/ui/callout.ts`; `src/lanyard/ui/grid.ts`; `tests/coverage.test.mjs`; `tests/legacy-coverage-journey.mjs` |  |
-| `COVER-004` | Offer order and access-to-hours priority | target | partial | `src/lanyard/domain/offerorder.ts`; `src/lanyard/domain/openshifts.ts`; `src/lanyard/domain/cover.ts`; `src/lanyard/domain/people.ts`; `src/lanyard/ui/offerorder.ts`; `tests/lanyard.test.mjs` | Ranked tiers, offer logs and access-to-hours flags exist. Eligible people outside the original tier log may request one tier interval after the last tier opens, rather than when the last tier opens. |
+| `COVER-004` | Offer order and access-to-hours priority | target | done | `src/lanyard/domain/offerorder.ts`; `src/lanyard/domain/openshifts.ts`; `src/lanyard/domain/cover.ts`; `src/lanyard/domain/people.ts`; `src/lanyard/ui/offerorder.ts`; `tests/lanyard.test.mjs` |  |
 | `ROSTER-004` | Team schedule visibility for staff | target | done | `src/lanyard/domain/team.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/ui/team.ts`; `tests/lanyard.test.mjs` |  |
 | `NOTICE-001` | Delivered schedule notices and acknowledgment | target | missing |  | No schedule notification outbox, push/SMS providers, delivery receipts, recipient language or contact-preference workflow. Native access invitations are separate. |
 | `NOTICE-002` | Reminders escalation and payroll follow-up | target | missing |  | No durable reminder scheduler or operational exception escalation. |

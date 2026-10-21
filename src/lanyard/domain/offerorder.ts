@@ -45,7 +45,7 @@ export function tiers(s:State,o:Record<string,any>,list:Ranked[],shift:Row,at:st
  if(o.order!=='tiers')return {tiers:[{staffIds:list.map(f=>f.staffId),opensAt:at}],everyoneAt:at}
  const ids=rank(s,list,shift,o.rule,o.ranking).map(f=>f.staffId),out:Tier[]=[],step=(o.tierMinutes??o.minutes)*60000
  for(let i=0;i*o.size<ids.length;i++)out.push({staffIds:ids.slice(i*o.size,(i+1)*o.size),opensAt:new Date(Date.parse(at)+i*step).toISOString()})
- return {tiers:out,everyoneAt:new Date(Date.parse(at)+Math.max(out.length,1)*step).toISOString()}
+ return {tiers:out,everyoneAt:new Date(Date.parse(at)+Math.max(out.length-1,0)*step).toISOString()}
 }
 /** When the offer reaches a person: their tier's opening, else the everyone-eligible point (rows without a log: at once). */
 export function opensFor(o:Row,staffId:string):string {
