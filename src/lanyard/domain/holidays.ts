@@ -11,12 +11,12 @@ export function holidayBasis(s:State,t:Row) {
  return pieces.flatMap((w:any)=>w.rateBasis.segments.flatMap((p:any)=>{
   const site=siteOf(s,w),previous=t.corrects?s.timesheets.find(x=>x.id===t.corrects):undefined
   const retained=previous?.holidayBasis?.find((f:any)=>f.site===site&&f.date===p.date&&f.job===(w.job??'')&&f.area===w.area)
-  if(retained)return [{...retained,minutes:p.minutes,costCents:retained.unitCents===null?null:Math.round(p.minutes*retained.unitCents/60),start:w.start,end:w.end}]
+  if(retained)return [{...retained,minutes:p.minutes,costCents:retained.unitCents===null?null:Math.round(p.minutes*Math.round(retained.unitCents*100)/6000),start:w.start,end:w.end}]
   const h=s.holidays.find(h=>h.site===site&&h.date===p.date&&h.enabled),rule=holidayRule(s,site,p.date)
   if(!h||!rule)return []
   const adjacent=adjacentShifts(s,t.staffId,p.date)
-  const unitCents=rule.mode==='multiplier'?p.cents===null?null:p.cents*(rule.value-1):rule.value
-  return [{holidayId:h.id,holidayRevision:h.revision,holiday:h.name,date:p.date,site,job:w.job??'',area:w.area,minutes:p.minutes,rateCents:p.cents,unitCents,costCents:unitCents===null?null:Math.round(p.minutes*unitCents/60),code:rule.code,ruleId:rule.id,ruleRevision:rule.revision,beforeAfter:rule.beforeAfter,adjacent,start:w.start,end:w.end}]
+  const unitCents=rule.mode==='multiplier'?p.cents===null?null:p.cents*(Math.round(rule.value*100)-100)/100:rule.value
+  return [{holidayId:h.id,holidayRevision:h.revision,holiday:h.name,date:p.date,site,job:w.job??'',area:w.area,minutes:p.minutes,rateCents:p.cents,unitCents,costCents:unitCents===null?null:Math.round(p.minutes*Math.round(unitCents*100)/6000),code:rule.code,ruleId:rule.id,ruleRevision:rule.revision,beforeAfter:rule.beforeAfter,adjacent,start:w.start,end:w.end}]
  }))
 }
 function adjacentShifts(s:State,staffId:string,on:string) {
@@ -58,11 +58,11 @@ export function holidayReviews(s:State,now:string) {
 /** Schedule cost is an employer-rule estimate; adjacent-shift eligibility is unresolved here. */
 export function scheduledHolidayCost(s:State,t:Row) {
  const facts=holidayBasis(s,t)
- return {facts,costCents:facts.some((f:any)=>f.costCents===null)?null:facts.reduce((n:number,f:any)=>n+f.costCents,0)}
+ return {facts,costCents:facts.some((f:any)=>typeof f.costCents!=='number')?null:facts.reduce((n:number,f:any)=>n+f.costCents,0)}
 }
 export function holidayEstimate(s:State,staffId:string,start:string,end:string,now:string) {
  const facts=s.timesheets.filter(t=>t.staffId===staffId&&t.status==='approved').flatMap(t=>workedHoliday(s,t,now)).filter((f:any)=>f.eligible&&!f.pending&&f.date>=start&&f.date<=end)
  const paid=s.holidaypay.filter(r=>r.staffId===staffId&&r.date>=start&&r.date<=end)
- const workedCostCents=facts.some((f:any)=>f.costCents===null)?null:facts.reduce((n:number,f:any)=>n+f.costCents,0),nonWorkCostCents=paid.some(r=>r.costCents===null)?null:paid.reduce((n,r)=>n+r.costCents,0)
- return {workedCostCents,nonWorkCostCents,minutes:facts.reduce((n:number,f:any)=>n+f.minutes,0),nonWorkMinutes:paid.reduce((n,r)=>n+r.minutes,0),costCents:[...facts,...paid].some(f=>f.costCents===null)?null:[...facts,...paid].reduce((n,f)=>n+f.costCents,0)}
+ const workedCostCents=facts.some((f:any)=>typeof f.costCents!=='number')?null:facts.reduce((n:number,f:any)=>n+f.costCents,0),nonWorkCostCents=paid.some(r=>typeof r.costCents!=='number')?null:paid.reduce((n,r)=>n+r.costCents,0)
+ return {workedCostCents,nonWorkCostCents,minutes:facts.reduce((n:number,f:any)=>n+f.minutes,0),nonWorkMinutes:paid.reduce((n,r)=>n+r.minutes,0),costCents:[...facts,...paid].some(f=>typeof f.costCents!=='number')?null:[...facts,...paid].reduce((n,f)=>n+f.costCents,0)}
 }

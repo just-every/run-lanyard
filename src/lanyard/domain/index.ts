@@ -230,7 +230,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  // TIPS-002: cafe tip-credit setups and the last five workweeks' checks for the owner and managers (rows for people whose wages they may read).
  result.tipcredits=manages?s.tipcredits:[]
  {const week=weekOf(s,new Date().toISOString());result.tipChecks=manages?tipChecks(s,a,Array.from({length:35},(_,n)=>new Date(Date.parse(week+'T00:00:00Z')-n*86400000).toISOString().slice(0,10))):[]}
- const scopedRates=(r:any)=>manages&&mayReadPerson(s,a,r.staffId)?r:{...withoutRates(r),holidayBasis:!agent&&r.staffId===a.staffId&&earnSettings(s.earnings).estimates?r.holidayBasis:[]}
+ const scopedRates=(r:any)=>manages&&mayReadPerson(s,a,r.staffId)?r:{...withoutRates(r),holidayBasis:!agent&&r.staffId===a.staffId?(earnSettings(s.earnings).estimates?r.holidayBasis:hideRates(r.holidayBasis??[])):[]}
  result.shifts=result.shifts.map(scopedRates);result.timesheets=result.timesheets.map(scopedRates)
  if(a.role==='manager')result.batches=result.batches.map((b:any)=>({...b,lines:b.lines.map(scopedRates)}))
  if(!manages)result.jobs=s.jobs.map(({versions,...r})=>r)
