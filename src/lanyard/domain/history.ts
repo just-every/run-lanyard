@@ -12,6 +12,13 @@ import {localDate} from './settings'
 export const lineageOf=(x:Row)=>x.lineage??x.id
 /** Who made a decision, by name: the staff record behind the session, else the owner. */
 export const actorName=(c:Context)=>c.a.staffId?c.s.staff.find(p=>p.id===c.a.staffId)?.name??'Former staff':'Owner'
+export const swapHistory=(row:Row):Record<string,any>[]=>row.swapHistory??(row.swap?[{...row.swap,to:row.staffId}]:[])
+/** Older rows can recover repeated decisions from their retained approved swap records. */
+function swapsFor(s:State,row:Row) {
+ const list=swapHistory(row),known=new Set(list.map(x=>x.id))
+ return [...s.swaps.filter(w=>w.status==='approved'&&!known.has(w.id)&&(w.give.shiftId===row.id||w.take?.shiftId===row.id)).map(w=>({id:w.id,from:w.give.shiftId===row.id?w.fromId:w.toId,to:w.give.shiftId===row.id?w.toId:w.fromId,at:w.decidedAt,approvedByName:s.staff.find(p=>p.id===w.decidedBy)?.name??'A manager',reason:w.decisionNote??'',acknowledgedAt:w.respondedAt})),...list].sort((a,b)=>a.at.localeCompare(b.at))
+}
+export const confirmations=(row:Row):Record<string,any>[]=>row.confirmations??(row.confirmedAt?[{staffId:row.staffId,at:row.confirmedAt}]:[])
 const NOTICE='not sent: in-app schedule only until NOTICE-001'
 
 /** On publish: each draft row continues an unclaimed row of the week's current published revision with the same person, times and cafe; otherwise it starts a new line. */
@@ -49,7 +56,7 @@ export function history(c:Context,name:string,p:Record<string,any>) {
   need(w.start!==r.start||w.end!==r.end||to!==r.staffId,'Change the time or the person',400);need(w.start>c.now,'Move a shift to a time that has not started')
   const date=localDate(w.start,c.s.timezone),end=new Date(Date.parse(week+'T00:00:00Z')+7*86400000).toISOString().slice(0,10);need(date>=week&&date<end,'A moved shift stays in its week')
   const action=w.start!==r.start||w.end!==r.end?'moved':'reassigned'
-  return revise(c,r,action,reason,x=>{const {confirmedAt,confirmedBy,swap,substitute,callout,...rest}=x;return {...rest,...w,staffId:to,rateBasis:rateBasis(c.s,to,{...x,...w})}})
+  return revise(c,r,action,reason,x=>{const {confirmedAt,confirmedBy,confirmations,swap,swapHistory,substitute,callout,...rest}=x;return {...rest,...w,staffId:to,rateBasis:rateBasis(c.s,to,{...x,...w})}})
  }
  if(name==='shift.cancel') {
   manager(c.a);keys(p,['id','revision','reason']);const r=get(c.s,'shifts',p.id);exact(r,p)
@@ -67,27 +74,27 @@ function events(s:State,week:string,lineage:string):Event[] {
   const row=s.shifts.find(y=>y.rosterId===R.id&&lineageOf(y)===lineage&&['published','superseded'].includes(y.status))??null
   const mine=R.change?.lineage===lineage,why=mine?R.change.reason:R.reason??'',by=(mine?R.change.byName:R.publishedByName)??'A manager'
   const base=(x:Row)=>({by,reason:why,staffId:x.staffId,start:x.start,end:x.end,site:siteOf(s,x),revisionId:R.id,notice:NOTICE,at:R.publishedAt})
-  const staffNow=row?asPublished(row,R):null
+  const staffNow=row?asPublished(s,row,R):null
   if(row&&!prev)add('c'+R.id,{action:'created',...base(row),staffId:staffNow})
   else if(row&&prev)add('r'+R.id,{action:mine?R.change.action:row.start!==prev.start||row.end!==prev.end?'moved':staffNow!==prev.staffId?'reassigned':'republished',...base(row),staffId:staffNow,from:{staffId:prev.staffId,start:prev.start,end:prev.end}})
   else if(!row&&prev)add('x'+R.id,{action:'canceled',...base(prev),staffId:null,from:{staffId:prev.staffId,start:prev.start,end:prev.end}})
   if(row) {
-   if(row.swap)add('s'+row.swap.id,{action:'swapped',at:row.swap.at,by:row.swap.approvedByName??'A manager',reason:'',staffId:row.staffId,start:row.start,end:row.end,site:siteOf(s,row),revisionId:R.id,notice:NOTICE,from:{staffId:row.swap.from}})
+   for(const swap of swapsFor(s,row))add('s'+swap.id,{action:'swapped',at:swap.at,by:swap.approvedByName??'A manager',reason:swap.reason??'',staffId:swap.to,start:row.start,end:row.end,site:siteOf(s,row),revisionId:R.id,notice:NOTICE,from:{staffId:swap.from}})
    if(row.callout?.coveredBy)for(const a of row.callout.approvals??[{staffId:row.staffId,fromStaffId:row.callout.staffId,approvedAt:row.callout.approvedAt}]){
     add('o'+(a.offerId??a.approvedAt),{action:'covered',at:a.approvedAt,by:a.approvedByName??'A manager',reason:row.callout.note??'',staffId:a.staffId,start:row.start,end:row.end,site:siteOf(s,row),revisionId:R.id,notice:NOTICE,from:{staffId:a.fromStaffId??row.callout.staffId}})
     if(a.acknowledgedAt)add('a'+a.staffId+a.acknowledgedAt,{action:'acknowledged',at:a.acknowledgedAt,by:s.staff.find(p=>p.id===a.staffId)?.name??'The employee',reason:'',staffId:a.staffId,start:row.start,end:row.end,site:siteOf(s,row),revisionId:R.id,notice:''})
    }
    if(row.substitute)add('u'+row.substitute.at,{action:'reassigned',at:row.substitute.at,by:'A manager',reason:row.substitute.reason,staffId:row.staffId,start:row.start,end:row.end,site:siteOf(s,row),revisionId:R.id,notice:NOTICE,from:{staffId:row.substitute.from}})
    // ROSTER-003: only the assignee confirms their own shift, so the acknowledgment is theirs.
-   if(row.confirmedAt)add('a'+row.confirmedBy+row.confirmedAt,{action:'acknowledged',at:row.confirmedAt,by:s.staff.find(p=>p.id===row.staffId)?.name??'The employee',reason:'',staffId:row.staffId,start:row.start,end:row.end,site:siteOf(s,row),revisionId:R.id,notice:''})
+   for(const a of [...swapsFor(s,row).filter(swap=>swap.acknowledgedAt).map(swap=>({staffId:swap.to,at:swap.acknowledgedAt})),...confirmations(row)])add('a'+a.staffId+a.at,{action:'acknowledged',at:a.at,by:s.staff.find(p=>p.id===a.staffId)?.name??'The employee',reason:'',staffId:a.staffId,start:row.start,end:row.end,site:siteOf(s,row),revisionId:R.id,notice:''})
   }
   prev=row
  }
  return out.sort((a,b)=>a.at.localeCompare(b.at))
 }
 /** Who a row was assigned to when revision R published it: a swap, cover or substitute made on the row after that moment names the earlier person. */
-function asPublished(row:Row,R:Row) {
- const later=[row.swap&&{at:row.swap.at,from:row.swap.from},...(row.callout?.approvals?.map((a:any)=>({at:a.approvedAt,from:a.fromStaffId??row.callout.staffId}))??(row.callout?.coveredBy?[{at:row.callout.approvedAt,from:row.callout.staffId}]:[])),row.substitute&&{at:row.substitute.at,from:row.substitute.from}].filter((x:any)=>x&&x.at>R.publishedAt).sort((a:any,b:any)=>a.at.localeCompare(b.at))
+function asPublished(s:State,row:Row,R:Row) {
+ const later=[...swapsFor(s,row).map(swap=>({at:swap.at,from:swap.from})),...(row.callout?.approvals?.map((a:any)=>({at:a.approvedAt,from:a.fromStaffId??row.callout.staffId}))??(row.callout?.coveredBy?[{at:row.callout.approvedAt,from:row.callout.staffId}]:[])),row.substitute&&{at:row.substitute.at,from:row.substitute.from}].filter((x:any)=>x&&x.at>R.publishedAt).sort((a:any,b:any)=>a.at.localeCompare(b.at))
  return later.length?later[0].from:row.staffId
 }
 const involved=(list:Event[],id:string)=>list.some(e=>e.staffId===id||e.from?.staffId===id)

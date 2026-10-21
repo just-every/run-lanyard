@@ -1872,3 +1872,6 @@ test('SCHEDULE-002 and COVER-002: a manager saves, applies, reviews and publishe
 test('TIME-007: provisional job-segment labor stops at the scheduled end, stays reviewable and is replaced once on confirmation at 1440 and 390',async()=>{const {provisionalLaborBrowser}=await import('./provisional-labor-journey.mjs');await provisionalLaborBrowser()})
 
 test('AVAIL-001: staff saving and managers approving a lower weekly maximum see the affected published shift at 1440 and 390',async()=>{const {availabilityLimitBrowser}=await import('./availability-limit-journey.mjs');await availabilityLimitBrowser()})
+
+test('SCHEDULE-006: repeated approved swaps retain every assignment, decision reason and acknowledgment for original and later assignees in history and CSV',()=>run(async h=>{const {repeatedHistoryApi}=await import('./schedule-history-journey.mjs');await repeatedHistoryApi(h)}))
+test('SCHEDULE-006: managers and original assignees read both swaps and all acknowledgments at 1440 and 390',async()=>{const {repeatedHistoryBrowser}=await import('./schedule-history-journey.mjs');await repeatedHistoryBrowser()})

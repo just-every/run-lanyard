@@ -329,13 +329,13 @@ A Deputy buyer's day-one reviews (17 October 2026, rounds 1 and 2) named the wee
 
 ## Status
 
-Judged from the code and tests at commit `a57e389a5167eca4dcc6772a13b23849736c9e4f` (21 October 2026).
+Judged from the code and tests at commit `4af11394ec32dc58ec4cc16742d2b2a1ee01003c` (21 October 2026).
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 15 | 1 | 0 | 16 |
-| Target and push further | 41 | 27 | 42 | 110 |
-| All | 56 | 28 | 42 | 126 |
+| Target and push further | 42 | 26 | 42 | 110 |
+| All | 57 | 27 | 42 | 126 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -372,7 +372,7 @@ Judged from the code and tests at commit `a57e389a5167eca4dcc6772a13b23849736c9e
 | `LEAVE-003` | Paid sick and safe leave jurisdiction presets | target | missing |  | No sick or safe leave accrual, jurisdiction presets or balance export. |
 | `MINOR-001` | Minor work-hour limits and permits | target | missing |  | No date of birth, work permit or minor-hour rules. |
 | `SCHEDULE-005` | Printable and posted schedules | target | done | `src/lanyard/domain/postings.ts`; `src/lanyard/print.ts`; `src/lanyard/pdf.ts`; `src/lanyard/ui/print.ts`; `tests/lanyard.test.mjs` |  |
-| `SCHEDULE-006` | Schedule change history and revision compare | target | partial | `src/lanyard/domain/history.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/http.ts`; `src/lanyard/ui/history.ts`; `tests/lanyard.test.mjs` | Revision comparison, change export and single-change shift history exist. Repeated in-place swaps overwrite earlier swap metadata; history and export omit earlier swaps and acknowledgments and can lose the original assignee's access to that shift line. |
+| `SCHEDULE-006` | Schedule change history and revision compare | target | done | `src/lanyard/domain/history.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/http.ts`; `src/lanyard/ui/history.ts`; `tests/lanyard.test.mjs`; `tests/schedule-history-journey.mjs` |  |
 | `COVER-001` | Employee shift swaps with final approval | target | done | `src/lanyard/domain/swaps.ts`; `src/lanyard/domain/cover.ts`; `src/lanyard/ui/swaps.ts`; `tests/lanyard.test.mjs` |  |
 | `COVER-002` | Open shifts offers and pickup | target | done | `src/lanyard/domain/openshifts.ts`; `src/lanyard/domain/templates.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/ui/openshifts.ts`; `tests/lanyard.test.mjs`; `tests/open-template-journey.mjs` |  |
 | `COVER-003` | Call-out replacement and verified coverage | target | done | `src/lanyard/domain/cover.ts`; `src/lanyard/domain/coverage.ts`; `src/lanyard/ui/callout.ts`; `src/lanyard/ui/grid.ts`; `tests/coverage.test.mjs`; `tests/legacy-coverage-journey.mjs` |  |

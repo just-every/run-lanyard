@@ -2,7 +2,7 @@ import {type Context,type Row,type State,keys,text,need,prepare,manager,self,sta
 import {qualification,rateBasis} from './workforce'
 import {localDate} from './settings'
 import {patternFit,weeklyMaximumConflicts} from './patterns'
-import {link,actorName} from './history'
+import {link,actorName,confirmations} from './history'
 import {offerLog,draftOpenShift} from './openshifts'
 // Glove's prepare/approve split and Dial's occurrence fences: publication acts
 // on the exact draft and all conflicts are checked inside its state version.
@@ -58,7 +58,7 @@ export function roster(c:Context,name:string,p:Record<string,any>) {
   return put(c,'rosters',{...r,status:'published',publishedBy:c.a.id,publishedByName:actorName(c),publishedAt:c.now,reason:text(p.reason,'reason',280,true)},r)
  }
  if(name==='shift.confirm') {
-  keys(p,['id','revision']);const r=get(c.s,'shifts',p.id);need(r.staffId===self(c.a),'Only your own shift',403);exact(r,p);need(r.status==='published','Shift is no longer published',409);return put(c,'shifts',{...r,confirmedAt:c.now,confirmedBy:c.a.id},r)
+  keys(p,['id','revision']);const r=get(c.s,'shifts',p.id);need(r.staffId===self(c.a),'Only your own shift',403);exact(r,p);need(r.status==='published','Shift is no longer published',409);return put(c,'shifts',{...r,confirmations:[...confirmations(r),{staffId:r.staffId,at:c.now}],confirmedAt:c.now,confirmedBy:c.a.id},r)
  }
  return undefined
 }
