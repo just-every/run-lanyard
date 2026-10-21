@@ -17,7 +17,7 @@ export async function holidayApi(h) {
  await h.cmd('holidayrule.save',{...rule,...pin(rule),value:2,nonWorkMinutes:480},h.owner,400) // unknown retained metadata is refused
  const updated=await h.cmd('holidayrule.save',{...pin(rule),site:rule.site,from:rule.from,mode:'added',value:300,nonWorkMinutes:480,beforeAfter:true,code:'HOL-ADD'})
  const hday=s.holidays.find(r=>r.site==='Ocean Beach'&&r.date==='2025-11-27')
- await h.cmd('holiday.save',{...pin(hday),site:hday.site,date:hday.date,name:hday.name,enabled:false});await h.cmd('holiday.save',{...pin(hday),revision:2,site:hday.site,date:hday.date,name:hday.name,enabled:true})
+ await h.cmd('holiday.save',{...pin(hday),site:hday.site,date:hday.date,name:hday.name,enabled:false});await h.cmd('holiday.seed',{site:'Ocean Beach',year:2025});assert.equal((await h.state()).holidays.find(r=>r.id===hday.id).enabled,false,'reseeding retains employer edits');await h.cmd('holiday.save',{...pin(hday),revision:2,site:hday.site,date:hday.date,name:hday.name,enabled:true})
  s=await h.state();const review=s.holidayReviews.find(r=>r.staffId===cy.id&&r.date==='2025-11-27'&&r.kind==='non-work')
  assert.ok(review.eligible&&!review.pending)
  await h.cmd('holidaypay.approve',{staffId:cy.id,site:review.site,date:review.date,reference:'holiday-service-cy',digest:'stale'},h.owner,409)
@@ -36,7 +36,7 @@ export async function holidayApi(h) {
  assert.deepEqual(holiday.map(l=>[l.area,l.minutes,l.costCents,l.payCode]),[['Front counter',240,4000,'HOL'],['Kitchen',240,4800,'HOL']])
  assert.ok(!batch.lines.some(l=>l.holidayLine&&l.staffId===ben.id));assert.ok(batch.lines.some(l=>l.holidayPayId===pay.id))
  const sent=await h.cmd('payroll.export',pin(batch));await h.cmd('payroll.export',pin(competing),h.owner,409)
- assert.match(sent.csv,/earnings_cents,premium_rate_cents,holiday_date/);await h.cmd('payroll.prepare',{ids:[thanksgiving.id]},h.owner,409)
+ assert.match(sent.csv,/earnings_cents,premium_rate_cents,holiday_date/);assert.ok(sent.csv.includes(',4000,1000,2025-11-27,'));await h.cmd('payroll.prepare',{ids:[thanksgiving.id]},h.owner,409)
  assert.equal((await h.send(`/api/lanyard/batches/${sent.id}.csv`,undefined,alex.cookie)).status,403)
  const corrected=await f.enter({...f.thanksgiving,end:f.spec(alex,'2025-11-27','09:00','16:00').end},{corrects:thanksgiving.id,reason:'Holiday kitchen closed an hour earlier'})
  // Corrections retain the source's holiday rule and price only the changed area minutes.
