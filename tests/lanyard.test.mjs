@@ -1664,16 +1664,18 @@ test('AUTO-001: the owner previews and authorizes a cafe rule that approves only
 test('CLOCK-002: encrypted offline phone capture survives client restart and reconciles exactly once',async()=>{const {offlineJourney}=await import('./clock-offline-journey.mjs');await offlineJourney()})
 
 test('SCHEDULE-001: live review is read-only, persists conflicts and budgets, counts roles/sites/gaps and preserves duplicate diff rows',()=>run(async h=>{
+ const future=new Date(Date.now()+14*86400000);future.setUTCDate(future.getUTCDate()-((future.getUTCDay()+6)%7))
+ const day=n=>new Date(future.getTime()+n*86400000).toISOString().slice(0,10),week=day(0)
  const alex=await h.person('Alex'),sam=await h.person('Sam'),priya=await h.person('Priya','manager')
  for(const [p,site,rate] of [[alex,'Harbor',20],[sam,'Market',25]]){
   await h.cmd('staff.save',{id:p.id,revision:1,name:p.name,email:p.email,payrollId:p.name.toUpperCase(),role:'staff',active:true,site,position:'Counter',hourlyRate:rate})
-  await h.cmd('availability.save',{staffId:p.id,start:'2026-10-19T07:00:00Z',end:'2026-10-26T07:00:00Z'})
+  await h.cmd('availability.save',{staffId:p.id,start:day(0)+'T07:00:00Z',end:day(7)+'T07:00:00Z'})
  }
- const shifts=[{staffId:alex.id,start:'2026-10-20T15:00:00Z',end:'2026-10-20T23:00:00Z',breakMinutes:30,label:'Counter',site:'Harbor'},{staffId:sam.id,start:'2026-10-20T15:00:00Z',end:'2026-10-20T23:00:00Z',breakMinutes:30,label:'Kitchen',site:'Market'}]
- const first=await h.cmd('roster.prepare',{week:'2026-10-19',shifts});await h.cmd('roster.publish',{id:first.id,revision:first.revision})
- await h.cmd('forecast.save',{week:'2026-10-19',site:'Harbor',days:[100,100,100,100,100,100,100],budgetPercent:10})
- await h.cmd('openshift.post',{site:'Harbor',position:'Counter',start:'2026-10-21T15:00:00Z',end:'2026-10-21T23:00:00Z',breakMinutes:30,approval:'manager'})
- const before=await h.state(),input={week:'2026-10-19',shifts:[shifts[0],shifts[0],{...shifts[1],start:'2026-10-21T15:00:00Z',end:'2026-10-21T23:00:00Z'}]}
+ const shifts=[{staffId:alex.id,start:day(1)+'T15:00:00Z',end:day(1)+'T23:00:00Z',breakMinutes:30,label:'Counter',site:'Harbor'},{staffId:sam.id,start:day(1)+'T15:00:00Z',end:day(1)+'T23:00:00Z',breakMinutes:30,label:'Kitchen',site:'Market'}]
+ const first=await h.cmd('roster.prepare',{week:week,shifts});await h.cmd('roster.publish',{id:first.id,revision:first.revision})
+ await h.cmd('forecast.save',{week:week,site:'Harbor',days:[100,100,100,100,100,100,100],budgetPercent:10})
+ await h.cmd('openshift.post',{site:'Harbor',position:'Counter',start:day(2)+'T15:00:00Z',end:day(2)+'T23:00:00Z',breakMinutes:30,approval:'manager'})
+ const before=await h.state(),input={week:week,shifts:[shifts[0],shifts[0],{...shifts[1],start:day(2)+'T15:00:00Z',end:day(2)+'T23:00:00Z'}]}
  const r=await h.send('/api/lanyard/schedule/review',input,priya.cookie);assert.equal(r.status,200)
  assert.equal(r.value.added.length,2);assert.equal(r.value.removed.length,1);assert.equal(r.value.unchanged.length,1)
  assert.equal(r.value.days[1].costCents,30000);assert.equal(r.value.days[1].headcount,1);assert.equal(r.value.days[2].costCents,18750)
@@ -1684,27 +1686,27 @@ test('SCHEDULE-001: live review is read-only, persists conflicts and budgets, co
  assert.equal((await h.send('/api/lanyard/schedule/review',input,'')).status,401)
  assert.equal((await h.send('/api/lanyard/schedule/review',input,priya.cookie,{origin:'https://elsewhere.example'})).status,403)
  const draft=await h.cmd('roster.prepare',input)
- const reload=await h.send('/app/schedule?week=2026-10-19&view=draft',undefined,priya.cookie)
- const savedReview=(await h.state()).scheduleReviews.find(r=>r.week==='2026-10-19')
+ const reload=await h.send(`/app/schedule?week=${week}&view=draft`,undefined,priya.cookie)
+ const savedReview=(await h.state()).scheduleReviews.find(r=>r.week===week)
  for(const issue of savedReview.conflicts)assert.ok(reload.text.includes(issue.reason))
  for(const warning of savedReview.warnings.filter(w=>w.kind==='budget'))assert.ok(reload.text.includes(warning.message))
  assert.ok(reload.text.includes('data-saved-review'))
  assert.deepEqual((await h.state(alex.cookie)).scheduleReviews,[]);assert.equal((await h.state(alex.cookie)).shifts.length,1)
  await h.cmd('roster.publish',{id:draft.id,revision:draft.revision},priya.cookie,409)
  // Every existing preparation door has the same saved review, including draft open positions.
- const template=await h.cmd('template.save',{name:'Service week',week:'2026-10-19'})
- const target='2026-10-26'
+ const template=await h.cmd('template.save',{name:'Service week',week:week})
+ const target=day(7)
  const copied=await h.cmd('template.apply',{id:template.id,week:target})
  let inherited=(await h.state()).scheduleReviews.find(r=>r.week===target)
  assert.ok(inherited.conflicts.length);assert.ok(inherited.gaps.some(g=>g.kind==='open shift'))
  const copiedInputs=copied.shifts.map(({staffId,start,end,breakMinutes,label,site})=>({staffId,start,end,breakMinutes,label,site}))
  await h.cmd('roster.prepare',{week:target,shifts:copiedInputs})
  assert.ok((await h.state()).scheduleReviews.find(r=>r.week===target).gaps.some(g=>g.kind==='open shift'),'editing a draft retains its open positions')
- await h.cmd('roster.copy',{fromWeek:'2026-10-19',week:'2026-11-02'})
- assert.ok((await h.state()).scheduleReviews.some(r=>r.week==='2026-11-02'&&r.conflicts.length))
- await h.cmd('recurrence.save',{staffId:alex.id,days:[0],start:'08:00',end:'16:00',breakMinutes:30,label:'Counter',site:'Harbor',from:'2026-11-09',until:'2026-11-15'})
- await h.cmd('recurrence.apply',{week:'2026-11-09'})
- assert.ok((await h.state()).scheduleReviews.some(r=>r.week==='2026-11-09'&&r.conflicts.length))
+ await h.cmd('roster.copy',{fromWeek:week,week:day(14)})
+ assert.ok((await h.state()).scheduleReviews.some(r=>r.week===day(14)&&r.conflicts.length))
+ await h.cmd('recurrence.save',{staffId:alex.id,days:[0],start:'08:00',end:'16:00',breakMinutes:30,label:'Counter',site:'Harbor',from:day(21),until:day(27)})
+ await h.cmd('recurrence.apply',{week:day(21)})
+ assert.ok((await h.state()).scheduleReviews.some(r=>r.week===day(21)&&r.conflicts.length))
 }))
 
 test('SCHEDULE-001: visual service-week editing, resize, copy, bulk assignment, undo and reviewed publish work at 1440 and 390',async()=>{const {scheduleJourney}=await import('./schedule-journey.mjs');await scheduleJourney()})
