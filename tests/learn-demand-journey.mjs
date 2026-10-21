@@ -105,9 +105,11 @@ export async function learnApi(h) {
  const agentProposal=proposed.value.result
  assert.equal(agentProposal.proposedBy,scoped.id);assert.equal(agentProposal.proposedRole,'agent');assert.ok(agentProposal.proposalReason)
  for(const name of ['learn.decide','learn.revert'])for(const decision of ['approved','declined']) {
-  assert.equal((await agentCmd(name,{...pin(agentProposal),decision,reason:'Forbidden agent decision'})).status,403)
+  for(const credential of [key,scoped])assert.equal((await agentCmd(name,{...pin(agentProposal),decision,reason:'Forbidden agent decision'},credential)).status,403)
   assert.equal((await h.send('/api/lanyard/command',{name,input:{...pin(agentProposal),decision,reason:'Forbidden human door'}},'',{authorization:`Bearer ${scoped.token}`})).status,401)
  }
+ for(const cookie of [alex.cookie,omar.cookie]){const hidden=await h.state(cookie);for(const field of ['demandrules','demandforecasts','learnproposals'])assert.ok(hidden[field].every(x=>x.site!=='Ocean Beach'),field)}
+ const context=await bearer('/api/lanyard/agent/context');for(const field of ['demandrules','demandforecasts','learnproposals'])assert.deepEqual(context.value[field],[])
  const recorded=await h.state()
  assert.deepEqual(recorded.demandrules,frozen.demandrules);assert.deepEqual(recorded.sales,frozen.sales);assert.deepEqual(recorded.demandforecasts,frozen.demandforecasts)
  const agentEvent=recorded.events.find(x=>x.action==='learn.propose'&&x.entityId===agentProposal.id)
