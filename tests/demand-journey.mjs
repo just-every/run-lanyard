@@ -74,19 +74,22 @@ export async function demandApi(h) {
  assert.equal((await h.send(`/api/lanyard/demand?site=Ocean%20Beach&date=${T}`,undefined,'',{authorization:`Bearer ${key.token}`})).status,401)
  const forecastInput={site:'Ocean Beach',date:T,digest:r.live.digest},overrideInput={...pin(v2),hour:10,dollars:'200',reason:'Attempt outside authority'}
  await cmd('demand.override',overrideInput,f.alex.cookie,403)
+ await cmd('demand.save',forecastInput,f.omar.cookie,403);await cmd('demand.override',overrideInput,f.omar.cookie,404)
  const scoped=await h.cmd('agent.create',{label:'Forecast planner',scopes:['comparison.read'],cafes:['Ocean Beach'],comparisonConsent:true})
  const bearer=(path,key=scoped,body,when=head())=>h.send(path,body,'',{...when,authorization:`Bearer ${key.token}`})
  const path=`/api/lanyard/agent/demand?site=Ocean%20Beach&date=${T}`
  assert.equal((await bearer(path,key)).status,403)
  assert.equal((await bearer(path.replace('Ocean%20Beach','Pier'))).status,404)
+ const incomplete=(await bearer(path.replace(T,f.plus(T,1)))).value
+ assert.equal(incomplete.live.status,'incomplete');assert.equal(incomplete.live.totals.requiredMinutes,null)
  const view=(await bearer(path)).value
  assert.equal(view.live.status,r.live.status);assert.deepEqual(view.live.totals,r.live.totals)
  assert.deepEqual(view.saved.totals,r.saved.totals);assert.deepEqual(view.versions.map(x=>x.version),[2,1])
  assert.deepEqual(view.saved.hours[10].roles,r.saved.hours[10].roles)
  const noPrivate=v=>{for(const [k,x] of Object.entries(v??{})){assert.ok(!/rate|payroll|email|contact|laborPercent|salesPerLaborHour|savedBy|overrideReason|inputs|sources|assumptions|digest/.test(k),k);if(x&&typeof x==='object')noPrivate(x)}}
  noPrivate(view)
- for(const name of ['demand.save','demand.override','demandrule.save']) {
-  const response=await bearer('/api/lanyard/agent/command',scoped,{name,input:name==='demand.override'?overrideInput:forecastInput})
+ for(const name of ['demand.save','demand.override','demandrule.save'])for(const credential of [key,scoped]) {
+  const response=await bearer('/api/lanyard/agent/command',credential,{name,input:name==='demand.override'?overrideInput:forecastInput})
   assert.equal(response.status,403,response.text)
  }
  const event=(await h.state()).events.find(x=>x.action==='comparison.read'&&JSON.parse(x.entityId).kind==='demand')
