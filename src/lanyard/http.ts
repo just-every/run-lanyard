@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { fairnessCompare, fairnessRead, shiftAttachment, tipCreditRead, acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { learningRead, fairnessCompare, fairnessRead, shiftAttachment, tipCreditRead, acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -150,6 +150,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       }
       const ruled = path.match(/^\/api\/lanyard\/autorules\/([\w-]+)\/preview$/)
       if (ruled) return json(await autoRulePreview(env.DB, who, ruled[1]))
+      if (path === '/api/lanyard/learning') return json(await learningRead(env.DB, who, url.searchParams.get('week') ?? '', url.searchParams.get('site') ?? '', Number(url.searchParams.get('weeks') ?? 8)))
       if (path === '/api/lanyard/sales') return json(await salesRead(env.DB, who, url.searchParams.get('week') ?? '', url.searchParams.get('site') ?? ''))
       if (path === '/api/lanyard/dashboard') return json(await dashboardRead(env.DB, who, url.searchParams.get('asOf') ?? new Date().toISOString().replace(/\.\d+Z$/, 'Z'), url.searchParams.get('site') ?? ''))
       if (path === '/api/lanyard/logbook') return json(await logbookRead(env.DB, who, 'search', '', { site: url.searchParams.get('site') ?? '', category: url.searchParams.get('category') ?? '', month: url.searchParams.get('month') ?? '' }))

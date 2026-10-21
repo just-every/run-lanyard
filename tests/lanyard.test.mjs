@@ -1878,3 +1878,5 @@ test('SCHEDULE-006: managers and original assignees read both swaps and all ackn
 
 test('TIME-009: policy meals, waiver thresholds, full paid-rest counts and unknown manual breaks reconcile beside automatic deductions through native HTTP',()=>run(async h=>{const {breakReviewApi}=await import('./break-review-journey.mjs');await breakReviewApi(h)}))
 test('TIME-009: managers compare taken and required meals and paid rests and filter exceptions at 1440 and 390',async()=>{const {breakReviewBrowser}=await import('./break-review-journey.mjs');await breakReviewBrowser()})
+
+test('LEARN-001: retained pre-service manual forecasts reconcile to corrected daily and complete hourly sales; missing outcomes and no-show signals stay unknown under native cafe scope without policy or schedule writes',()=>run(async h=>{const {learningApi}=await import('./learning-journey.mjs');await learningApi(h)}))

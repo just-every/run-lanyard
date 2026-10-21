@@ -1,3 +1,4 @@
+import {learningReport} from './learning'
 import {fairnessCommands} from './fairness-policy'
 import {compareFairness,fairnessPrepare} from './fairness-optimizer'
 import {preferenceReport} from './fairness'
@@ -367,4 +368,10 @@ export async function fairnessRead(db:D1Database,identity:Actor,week:string,site
 /** FAIR-001: native scoped alternatives; comparison has no writes. */
 export async function fairnessCompare(db:D1Database,identity:Actor,week:string,site:string,weeks:number) {
  const a=await live(db,identity),s=await load(db);return compareFairness(s,fresh(a,s),week,site,weeks)
+}
+
+/** LEARN-001: native manager forecast outcomes, using the existing SALES-001 cafe scope. */
+export async function learningRead(db:D1Database,identity:Actor,week:string,site:string,weeks:number) {
+ const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
+ return learningReport(s,f,week,site,weeks,new Date().toISOString())
 }

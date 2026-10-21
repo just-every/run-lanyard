@@ -12,5 +12,6 @@ export function forecast(c:Context,name:string,p:Record<string,any>) {
  const budgetPercent=p.budgetPercent===undefined||p.budgetPercent===''?null:Number(p.budgetPercent)
  need(budgetPercent===null||(Number.isFinite(budgetPercent)&&budgetPercent>0&&budgetPercent<=100),'Invalid labor budget')
  const old=c.s.forecasts.find(f=>f.week===week&&f.site===site)
- return put(c,'forecasts',{week,site,days,budgetPercent,savedBy:c.a.id,savedAt:c.now},old)
+ const previous=old?Object.fromEntries(Object.entries(old).filter(([key])=>key!=='versions')):null
+ return put(c,'forecasts',{week,site,days,budgetPercent,savedBy:c.a.id,savedAt:c.now,versions:old?[...(old.versions??[]),previous]:[]},old)
 }
