@@ -54,7 +54,7 @@ export async function harness(options = {}) {
       return { ...staff, cookie: await confirmMail(email) }
     }
     const signIn = async email => { const response = await send('/auth/magic-link', {email}); assert.equal(response.status,202,response.text); return confirmMail(email) }
-    return { db, mf, origin, owner, auth, send, cmd, state, person, signIn, close: async () => { await mf.dispose(); if (!options.root) await rm(dir, { recursive: true, force: true }) } }
+    return { db, mf, origin, owner, auth, send, cmd, state, person, signIn, confirmMail, close: async () => { await mf.dispose(); if (!options.root) await rm(dir, { recursive: true, force: true }) } }
   } catch (error) { await mf.dispose(); if (!options.root) await rm(dir, { recursive: true, force: true }); throw error }
 }
 
