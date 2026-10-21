@@ -1,4 +1,5 @@
 import {h,rows,manager,owner,person,card,form,disclosure,field,exact,hidden,empty} from './shared'
+import {scheduledHolidayCost} from '../domain/holidays'
 import {hours,money} from './format'
 
 const back='/app/payroll#holidays'
@@ -48,5 +49,6 @@ export function holidaysCard(s:any) {
 export function scheduleHolidays(s:any,w:any) {
  if(!manager(s))return ''
  const list=rows(s,'holidays').filter(r=>r.enabled&&w.days.includes(r.date)&&(!w.site||r.site===w.site))
- return list.length?card('Holiday schedule costs',`<p class="note">${list.map(r=>`${h(r.date)} · ${h(r.name)} · ${h(r.site)}`).join('<br>')}</p><p class="note">Scheduled labor includes additional holiday premiums at the site’s effective rule and retained job rates. Attendance eligibility remains subject to approved work.</p>`,'','holiday-schedule'):''
+ const premium=(hday:any)=>{const facts=w.shifts.flatMap((x:any)=>scheduledHolidayCost({...s,timezone:w.tz},x).facts).filter((f:any)=>f.holidayId===hday.id);return facts.some((f:any)=>f.costCents===null)?'Rate missing':money(facts.reduce((n:number,f:any)=>n+f.costCents,0))}
+ return list.length?card('Holiday schedule costs',`<p class="note">${list.map(r=>`${h(r.date)} · ${h(r.name)} · ${h(r.site)} · additional scheduled premium ${h(premium(r))}`).join('<br>')}</p><p class="note">Scheduled labor includes additional holiday premiums at the site’s effective rule and retained job rates. Attendance eligibility remains subject to approved work.</p>`,'','holiday-schedule'):''
 }

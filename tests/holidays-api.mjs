@@ -70,5 +70,5 @@ export async function holidayApi(h) {
  const draft=await h.cmd('roster.prepare',{week:'2025-12-01',shifts:[f.companyShift]})
  const schedule=await h.send('/api/lanyard/schedule/review',{week:'2025-12-01',shifts:[f.companyShift]},h.owner)
  assert.equal(schedule.status,200);assert.equal(schedule.value.sites.reduce((n,x)=>n+x.costCents,0),18400)
- assert.match((await h.send('/app/schedule?week=2025-12-01&view=draft',undefined,h.owner)).text,/Company service day/)
+ const schedulePage=(await h.send('/app/schedule?week=2025-12-01&view=draft',undefined,h.owner)).text;assert.match(schedulePage,/Company service day/);assert.match(schedulePage,/additional scheduled premium \$24.00/)
 }
