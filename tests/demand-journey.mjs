@@ -126,7 +126,12 @@ export async function demandBrowser() {
    await page.goto(h.origin+`/app/intervals?site=Ocean%20Beach&date=${f.T}&size=60`,{waitUntil:'networkidle'})
    assert.ok(await page.locator('td[data-label="Forecast hours"]').count()>=2);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await shot('interval')
    // Override form on the saved version.
-   await page.goto(h.origin+`/app/demand?site=Ocean%20Beach&date=${f.plus(f.T,0)}`,{waitUntil:'networkidle'});assert.deepEqual(errors,[]);await context.close()
+   // The assumptions form saves through the screen and returns to it.
+   await page.goto(h.origin+`/app/demand?site=Ocean%20Beach&date=${f.T}`,{waitUntil:'networkidle'})
+   await page.getByText('Edit assumptions',{exact:true}).click();await page.locator('form[action*="name=demandrule.save"] [name=growthPercent]').fill(String(width===1440?5:7))
+   await Promise.all([page.waitForNavigation(),page.locator('form[action*="name=demandrule.save"]').getByRole('button',{name:'Save assumptions'}).click()])
+   assert.equal(await page.locator('.notice.error').count(),0);assert.ok((await page.locator('body').innerText()).includes('Demand forecast'))
+   assert.equal((await h.state()).demandrules.find(r=>r.site==='Ocean Beach').growthPercent,width===1440?5:7);assert.deepEqual(errors,[]);await context.close()
   }
  }finally{await browser.close();await h.close()}
 }

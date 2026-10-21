@@ -1,6 +1,7 @@
 import {noticeCommand,reconcileNotices,noticesFor} from './notices'
 import {demandRule,demandCommand} from './demand'
 import {demandReport} from './demand-compare'
+import {learnCommand,learnEvaluate,learnDigest} from './learn-propose'
 import {learningReport} from './learning'
 import {fairnessCommands} from './fairness-policy'
 import {compareFairness,fairnessPrepare} from './fairness-optimizer'
@@ -67,7 +68,7 @@ import {holidayPay} from './holiday-pay'
 import {holidayReviews} from './holidays'
 export {actor}
 export type {Actor} from './model'
-const commands=['demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
+const commands=['learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -83,6 +84,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  let result:any=noticeCommand(c,name,p)
  if(result===undefined)result=demandRule(c,name,p)
  if(result===undefined)result=await demandCommand(c,name,p)
+ if(result===undefined)result=await learnCommand(c,name,p)
  if(result===undefined)result=fairnessCommands(c,name,p)
  if(result===undefined)result=await fairnessPrepare(c,name,p)
  if(result===undefined)result=premiumCommand(c,name,p)
@@ -158,7 +160,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  for(const k of kinds)result[k]=s[k]
  result.notices=noticesFor(s,a,new Date().toISOString())
  // DEMAND-001: assumptions and saved forecast versions are read with SALES-001's scope; staff and agents none.
- for(const k of ['demandrules','demandforecasts'] as const)result[k]=manages?s[k].filter(r=>salesSite(s,a,r.site)):[]
+ for(const k of ['demandrules','demandforecasts','learnproposals'] as const)result[k]=manages?s[k].filter(r=>salesSite(s,a,r.site)):[]
  result.noticerules=manages?s.noticerules.filter(r=>salesSite(s,a,r.site)):[]
  for(const k of ['fairnesspolicies','fairnesscohorts'] as const)result[k]=manages?s[k].filter(r=>salesSite(s,a,r.site)):[]
  result.fairnessrequests=agent?[]:s.fairnessrequests.filter(r=>r.staffId===a.staffId||manages&&mayReadPerson(s,a,r.staffId))
@@ -332,6 +334,14 @@ export async function demandRead(db:D1Database,identity:Actor,site:string,date:s
  const home=s.staff.find(p=>p.id===f.staffId)?.site??'',cafe=f.role==='owner'?site:home,now=new Date().toISOString()
  need(f.role==='owner'||site===''||site===home,'Not found',404)
  return demandReport(s,f,cafe,date||localDate(now,s.timezone),now)
+}
+/** LEARN-001: the measured evidence and any proposal for one cafe's demand assumptions, for the owner and that cafe's managers; it writes nothing. */
+export async function learnProposalRead(db:D1Database,identity:Actor,site:string,weeks:number) {
+ const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
+ const home=s.staff.find(p=>p.id===f.staffId)?.site??''
+ need(f.role==='owner'||site===''||site===home,'Not found',404)
+ const e=learnEvaluate(s,f,f.role==='owner'?site:home,weeks,new Date().toISOString())
+ return {...e,digest:await learnDigest(e),proposals:s.learnproposals.filter(r=>r.site===e.site).sort((x,y)=>y.version-x.version)}
 }
 /** AUTO-001: what a rule would approve now and why the rest stays for a human; it writes nothing. */
 export async function autoRulePreview(db:D1Database,identity:Actor,id:string) {

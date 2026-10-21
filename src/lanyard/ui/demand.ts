@@ -3,6 +3,7 @@
 // and, after the day, forecast against entered sales and scheduled and worked hours.
 import {h,card,form,field,hidden,rows,titleRow,textarea,disclosure,status} from './shared'
 import {day,money,stamp} from './format'
+import {learningCard} from './learning'
 
 const hrs=(m:number|null)=>m===null?'—':(m/60).toFixed(1)
 const range=(x:any)=>x.salesCents===null?'<em>unknown</em>':`${h(money(x.salesCents))}${x.override?'':x.lowCents===null?'':` <small>${h(money(x.lowCents))}–${h(money(x.highCents))}</small>`}`
@@ -37,7 +38,7 @@ function assumptions(s:any,r:any,back:string) {
  const inputs=`${hidden('site',r.site)}${rule.revision?hidden('revision',rule.revision):''}<div class="fields">${field('historyWeeks','Weeks of history',rule.historyWeeks,'text','inputmode="numeric"')}${field('minSamples','Minimum prior days per hour',rule.minSamples,'text','inputmode="numeric"')}${field('staleDays','Stale after (days)',rule.staleDays,'text','inputmode="numeric"')}${field('growthPercent','Growth %',rule.growthPercent,'text','inputmode="numeric"')}</div>${textarea('events','Events (date|name|uplift %, one per line)',rule.events.map((e:any)=>`${e.date}|${e.name}|${e.upliftPercent}`).join('\n'),'rows="3" placeholder="2026-11-26|Thanksgiving|40"')}${textarea('roles','Roles (role|sales per labor hour $|minimum staff, one per line)',rule.roles.map((x:any)=>`${x.position}|${(x.salesPerLaborHourCents/100).toFixed(2)}|${x.minStaff}`).join('\n'),'rows="3" placeholder="Barista|120|1"')}`
  return card('Demand assumptions',`<p class="note">Event days are left out of the history. Role demand is the larger of the role’s minimum and the hour’s forecast sales over its sales per labor hour.</p>${disclosure('Edit assumptions',form('demandrule.save',back,inputs,'Save assumptions','','secondary'))}`,'','assumptions')
 }
-export function demandPage(s:any,r:any,now:number,back:string) {
+export function demandPage(s:any,r:any,now:number,back:string,learning?:any) {
  const pick=`<form class="filter" method="get" action="/app/demand">${hidden('site',r.site)}<label>Day<input type="date" name="date" value="${h(r.date)}"></label><button class="button secondary" type="submit">Show</button></form>`
- return `${titleRow(`Demand forecast · ${r.site||'Your cafe'}`,s,now)}${card(`${r.date}`,pick,`<p class="card-note"><a class="text-link" href="/app/intervals?site=${encodeURIComponent(r.site)}&amp;date=${h(r.date)}&amp;size=60">Labor by interval</a></p>`,'pick')}${live(r,back)}${saved(r,back)}${outcome(r)}${assumptions(s,r,back)}`
+ return `${titleRow(`Demand forecast · ${r.site||'Your cafe'}`,s,now)}${card(`${r.date}`,pick,`<p class="card-note"><a class="text-link" href="/app/intervals?site=${encodeURIComponent(r.site)}&amp;date=${h(r.date)}&amp;size=60">Labor by interval</a></p>`,'pick')}${live(r,back)}${saved(r,back)}${outcome(r)}${learning?learningCard(learning,r.timezone,back):''}${assumptions(s,r,back)}`
 }
