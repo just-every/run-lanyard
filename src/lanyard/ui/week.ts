@@ -1,5 +1,6 @@
 // The schedule week as data: which revision is shown, the cafe, its people grouped by
 // position, each person's shifts by day and week hours, and the labor footer's figures.
+import {scheduledHolidayCost} from '../domain/holidays'
 import {manager,rows,staffOf,venue} from './shared'
 import {addDays,dateKey,isMonday,mondayOf} from './format'
 
@@ -66,7 +67,7 @@ export function weekModel(s:any,now:number,q:URLSearchParams,focus=false) {
  const atSite=shifts.filter(here)
  const basis=(x:any)=>x.rateBasis??rows(s,'rateSnapshots').find(r=>r.subjectId===x.id&&r.staffId===x.staffId)?.basis
  const cost=(x:any)=>basis(x)?basis(x).costCents??0:Math.round(x.minutes*(staffOf(s,x.staffId)?.hourlyRateCents??0)/60)
- const labor=days.map((_,i)=>atSite.filter(x=>dayOf(x)===i).reduce((n,x)=>n+cost(x),0))
+ const labor=days.map((_,i)=>atSite.filter(x=>dayOf(x)===i).reduce((n,x)=>n+cost(x)+(scheduledHolidayCost({...s,timezone:tz},x).costCents??0),0))
  const laborMinutes=days.map((_,i)=>atSite.filter(x=>dayOf(x)===i).reduce((n,x)=>n+x.minutes,0))
  const unrated=new Set(atSite.filter(x=>basis(x)?basis(x).costCents===null:typeof staffOf(s,x.staffId)?.hourlyRateCents!=='number').map(x=>x.staffId)).size
  const people=new Set(shifts.map(x=>x.staffId)),confirmed=[...people].filter(id=>shifts.filter(x=>x.staffId===id).every(x=>x.confirmedAt)).length

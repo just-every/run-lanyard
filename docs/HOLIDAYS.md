@@ -1,0 +1,13 @@
+# Holiday calendars and pay inputs
+
+In Payroll, the owner opens **Holiday pay** to seed a site's federal calendar, edit or disable a date, or add a company holiday. The seed follows [OPM's observed federal dates](https://www.opm.gov/policy-data-oversight/pay-leave/federal-holidays/); it is a starting calendar for the employer to review. Repeating a seed keeps existing edits. A company date affects only its site. Dates use the installation's venue time zone.
+
+Add an effective site rule with a payroll code, a total hourly-rate multiplier (1.5 means an additional half-rate premium) or added integer cents/hour (250 means an additional $2.50/hour). Set non-work paid minutes to zero to disable them. Optional attendance eligibility requires approved work covering each adjacent scheduled shift's full interval and payable minutes; future or pending work remains unresolved. Missing elapsed work makes the employee ineligible. No adjacent shift creates no attendance condition.
+
+Scheduling includes the estimated extra holiday cost. Human time approval retains the holiday, rule revision, adjacent shift facts, allocated payable minutes and area/job rates. Payroll reviews show eligible, pending and ineligible facts. Pending eligibility holds time from export. Approved eligible premium lines carry their own code and amount in cents. They add pay inputs without adding worked minutes. Corrections retain matching original holiday rules and export only signed differences in minutes and cents per date/job/area/code, under the enclosing time's one source claim. Old files and hashes stay unchanged.
+
+For eligible employees not scheduled or recorded working that holiday, approve the exact non-work review after the day ends with an employer source reference. It creates no timesheet or worked hours. Use the same source reference for an existing ACA paid-service credit: matching service counts once, and conflicting facts are refused. The separate payroll input exports once. Employees' approved holiday premiums and non-work pay appear in their own enabled earnings estimate.
+
+The owner configures and approves non-work pay. Managers read reviews for their home cafe; employees read only their own pay, and preparation agents receive no holiday pay records or wage basis. Holiday work needs human time approval. All amounts are employer-rule estimates and payroll inputs before taxes/deductions; the payroll provider's pay statement remains authoritative. No payment, tax filing or provider validation happens here.
+
+Calendar, rules, retained time inputs and payroll records travel through the installation archive; credentials and sessions retain their existing exclusions.

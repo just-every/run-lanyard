@@ -53,9 +53,12 @@ import {acaReports,acaCsv} from './aca-report'
 import {workforce,withoutRates,hideRates} from './workforce'
 import {tipCredit,tipChecks,tipCsv} from './tipcredit'
 import {paySchedules,workweek,overtimeInputs} from './payschedules'
+import {holidayCalendar} from './holiday-calendar'
+import {holidayPay} from './holiday-pay'
+import {holidayReviews} from './holidays'
 export {actor}
 export type {Actor} from './model'
-const commands=['paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
+const commands=['holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -68,7 +71,9 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  const previous=await saved(db,commandId,a,digest);if(previous)return previous
  const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret,net,files,rollback:[]}
  try {
- let result:any=paySchedules(c,name,p)
+ let result:any=holidayCalendar(c,name,p)
+ if(result===undefined)result=holidayPay(c,name,p)
+ if(result===undefined)result=paySchedules(c,name,p)
  if(result===undefined)result=settings(c,name,p)
  if(result===undefined)result=await people(c,name,p)
  if(result===undefined)result=roster(c,name,p)
@@ -141,6 +146,11 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.rateSnapshots=manages?s.rateSnapshots.filter(r=>mayReadPerson(s,a,r.staffId)):[]
  result.workforce=agent?[]:s.workforce.filter(r=>r.staffId===a.staffId||manages&&mayReadPerson(s,a,r.staffId)).map(r=>!manages&&!earnSettings(s.earnings).estimates?{...r,rates:[],versions:r.versions.map(({rates,...v}:any)=>v)}:r)
  result.paygroups=agent?[]:s.paygroups.filter(g=>manages||g.staffIds.includes(a.staffId)).map(g=>manages?g:{...g,staffIds:[a.staffId]})
+ result.holidays=agent?[]:s.holidays.filter(r=>a.role==='owner'||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??''))
+ result.holidayrules=agent?[]:s.holidayrules.filter(r=>a.role==='owner'||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??''))
+ result.holidaypay=agent?[]:s.holidaypay.filter(r=>r.staffId===a.staffId||manages&&mayReadPerson(s,a,r.staffId))
+ if(!manages&&!earnSettings(s.earnings).estimates)result.holidaypay=[]
+ result.holidayReviews=manages?holidayReviews(s,new Date().toISOString()).filter(r=>r&&mayReadPerson(s,a,r.staffId)):[]
  result.payOvertime=manages?await overtimeInputs({a,s,db,now:new Date().toISOString(),sql:[],entity:''}):[]
  result.clockissues=issuesFor(s,a)
  result.shiftwork=workFor(s,a)
@@ -220,7 +230,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  // TIPS-002: cafe tip-credit setups and the last five workweeks' checks for the owner and managers (rows for people whose wages they may read).
  result.tipcredits=manages?s.tipcredits:[]
  {const week=weekOf(s,new Date().toISOString());result.tipChecks=manages?tipChecks(s,a,Array.from({length:35},(_,n)=>new Date(Date.parse(week+'T00:00:00Z')-n*86400000).toISOString().slice(0,10))):[]}
- const scopedRates=(r:any)=>manages&&mayReadPerson(s,a,r.staffId)?r:withoutRates(r)
+ const scopedRates=(r:any)=>manages&&mayReadPerson(s,a,r.staffId)?r:{...withoutRates(r),holidayBasis:!agent&&r.staffId===a.staffId&&earnSettings(s.earnings).estimates?r.holidayBasis:[]}
  result.shifts=result.shifts.map(scopedRates);result.timesheets=result.timesheets.map(scopedRates)
  if(a.role==='manager')result.batches=result.batches.map((b:any)=>({...b,lines:b.lines.map(scopedRates)}))
  if(!manages)result.jobs=s.jobs.map(({versions,...r})=>r)

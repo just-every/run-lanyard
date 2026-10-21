@@ -34,6 +34,8 @@ export function aca(c:Context,name:string,p:Record<string,any>) {
  const staffId=text(p.staffId,'staffId');need(c.s.staff.some(v=>v.id===staffId&&!v.erased_at),'Staff not found',404);need(!old||old.staffId===staffId,'A service correction keeps the employee')
  const on=date(p.date,'service date');need(on<=c.now.slice(0,10),'Service credit cannot be in the future')
  const minutes=integer(typeof p.minutes==='string'?Number(p.minutes):p.minutes,'service minutes',0,1440),reference=text(p.reference,'source reference',160)
+ const paid=c.s.holidaypay.find(r=>r.reference===reference)
+ need(!paid||paid.staffId===staffId&&paid.date===on&&paid.minutes===minutes,'Source reference belongs to approved holiday service',409)
  need(['vacation','holiday','illness','disability','layoff','jury','military','leave'].includes(p.category),'Choose a paid non-work service category')
  need(!c.s.acaCredits.some(x=>x.id!==old?.id&&x.reference===reference),'This service source already has a credit; correct its exact revision',409)
  return put(c,'acaCredits',{staffId,date:on,minutes,category:p.category,reference,reason:text(p.reason,'reason',500),by:c.a.id,at:c.now,source:'employer-recorded',versions:old?[...(old.versions??[]),oldVersion(old)]:[]},old)

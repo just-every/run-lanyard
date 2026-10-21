@@ -12,6 +12,7 @@ import {type Context,type Row,type State,keys,text,need,get,exact,put,sha,canoni
 import {siteOf} from './team'
 import {project} from './overtime'
 import {weekOf} from './openshifts'
+import {holidayBasis} from './holidays'
 import {approve} from './time'
 
 const owner=(c:Context)=>need(c.a.role==='owner','Owner required',403)
@@ -29,6 +30,7 @@ export function reasons(s:State,rule:Row,t:Row,now:string):string[] {
  if((shift?siteOf(s,shift):person?.site??'')!==rule.site)out.push('another cafe')
  if(!t.breakAttestation)out.push('no break attestation')
  if(t.exceptions?.length)out.push(...t.exceptions.map((e:string)=>`exception: ${e}`))
+ if(holidayBasis(s,t).length)out.push('holiday pay needs human review')
  if(t.premiums?.length)out.push('break premium')
  // CLOCK-008: a punch that changed job or cafe never matches its published shift's single job.
  if(clock?.transfers?.length)out.push('job changed mid-shift')

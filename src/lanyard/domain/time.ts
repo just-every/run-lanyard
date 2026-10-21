@@ -1,5 +1,6 @@
 // Gauge time's submitted -> approved revision flow, adapted to hours only;
 // Glove field capture preserves device time and command identity on retries.
+import {holidayBasis} from './holidays'
 import {rateBasis} from './workforce'
 import {segmentPlan,reconcileSegments,segmentBasis} from './worksegments'
 import {transferPlan,currentOf} from './transfers'
@@ -24,7 +25,8 @@ export function approve(c:Context,submitted:Row) {
  const exported=c.s.claims.filter(cl=>cl.root_id===r.rootId).reduce((n,cl)=>n+cl.minutes,0)
  const clock=c.s.clocks.find(k=>k.id===r.clockId),shift=c.s.shifts.find(x=>x.id===clock?.shiftId),job=r.job??shift?.job??'',site=r.site??shift?.site??''
  const plan=r.segmentPlan??segmentPlan(c.s,r.staffId,r,clock?.shiftId),workSegments=reconcileSegments(c.s,r.staffId,r,plan)
- return put(c,'timesheets',{...r,job,site,segmentPlan:plan,workSegments,rateBasis:workSegments.length?segmentBasis(r.staffId,workSegments):rateBasis(c.s,r.staffId,{...r,job,site}),status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now},r)
+ const rated={...r,job,site,segmentPlan:plan,workSegments,rateBasis:workSegments.length?segmentBasis(r.staffId,workSegments):rateBasis(c.s,r.staffId,{...r,job,site})}
+ return put(c,'timesheets',{...rated,holidayBasis:holidayBasis(c.s,rated),status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now},r)
 }
 const ATTEST='I confirm these times and breaks are accurate.'
 /** TIME-003: the employee's own attestation of times and breaks, recorded with its wording; only the person attests their own time. */

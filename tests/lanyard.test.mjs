@@ -1773,3 +1773,8 @@ test('TIPS-002: the owner is refused a California tip credit, sets one up for a 
 
 test('PAY-009: independent pay groups recur on all four schedules; a whole Sunday workweek crossing the fifteenth carries traced once-only overtime to the second locked period and EARN-001 shows scheduled dates',()=>run(async h=>{const {payScheduleApi}=await import('./payschedules-journey.mjs');await payScheduleApi(h)}))
 test('PAY-009: the payroll administrator defines and opens a pay schedule, reviews the cross-period overtime adjustment and the employee reads the scheduled period and pay date at 1440 and 390',async()=>{const {payScheduleBrowser}=await import('./payschedules-journey.mjs');await payScheduleBrowser()})
+
+
+test('PAYRULE-002: federal and site holidays, eligibility, retained area premiums, earnings, non-work service and once-only signed payroll corrections',()=>run(async h=>{const {holidayApi}=await import('./holidays-api.mjs');await holidayApi(h)}))
+
+test('PAYRULE-002: owners configure holidays, inspect eligibility, approve non-work pay and view area payroll, schedule costs and employee estimates at 1440 and 390',async()=>{const {holidayBrowser}=await import('./holidays-journey.mjs');await holidayBrowser()})

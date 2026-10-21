@@ -1,6 +1,7 @@
 // SCHEDULE-001: current draft facts for publication review. This read never mutates
 // the draft, infers a changed-shift pairing, or turns an estimate into worked cost.
 import {type Actor,type Context,type Row,type State} from './model'
+import {scheduledHolidayCost} from './holidays'
 import {priced,profileOf} from './workforce'
 import {acaReports} from './aca-report'
 import {conflicts} from './roster'
@@ -52,7 +53,8 @@ export function scheduleReview(s:State,week:string,reader?:Actor) {
   const unrated=new Set<string>()
   for(const x of list) {
    const basis=priced(s,x.staffId,x)
-   if(basis.costCents!==null)costCents+=basis.costCents
+   const premium=scheduledHolidayCost(s,x)
+   if(basis.costCents!==null)costCents+=basis.costCents+(premium.costCents??0)
    else unrated.add(x.staffId)
   }
   return {headcount:new Set(list.map(x=>x.staffId)).size,shifts:list.length,minutes:list.reduce((n,x)=>n+x.minutes,0),costCents,unrated:unrated.size}
