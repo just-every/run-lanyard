@@ -286,6 +286,20 @@ test('LEAVE-002: a holiday blackout refuses requests, a two-server limit routes 
   for (const n of ['Ana', 'Ben', 'Cal']) assert.ok(calendar.includes(`${n} <span class="status positive">approved</span>`), n)
   for (const n of ['Dee', 'Eve']) assert.ok(calendar.includes(`${n} <span class="status neutral">pending</span>`), n)
   assert.match(managerPage.text, /Override: Ana and Ben swapped coverage/); assert.match(managerPage.text, /Needs an override: 2 Server already off/)
+  // Two partial-day absences by Ana consume one person's place in a daily limit.
+  const partialDay = date(41), request = (p, from, to) => h.cmd('leave.request', { start: `${partialDay}T${from}:00:00Z`, end: `${partialDay}T${to}:00:00Z`, reason: 'Partial-day appointment' }, p.cookie)
+  for (const [from, to] of [['12', '14'], ['20', '22']]) {
+    const part = await request(ana, from, to)
+    await h.cmd('leave.decide', { id: part.id, revision: part.revision, decision: 'approved' }, priya.cookie)
+  }
+  assert.ok(!(await h.state(ben.cookie)).leaveDates.full.includes(partialDay))
+  const secondPerson = await request(ben, '15', '17')
+  assert.equal(secondPerson.flags, undefined)
+  await h.cmd('leave.decide', { id: secondPerson.id, revision: secondPerson.revision, decision: 'approved' }, priya.cookie)
+  assert.ok((await h.state(cal.cookie)).leaveDates.full.includes(partialDay))
+  const thirdPerson = await request(cal, '18', '19')
+  assert.ok(thirdPerson.flags.length)
+  await h.cmd('leave.decide', { id: thirdPerson.id, revision: thirdPerson.revision, decision: 'approved' }, priya.cookie, 409)
 }))
 
 test('SCHEDULE-005: a manager prints cafe and employee PDFs stamped with the revision, opens the wall display, and a later change moves the wall and marks both copies superseded; pay and leave reasons never print', () => run(async h => {

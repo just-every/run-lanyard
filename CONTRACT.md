@@ -334,8 +334,8 @@ Judged from the code and tests at commit `771e1bc52a28c26e22bec0078f37d01c9e9658
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 15 | 1 | 0 | 16 |
-| Target and push further | 32 | 36 | 42 | 110 |
-| All | 47 | 37 | 42 | 126 |
+| Target and push further | 33 | 35 | 42 | 110 |
+| All | 48 | 36 | 42 | 126 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -368,7 +368,7 @@ Judged from the code and tests at commit `771e1bc52a28c26e22bec0078f37d01c9e9658
 | `SCHEDULE-004` | Shift notes tasks and work-area segments | target | done | `src/lanyard/domain/shiftwork.ts`; `src/lanyard/domain/worksegments.ts`; `src/lanyard/domain/segmentpay.ts`; `src/lanyard/domain/shiftworkfiles.ts`; `src/lanyard/ui/shiftwork.ts`; `tests/lanyard.test.mjs`; `tests/shiftwork-api.mjs`; `tests/shiftwork-browser.mjs`; `tests/archive.test.mjs` | |
 | `LEAVE-001` | PTO balances and staffing-aware time off | target | partial | `src/lanyard/domain/people.ts`; `tests/lanyard.test.mjs` | Dated leave request/approval exists; balances, accruals, policy and payroll/HR mapping are absent. |
 | `AVAIL-001` | Recurring availability preferences and approval | target | partial | `src/lanyard/domain/patterns.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/domain/cover.ts`; `src/lanyard/ui/patterns.ts`; `tests/lanyard.test.mjs` | Effective patterns, approval, exceptions and preferred ranking exist. Saving or approving a lower weekly maximum does not list the published shifts it makes conflicting; collision reporting checks availability blocks only. |
-| `LEAVE-002` | Time-off blackout dates limits and team leave calendar | target | partial | `src/lanyard/domain/leaverules.ts`; `src/lanyard/domain/people.ts`; `src/lanyard/ui/leave.ts`; `tests/lanyard.test.mjs` | Blackouts, scoped limits, reasoned overrides and the team calendar exist. Per-date limits count approved leave records rather than distinct people, so separate partial-day absences for one employee can falsely fill a limit for another person. |
+| `LEAVE-002` | Time-off blackout dates limits and team leave calendar | target | done | `src/lanyard/domain/leaverules.ts`; `src/lanyard/domain/people.ts`; `src/lanyard/ui/leave.ts`; `tests/lanyard.test.mjs` |  |
 | `LEAVE-003` | Paid sick and safe leave jurisdiction presets | target | missing |  | No sick or safe leave accrual, jurisdiction presets or balance export. |
 | `MINOR-001` | Minor work-hour limits and permits | target | missing |  | No date of birth, work permit or minor-hour rules. |
 | `SCHEDULE-005` | Printable and posted schedules | target | done | `src/lanyard/domain/postings.ts`; `src/lanyard/print.ts`; `src/lanyard/pdf.ts`; `src/lanyard/ui/print.ts`; `tests/lanyard.test.mjs` |  |

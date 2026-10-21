@@ -23,8 +23,8 @@ export function leaveConflicts(people:Person[],leave:Record<string,any>[],rules:
  const person=people.find(p=>p.id===r.staffId),days=datesOf(r.start,r.end,tz),out:{id:string;mode:string;text:string}[]=[]
  for(const rule of rules.filter(x=>!x.removed&&covers(x,person))) {
   if(rule.kind==='blackout') { if(days.some(d=>d>=rule.from&&d<=rule.to))out.push({id:rule.id,mode:rule.mode,text:`Inside the ${rule.label||'time-off'} blackout, ${dayLabel(rule.from)} to ${dayLabel(rule.to)}`});continue }
-  const others=leave.filter(l=>l.id!==r.id&&l.staffId!==r.staffId&&l.status==='approved'&&covers(rule,people.find(p=>p.id===l.staffId))).map(l=>datesOf(l.start,l.end,tz))
-  const full=days.filter(d=>others.filter(v=>v.includes(d)).length>=rule.max)
+  const others=leave.filter(l=>l.id!==r.id&&l.staffId!==r.staffId&&l.status==='approved'&&covers(rule,people.find(p=>p.id===l.staffId))).map(l=>({staffId:l.staffId,dates:datesOf(l.start,l.end,tz)}))
+  const full=days.filter(d=>new Set(others.filter(v=>v.dates.includes(d)).map(v=>v.staffId)).size>=rule.max)
   if(full.length)out.push({id:rule.id,mode:rule.mode,text:`${rule.max} ${scope(rule)} already off on ${dayLabel(full[0])}${full.length>1?` and ${full.length-1} more day${full.length>2?'s':''}`:''}`})
  }
  return out
@@ -35,9 +35,9 @@ export function allowedDates(people:Person[],leave:Record<string,any>[],rules:Re
  const closed=mine.filter(x=>x.kind==='blackout'&&x.to>=today).map(x=>({from:x.from,to:x.to,label:x.label,mode:x.mode}))
  const full=new Set<string>()
  for(const rule of mine.filter(x=>x.kind==='limit')) {
-  const counts=new Map<string,number>()
-  for(const l of leave.filter(l=>l.staffId!==staffId&&l.status==='approved'&&covers(rule,people.find(p=>p.id===l.staffId))))for(const d of datesOf(l.start,l.end,tz))counts.set(d,(counts.get(d)??0)+1)
-  for(const [d,n] of counts)if(d>=today&&n>=rule.max)full.add(d)
+  const counts=new Map<string,Set<string>>()
+  for(const l of leave.filter(l=>l.staffId!==staffId&&l.status==='approved'&&covers(rule,people.find(p=>p.id===l.staffId))))for(const d of datesOf(l.start,l.end,tz)){const people=counts.get(d)??new Set<string>();people.add(l.staffId);counts.set(d,people)}
+  for(const [d,n] of counts)if(d>=today&&n.size>=rule.max)full.add(d)
  }
  return {closed,full:[...full].sort()}
 }
