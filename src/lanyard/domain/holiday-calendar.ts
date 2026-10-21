@@ -7,7 +7,7 @@ export function federalHolidays(year:number) {
  const nth=(month:number,weekday:number,n:number)=>{const first=fixed(month,1);return dayAfter(first,(weekday-new Date(first+'T12:00Z').getUTCDay()+7)%7+(n-1)*7)}
  const observed=(d:string)=>{const w=new Date(d+'T12:00Z').getUTCDay();return dayAfter(d,w===6?-1:w===0?1:0)}
  const mayLast=fixed(5,31)
- return [[observed(fixed(1,1)),"New Year's Day"],[nth(1,1,3),'Martin Luther King Jr. Day'],[nth(2,1,3),"Washington’s Birthday"],[dayAfter(mayLast,-((new Date(mayLast+'T12:00Z').getUTCDay()+6)%7)),'Memorial Day'],[observed(fixed(6,19)),'Juneteenth National Independence Day'],[observed(fixed(7,4)),'Independence Day'],[nth(9,1,1),'Labor Day'],[nth(10,1,2),'Columbus Day'],[observed(fixed(11,11)),'Veterans Day'],[nth(11,4,4),'Thanksgiving Day'],[observed(fixed(12,25)),'Christmas Day']].map(([date,name])=>({date,name}))
+ return [[observed(fixed(1,1)),"New Year's Day"],[nth(1,1,3),'Martin Luther King Jr. Day'],[nth(2,1,3),"Washington’s Birthday"],[dayAfter(mayLast,-((new Date(mayLast+'T12:00Z').getUTCDay()+6)%7)),'Memorial Day'],[observed(fixed(6,19)),'Juneteenth National Independence Day'],[observed(fixed(7,4)),'Independence Day'],[nth(9,1,1),'Labor Day'],[nth(10,1,2),'Columbus Day'],[year<1978?nth(10,1,4):observed(fixed(11,11)),'Veterans Day'],[nth(11,4,4),'Thanksgiving Day'],[observed(fixed(12,25)),'Christmas Day']].filter(([,name])=>!(name==='Martin Luther King Jr. Day'&&year<1986)&&!(name==='Juneteenth National Independence Day'&&year<2021)).map(([date,name])=>({date,name}))
 }
 export function holidayCalendar(c:Context,name:string,p:Record<string,any>) {
  if(!['holiday.seed','holiday.save','holidayrule.save'].includes(name))return undefined

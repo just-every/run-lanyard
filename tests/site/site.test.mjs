@@ -16,7 +16,7 @@ const pages = dir => readdirSync(dir, { withFileTypes: true }).flatMap(entry => 
 const served = path => [path, `${path}.html`, join(path, 'index.html')].some(candidate => existsSync(join(site, candidate)) && !candidate.endsWith('/'))
 const attrs = (html, name) => [...html.matchAll(new RegExp(`\\s${name}="([^"]*)"`, 'g'))].map(match => match[1].replaceAll('&amp;', '&'))
 
-test('PUBLIC-001 and PEOPLE-002: the run site builds, its primary action opens /run, it leads to owner guides built from the repository Markdown, and every link and file it names resolves', async () => {
+test('PUBLIC-001, PEOPLE-002 and PAYRULE-002: the run site builds, its primary action opens /run, it leads to owner guides built from the repository Markdown, and every link and file it names resolves', async () => {
   execFileSync(join(root, 'node_modules/.bin/rer'), ['build', '--site'], { cwd: root, stdio: 'pipe' })
   const home = readFileSync(join(site, 'index.html'), 'utf8')
   assert.match(home, /<a class="run-button" href="\/run">Run Lanyard/, 'the homepage leads with Run Lanyard to /run')
@@ -58,12 +58,14 @@ test('PUBLIC-001 and PEOPLE-002: the run site builds, its primary action opens /
     for(const width of [1440,390]){
       const context=await browser.newContext({viewport:{width,height:1000}}),page=await context.newPage(),errors=[]
       page.on('pageerror',e=>errors.push(e.message))
-      await page.goto(`http://127.0.0.1:${server.address().port}/docs/workforce`,{waitUntil:'networkidle'})
-      assert.equal(await page.getByRole('heading',{name:'Jobs, qualifications and effective rates',exact:true}).isVisible(),true)
-      assert.ok((await page.locator('article').innerText()).includes('workforce.save'))
+      for(const guide of [{slug:'workforce',title:'Jobs, qualifications and effective rates',content:'workforce.save'},{slug:'holidays',title:'Holiday calendars and pay inputs',content:'non-work'}]){
+      await page.goto(`http://127.0.0.1:${server.address().port}/docs/${guide.slug}`,{waitUntil:'networkidle'})
+      assert.equal(await page.getByRole('heading',{name:guide.title,exact:true}).isVisible(),true)
+      assert.ok((await page.locator('article').innerText()).includes(guide.content))
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'PEOPLE-002 guide fits viewport')
       if(process.env.WORKFORCE_SCREENS){mkdirSync(process.env.WORKFORCE_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.WORKFORCE_SCREENS,`guide-${width}.png`),fullPage:true})}
-      assert.deepEqual(errors,[]);await context.close()
+      if(guide.slug==='holidays'&&process.env.HOLIDAY_GUIDE_SCREENS){mkdirSync(process.env.HOLIDAY_GUIDE_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.HOLIDAY_GUIDE_SCREENS,`holiday-guide-${width}.png`),fullPage:true})}
+      assert.deepEqual(errors,[])}await context.close()
     }
   } finally {if(browser)await browser.close();await new Promise(r=>server.close(r))}
 })

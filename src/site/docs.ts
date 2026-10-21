@@ -11,6 +11,7 @@ const guides = [
   { slug: 'time', file: 'TIME.md', title: 'Clock and timesheets', group: 'Run the week' },
   { slug: 'payroll', file: 'PAYROLL.md', title: 'Payroll exports', group: 'Run the week' },
   { slug: 'backup-restore', file: 'BACKUP-RESTORE.md', title: 'Backup and restore', group: 'Look after Lanyard' },
+  { slug: 'holidays', file: 'HOLIDAYS.md', title: 'Holiday calendars and pay inputs', group: 'Reference' },
   { slug: 'workforce', file: 'WORKFORCE.md', title: 'Jobs, qualifications and effective rates', group: 'Reference' },
   { slug: 'staff-import', file: 'STAFF-IMPORT.md', title: 'Staff CSV reference', group: 'Reference' },
   { slug: 'agents-api', file: 'AGENTS-API.md', title: 'Agent API', group: 'Reference' },

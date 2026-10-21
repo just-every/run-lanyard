@@ -5,6 +5,11 @@ export async function holidayApi(h) {
  assert.equal(f.pendingHeld,true);let s=await h.state();assert.equal(s.holidays.filter(r=>r.site==='Ocean Beach'&&r.source==='federal').length,11)
  assert.ok(s.holidays.some(r=>r.date==='2025-11-27'&&r.name==='Thanksgiving Day'));assert.ok(s.holidays.some(r=>r.date==='2025-07-04'))
  assert.deepEqual((await h.cmd('holiday.seed',{site:'Ocean Beach',year:2025})).created,[])
+ const historicalCalendar=(await h.cmd('holiday.seed',{site:'Historical calendar',year:1974})).created
+ assert.ok(historicalCalendar.some(r=>r.name==='Veterans Day'&&r.date==='1974-10-28'))
+ assert.ok(!historicalCalendar.some(r=>r.name==='Martin Luther King Jr. Day'||r.name==='Juneteenth National Independence Day'))
+ const beforeJuneteenth=(await h.cmd('holiday.seed',{site:'Historical calendar',year:2020})).created
+ assert.ok(beforeJuneteenth.some(r=>r.name==='Martin Luther King Jr. Day'));assert.ok(!beforeJuneteenth.some(r=>r.name==='Juneteenth National Independence Day'))
  await h.cmd('holiday.seed',{site:'Mission',year:2027});assert.ok((await h.state()).holidays.some(r=>r.site==='Mission'&&r.date==='2027-12-31'&&r.name==="New Year's Day")===false)
  await h.cmd('holiday.seed',{site:'Mission',year:2028});assert.ok((await h.state()).holidays.some(r=>r.site==='Mission'&&r.date==='2027-12-31'&&r.name==="New Year's Day"),'observed New Year can fall in previous calendar year')
  const thanksgiving=f.approved.find(t=>t.staffId===alex.id&&t.start===f.thanksgiving.start),company=f.approved.find(t=>t.staffId===alex.id&&t.start===f.companyShift.start)
