@@ -199,7 +199,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/command' || path === '/api/lanyard/agent/command') {
         const body = await inputBody(request)
         if (typeof body.name !== 'string' || !body.input || typeof body.input !== 'object' || Array.isArray(body.input)) fail('Provide a command name and input object')
-        if (isAgent && !['roster.prepare', 'time.prepare', 'payroll.prepare'].includes(String(body.name))) fail('Agents can only prepare drafts', 403)
+        if (isAgent && !['roster.prepare', 'time.prepare', 'payroll.prepare', 'learn.propose'].includes(String(body.name))) fail('Agents can only prepare drafts', 403)
         const result = await execute(request, env, who, String(body.name), body.input as Record<string, unknown>)
         if (String(body.name).startsWith('clockbrowser.')) { const { token, ...shown } = result as Record<string, unknown>; return withClockCookie(json(shown), result) }
         return json(result)
