@@ -26,7 +26,7 @@ async function checkout(root) {
 }
 // Pacific Monday Oct 12, 2026, 7:00 am – 3:00 pm PDT; the 45-minute break is a later agreed correction.
 const work = staffId => ({ staffId, start: '2026-10-12T14:00:00Z', end: '2026-10-12T22:00:00Z', breakMinutes: 30 })
-test('ARCHIVE-001, AUDIT-001, LOG-001 and SCHEDULE-004: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
+test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004 and PAY-009: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
   const temporary = await mkdtemp(join(tmpdir(),'lanyard-archive-')), source=join(temporary,'source'), restored=join(temporary,'restored'), erased=join(temporary,'erased')
   let h
   try {
@@ -50,6 +50,10 @@ test('ARCHIVE-001, AUDIT-001, LOG-001 and SCHEDULE-004: public CLI archive round
     assert.match(files[batch.id],/450,7\.5000/);assert.match(files[delta.id],/-15,-0\.2500/)
     const csv=await readFile('tests/fixtures/staff.csv','utf8'),imported=await h.cmd('import.apply',{csv,fingerprint:(await h.cmd('import.preview',{csv})).fingerprint})
     const logged=await h.cmd('log.save',{site:'',date:'2026-10-12',category:'incident',text:'Dish pit floor',attachments:[{name:'floor.txt',type:'text/plain',data:Buffer.from('floor inspection').toString('base64')},{name:'report.txt',type:'text/plain',data:Buffer.from('incident report').toString('base64')}]})
+    // PAY-009: schedules and generated period dates survive the public CLI door.
+    const calendarPerson=await h.person('Calendar')
+    const paygroup=await h.cmd('paygroup.save',{name:'Archive monthly',cadence:'monthly',from:'2026-10-01',payDays:5,workweekStart:0,staffIds:[calendarPerson.id]})
+    await h.cmd('paygroup.period',{groupId:paygroup.id,date:'2026-10-16'})
     const journal=await h.cmd('import.journal',{jobId:imported.job.id}),original=await h.state()
     const identity={auth:h.auth,owner:h.owner}
     await h.close();h=null
@@ -70,7 +74,7 @@ test('ARCHIVE-001, AUDIT-001, LOG-001 and SCHEDULE-004: public CLI archive round
     assert.deepEqual(back.shiftwork,original.shiftwork);assert.deepEqual(back.taskanswers,original.taskanswers)
     assert.equal((await h.send(`/api/lanyard/handover/${answer.id}/files/${answer.attachment.id}`,undefined,owner)).text,'Retained blocker file')
     for(const [i,file] of logged.attachments.entries())assert.equal((await h.send(`/api/lanyard/logbook/${logged.id}/files/${file.id}`,undefined,owner)).text,['floor inspection','incident report'][i])
-    for(const kind of ['staff','rosters','shifts','timesheets','batches'])assert.deepEqual(back[kind],original[kind],kind)
+    for(const kind of ['staff','rosters','shifts','timesheets','batches','paygroups','periods'])assert.deepEqual(back[kind],original[kind],kind)
     assert.deepEqual(back.events.map(e=>e.id),original.events.map(e=>e.id))
     for(const [id,text] of Object.entries(files))assert.equal((await h.send(`/api/lanyard/batches/${id}.csv`,undefined,owner)).text,text)
     assert.deepEqual(await h.cmd('import.journal',{jobId:imported.job.id},owner),journal)

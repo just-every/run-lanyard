@@ -6,7 +6,7 @@ import {earnSettings,earningsOf} from '../domain/earnings'
 import {type Week} from './week'
 
 export function earningsCard(s:any,w:Week) {
- const me=staffOf(s,s.actor.staffId),e=earningsOf(s.actor.staffId,w.week,venue(s),rows(s,'shifts'),rows(s,'timesheets'),me?.hourlyRateCents??null,earnSettings(rows(s,'earnings')))
+ const me=staffOf(s,s.actor.staffId),e=earningsOf(s.actor.staffId,w.week,venue(s),rows(s,'shifts'),rows(s,'timesheets'),me?.hourlyRateCents??null,earnSettings(rows(s,'earnings')),{...s,timezone:venue(s)})
  const line=(label:string,minutes:number,pay:string)=>`<tr><th scope="row">${h(label)}</th><td class="num">${h(hours(minutes))} hrs</td><td class="num">${pay}</td></tr>`
  const rate=e.rateCents
  const priced=rate===null?'':`${h(money(Math.round(rate)))}/hr`
@@ -18,6 +18,6 @@ export function earningsCard(s:any,w:Week) {
 
 export function earningsSettingsCard(s:any) {
  const r=rows(s,'earnings')[0],e=earnSettings(rows(s,'earnings'))
- const body=`${r?hidden('revision',r.revision):''}<label class="check"><input type="checkbox" name="estimates" value="true" ${e.estimates?'checked':''}> Show each employee an estimate of their own pay</label><div class="fields">${field('payDays','Pay date: days after the week ends',e.payDays??'','number','min="0" max="31"')}${field('statementUrl','Pay statement link (your payroll provider)',e.statementUrl,'url','maxlength="300" placeholder="https://"')}</div>`
- return card('Employee pay estimates',`<p class="note">Employees see their own scheduled, approved and pending hours each week. The estimate counts approved hours at their rate, with overtime over 40 hours at 1.5x, before taxes and deductions; nobody sees a coworker’s hours or pay.</p>${form('earnings.save','people',body,'Save pay estimates','','secondary')}`,'','earnings-settings')
+ const body=`${r?hidden('revision',r.revision):''}<label class="check"><input type="checkbox" name="estimates" value="true" ${e.estimates?'checked':''}> Show each employee an estimate of their own pay</label><div class="fields">${field('payDays','Fallback pay date: days after the week ends',e.payDays??'','number','min="0" max="31"')}${field('statementUrl','Pay statement link (your payroll provider)',e.statementUrl,'url','maxlength="300" placeholder="https://"')}</div>`
+ return card('Employee pay estimates',`<p class="note">Employees see their own scheduled, approved and pending hours for their pay schedule, or weekly until assigned. The estimate counts approved hours at their rate, with overtime over 40 hours at 1.5x, before taxes and deductions; nobody sees a coworker’s hours or pay.</p>${form('earnings.save','people',body,'Save pay estimates','','secondary')}`,'','earnings-settings')
 }

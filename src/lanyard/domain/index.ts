@@ -52,9 +52,10 @@ import {aca,plansFor,mayReadPerson} from './aca'
 import {acaReports,acaCsv} from './aca-report'
 import {workforce,withoutRates,hideRates} from './workforce'
 import {tipCredit,tipChecks,tipCsv} from './tipcredit'
+import {paySchedules,workweek,overtimeInputs} from './payschedules'
 export {actor}
 export type {Actor} from './model'
-const commands=['clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
+const commands=['paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -67,7 +68,8 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  const previous=await saved(db,commandId,a,digest);if(previous)return previous
  const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret,net,files,rollback:[]}
  try {
- let result:any=settings(c,name,p)
+ let result:any=paySchedules(c,name,p)
+ if(result===undefined)result=settings(c,name,p)
  if(result===undefined)result=await people(c,name,p)
  if(result===undefined)result=roster(c,name,p)
  if(result===undefined)result=await shiftWork(c,name,p)
@@ -138,6 +140,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.acaReports=manages?acaReports(s,a,new Date().toISOString()):[]
  result.rateSnapshots=manages?s.rateSnapshots.filter(r=>mayReadPerson(s,a,r.staffId)):[]
  result.workforce=agent?[]:s.workforce.filter(r=>r.staffId===a.staffId||manages&&mayReadPerson(s,a,r.staffId)).map(r=>!manages&&!earnSettings(s.earnings).estimates?{...r,rates:[],versions:r.versions.map(({rates,...v}:any)=>v)}:r)
+ result.paygroups=agent?[]:s.paygroups.filter(g=>manages||g.staffIds.includes(a.staffId)).map(g=>manages?g:{...g,staffIds:[a.staffId]})
+ result.payOvertime=manages?await overtimeInputs({a,s,db,now:new Date().toISOString(),sql:[],entity:''}):[]
  result.clockissues=issuesFor(s,a)
  result.shiftwork=workFor(s,a)
  result.taskanswers=answersFor(s,a)
@@ -215,7 +219,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.dayparts=manages?s.dayparts.filter(r=>!r.removed&&salesSite(s,a,r.site)):[]
  // TIPS-002: cafe tip-credit setups and the last five workweeks' checks for the owner and managers (rows for people whose wages they may read).
  result.tipcredits=manages?s.tipcredits:[]
- {const week=weekOf(s,new Date().toISOString());result.tipChecks=manages?tipChecks(s,a,[0,7,14,21,28].map(n=>new Date(Date.parse(week+'T00:00:00Z')-n*86400000).toISOString().slice(0,10))):[]}
+ {const week=weekOf(s,new Date().toISOString());result.tipChecks=manages?tipChecks(s,a,Array.from({length:35},(_,n)=>new Date(Date.parse(week+'T00:00:00Z')-n*86400000).toISOString().slice(0,10))):[]}
  const scopedRates=(r:any)=>manages&&mayReadPerson(s,a,r.staffId)?r:withoutRates(r)
  result.shifts=result.shifts.map(scopedRates);result.timesheets=result.timesheets.map(scopedRates)
  if(a.role==='manager')result.batches=result.batches.map((b:any)=>({...b,lines:b.lines.map(scopedRates)}))
@@ -320,7 +324,7 @@ export async function acaRead(db:D1Database,identity:Actor,id:string,asOf:string
 /** TIPS-002: one workweek's tip-credit checks and make-up pay inputs (JSON, or the CSV whose download is recorded), for the owner and managers of each person's home cafe. */
 export async function tipCreditRead(db:D1Database,identity:Actor,week:string,format:'json'|'csv') {
  const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
- need(/^\d{4}-\d{2}-\d{2}$/.test(week)&&weekOf(s,week+'T12:00:00Z')===week,'Choose a week by its Monday (YYYY-MM-DD)')
+ need(/^\d{4}-\d{2}-\d{2}$/.test(week)&&Number.isFinite(Date.parse(week))&&(weekOf(s,week+'T12:00:00Z')===week||s.paygroups.some(g=>g.staffIds.some((id:string)=>workweek(s,id,week)===week))),'Choose a workweek start (YYYY-MM-DD)')
  const rows=tipChecks(s,f,[week])
  if(format==='json')return {week,rows}
  await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,f.role,'tipcredit.download',week,new Date().toISOString()).run()

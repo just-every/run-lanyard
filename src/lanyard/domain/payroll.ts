@@ -4,13 +4,15 @@ import {type Context,type Row,keys,text,need,prepare,manager,staff,get,exact,put
 import {priced} from './workforce'
 import {regularLines} from './segmentpay'
 import {provisional} from './closerules'
+import {overtimeInputs} from './payschedules'
 import {heldByPeriod} from './periods'
 function cell(value:unknown,numeric=false) { let s=String(value??'');if(!numeric&&/^[\s]*[=+\-@\t\r]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s }
 // pay_code: "regular" is net worked time; "meal premium" and "rest premium" are BREAK-001 premium inputs
 // (minutes of premium pay at the regular rate, not worked time), exported as signed differences like hours.
 export function csv(lines:Row[]|any[]) {
+ const traced=lines.some(l=>l.overtimeKey)
  const segmented=lines.some(l=>l.area!==undefined)
- return 'payroll_id,time_id,revision,start_utc,end_utc,minutes,hours,corrects,pay_code'+(segmented?',job_id,work_area,location,source_start_utc,source_end_utc':'')+'\r\n'+lines.map(l=>[cell(l.payrollId),cell(l.timeId),cell(l.revision,true),cell(l.start),cell(l.end),cell(l.minutes,true),cell((l.minutes/60).toFixed(4),true),cell(l.corrects),cell(l.payCode??'regular'),...(segmented?[cell(l.job),cell(l.area),cell(l.site),cell(l.sourceStart??l.start),cell(l.sourceEnd??l.end)]:[])].join(',')).join('\r\n')+'\r\n'
+ return 'payroll_id,time_id,revision,start_utc,end_utc,minutes,hours,corrects,pay_code'+(segmented?',job_id,work_area,location,source_start_utc,source_end_utc':'')+(traced?',workweek_start,pay_period_id,source_period_starts,premium_multiplier,adjustment_label':'')+'\r\n'+lines.map(l=>[cell(l.payrollId),cell(l.timeId),cell(l.revision,true),cell(l.start),cell(l.end),cell(l.minutes,true),cell((l.minutes/60).toFixed(4),true),cell(l.corrects),cell(l.payCode??'regular'),...(segmented?[cell(l.job),cell(l.area),cell(l.site),cell(l.sourceStart??l.start),cell(l.sourceEnd??l.end)]:[]),...(traced?[cell(l.trace?.week),cell(l.trace?.targetPeriodId),cell(l.trace?.sourcePeriods?.join(';')),cell(l.multiplier??'',true),cell(l.label)]:[])].join(',')).join('\r\n')+'\r\n'
 }
 /** Premium minutes already exported for a timesheet's lineage, by pay code. */
 const exportedPremium=(c:Context,rootId:string,code:string)=>c.s.batches.filter(b=>b.status==='exported'||b.status==='acknowledged').flatMap(b=>b.lines).filter((l:any)=>l.rootId===rootId&&l.payCode===code).reduce((n:number,l:any)=>n+l.minutes,0)
@@ -28,15 +30,19 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
   const selected=ids?ids.map((id:string)=>{const t=available.find(r=>r.id===id);need(t,unclaimed.some(r=>r.id===id)?'Selected time is in an open pay period; lock the period first':'Selected time is not approved or is already exported',409);return t}):available
   // TIME-007: a provisionally closed punch is never exported; it is listed as held until confirmed or corrected and approved.
   const held=[...c.s.clocks.filter(k=>provisional(c.s,k,c.now)).map(k=>({clockId:k.id,staffId:k.staffId,start:k.start,reason:'provisional close'})),...unclaimed.filter(t=>heldByPeriod(c.s,t)).map(t=>({timeId:t.id,staffId:t.staffId,start:t.start,reason:'pay period open'}))]
-  need(selected.length>0&&selected.length<=500,`No approved unexported time, or too many entries${held.length?`; ${held.length} provisionally closed punch${held.length===1?'':'es'} held until confirmed`:''}`,409)
+  const adjustments=await overtimeInputs(c)
+  for(const l of adjustments)need(staff(c,l.staffId).payroll_id,'Set the staff payroll ID first',409)
+  need((selected.length>0||adjustments.length>0)&&selected.length<=500,`No approved unexported time, or too many entries${held.length?`; ${held.length} provisionally closed punch${held.length===1?'':'es'} held until confirmed`:''}`,409)
   const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).flatMap((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);const base={timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,sourceStart:t.start,sourceEnd:t.end,corrects:t.corrects,rootId:t.rootId,rateBasis:priced(c.s,t.staffId,t)};return [...regularLines(c,t,base),...premiumLines(c,t,base)]})
+  lines.push(...adjustments)
   const r=put(c,'batches',{status:'draft',lines,held,csvPreview:csv(lines),preparedBy:c.a.id,preparedAt:c.now})
   return {...r,approvalRequired:'payroll.export',approval:{id:r.id,revision:r.revision}}
  }
  if(name==='payroll.export') {
   manager(c.a);keys(p,['id','revision']);const b=get(c.s,'batches',p.id);exact(b,p);need(b.status==='draft','Batch already exported',409)
-  const checked=new Set<string>()
+  const checked=new Set<string>(),adjustments=await overtimeInputs(c)
   for(const line of b.lines) {
+   if(line.overtimeKey){need(staff(c,line.staffId).payroll_id===line.payrollId,'Reviewed payroll identity changed; prepare a new batch',409);need(adjustments.some(l=>l.overtimeKey===line.overtimeKey&&l.minutes===line.minutes&&l.sourceDigest===line.sourceDigest),'Workweek overtime sources or destination changed; prepare a new batch',409);continue}
    const t=get(c.s,'timesheets',line.timeId),person=staff(c,line.staffId)
    need(t.status==='approved'&&t.revision===line.revision&&person.payroll_id===line.payrollId,'Reviewed payroll sources changed; prepare a new batch',409)
    need(!heldByPeriod(c.s,t),'This time\'s pay period was reopened; lock it before exporting',409)

@@ -6,10 +6,12 @@
 import {type Context,type Row,type State,keys,text,need,get,exact,put} from './model'
 import {localDate} from './settings'
 
+import {groupOn} from './payschedules'
+
 const DAY=/^\d{4}-\d{2}-\d{2}$/
 /** The defined period holding a timesheet: its start's venue date within the period's inclusive dates. */
 export function periodOf(s:State,t:Row) {
- const d=localDate(t.start,s.timezone);return s.periods.find(p=>p.start<=d&&d<=p.end)
+ const d=localDate(t.start,s.timezone);const g=groupOn(s,t.staffId,d);return s.periods.find(p=>(g?p.groupId===g.id:!p.groupId)&&p.start<=d&&d<=p.end)
 }
 const inPeriod=(s:State,p:Row)=>s.timesheets.filter(t=>t.status!=='superseded'&&periodOf(s,t)?.id===p.id)
 const owner=(c:Context)=>need(c.a.role==='owner','Only the payroll administrator (the owner) can do this',403)
@@ -32,12 +34,13 @@ export function guardPeriods(c:Context,before:State) {
  }
 }
 /** Time in an open defined period is held from payroll until the period is locked. */
-export const heldByPeriod=(s:State,t:Row)=>periodOf(s,t)?.status==='open'
+export const heldByPeriod=(s:State,t:Row)=>{const p=periodOf(s,t);return p?.status==='open'||(!p&&!!groupOn(s,t.staffId,localDate(t.start,s.timezone)))}
 export function periods(c:Context,name:string,p:Record<string,any>) {
  if(name==='period.save') {
   owner(c);keys(p,['start','end'])
   need(typeof p.start==='string'&&DAY.test(p.start)&&typeof p.end==='string'&&DAY.test(p.end)&&p.start<=p.end,'Choose a start and end date (YYYY-MM-DD)')
   need((Date.parse(p.end)-Date.parse(p.start))/86400000<=30,'A pay period is at most 31 days')
+  need(!c.s.paygroups.some(g=>g.from<=p.end),'Use the pay group schedule to open this period',409)
   need(!c.s.periods.some(x=>x.start<=p.end&&p.start<=x.end),'Pay periods cannot overlap',409)
   return put(c,'periods',{start:p.start,end:p.end,status:'open',signoffs:[],reopens:[],locked:[],definedBy:c.a.id,definedAt:c.now})
  }

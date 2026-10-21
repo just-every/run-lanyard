@@ -1,3 +1,4 @@
+import {workweek} from './payschedules'
 import {rateBasis} from './workforce'
 // COST-002: in-week overtime risk from actual hours. A person's workweek (Monday to Sunday on the
 // venue clock) is projected as the time recorded before the as-of instant plus their published
@@ -16,8 +17,9 @@ const live=(t:Row)=>['submitted','approved','returned'].includes(t.status)
 
 /** A person's projected workweek as of `at`; `add` and `skip` model a pending pickup or swap. Premium: half the hourly rate per overtime hour, to the nearest cent. */
 export function project(s:State,staffId:string,week:string,at:string,add:Row[]=[],skip:string[]=[]) {
+ week=workweek(s,staffId,week)
  const days:Record<string,number>={},count=(start:string,m:number)=>{const d=localDate(start,s.timezone);days[d]=(days[d]??0)+m}
- const here=(start:string)=>weekOf(s,start)===week
+ const here=(start:string)=>workweek(s,staffId,localDate(start,s.timezone))===week
  let actual=0,scheduled=0
  // Recorded time: live timesheets (a pending correction replaces its source) and open punches up to `at`.
  for(const t of s.timesheets)if(t.staffId===staffId&&live(t)&&t.start<at&&here(t.start)&&!s.timesheets.some(x=>x.corrects===t.id&&live(x))){actual+=t.minutes;count(t.start,t.minutes)}
@@ -41,7 +43,7 @@ export function substitutes(s:State,shift:Row,at:string) {
 }
 /** Everyone projected over 40 hours in the week, with each remaining shift's substitutes. */
 export function alerts(s:State,week:string,at:string) {
- const ids=new Set([...s.shifts.filter(x=>x.status==='published'),...s.timesheets,...s.clocks.filter(k=>k.status==='open')].filter(x=>weekOf(s,x.start)===week).map(x=>x.staffId))
+ const ids=new Set([...s.shifts.filter(x=>x.status==='published'),...s.timesheets,...s.clocks.filter(k=>k.status==='open')].map(x=>x.staffId))
  return [...ids].map(id=>project(s,id,week,at)).filter(p=>p.overtimeMinutes>0).map(p=>{const person=s.staff.find(v=>v.id===p.staffId)
   return {...p,name:person?.name??'Former staff',site:person?.site??'',remaining:p.remaining.map(x=>({shiftId:x.id,revision:x.revision,start:x.start,end:x.end,minutes:x.minutes,site:siteOf(s,x),substitutes:substitutes(s,x,at)}))}})
 }

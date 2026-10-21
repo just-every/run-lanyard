@@ -1,3 +1,4 @@
+import {workweek} from './payschedules'
 import {priced} from './workforce'
 // TIME-009: what an approver sees for one timesheet: scheduled, captured and payable times side
 // by side, variance against the shift, breaks taken against the cafe's meal rule, the punch's
@@ -16,8 +17,8 @@ const mondayOf=(s:State,at:string)=>{const d=localDate(at,s.timezone),n=new Date
 export function review(s:State,t:Row) {
  const clock=t.clockId?s.clocks.find(k=>k.id===t.clockId):undefined,shift=clock?.shiftId?s.shifts.find(x=>x.id===clock.shiftId):undefined
  const person=s.staff.find(p=>p.id===t.staffId),captured=t.captured??{start:t.start,end:t.end,breakMinutes:t.breakMinutes,minutes:t.rounding?.capturedMinutes??t.minutes}
- const rule=clock?mealRuleFor(s,clock):undefined,week=mondayOf(s,t.start)
- const mine=s.timesheets.filter(x=>x.staffId===t.staffId&&['submitted','approved','returned'].includes(x.status)&&mondayOf(s,x.start)===week&&x.start<=t.start)
+ const rule=clock?mealRuleFor(s,clock):undefined,week=workweek(s,t.staffId,localDate(t.start,s.timezone))
+ const mine=s.timesheets.filter(x=>x.staffId===t.staffId&&['submitted','approved','returned'].includes(x.status)&&workweek(s,t.staffId,localDate(x.start,s.timezone))===week&&x.start<=t.start)
  const running=mine.reduce((n,x)=>n+x.minutes,0),basis=priced(s,t.staffId,{...t,job:t.job??shift?.job??'',site:t.site||shift?.site||person?.site||''})
  return {
   scheduled:shift?{start:shift.start,end:shift.end,minutes:shift.minutes}:null,

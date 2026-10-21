@@ -2,6 +2,7 @@
 // offers it to every qualified teammate who stays inside overtime, each answers,
 // and a manager approves one accepted offer. Only the cover's clock-in closes it.
 import {type Context,type Row,type State,keys,text,need,manager,self,get,exact,put,overlap} from './model'
+import {workweek} from './payschedules'
 import {qualification,rateBasis,profileOf} from './workforce'
 import {available,onLeave} from './roster'
 import {localDate} from './settings'
@@ -15,9 +16,9 @@ type Fit={staffId:string;before:number;after:number;reason?:'overtime'|'already 
 
 /** Minutes a person is already published for in the shift's workweek and on its day. */
 function load(s:State,staffId:string,shift:Row,skip:string[]) {
- const week=s.rosters.find(r=>r.id===shift.rosterId)?.week,day=localDate(shift.start,s.timezone)
+ const day=localDate(shift.start,s.timezone),week=workweek(s,staffId,day)
  const mine=s.shifts.filter(x=>x.staffId===staffId&&x.status==='published'&&x.id!==shift.id&&!skip.includes(x.id))
- const inWeek=mine.filter(x=>s.rosters.find(r=>r.id===x.rosterId)?.week===week)
+ const inWeek=mine.filter(x=>workweek(s,staffId,localDate(x.start,s.timezone))===week)
  return {week:inWeek.reduce((n,x)=>n+x.minutes,0),day:inWeek.filter(x=>localDate(x.start,s.timezone)===day).reduce((n,x)=>n+x.minutes,0),clash:mine.find(x=>overlap(x,shift))}
 }
 /** One teammate measured against the shift (ignoring shifts they would give up, for a swap): qualified, or the reason they are left out. */
