@@ -38,7 +38,7 @@ export async function noticesApi(h) {
  const stored=async()=> (await h.db.prepare("SELECT data FROM l_records WHERE kind='notices' ORDER BY id").all()).results.map(r=>JSON.parse(r.data))
  const before=await stored();await f.tick(6);assert.deepEqual(await stored(),before,'a replayed tick cannot duplicate or rewrite reminders')
  // Restart the actual Worker while keeping its persisted D1 and run the same public cron entry.
- await h.mf.setOptions({});await f.tick(6);assert.deepEqual(await stored(),before)
+ await h.restart();await f.tick(6);assert.deepEqual(await stored(),before)
  const benShift=(await f.state()).shifts.find(x=>x.staffId===f.ben.id)
  await f.cmd('attendance.acknowledge',{shiftId:benShift.id,note:'I am investigating'},f.manager.cookie,200,7)
  await f.tick(26)
