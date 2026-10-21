@@ -24,7 +24,7 @@ export function earnSettings(list:Row[]|any[]):EarnSettings {
 
 /** One person's week from their own published shifts and timesheets; no coworker row is read. */
 export function earningsOf(staffId:string,week:string,tz:string,shifts:any[],timesheets:any[],rateCents:number|null,settings:EarnSettings,state?:State) {
- const holiday=(start:string,end:string)=>state&&settings.estimates?holidayEstimate(state,staffId,start,end,new Date().toISOString()):{minutes:0,nonWorkMinutes:0,costCents:0}
+ const holiday=(start:string,end:string)=>state&&settings.estimates?holidayEstimate(state,staffId,start,end,new Date().toISOString()):{minutes:0,nonWorkMinutes:0,costCents:0,workedCostCents:0,nonWorkCostCents:0}
  const group=state?groupOn(state,staffId,week):undefined
  if(group&&state){
   const range=payRange(group,week),inside=(d:string)=>range.start<=d&&d<=range.end

@@ -63,5 +63,6 @@ export function scheduledHolidayCost(s:State,t:Row) {
 export function holidayEstimate(s:State,staffId:string,start:string,end:string,now:string) {
  const facts=s.timesheets.filter(t=>t.staffId===staffId&&t.status==='approved').flatMap(t=>workedHoliday(s,t,now)).filter((f:any)=>f.eligible&&!f.pending&&f.date>=start&&f.date<=end)
  const paid=s.holidaypay.filter(r=>r.staffId===staffId&&r.date>=start&&r.date<=end)
- return {minutes:facts.reduce((n:number,f:any)=>n+f.minutes,0),nonWorkMinutes:paid.reduce((n,r)=>n+r.minutes,0),costCents:[...facts,...paid].some(f=>f.costCents===null)?null:[...facts,...paid].reduce((n,f)=>n+f.costCents,0)}
+ const workedCostCents=facts.some((f:any)=>f.costCents===null)?null:facts.reduce((n:number,f:any)=>n+f.costCents,0),nonWorkCostCents=paid.some(r=>r.costCents===null)?null:paid.reduce((n,r)=>n+r.costCents,0)
+ return {workedCostCents,nonWorkCostCents,minutes:facts.reduce((n:number,f:any)=>n+f.minutes,0),nonWorkMinutes:paid.reduce((n,r)=>n+r.minutes,0),costCents:[...facts,...paid].some(f=>f.costCents===null)?null:[...facts,...paid].reduce((n,f)=>n+f.costCents,0)}
 }

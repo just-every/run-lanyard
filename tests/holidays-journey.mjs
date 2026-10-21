@@ -16,11 +16,11 @@ export async function holidayBrowser() {
    const submit=async(form,command,button)=>{await Promise.all([page.waitForResponse(r=>r.url().includes(`name=${command}`)),form.getByRole('button',{name:button,exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0)}
    await as(h.owner);await page.goto(h.origin+'/app/payroll',{waitUntil:'networkidle'})
    const card=page.locator('#holidays');await card.getByText('Holiday calendar',{exact:true}).click();await card.getByText('Add a company holiday',{exact:true}).click()
-   const company=card.locator('form').filter({has:page.getByLabel('Holiday name',{exact:true})}).filter({has:page.locator('[name=date][value=""]')})
+   const company=card.locator('form[action*="name=holiday.save"]').last()
    await company.getByLabel('Cafe',{exact:true}).fill('Ocean Beach');await company.getByLabel('Holiday date',{exact:true}).fill('2025-12-15');await company.getByLabel('Holiday name',{exact:true}).fill('Winter staff day');await submit(company,'holiday.save','Save holiday')
    await card.getByText('Holiday calendar',{exact:true}).click();assert.ok((await card.innerText()).includes('Winter staff day'))
    await card.getByText('Holiday pay rules',{exact:true}).click();await card.getByText('Add a holiday pay rule',{exact:true}).click()
-   const rule=card.locator('form').filter({has:page.locator('[name=from][value=""]')})
+   const rule=card.locator('form[action*="name=holidayrule.save"]').last()
    await rule.getByLabel('Cafe',{exact:true}).fill('Ocean Beach');await rule.getByLabel('Effective from').fill('2026-01-01');await rule.getByLabel('Worked holiday premium',{exact:true}).selectOption('added');await rule.getByLabel('Value: raw multiplier (at least 1) or added cents/hour (at least 0)').fill('250');await rule.getByLabel('Paid non-work minutes').fill('480');await rule.getByLabel('Holiday payroll code').fill('HOL-2026');await submit(rule,'holidayrule.save','Save holiday rule')
    await card.getByText('Holiday pay rules',{exact:true}).click();assert.ok((await card.innerText()).includes('$2.50/hour added'));await card.scrollIntoViewIfNeeded();await shot('holiday-setup')
    await card.getByText('Eligibility · 2025-11-27',{exact:true}).click()
