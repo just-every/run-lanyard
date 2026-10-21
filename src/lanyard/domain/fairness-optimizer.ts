@@ -8,6 +8,7 @@ import {localDate} from './settings'
 import {rateBasis} from './workforce'
 import {scheduledHolidayCost} from './holidays'
 import {explainAlternatives} from './tradeoff'
+import {scheduledOvertime} from './tradeoff-overtime'
 
 const positionOf=(s:State,x:Row)=>s.jobs.find(j=>j.id===x.job)?.name??s.staff.find(p=>p.id===x.staffId)?.position??''
 const input=(x:Row)=>({staffId:x.staffId,start:x.start,end:x.end,breakMinutes:x.breakMinutes,label:x.label??'',site:x.site??'',job:x.job??''})
@@ -51,7 +52,9 @@ export async function compareFairness(s:State,a:Actor,week:string,site:string,we
   const priced=cost(s,rows)
   return {priority,moves,shifts:rows.map(input),assignments:rows.map(x=>({slotId:x.id,staffId:x.staffId})),measures:report(rows),cost:priced,coverage:coverage(rows),conflicts:[]}
  }
- const low=optimize(source,'low'),lowRows=source.map((x,i)=>({...x,staffId:low.assignments[i].staffId})),high=optimize(lowRows,'high')
+ const lowBase=optimize(source,'low'),lowRows=source.map((x,i)=>({...x,staffId:lowBase.assignments[i].staffId})),highBase=optimize(lowRows,'high')
+ const highRows=source.map((x,i)=>({...x,staffId:highBase.assignments[i].staffId})),targets=[...lowRows,...highRows]
+ const low={...lowBase,scheduledOvertime:scheduledOvertime(s,site,source,lowRows,targets)},high={...highBase,scheduledOvertime:scheduledOvertime(s,site,source,highRows,targets)}
  const result={week,site,weeks,source:{id:roster.id,revision:roster.revision,shifts:source.map(x=>({id:x.id,revision:x.revision,...input(x),minutes:x.minutes}))},method:'Local assignment search over all single moves and pair exchanges; a local optimum, not a global optimality certificate',low,high,difference:{costCents:low.cost.costCents===null||high.cost.costCents===null?null:high.cost.costCents-low.cost.costCents,coveredMinutes:high.coverage.minutes-low.coverage.minutes,coveredShifts:high.coverage.shifts-low.coverage.shifts},uncovered:s.openshifts.filter(x=>x.week===week&&x.site===site&&x.status==='open').map(x=>({id:x.id,start:x.start,end:x.end,minutes:x.minutes})),sourceWindow:{first:sourceReport.first,last:sourceReport.last}}
  const explained={...result,explanation:explainAlternatives(result)}
  const reviewed=structuredClone(explained)
