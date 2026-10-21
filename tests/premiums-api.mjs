@@ -32,6 +32,8 @@ export async function premiumApi(h) {
  assert.equal(lines.reduce((n,l)=>n+l.costCents,0),14300)
  assert.equal(lines.filter(l=>l.rootId===at.rootId).reduce((n,l)=>n+l.minutes,0),180)
  assert.ok(lines.every(l=>l.ruleRevision&&l.ruleId))
+ const reduced=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agent.token}`})
+ for(const b of reduced.value.batches)for(const l of b.lines.filter(l=>l.premiumLine))for(const k of ['rateBasis','rateCents','unitCents','costCents','trace'])assert.equal(l[k],undefined,'agent premium lines exclude wage inputs')
  const sent=await h.cmd('payroll.export',pin(batch))
  const file=(await h.send(`/api/lanyard/batches/${sent.id}.csv`,undefined,h.owner)).text
  assert.equal(file,sent.csv);assert.ok(file.includes('CA-REPORT')&&file.includes('CA-SPLIT')&&file.includes('NY-SPREAD')&&file.includes('NY-CALL'))
@@ -39,11 +41,13 @@ export async function premiumApi(h) {
  // Changing a future employer rule/rate does not rewrite retained decisions.
  await h.cmd('premiumrule.save',{site:'California',from:'2026-01-01',preset:'CA',minimumCents:1800})
  assert.deepEqual((await h.state()).premiuminputs.find(r=>r.id===approved.id).allocations,approved.allocations)
+ const profile=f.profiles[0]
+ await h.cmd('workforce.save',{...pin(profile),staffId:alex.id,jobs:profile.jobs,skills:profile.skills,certifications:profile.certifications,sites:profile.sites,preferences:profile.preferences,minHours:profile.minHours,maxHours:profile.maxHours,classification:profile.classification,rates:profile.rates.map(r=>({...r,cents:9900}))})
  // Correction carries the same area plan and retained rule. Re-review is mandatory.
  const corrected=await f.enter({...f.a,end:local('2025-11-17','11:00')},{corrects:at.id})
  await h.cmd('payroll.prepare',{},h.owner,409)
  const correction=await f.approve(await f.prepare(corrected,'reporting',{shiftId:f.shiftOf(alex).id}))
- assert.equal(correction.rule.id,approved.rule.id)
+ assert.equal(correction.rule.id,approved.rule.id);assert.deepEqual(correction.facts.pieces.map(p=>p.rateCents),[2000,2400])
  assert.deepEqual(correction.allocations.map(a=>[a.area,a.minutes]),[['Counter',30],['Kitchen',90]])
  const adjustment=await h.cmd('payroll.prepare',{}),delta=adjustment.lines.filter(l=>l.premiumLine)
  assert.equal(delta.reduce((n,l)=>n+l.minutes,0),-60);assert.equal(delta.reduce((n,l)=>n+l.costCents,0),-2000)
@@ -74,6 +78,8 @@ export async function premiumApi(h) {
  const priorDay=await f.approve(await f.prepare(moved,'split',{reviewDate:'2025-11-21',employerSplit:true}));assert.equal(priorDay.costCents,0)
  const movedDay=await f.approve(await f.prepare(moved,'split',{employerSplit:true}));assert.equal(movedDay.costCents,0)
  const reversal=await h.cmd('payroll.prepare',{});assert.equal(reversal.lines.filter(l=>l.premiumLine).reduce((n,l)=>n+l.costCents,0),-1350);await h.cmd('payroll.export',pin(reversal));await h.cmd('payroll.prepare',{},h.owner,409)
+ await h.cmd('earnings.save',{estimates:false,statementUrl:'',payDays:''})
+ const hidden=await h.state(alex.cookie);for(const r of hidden.premiuminputs)for(const k of ['costCents','rule','allocations','facts','sourceDigest'])assert.equal(r[k],undefined,'disabled estimates withhold own premium wage inputs')
  const custom=await h.cmd('premiumrule.save',{site:'Employer cafe',from:'2025-01-01',preset:'employer',minimumCents:2000,reportingGuaranteeMinutes:120,splitMinutes:60,spreadMinutes:30,spreadThresholdMinutes:600})
  assert.equal(custom.preset,'employer')
 }
