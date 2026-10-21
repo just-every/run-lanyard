@@ -50,7 +50,11 @@ export async function comparisonScopeApi(h) {
  const csv='staff_id,name,email,payroll_id\nsynthetic-scope-import,Synthetic import,scope-import@venue.example,SYNTHETIC-IMPORT\n'
  const preview=await h.cmd('import.preview',{csv});await h.cmd('import.apply',{csv,fingerprint:preview.fingerprint})
  await read(h,f,plain,404)
- const key=await h.cmd('agent.create',grant),native=await f.read(),before=await h.state()
+ const creation={...grant,requestId:'synthetic-comparison-creation'}
+ const key=await h.cmd('agent.create',creation),repeat=await h.cmd('agent.create',creation)
+ assert.equal(repeat.id,key.id);assert.ok(!('token' in repeat),'A repeated creation never returns a credential again')
+ await h.cmd('agent.create',{...creation,label:'Changed grant'},h.owner,409)
+ const native=await f.read(),before=await h.state()
  const r=await read(h,f,key),v=r.value
  assert.equal(v.status,'known');privateFieldsAbsent(v,[f.alex,f.ben,f.manager,f.foreign])
  for(const priority of ['low','high']){fairnessEquals(v[priority],native[priority]);moneyEquals(v[priority].cost.total,native[priority].cost.costCents,1);moneyEquals(v[priority].scheduledOvertime.premium,native[priority].scheduledOvertime.premiumCents,0)}
@@ -158,6 +162,7 @@ export async function comparisonScopeBrowser() {
    await read(h,f,{token})
    await page.reload({waitUntil:'networkidle'})
    assert.equal(await page.locator('.credential').count(),0,'Reload never redisplays the credential')
+   assert.equal((await h.state()).agentKeys.length,1,'Reload cannot create a duplicate grant')
    assert.ok((await page.locator('body').innerText()).includes(`Scoped browser planner · Ocean Beach · week ${f.week}`))
    await shot('comparison-grant-activity')
    await page.getByRole('button',{name:'Revoke',exact:true}).click();await page.waitForLoadState('networkidle');await read(h,f,{token},401)

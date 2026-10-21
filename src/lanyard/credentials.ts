@@ -38,9 +38,20 @@ export async function credentialCommand(request: Request, env: Bindings, who: Ac
       const known = (await env.DB.prepare('SELECT DISTINCT site FROM l_staff WHERE erased_at IS NULL').all<any>()).results.map(p => p.site)
       if (cafes.some(v => !known.includes(v))) fail('Choose existing named cafes')
     } else if (cafes.length || input.comparisonConsent) fail('Cafe limits and consent require comparison.read')
+    const requestId = input.requestId === undefined ? null : String(input.requestId)
+    if (requestId !== null && !/^[A-Za-z0-9-]{8,80}$/.test(requestId)) fail('Invalid credential creation request')
+    const digest = await hash(JSON.stringify({label,scopes,cafes,comparisonConsent:input.comparisonConsent===true}))
+    if (requestId) {
+      const previous = await env.DB.prepare('SELECT id,expires_at,create_digest FROM l_agent_keys WHERE owner_id=? AND create_request_id=?').bind(who.id,requestId).first<any>()
+      if (previous) {
+        if (previous.create_digest !== digest) fail('Credential creation request already used for different input',409)
+        // The clear credential is never stored or returned again on a POST reload.
+        return {id:previous.id,expiresAt:previous.expires_at,scopes,cafes}
+      }
+    }
     const id = crypto.randomUUID(), token = 'lanyard_' + crypto.randomUUID() + crypto.randomUUID(), at = Date.now()
-    const created = await env.DB.prepare(`INSERT INTO l_agent_keys(id,owner_id,owner_version,label,token_hash,created_at,expires_at,scopes_json,cafes_json)
-      SELECT ?,id,version,?,?,?,?,?,? FROM oa_operators WHERE id=? AND role='owner' AND status='active' AND version=?`).bind(id, label, await hash(token), at, at + 30 * 86400_000, JSON.stringify(scopes), JSON.stringify(cafes), who.id, who.ownerVersion).run()
+    const created = await env.DB.prepare(`INSERT INTO l_agent_keys(id,owner_id,owner_version,label,token_hash,created_at,expires_at,scopes_json,cafes_json,create_request_id,create_digest)
+      SELECT ?,id,version,?,?,?,?,?,?,?,? FROM oa_operators WHERE id=? AND role='owner' AND status='active' AND version=? ON CONFLICT(owner_id,create_request_id) DO NOTHING`).bind(id, label, await hash(token), at, at + 30 * 86400_000, JSON.stringify(scopes), JSON.stringify(cafes), requestId, digest, who.id, who.ownerVersion).run()
     if (created.meta.changes !== 1) fail('Owner authority changed; sign in again', 409)
     return { id, token, expiresAt: at + 30 * 86400_000, scopes, cafes }
   }
