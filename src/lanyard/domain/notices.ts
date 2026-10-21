@@ -41,7 +41,7 @@ export async function reconcileNotices(c:Context,owner:Actor) {
   }
   for(const recipient of people)await add(recipient,x.due)
   // One escalation per item, irrespective of how many cafe managers received it.
-  if(rule?.escalationMinutes!==null&&rule?.escalationMinutes!==undefined&&(x.employee||higher)&&owner.staffId!==x.staffId)
+  if(rule?.escalationMinutes!==null&&rule?.escalationMinutes!==undefined&&(x.employee||higher)&&(!x.staffId||owner.staffId!==x.staffId))
    await add(owner.id,new Date(Date.parse(x.due)+rule.escalationMinutes*60000).toISOString(),true)
  }
  for(const r of c.s.notices)if(r.status!=='withdrawn'&&!desired.has(r.id))put(c,'notices',{...r,status:'withdrawn',withdrawnAt:c.now,withdrawalReason:withdrawal(c.s,r,c.now)},r)
@@ -52,7 +52,7 @@ export async function reconcileNotices(c:Context,owner:Actor) {
   if(old&&old.status===status&&Object.entries(x).every(([k,v])=>canonical(old[k])===canonical(v)))continue
   const r={...x,id,revision:(old?.revision??0)+1,status,createdAt:old?.createdAt??c.now,...(status==='active'?{shownAt:old?.shownAt??c.now}:{})} as Row
   if(old)c.s.notices=c.s.notices.map(v=>v.id===id?r:v);else c.s.notices.push(r)
-  if(x.escalation&&status==='active')c.sql.push(c.db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),owner.id,'owner','notice.escalate',id,c.now))
+  if(x.escalation&&status==='active'&&old?.status!=='active')c.sql.push(c.db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),owner.id,'owner','notice.escalate',id,c.now))
  }
 }
 export function noticesFor(s:State,a:Actor,now:string) {
