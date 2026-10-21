@@ -68,4 +68,4 @@ export function freezeRates(c:Context,id:string){for(const x of [...c.s.shifts,.
 export function withoutRates(row:Row){return hideRates(row) as Row}
 
 /** Public mutation answers follow the same wage exclusion as snapshots. */
-export function hideRates(v:any):any {if(Array.isArray(v))return v.map(hideRates);if(v&&typeof v==='object')return Object.fromEntries(Object.entries(v).filter(([k])=>k!=='rateBasis').map(([k,x])=>[k,hideRates(x)]));return v}
+export function hideRates(v:any):any {if(Array.isArray(v))return v.map(hideRates);if(v&&typeof v==='object')return Object.fromEntries(Object.entries(v).filter(([k])=>!['rateBasis','holidayBasis','unitCents','rateCents','costCents','basis','digest'].includes(k)).map(([k,x])=>[k,hideRates(x)]));return v}

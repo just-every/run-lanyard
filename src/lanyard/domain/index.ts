@@ -149,7 +149,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.holidays=agent?[]:s.holidays.filter(r=>a.role==='owner'||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??''))
  result.holidayrules=agent?[]:s.holidayrules.filter(r=>a.role==='owner'||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??''))
  result.holidaypay=agent?[]:s.holidaypay.filter(r=>r.staffId===a.staffId||manages&&mayReadPerson(s,a,r.staffId))
- if(!manages&&!earnSettings(s.earnings).estimates)result.holidaypay=[]
+ if(!manages&&!earnSettings(s.earnings).estimates)result.holidaypay=result.holidaypay.map(hideRates)
  result.holidayReviews=manages?holidayReviews(s,new Date().toISOString()).filter(r=>r&&mayReadPerson(s,a,r.staffId)):[]
  result.payOvertime=manages?await overtimeInputs({a,s,db,now:new Date().toISOString(),sql:[],entity:''}):[]
  result.clockissues=issuesFor(s,a)

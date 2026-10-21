@@ -51,6 +51,7 @@ export async function holidayApi(h) {
  const staff=await h.state(alex.cookie);assert.ok(staff.holidayReviews.length===0);assert.ok(staff.holidaypay.every(r=>r.staffId===alex.id))
  const agent=await h.cmd('agent.create',{label:'Holiday preparation'}),context=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agent.token}`})
  for(const k of ['holidays','holidayrules','holidaypay','holidayReviews'])assert.deepEqual(context.value[k],[])
+ for(const b of context.value.batches)for(const l of b.lines)for(const k of ['costCents','unitCents','rateCents','basis','digest','holidayBasis'])assert.equal(l[k],undefined,'agent payroll context excludes holiday wage inputs')
  await h.cmd('holiday.seed',{site:'Ocean Beach',year:2025},alex.cookie,403)
  await h.cmd('holidayrule.save',{site:'Ocean Beach'},manager.cookie,403)
  // Schedule review and visible week cost include a fresh added-rate holiday rule.
