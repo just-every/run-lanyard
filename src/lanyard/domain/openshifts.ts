@@ -61,7 +61,9 @@ export function openShifts(c:Context,name:string,p:Record<string,any>) {
   need(APPROVAL.includes(p.approval),'Choose approved pickup or manager approval');scoped(c,text(p.site,'site',80,true))
   const pool=p.pool===undefined||p.pool===''?null:(Array.isArray(p.pool)?p.pool:[p.pool]).map((id:unknown)=>staff(c,id).id)
   need(!pool||pool.length>0&&pool.length<=200,'Choose 1–200 people for the pool')
-  const row={job:text(p.job,'job',80,true),week:weekOf(c.s,w.start),rosterId:null,site:text(p.site,'site',80,true),position:text(p.position,'position',80,true),...w,label:text(p.label,'label',120,true),pool,approval:p.approval,...order(c,p),status:'open',postedBy:c.a.id,postedAt:c.now}
+  // Keep the offer delay separate from the payable duration used by fit and assignment.
+  const {minutes:tierMinutes,...offerOrder}=order(c,p)
+  const row={job:text(p.job,'job',80,true),week:weekOf(c.s,w.start),rosterId:null,site:text(p.site,'site',80,true),position:text(p.position,'position',80,true),...w,label:text(p.label,'label',120,true),pool,approval:p.approval,...offerOrder,...(tierMinutes===undefined?{}:{tierMinutes}),status:'open',postedBy:c.a.id,postedAt:c.now}
   return put(c,'openshifts',{...row,...offerLog(c.s,row,c.now)})
  }
  if(name==='openshift.request') {

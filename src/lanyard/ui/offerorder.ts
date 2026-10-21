@@ -10,7 +10,7 @@ export function orderFields(s:any,r:any={}) {
  const team=rows(s,'staff').filter(p=>p.active)
  return `<label>Offer order<select name="order"><option value="all">Everyone eligible at once</option><option value="tiers"${r.order==='tiers'?' selected':''}>Timed tiers by priority</option></select></label><label>Priority (tiers)<select name="rule">${Object.entries(RULE).map(([k,v])=>`<option value="${k}"${r.rule===k?' selected':''}>${h(v[0].toUpperCase()+v.slice(1))}</option>`).join('')}</select></label>${field('size','People per tier',r.size??3,'number','min="1" max="50"')}${field('minutes','Minutes per tier',r.minutes??30,'number','min="1" max="1440"')}<label>Custom ranking (in order)<select name="ranking" multiple>${team.map(p=>`<option value="${h(p.id)}"${(r.ranking??[]).includes(p.id)?' selected':''}>${h(p.name)}</option>`).join('')}</select></label>`
 }
-export const orderLabel=(r:any)=>r?.order==='tiers'?`tiers of ${r.size} every ${r.minutes} min, ${RULE[r.rule]}`:'everyone eligible at once'
+export const orderLabel=(r:any)=>r?.order==='tiers'?`tiers of ${r.size} every ${r.tierMinutes??r.minutes} min, ${RULE[r.rule]}`:'everyone eligible at once'
 /** The offer log: each tier, when it opened, and each person's answer. */
 export function offerLog(s:any,o:any,tz:string) {
  if(!o.tiers)return ''

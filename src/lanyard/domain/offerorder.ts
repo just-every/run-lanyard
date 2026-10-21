@@ -39,10 +39,11 @@ export function order(c:Context,p:Record<string,any>) {
  need(p.rule!=='custom'||ranking.length>0,'List people in order for a custom ranking')
  return {order:'tiers',rule:p.rule,size:integer(num(p.size),'people per tier',1,50),minutes:integer(num(p.minutes),'minutes per tier',1,1440),ranking}
 }
+// Cafe replacement rules retain their existing minutes field; open shifts use tierMinutes.
 /** The offer log's tiers for the ranked people: tier k opens `k × minutes` after `at`; everyone else eligible after the last. */
 export function tiers(s:State,o:Record<string,any>,list:Ranked[],shift:Row,at:string):{tiers:Tier[];everyoneAt:string} {
  if(o.order!=='tiers')return {tiers:[{staffIds:list.map(f=>f.staffId),opensAt:at}],everyoneAt:at}
- const ids=rank(s,list,shift,o.rule,o.ranking).map(f=>f.staffId),out:Tier[]=[],step=o.minutes*60000
+ const ids=rank(s,list,shift,o.rule,o.ranking).map(f=>f.staffId),out:Tier[]=[],step=(o.tierMinutes??o.minutes)*60000
  for(let i=0;i*o.size<ids.length;i++)out.push({staffIds:ids.slice(i*o.size,(i+1)*o.size),opensAt:new Date(Date.parse(at)+i*step).toISOString()})
  return {tiers:out,everyoneAt:new Date(Date.parse(at)+Math.max(out.length,1)*step).toISOString()}
 }

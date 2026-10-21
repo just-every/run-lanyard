@@ -1021,6 +1021,7 @@ test('COVER-004: a two-tier open shift by part-time priority: tier two waits, ti
   // Ana's pattern asks for 30 hours a week: part-time wanting more hours first, then part-time, then type not set, then full-time; tiers of two a minute apart.
   await h.cmd('pattern.save', { staffId: ana.id, from: '2027-09-01', blocks: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `${d} available 06:00-22:00`).join('\n'), preferredHours: 30 }, priya.cookie)
   const o = await h.cmd('openshift.post', { site: 'San Jose', position: 'Barista', ...at('08'), approval: 'manager', order: 'tiers', rule: 'parttime', size: 2, minutes: 1 }, priya.cookie)
+  assert.equal(o.minutes, 450, 'COVER-004: timed tiers retain the payable shift duration')
   assert.deepEqual(o.tiers.map(t => t.staffIds), [[ana.id, ben.id], [cy.id, dee.id]])
   assert.equal(Date.parse(o.tiers[1].opensAt) - Date.parse(o.tiers[0].opensAt), 60000)
   assert.deepEqual((await h.state(cy.cookie)).openshifts, [])
@@ -1056,6 +1057,8 @@ test('COVER-004: a two-tier open shift by part-time priority: tier two waits, ti
   const ask = await h.cmd('openshift.request', { id: open.id, revision: open.revision }, cy.cookie)
   const filled = await h.cmd('openshift.approve', { id: ask.id, revision: ask.revision }, priya.cookie)
   assert.equal(filled.shift.staffId, cy.id)
+  assert.equal(ask.after, 450, 'COVER-004: pickup weekly hours use the shift duration')
+  assert.equal(filled.shift.minutes, 450, 'COVER-004: approval preserves payable minutes')
   const all = await h.state(priya.cookie), log = all.openshifts.find(x => x.id === o.id)
   assert.deepEqual(all.pickups.filter(x => x.openShiftId === o.id).map(x => [x.staffId, x.status]).sort(), [[ana.id, 'declined'], [cy.id, 'approved']].sort())
   assert.ok(no.declinedAt < log.tiers[1].opensAt && log.tiers[1].opensAt <= ask.requestedAt)
