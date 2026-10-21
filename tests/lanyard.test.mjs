@@ -1875,3 +1875,6 @@ test('AVAIL-001: staff saving and managers approving a lower weekly maximum see 
 
 test('SCHEDULE-006: repeated approved swaps retain every assignment, decision reason and acknowledgment for original and later assignees in history and CSV',()=>run(async h=>{const {repeatedHistoryApi}=await import('./schedule-history-journey.mjs');await repeatedHistoryApi(h)}))
 test('SCHEDULE-006: managers and original assignees read both swaps and all acknowledgments at 1440 and 390',async()=>{const {repeatedHistoryBrowser}=await import('./schedule-history-journey.mjs');await repeatedHistoryBrowser()})
+
+test('TIME-009: policy meals, waiver thresholds, full paid-rest counts and unknown manual breaks reconcile beside automatic deductions through native HTTP',()=>run(async h=>{const {breakReviewApi}=await import('./break-review-journey.mjs');await breakReviewApi(h)}))
+test('TIME-009: managers compare taken and required meals and paid rests and filter exceptions at 1440 and 390',async()=>{const {breakReviewBrowser}=await import('./break-review-journey.mjs');await breakReviewBrowser()})

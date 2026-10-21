@@ -9,7 +9,8 @@ export function reviewNote(r:any,tz:string) {
  const v=r.review;if(!v)return ''
  const parts=[v.scheduled?`Scheduled ${span(v.scheduled.start,v.scheduled.end,tz)}`:'Unscheduled',`captured ${span(v.captured.start,v.captured.end,tz)}`,`payable ${span(v.payable.start,v.payable.end,tz)}`]
  if(v.variance)parts.push(`start ${signed(v.variance.start)}, end ${signed(v.variance.end)}, ${signed(v.variance.minutes)} vs schedule`)
- parts.push(`meal ${v.breaks.taken} of ${v.breaks.required} min`)
+ parts.push(`meal ${v.breaks.taken} of ${v.breaks.required} min${v.breaks.waived?' (policy meal waived)':''}`)
+ if(v.breaks.rest){const r=v.breaks.rest;parts.push(`paid rest ${r.taken===null?'not recorded':r.taken+' min'} of ${r.required} min; ${r.count===null?'unknown':r.count} of ${r.requiredCount} full breaks`)}
  if(v.roundingMinutes)parts.push(`rounding ${signed(v.roundingMinutes)}`)
  parts.push([v.job,v.site].filter(Boolean).join(' at ')||'No position')
  if(v.costCents!==null)parts.push(`cost ${money(v.costCents)}`)
