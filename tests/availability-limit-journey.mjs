@@ -23,7 +23,7 @@ export async function availabilityLimitBrowser() {
    const url=h.origin+'/app/schedule?week='+week
    const submit=async(button,name)=>{const [r]=await Promise.all([page.waitForResponse(r=>r.url().includes('name='+name)),button.click()]);assert.equal(r.status(),200);assert.ok(!(await r.text()).includes('class="notice error"'));await page.waitForLoadState('networkidle')}
    await as(alex.cookie);await page.goto(url,{waitUntil:'networkidle'})
-   const form=page.locator('form[action*="pattern.save"]');await form.locator('..').locator('summary').click()
+   const form=page.locator('form[action*="pattern.save"]');await page.locator('summary').filter({hasText:/^Set a weekly pattern$/}).click()
    await form.getByLabel('Starts on',{exact:true}).fill(week);await form.getByLabel('Ends on (optional)').fill(days(week,6));await form.getByLabel('Most hours a week').fill('14');await form.getByLabel('Weekly blocks, one per line').fill(blocks)
    await submit(form.getByRole('button',{name:'Save pattern',exact:true}),'pattern.save')
    const collision=page.locator('[role=status]').filter({hasText:'This pattern collides with published shifts:'})
