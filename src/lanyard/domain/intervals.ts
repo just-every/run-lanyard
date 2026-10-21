@@ -12,6 +12,7 @@ import {instantAt,localDate} from './settings'
 import {siteOf} from './team'
 import {salesSite} from './sales'
 import {openPieces} from './transfers'
+import {savedVersions} from './demand'
 
 const clockTime=(v:unknown,label:string)=>{const t=text(v,label,5);need(/^([01]\d|2[0-3]):[0-5]\d$/.test(t)||t==='24:00',`Invalid ${label}: use HH:MM`);return t}
 export function dayparts(c:Context,name:string,p:Record<string,any>) {
@@ -26,6 +27,11 @@ export function dayparts(c:Context,name:string,p:Record<string,any>) {
  need(!c.s.dayparts.some(r=>r!==old&&!r.removed&&r.site===site&&r.start<end&&start<r.end),'Dayparts at a cafe cannot overlap',409)
  return put(c,'dayparts',{site,name:label,start,end,targetPercent:Math.round(target*10)/10,removed:false,savedBy:c.a.id,savedAt:c.now},old)
 }
+/** DEMAND-001: the saved forecast's hour, split evenly across a shorter interval; required hours are withheld while the forecast is incomplete. */
+function forecastShare(plan:Row,hour:number,size:number) {
+ const x=plan.hours[hour],share=size/60,minutes=x.roles?x.roles.reduce((n:number,r:any)=>n+r.requiredMinutes,0):null
+ return {version:plan.version,status:plan.status,salesCents:x.salesCents===null?null:Math.round(x.salesCents*share),requiredMinutes:minutes===null?null:Math.round(minutes*share*100)/100,basis:size<60?'hourly forecast split evenly':'hourly forecast'}
+}
 const live=(t:Row)=>['submitted','approved','returned'].includes(t.status)
 const at=(v:string)=>Date.parse(v)
 export function intervalReport(s:State,site:string,date:string,size:number,now:string) {
@@ -35,7 +41,7 @@ export function intervalReport(s:State,site:string,date:string,size:number,now:s
  // Job segments count at their own cafe (CLOCK-008 cafe changes included), open punches by their recorded changes.
  const worked=[...s.timesheets.filter(t=>live(t)&&!s.timesheets.some(x=>x.corrects===t.id&&live(x))).flatMap(t=>t.workSegments?.length?t.workSegments.map((p:any)=>({...t,...p})):t),...s.clocks.filter(k=>k.status==='open'&&k.start<now).flatMap(k=>openPieces(s,k,now))].filter(x=>siteOf(s,x)===site)
  const sales=s.sales.filter(r=>r.site===site&&r.date===date&&r.metric==='sales'&&r.hour!==null)
- const parts=s.dayparts.filter(r=>r.site===site&&!r.removed)
+ const parts=s.dayparts.filter(r=>r.site===site&&!r.removed),plan=savedVersions(s,site,date)[0]??null
  const count=(list:Row[],a:number,b:number)=>{
   const out={minutes:0,cents:0,byPosition:{} as Record<string,{minutes:number;cents:number}>}
   for(const x of list){const span=at(x.end)-at(x.start),overlap=Math.min(b,at(x.end))-Math.max(a,at(x.start));if(span<=0||overlap<=0)continue
@@ -52,7 +58,7 @@ export function intervalReport(s:State,site:string,date:string,size:number,now:s
   const hour=sales.filter(r=>r.hour===Number(hh)),cents=hour.length?Math.round(hour.reduce((n,r)=>n+r.value,0)*size/60):null
   const sched=count(scheduled,a,b),act=count(worked,a,b),part=parts.find(d=>d.start<=time&&time<d.end)??null,actual={...act,...ratio(act,cents)}
   return {time,start:new Date(a).toISOString(),end:new Date(b).toISOString(),salesCents:cents,salesBasis:cents===null?null:size<60?'hourly sales split evenly':'hourly sales',incomplete:cents===null,
-   scheduled:{...sched,...ratio(sched,cents)},actual,daypart:part?{name:part.name,targetPercent:part.targetPercent}:null,exceeded:Boolean(part&&actual.laborPercent!==null&&actual.laborPercent>part.targetPercent)}
+   forecast:plan?forecastShare(plan,Number(hh),size):null,scheduled:{...sched,...ratio(sched,cents)},actual,daypart:part?{name:part.name,targetPercent:part.targetPercent}:null,exceeded:Boolean(part&&actual.laborPercent!==null&&actual.laborPercent>part.targetPercent)}
  })
- return {site,date,size,dayparts:parts.map(({id,revision,name,start,end,targetPercent})=>({id,revision,name,start,end,targetPercent})),intervals}
+ return {site,date,size,forecast:plan?{version:plan.version,status:plan.status,reasons:plan.reasons,savedAt:plan.savedAt}:null,dayparts:parts.map(({id,revision,name,start,end,targetPercent})=>({id,revision,name,start,end,targetPercent})),intervals}
 }

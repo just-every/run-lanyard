@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { learningRead, fairnessCompare, fairnessRead, shiftAttachment, tipCreditRead, acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { learningRead, fairnessCompare, fairnessRead, shiftAttachment, tipCreditRead, acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, demandRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -147,6 +147,10 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/intervals' || path === '/app/intervals') {
         const report = await intervalsRead(env.DB, who, url.searchParams.get('site') ?? '', url.searchParams.get('date') ?? '', Number(url.searchParams.get('size') ?? 60))
         return path === '/app/intervals' ? renderApp(await state(env, who), path + url.search, { result: { report } }) : json(report)
+      }
+      if (path === '/api/lanyard/demand' || path === '/app/demand') {
+        const report = await demandRead(env.DB, who, url.searchParams.get('site') ?? '', url.searchParams.get('date') ?? '')
+        return path === '/app/demand' ? renderApp(await state(env, who), path + url.search, { result: { demand: report } }) : json(report)
       }
       const ruled = path.match(/^\/api\/lanyard\/autorules\/([\w-]+)\/preview$/)
       if (ruled) return json(await autoRulePreview(env.DB, who, ruled[1]))

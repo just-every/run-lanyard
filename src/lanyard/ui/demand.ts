@@ -1,0 +1,43 @@
+// DEMAND-001 screen: one cafe day's forecast from entered sales (labelled Manual), its uncertainty,
+// freshness and role demand, saved versions with reasoned hour overrides, the assumptions behind it,
+// and, after the day, forecast against entered sales and scheduled and worked hours.
+import {h,card,form,field,hidden,rows,titleRow,textarea,disclosure,status} from './shared'
+import {day,money,stamp} from './format'
+
+const hrs=(m:number|null)=>m===null?'—':(m/60).toFixed(1)
+const range=(x:any)=>x.salesCents===null?'<em>unknown</em>':`${h(money(x.salesCents))}${x.override?'':x.lowCents===null?'':` <small>${h(money(x.lowCents))}–${h(money(x.highCents))}</small>`}`
+const roles=(x:any)=>x.roles===null?'—':x.roles.length?x.roles.map((r:any)=>`${h(r.position)} ${h(r.headcount.toFixed(1))}`).join(' · '):'—'
+function banner(f:any) {
+ return `<div class="banner"><p><strong>${f.status==='complete'?'Complete forecast':'Incomplete forecast'}</strong> · source ${h(f.source)}${f.inputs.sampleDates.length?` · ${h(f.inputs.sampleDates.length)} prior ${h(day(f.date).split(' ')[0])}${f.inputs.sampleDates.length===1?'':'s'}: ${h(f.inputs.sampleDates.join(', '))}`:''}${f.inputs.lastSalesDate?` · latest sales entered ${h(f.inputs.lastSalesDate)}`:''}</p>${f.reasons.length?`<ul class="conflicts">${f.reasons.map((r:string)=>`<li>${h(r)}</li>`).join('')}</ul>`:''}${f.assumptions.event?`<p class="note">Event: ${h(f.assumptions.event.name)} (${h(f.assumptions.event.upliftPercent>0?'+':'')}${h(f.assumptions.event.upliftPercent)}%)</p>`:''}${f.assumptions.noStaffingAssumptions?'<p class="note">No staffing assumptions saved: role demand is not computed.</p>':''}</div>`
+}
+function live(r:any,back:string) {
+ const f=r.live,shown=f.hours.filter((x:any)=>x.samples||x.override)
+ const table=shown.length?`<table class="list stack"><thead><tr><th>Hour</th><th>Forecast sales (±1 sd)</th><th>Prior days</th><th>Confidence</th><th>Role demand (staff)</th></tr></thead><tbody>${shown.map((x:any)=>`<tr><td data-label="Hour">${h(x.time)}</td><td data-label="Forecast sales">${range(x)}</td><td data-label="Prior days">${h(x.samples)}</td><td data-label="Confidence">${h(x.confidence)}</td><td data-label="Role demand">${roles(x)}</td></tr>`).join('')}</tbody></table>`:'<p class="note">No prior hourly sales on this weekday.</p>'
+ const save=form('demand.save',back,hidden('site',r.site)+hidden('date',r.date)+hidden('digest',f.digest),r.saved?'Save a new forecast version':'Save forecast version','','secondary')
+ return card(`Forecast for ${day(r.date)}`,`${banner(f)}<p class="note">Estimated from hourly sales entered under SALES-001 on the same weekday. A forecast never creates worked hours or changes a published schedule.</p>${table}${save}`,`<p class="card-note">${f.totals.salesCents===null?'':h(money(f.totals.salesCents))+' · '}${f.totals.requiredMinutes===null?'staffing incomplete':h(hrs(f.totals.requiredMinutes))+' forecast hours'}</p>`,'forecast')
+}
+function saved(r:any,back:string) {
+ const v=r.saved;if(!v)return card('Saved forecast','<p class="note">No version saved for this day.</p>',``,'versions')
+ const shown=v.hours.filter((x:any)=>x.salesCents!==null||x.override||x.samples)
+ const line=(x:any)=>`<tr><td data-label="Hour">${h(x.time)}</td><td data-label="Forecast sales">${range(x)}${x.override?` <small>overridden from ${h(x.override.computedCents===null?'unknown':money(x.override.computedCents))}: ${h(x.override.reason)}</small>`:''}</td><td data-label="Role demand">${roles(x)}</td><td data-label="Override">${disclosure('Override',form('demand.override',back,hidden('id',v.id)+hidden('revision',v.revision)+hidden('hour',x.hour)+field('dollars','Sales for the hour ($)','','text','required maxlength="20"')+field('reason','Reason','','text','required maxlength="280"'),'Save override','','secondary'))}</td></tr>`
+ const table=`<table class="list stack"><thead><tr><th>Hour</th><th>Saved forecast sales</th><th>Role demand (staff)</th><th><span class="sr-only">Override</span></th></tr></thead><tbody>${shown.map(line).join('')}</tbody></table>`
+ const note=r.changedSinceSaved?'<p class="note">Entered sales, assumptions or the day have changed since this version; the current forecast above differs.</p>':'<p class="note">Current inputs match this version.</p>'
+ const history=`<ul class="swap-list">${r.versions.map((x:any)=>`<li>Version ${h(x.version)} · ${h(x.kind==='override'?'override':'computed')} · ${status(x.status)} · ${h(stamp(x.savedAt,r.timezone,false))}</li>`).join('')}</ul>`
+ return card(`Saved version ${v.version}`,`${note}${table}${disclosure('Version history',history)}`,`<p class="card-note">${v.totals.requiredMinutes===null?'staffing incomplete':h(hrs(v.totals.requiredMinutes))+' forecast hours'}</p>`,'versions')
+}
+function outcome(r:any) {
+ const o=r.outcome
+ if(o.status!=='compared'&&o.status!=='partial')return card('Forecast against actual',`<p class="note">${h(o.reasons.join('; '))}</p>`,'','outcome')
+ const line=(x:any)=>`<tr><td data-label="Hour">${h(x.time)}</td><td data-label="Forecast">${x.forecastCents===null?'<em>unknown</em>':h(money(x.forecastCents))}${x.overridden?' <small>overridden</small>':''}</td><td data-label="Actual sales">${x.actualCents===null?'<em>not entered</em>':h(money(x.actualCents))}</td><td data-label="Error">${x.errorCents===null?'—':h((x.errorCents<0?'−':'+')+money(Math.abs(x.errorCents)))}</td><td data-label="Forecast hours">${h(hrs(x.requiredMinutes))}</td><td data-label="Scheduled hours">${h(hrs(x.scheduledMinutes))}</td><td data-label="Actual hours">${h(hrs(x.actualMinutes))}</td></tr>`
+ const s=o.summary
+ return card('Forecast against actual',`<p class="note">Version ${h(o.version)}, saved before the service day. Error is actual minus forecast; hours without entered sales stay unknown.</p><table class="list stack"><thead><tr><th>Hour</th><th>Forecast</th><th>Actual sales</th><th>Error</th><th>Forecast hrs</th><th>Scheduled hrs</th><th>Actual hrs</th></tr></thead><tbody>${o.hours.map(line).join('')}</tbody></table>`,`<p class="card-note">${s.meanAbsoluteErrorCents===null?'no observed hours':`mean absolute error ${h(money(s.meanAbsoluteErrorCents))} over ${h(s.observedHours)} hours`}</p>`,'outcome')
+}
+function assumptions(s:any,r:any,back:string) {
+ const rule=rows(s,'demandrules').find(x=>(x.site??'')===r.site)??{historyWeeks:4,minSamples:2,staleDays:3,growthPercent:0,events:[],roles:[]}
+ const inputs=`${hidden('site',r.site)}${rule.revision?hidden('revision',rule.revision):''}<div class="fields">${field('historyWeeks','Weeks of history',rule.historyWeeks,'text','inputmode="numeric"')}${field('minSamples','Minimum prior days per hour',rule.minSamples,'text','inputmode="numeric"')}${field('staleDays','Stale after (days)',rule.staleDays,'text','inputmode="numeric"')}${field('growthPercent','Growth %',rule.growthPercent,'text','inputmode="numeric"')}</div>${textarea('events','Events (date|name|uplift %, one per line)',rule.events.map((e:any)=>`${e.date}|${e.name}|${e.upliftPercent}`).join('\n'),'rows="3" placeholder="2026-11-26|Thanksgiving|40"')}${textarea('roles','Roles (role|sales per labor hour $|minimum staff, one per line)',rule.roles.map((x:any)=>`${x.position}|${(x.salesPerLaborHourCents/100).toFixed(2)}|${x.minStaff}`).join('\n'),'rows="3" placeholder="Barista|120|1"')}`
+ return card('Demand assumptions',`<p class="note">Event days are left out of the history. Role demand is the larger of the role’s minimum and the hour’s forecast sales over its sales per labor hour.</p>${disclosure('Edit assumptions',form('demandrule.save',back,inputs,'Save assumptions','','secondary'))}`,'','assumptions')
+}
+export function demandPage(s:any,r:any,now:number,back:string) {
+ const pick=`<form class="filter" method="get" action="/app/demand">${hidden('site',r.site)}<label>Day<input type="date" name="date" value="${h(r.date)}"></label><button class="button secondary" type="submit">Show</button></form>`
+ return `${titleRow(`Demand forecast · ${r.site||'Your cafe'}`,s,now)}${card(`${r.date}`,pick,`<p class="card-note"><a class="text-link" href="/app/intervals?site=${encodeURIComponent(r.site)}&amp;date=${h(r.date)}&amp;size=60">Labor by interval</a></p>`,'pick')}${live(r,back)}${saved(r,back)}${outcome(r)}${assumptions(s,r,back)}`
+}
