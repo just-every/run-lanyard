@@ -160,7 +160,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  for(const k of kinds)result[k]=s[k]
  result.notices=noticesFor(s,a,new Date().toISOString())
  // DEMAND-001: assumptions and saved forecast versions are read with SALES-001's scope; staff and agents none.
- for(const k of ['demandrules','demandforecasts','learnproposals'] as const)result[k]=manages?s[k].filter(r=>salesSite(s,a,r.site)):[]
+ for(const k of ['forecasts','demandrules','demandforecasts','learnproposals'] as const)result[k]=manages?s[k].filter(r=>salesSite(s,a,r.site)):[]
  result.noticerules=manages?s.noticerules.filter(r=>salesSite(s,a,r.site)):[]
  for(const k of ['fairnesspolicies','fairnesscohorts'] as const)result[k]=manages?s[k].filter(r=>salesSite(s,a,r.site)):[]
  result.fairnessrequests=agent?[]:s.fairnessrequests.filter(r=>r.staffId===a.staffId||manages&&mayReadPerson(s,a,r.staffId))

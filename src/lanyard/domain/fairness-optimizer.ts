@@ -9,6 +9,7 @@ import {rateBasis} from './workforce'
 import {scheduledHolidayCost} from './holidays'
 import {explainAlternatives} from './tradeoff'
 import {scheduledOvertime} from './tradeoff-overtime'
+import {planningBudget,planningDemand} from './planning-inputs'
 
 const positionOf=(s:State,x:Row)=>s.jobs.find(j=>j.id===x.job)?.name??s.staff.find(p=>p.id===x.staffId)?.position??''
 const input=(x:Row)=>({staffId:x.staffId,start:x.start,end:x.end,breakMinutes:x.breakMinutes,label:x.label??'',site:x.site??'',job:x.job??''})
@@ -34,13 +35,14 @@ export async function compareFairness(s:State,a:Actor,week:string,site:string,we
  need(valid(source),'Resolve the source week eligibility, availability or hours conflicts before comparing')
  const report=(rows:Row[])=>preferenceReport(trialState(s,week,source,rows),a,week,site,weeks,{asOf})
  const score=(rows:Row[])=>{const r=report(rows);return {...r.totals,costCents:cost(s,rows).costCents}}
+ const budgetLimit=planningBudget(s,week,site,null).limitCents
  const original=score(source)
  need(original.spread!==null&&original.meanGapMinutes!==null&&original.maxGapMinutes!==null&&original.violations!==null,'Complete the cohort, tag policy and preference inputs before optimizing fairness')
  // Coordinate descent examines every single reassignment and pair exchange.
  // Each accepted move strictly improves its objective; finite assignments ensure termination.
  function optimize(initial:Row[],priority:'low'|'high') {
   let rows=initial.map(x=>({...x})),value=score(rows),moves=0
-  const improves=(n:typeof value,b:typeof value)=>priority==='low'?n.costCents!==null&&b.costCents!==null&&n.costCents<b.costCents:n.spread!==null&&n.meanGapMinutes!==null&&n.maxGapMinutes!==null&&n.violations!==null&&n.spread<=b.spread!&&n.meanGapMinutes<=b.meanGapMinutes!&&n.maxGapMinutes<=b.maxGapMinutes!&&n.violations<=b.violations!&&(n.spread<b.spread!||n.meanGapMinutes<b.meanGapMinutes!||n.maxGapMinutes<b.maxGapMinutes!||n.violations<b.violations!)
+  const improves=(n:typeof value,b:typeof value)=>priority==='high'&&budgetLimit!==null&&(n.costCents===null||n.costCents>budgetLimit)?false:priority==='low'?n.costCents!==null&&b.costCents!==null&&n.costCents<b.costCents:n.spread!==null&&n.meanGapMinutes!==null&&n.maxGapMinutes!==null&&n.violations!==null&&n.spread<=b.spread!&&n.meanGapMinutes<=b.meanGapMinutes!&&n.maxGapMinutes<=b.maxGapMinutes!&&n.violations<=b.violations!&&(n.spread<b.spread!||n.meanGapMinutes<b.meanGapMinutes!||n.maxGapMinutes<b.maxGapMinutes!||n.violations<b.violations!)
   for(;;) {
    let next:Row[]|null=null,best=value
    const consider=(candidate:Row[])=>{if(!valid(candidate))return;const n=score(candidate);if(improves(n,best)){next=candidate;best=n}}
@@ -50,7 +52,7 @@ export async function compareFairness(s:State,a:Actor,week:string,site:string,we
    rows=next;value=best;moves++
   }
   const priced=cost(s,rows)
-  return {priority,moves,shifts:rows.map(input),assignments:rows.map(x=>({slotId:x.id,staffId:x.staffId})),measures:report(rows),cost:priced,coverage:coverage(rows),conflicts:[]}
+  return {priority,moves,shifts:rows.map(input),assignments:rows.map(x=>({slotId:x.id,staffId:x.staffId})),measures:report(rows),cost:priced,budget:planningBudget(s,week,site,priced.costCents),service:planningDemand(s,week,site,rows),coverage:coverage(rows),conflicts:[]}
  }
  const lowBase=optimize(source,'low'),lowRows=source.map((x,i)=>({...x,staffId:lowBase.assignments[i].staffId})),highBase=optimize(lowRows,'high')
  const highRows=source.map((x,i)=>({...x,staffId:highBase.assignments[i].staffId})),targets=[...lowRows,...highRows]
@@ -68,6 +70,8 @@ export async function fairnessPrepare(c:Context,name:string,p:Record<string,any>
  manager(c.a);keys(p,['week','site','weeks','priority','digest']);need(p.priority==='low'||p.priority==='high','Choose low or high fairness priority')
  const comparison=await compareFairness(c.s,c.a,text(p.week,'week',10),text(p.site,'site',80,true),Number(p.weeks??8))
  need(text(p.digest,'review digest',64)===comparison.digest,'Fairness inputs changed; compare and review again',409)
- const chosen=comparison[p.priority as 'low'|'high'],other=c.s.shifts.filter(x=>x.rosterId===comparison.source.id&&x.status==='published'&&(x.site??'')!==comparison.site).map(input)
+ const chosen=comparison[p.priority as 'low'|'high']
+ need(chosen.budget.limitCents===null||chosen.budget.withinBudget===true,'This alternative does not meet the reviewed labor budget; change the budget or service inputs and compare again',409)
+ const other=c.s.shifts.filter(x=>x.rosterId===comparison.source.id&&x.status==='published'&&(x.site??'')!==comparison.site).map(input)
  return {...draftWeek(c,comparison.week,[...other,...chosen.shifts]),fairnessPriority:p.priority,reviewDigest:comparison.digest}
 }

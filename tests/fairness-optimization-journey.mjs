@@ -4,6 +4,7 @@ import {join} from 'node:path'
 import {chromium} from '@playwright/test'
 import {harness} from './harness.mjs'
 import {optimizationFixture} from './fairness-optimization-fixture.mjs'
+import {planningFixture} from './planning-fixture.mjs'
 import {days,local,pin} from './workforce-journey.mjs'
 export async function fairnessOptimizationApi(h) {
  const f=await optimizationFixture(h),comparison=await f.read(),{low,high}=comparison
@@ -25,6 +26,32 @@ export async function fairnessOptimizationApi(h) {
   assert.equal(alternative.cost.costCents,costs.reduce((n,x)=>n+x,0))
   assert.equal(alternative.coverage.minutes,alternative.coverage.slots.reduce((n,x)=>n+x.minutes,0))
  }
+ // Saved role demand exposes a real shortage; absent forecast days stay unknown, never zero.
+ const planning=await planningFixture(h,f),measured=await f.read()
+ for(const a of [measured.low,measured.high]){
+  assert.equal(a.service.status,'unknown');assert.equal(a.service.unknown.length,6)
+  assert.equal(a.service.uncoveredMinutes,null)
+  assert.deepEqual(a.service.intervals.map(x=>[x.hour,x.requiredMinutes,x.scheduledMinutes,x.uncoveredMinutes]),[[8,120,60,60],[18,120,60,60]])
+  assert.deepEqual(a.service.observed,{requiredMinutes:240,scheduledMinutes:120,uncoveredMinutes:120})
+  assert.equal(a.service.versions[0].id,planning.version.id)
+  assert.equal(a.budget.limitCents,30000);assert.equal(a.budget.varianceCents,a.cost.costCents-30000);assert.equal(a.budget.withinBudget,true)
+ }
+ assert.deepEqual(measured.explanation.serviceRisk.low,measured.low.service)
+ // A selected budget is a hard bound on fairness moves, and an infeasible budget refuses preparation.
+ await h.cmd('forecast.save',{week:f.week,site:'Ocean Beach',days:[1000,0,0,0,0,0,0],budgetPercent:25})
+ const bounded=await f.read();assert.ok(bounded.high.cost.costCents<=25000)
+ await h.cmd('fairness.prepare',{week:f.week,site:'Ocean Beach',weeks:8,priority:'high',digest:measured.digest},h.owner,409)
+ await h.cmd('forecast.save',{week:f.week,site:'Ocean Beach',days:[1000,0,0,0,0,0,0],budgetPercent:1})
+ const impossible=await f.read();assert.equal(impossible.low.budget.withinBudget,false);assert.equal(impossible.high.budget.withinBudget,false)
+ const beforeBudget=await h.state()
+ for(const priority of ['low','high'])await h.cmd('fairness.prepare',{week:f.week,site:'Ocean Beach',weeks:8,priority,digest:impossible.digest},h.owner,409)
+ assert.deepEqual((await h.state()).rosters,beforeBudget.rosters)
+ // A new saved demand version invalidates the reviewed source even when published slots remain fixed.
+ await h.cmd('forecast.save',{week:f.week,site:'Ocean Beach',days:[1000,0,0,0,0,0,0],budgetPercent:''})
+ const reviewedDemand=await f.read()
+ await h.cmd('demand.override',{id:planning.version.id,revision:planning.version.revision,hour:8,dollars:'150',reason:'Employer expects a service rush'},h.owner,200,planning.stamp)
+ await h.cmd('fairness.prepare',{week:f.week,site:'Ocean Beach',weeks:8,priority:'high',digest:reviewedDemand.digest},h.owner,409)
+ assert.equal((await f.read()).low.service.intervals[0].requiredMinutes,180)
  // Reconfirming unchanged eligibility during the window cannot reset the closing rotation.
  await h.cmd('fairness.cohort.save',{site:'Ocean Beach',position:'Counter',from:days(f.first,28),staffIds:[f.alex.id,f.ben.id]})
  const revised=await f.read();assert.deepEqual(revised.low.measures.totals,low.measures.totals);assert.deepEqual(revised.high.measures.totals,high.measures.totals)
@@ -98,11 +125,12 @@ export async function fairnessOptimizationBrowser() {
  try{for(const width of [1440,390]){
   const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
   try{
-   const f=await optimizationFixture(h),page=await context.newPage()
+   const f=await optimizationFixture(h),page=await context.newPage();await planningFixture(h,f)
    await context.route('**/*',async route=>{const p=new URL(route.request().url()).pathname;if(p.startsWith('/fonts/')||p.startsWith('/brand/')||/\.(css|js)$/.test(p))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',p.slice(1))),contentType:p.endsWith('.css')?'text/css':p.endsWith('.js')?'application/javascript':p.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
    const [name,...value]=f.manager.cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
    await page.goto(`${h.origin}/app/schedule?week=${f.week}&site=Ocean%20Beach&fairCompare=1`,{waitUntil:'networkidle'})
    const card=page.locator('#fairness');for(const detail of await card.locator('details').all())await detail.evaluate(x=>x.open=true)
+   for(const text of ['Employer labor budget','Within budget','Saved demand requirements','Observed uncovered staffing: 120','No saved demand forecast'])assert.ok((await card.innerText()).includes(text),text)
    await card.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
    const shot=async key=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.FAIRNESS_SCREENS){await mkdir(process.env.FAIRNESS_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.FAIRNESS_SCREENS,`${key}-${width}.png`)})}}
    await card.locator('summary').filter({hasText:/^Compare fairness priorities$/}).scrollIntoViewIfNeeded();await shot('fairness-comparison')
