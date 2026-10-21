@@ -1,4 +1,5 @@
 import {workweek} from './payschedules'
+import {provisional} from './closerules'
 import {rateBasis} from './workforce'
 // COST-002: in-week overtime risk from actual hours. A person's workweek (Monday to Sunday on the
 // venue clock) is projected as the time recorded before the as-of instant plus their published
@@ -22,7 +23,7 @@ export function project(s:State,staffId:string,week:string,at:string,add:Row[]=[
  let actual=0,scheduled=0
  // Recorded time: live timesheets (a pending correction replaces its source) and open punches up to `at`.
  for(const t of s.timesheets)if(t.staffId===staffId&&live(t)&&t.start<at&&here(t.start)&&!s.timesheets.some(x=>x.corrects===t.id&&live(x))){actual+=t.minutes;count(t.start,t.minutes)}
- for(const k of s.clocks)if(k.staffId===staffId&&k.status==='open'&&k.start<at&&here(k.start)){const m=mins(k.start,at);actual+=m;count(k.start,m)}
+ for(const k of s.clocks)if(k.staffId===staffId&&k.status==='open'&&k.start<at&&here(k.start)){const m=mins(k.start,provisional(s,k,at)?.end??at);actual+=m;count(k.start,m)}
  const punched=new Set(s.clocks.filter(k=>k.start<at&&k.shiftId).map(k=>k.shiftId))
  const remaining=[...s.shifts.filter(x=>x.staffId===staffId&&x.status==='published'&&!skip.includes(x.id)),...add].filter(x=>x.start>=at&&here(x.start)&&!punched.has(x.id)).sort((a,b)=>a.start.localeCompare(b.start))
  for(const x of remaining){scheduled+=x.minutes;count(x.start,x.minutes)}

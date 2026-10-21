@@ -34,6 +34,7 @@ export function transfers(c:Context,name:string,p:Record<string,any>) {
 
 /** An open punch up to `now`, split at its recorded changes; each piece at its own job and cafe. */
 export function openPieces(s:State,k:Row,now:string):Row[] {
+ now=provisional(s,k,now)?.end??now
  const whole=(a:string,b:string)=>Math.max(0,Math.floor((Date.parse(b)-Date.parse(a))/60000))
  if(!k.transfers?.length)return [{...k,end:now,minutes:whole(k.start,now)}]
  const at=[k.start,...k.transfers.map((t:any)=>t.at).filter((v:string)=>v<now),now],who=[startOf(s,k),...k.transfers]

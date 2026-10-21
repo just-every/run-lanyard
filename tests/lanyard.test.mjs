@@ -914,6 +914,16 @@ test('TIME-007: a forgotten 9-to-5 clock-out is reminded at 5:15 and provisional
   assert.deepEqual(mine.provisional, { end: '2026-10-13T00:00:00.000Z', due: '2026-10-13T00:15:00.000Z', scheduled: true })
   const capped = (await h.state(priya.cookie)).clocks.find(k => k.staffId === andrea.id)
   assert.deepEqual(capped.provisional, { end: '2026-10-15T03:00:00.000Z', due: '2026-10-15T03:00:00.000Z', scheduled: false })
+  const overtime = await h.send('/api/lanyard/overtime?week=2026-10-12&asOf=2026-10-18T20:00:00Z', undefined, priya.cookie)
+  assert.equal(overtime.status, 200); assert.deepEqual(overtime.value.alerts, [], 'provisional ends cannot manufacture overtime days later')
+  const actual = async date => {
+    const response = await h.send('/api/lanyard/intervals?date=' + date + '&size=60', undefined, priya.cookie)
+    assert.equal(response.status, 200)
+    return response.value.intervals.reduce((n, x) => n + x.actual.minutes, 0)
+  }
+  assert.equal(await actual('2026-10-12'), 482, 'scheduled provisional labor ends at 5 pm')
+  assert.equal(await actual('2026-10-14'), 720, 'unscheduled labor ends at the 12-hour cap')
+  assert.equal(await actual('2026-10-15'), 0, 'unconfirmed punches add no labor after their provisional end')
   assert.match((await h.send('/app/time', undefined, jess.cookie)).text, /name=time\.confirm/)
   // A late clock-out cannot end it, and nothing is approvable or exportable yet.
   await h.cmd('clock.out', { commandId: 'jess-out', capturedAt: new Date(Date.now() - 1000).toISOString().replace(/\.\d+Z$/, 'Z'), breakMinutes: 0 }, jess.cookie, 409)
@@ -931,6 +941,8 @@ test('TIME-007: a forgotten 9-to-5 clock-out is reminded at 5:15 and provisional
   assert.equal(clock.start, '2026-10-12T15:58:00.000Z'); assert.equal(clock.provisional.due, '2026-10-13T00:15:00.000Z')
   const confirmed = await h.cmd('time.confirm', { id: capped.id, revision: capped.revision, end: capped.provisional.end, breakMinutes: 30 }, priya.cookie)
   assert.deepEqual(confirmed.timesheet.exceptions, ['provisional close'])
+  assert.equal(await actual('2026-10-12'), 512, 'a confirmed correction replaces the provisional count once')
+  assert.equal(await actual('2026-10-14'), 690, 'confirmed meal minutes replace the capped estimate')
   // TIME-008 bulk approval skips both with the exception named; a single approval decides each.
   const bulk = await h.cmd('time.approveMany', { items: [timesheet, confirmed.timesheet].map(t => ({ id: t.id, revision: t.revision })) }, priya.cookie)
   assert.deepEqual(bulk.approved, []); assert.deepEqual(bulk.skipped.map(x => x.reason), ['Exception: provisional close', 'Exception: provisional close'])
@@ -939,6 +951,10 @@ test('TIME-007: a forgotten 9-to-5 clock-out is reminded at 5:15 and provisional
   assert.deepEqual(batch.held, [])
   const exported = await h.cmd('payroll.export', { id: batch.id, revision: batch.revision }, priya.cookie)
   assert.match(exported.csvPreview, /,512,8\.5333,/)
+  const liveStart = new Date(Date.now() - 60 * 60000).toISOString().replace(/\.\d+Z$/, 'Z')
+  await h.cmd('clock.in', { commandId: 'live-before-cap', capturedAt: liveStart }, luis.cookie)
+  const dates = [...new Set([liveStart, new Date().toISOString()].map(at => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(at))))]
+  assert.equal((await Promise.all(dates.map(actual))).reduce((n, m) => n + m, 0), 60, 'before the cap, live labor counts to the reporting instant')
 }))
 
 test('CLOCK-007: a cafe’s web clock accepts punches from its approved IP range or an enrolled browser, records only the network, refuses or flags other networks as configured, and a range change applies on the next punch', () => run(async h => {
@@ -1837,3 +1853,5 @@ test('AUTO-001: owner preview, authorization and next-workweek approval preserve
 
 test('SCHEDULE-002 and COVER-002: position-only templates add to an empty week privately, retain draft slots, publish without assigned shifts and fill once; assigned edits preserve positions and archive superseded draft rows',()=>run(async h=>{const {openTemplateApi}=await import('./open-template-journey.mjs');await openTemplateApi(h)}))
 test('SCHEDULE-002 and COVER-002: a manager saves, applies, reviews and publishes a position-only week, then fills an employee pickup at 1440 and 390',async()=>{const {openTemplateBrowser}=await import('./open-template-journey.mjs');await openTemplateBrowser()})
+
+test('TIME-007: provisional job-segment labor stops at the scheduled end, stays reviewable and is replaced once on confirmation at 1440 and 390',async()=>{const {provisionalLaborBrowser}=await import('./provisional-labor-journey.mjs');await provisionalLaborBrowser()})

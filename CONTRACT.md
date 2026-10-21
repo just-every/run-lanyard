@@ -334,8 +334,8 @@ Judged from the code and tests at commit `a57e389a5167eca4dcc6772a13b23849736c9e
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 15 | 1 | 0 | 16 |
-| Target and push further | 39 | 29 | 42 | 110 |
-| All | 54 | 30 | 42 | 126 |
+| Target and push further | 40 | 28 | 42 | 110 |
+| All | 55 | 29 | 42 | 126 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -401,7 +401,7 @@ Judged from the code and tests at commit `a57e389a5167eca4dcc6772a13b23849736c9e
 | `TIME-004` | Payroll period locks and controlled reopening | target | done | `src/lanyard/domain/periods.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/ui/periods.ts`; `tests/lanyard.test.mjs` |  |
 | `TIME-005` | Punch rounding and snap-to-schedule | target | done | `src/lanyard/domain/rounding.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/rounding.ts`; `src/lanyard/ui/time.ts`; `tests/lanyard.test.mjs` |  |
 | `TIME-006` | Early clock-in window and unscheduled punches | target | done | `src/lanyard/domain/clockrules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/clockrules.ts`; `tests/lanyard.test.mjs` |  |
-| `TIME-007` | Forgotten clock-out reminder cap and provisional close | target | partial | `src/lanyard/domain/closerules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/ui/closerules.ts`; `tests/lanyard.test.mjs` | In-app reminders, provisional marks, confirmation/correction and payroll/bulk-approval holds exist. Provisional punches remain open in stored state, and overtime projection and interval actual labor count them through the reporting instant instead of stopping at their provisional end. |
+| `TIME-007` | Forgotten clock-out reminder cap and provisional close | target | done | `src/lanyard/domain/closerules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/ui/closerules.ts`; `tests/lanyard.test.mjs`; `tests/provisional-labor-journey.mjs` |  |
 | `TIME-008` | Bulk timesheet approval with pinned revisions | target | done | `src/lanyard/domain/approvals.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/approvals.ts`; `tests/lanyard.test.mjs`; `tests/bulk-approval-journey.mjs` |  |
 | `TIME-009` | Timesheet approval review with schedule variance | target | partial | `src/lanyard/domain/review.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/review.ts`; `tests/lanyard.test.mjs` | Scheduled, captured and payable time, variance, network, cost, running totals and reasoned edit/send-back flows exist. Required-break comparison reads only automatic meal deductions; policy-required meals and paid rest requirements from BREAK-001 are absent. |
 | `POLICY-001` | US overtime meal and rest policy rules | target | partial | `src/lanyard/domain/breaks.ts`; `src/lanyard/domain/payschedules.ts`; `src/lanyard/domain/overtime.ts`; `tests/lanyard.test.mjs`; `tests/payschedules-journey.mjs` | Employer-configured meal/rest checks and premium inputs, configurable workweeks and weekly overtime classification/projection exist. Maintained federal/state presets, daily and double overtime, consecutive-day and minimum-rest rules, weighted-rate policy estimates, jurisdiction labels and preset-driven deduction/publication/swap checks remain absent. |
