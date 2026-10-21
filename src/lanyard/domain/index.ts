@@ -51,9 +51,10 @@ import {autoRules,autoApprove,preview as autoPreview} from './autorules'
 import {aca,plansFor,mayReadPerson} from './aca'
 import {acaReports,acaCsv} from './aca-report'
 import {workforce,withoutRates,hideRates} from './workforce'
+import {tipCredit,tipChecks,tipCsv} from './tipcredit'
 export {actor}
 export type {Actor} from './model'
-const commands=['clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge']
+const commands=['clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -106,6 +107,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=await autoRules(c,name,p)
  if(result===undefined)result=aca(c,name,p)
  if(result===undefined)result=workforce(c,name,p)
+ if(result===undefined)result=tipCredit(c,name,p)
  need(result!==undefined,'Unknown command',404)
  if(['roster.publish','shift.change','cover.approve','swap.decide','overtime.substitute','openshift.approve'].includes(name))checkSegmentAssignments(s,before)
  // AUTO-001: an active rule approves the clean punched time this command submitted.
@@ -211,6 +213,9 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  if(!manages)result.autorules=[]
  if(a.role==='owner'){const now=new Date().toISOString();result.autorulePreviews=await Promise.all(s.autorules.filter(r=>r.status!=='revoked').map(r=>autoPreview(s,r,now)))}
  result.dayparts=manages?s.dayparts.filter(r=>!r.removed&&salesSite(s,a,r.site)):[]
+ // TIPS-002: cafe tip-credit setups and the last five workweeks' checks for the owner and managers (rows for people whose wages they may read).
+ result.tipcredits=manages?s.tipcredits:[]
+ {const week=weekOf(s,new Date().toISOString());result.tipChecks=manages?tipChecks(s,a,[0,7,14,21,28].map(n=>new Date(Date.parse(week+'T00:00:00Z')-n*86400000).toISOString().slice(0,10))):[]}
  const scopedRates=(r:any)=>manages&&mayReadPerson(s,a,r.staffId)?r:withoutRates(r)
  result.shifts=result.shifts.map(scopedRates);result.timesheets=result.timesheets.map(scopedRates)
  if(a.role==='manager')result.batches=result.batches.map((b:any)=>({...b,lines:b.lines.map(scopedRates)}))
@@ -310,6 +315,16 @@ export async function acaRead(db:D1Database,identity:Actor,id:string,asOf:string
  const csv=acaCsv(report)
  await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,a.role,'aca.download',id,new Date().toISOString()).run()
  return csv
+}
+
+/** TIPS-002: one workweek's tip-credit checks and make-up pay inputs (JSON, or the CSV whose download is recorded), for the owner and managers of each person's home cafe. */
+export async function tipCreditRead(db:D1Database,identity:Actor,week:string,format:'json'|'csv') {
+ const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
+ need(/^\d{4}-\d{2}-\d{2}$/.test(week)&&weekOf(s,week+'T12:00:00Z')===week,'Choose a week by its Monday (YYYY-MM-DD)')
+ const rows=tipChecks(s,f,[week])
+ if(format==='json')return {week,rows}
+ await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,f.role,'tipcredit.download',week,new Date().toISOString()).run()
+ return tipCsv(rows)
 }
 
 export async function shiftAttachment(db:D1Database,identity:Actor,answerId:string,fileId:string) {

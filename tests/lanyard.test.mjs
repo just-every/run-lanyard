@@ -1766,3 +1766,7 @@ test('SCHEDULE-004: managers publish counter/kitchen handovers, staff complete t
 test('CLOCK-008: a phone job change splits the punch into qualified job segments with retained rates, refuses unqualified jobs and ineligible or off-network cafes, exports split payroll with signed per-job corrections and counts every segment toward weekly overtime through native HTTP',()=>run(async h=>{const {transferApi}=await import('./transfer-journey.mjs');await transferApi(h)}))
 
 test('CLOCK-008: staff change job from the phone clock and managers approve the job segments with rates and pay codes and export split payroll at 1440 and 390',async()=>{const {transferBrowser}=await import('./transfer-journey.mjs');await transferBrowser()})
+
+test('TIPS-002: a tipped server’s low-tip week raises a make-up pay input and the normal week none, side work on a non-tipped job is reported, a new minimum wage checks only later weeks, and tip-credit setups in California and the six other barring states are refused through native HTTP',()=>run(async h=>{const {tipCreditApi}=await import('./tipcredit-journey.mjs');await tipCreditApi(h)}))
+
+test('TIPS-002: the owner is refused a California tip credit, sets one up for a Texas cafe and reads each week’s make-up pay input and non-tipped duty time with the cafe manager at 1440 and 390',async()=>{const {tipCreditBrowser}=await import('./tipcredit-journey.mjs');await tipCreditBrowser()})

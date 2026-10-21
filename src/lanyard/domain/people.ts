@@ -7,7 +7,7 @@ import {requestFlags,overrideOf} from './leaverules'
 import {employment,employmentOf} from './offerorder'
 import {type Context,keys,text,integer,need,manager,self,staff,window,get,exact,put,sha,overlap} from './model'
 /** An hourly rate in dollars ("19.00", 19 or empty) stored as whole cents. */
-function cents(value:unknown):number|null {
+export function cents(value:unknown):number|null {
  if(value===undefined||value===null||value==='')return null
  const raw=typeof value==='number'?String(value):typeof value==='string'?value.trim().replace(/^\$/,''):''
  need(/^\d{1,4}(?:\.\d{1,2})?$/.test(raw),'Invalid hourly rate: use dollars, such as 19.00')

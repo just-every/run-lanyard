@@ -60,6 +60,7 @@ html.rer-themed .lanyard-app dl.command-docs{display:block}
  /* An open correction form takes the whole row under the status. */
  .time-list tr:has(.act details[open]){grid-template-areas:"who who day" "span meal hrs" "src src src" "st st st" "act act act"}
  .clock-list tr{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);grid-template-areas:"who day" "span st"}
+ .tip-checks tr{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"who who"}
  .stack .who{grid-area:who}
  .stack .day{grid-area:day;align-self:center;text-align:right;color:var(--body)}
  .stack .span{grid-area:span}

@@ -5,6 +5,7 @@ import {h,rows,person,manager,owner,form,field,exact,disclosure,card,status,empt
 import {addDays,dateKey,day,hours,mondayOf,span} from './format'
 import {periodsCard} from './periods'
 import {acaCard} from './aca'
+import {tipCreditCard} from './tipcredit'
 
 function batch(s:any,b:any,tz:string,canManage:boolean) {
  const lines=b.lines??[],total=lines.reduce((n:number,l:any)=>n+l.minutes,0)
@@ -33,5 +34,5 @@ export function payroll(s:any,now:number) {
  const choose=eligible.length?form('payroll.prepare','payroll',ledger(s,eligible,tz)+`<input type="hidden" name="ids" value="${h(JSON.stringify(eligible.map(r=>r.id)))}" data-payroll-ids><noscript><p class="note">Without JavaScript the batch takes every row above.</p></noscript>`,'Prepare batch','data-payroll-form','primary'):empty('No approved time is waiting. Approve timesheets in Time, then prepare a batch here.')
  const total=eligible.reduce((n,r)=>n+(r.exportMinutes??r.minutes),0)
  const list=rows(s,'batches')
- return `${titleRow(`Payroll · ${hours(total)} hrs to export`,s,now)}${canManage?card('Prepare payroll',choose,`<p class="card-note">${h(eligible.length)} approved, not exported</p>`):''}${canManage?periodsCard(s,tz)+(owner(s)?autoRulesCard(s):''):''}${list.length?[...list].sort((a,b)=>String(b.preparedAt??'').localeCompare(String(a.preparedAt??''))).map(b=>batch(s,b,tz,canManage)).join(''):card('Batches',empty('No payroll batches yet. Prepare one from approved time.'))}${acaCard(s)}`
+ return `${titleRow(`Payroll · ${hours(total)} hrs to export`,s,now)}${canManage?card('Prepare payroll',choose,`<p class="card-note">${h(eligible.length)} approved, not exported</p>`):''}${canManage?periodsCard(s,tz)+(owner(s)?autoRulesCard(s):''):''}${list.length?[...list].sort((a,b)=>String(b.preparedAt??'').localeCompare(String(a.preparedAt??''))).map(b=>batch(s,b,tz,canManage)).join(''):card('Batches',empty('No payroll batches yet. Prepare one from approved time.'))}${canManage?tipCreditCard(s):''}${acaCard(s)}`
 }

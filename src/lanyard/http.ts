@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { shiftAttachment, acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { shiftAttachment, tipCreditRead, acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -77,6 +77,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   if (params.has('ranking')) input.ranking = params.getAll('ranking')
   if (params.has('mentions')) input.mentions = params.getAll('mentions')
   if (params.has('staffIds')) input.staffIds = params.getAll('staffIds')
+  if (params.has('tippedJobs')) input.tippedJobs = params.getAll('tippedJobs')
   // CONTACT-001: the form's rows of name, relationship and phone; blank rows are dropped.
   if (params.has('contactName')) {
     const names = params.getAll('contactName'), relations = params.getAll('contactRelationship'), phones = params.getAll('contactPhone')
@@ -119,6 +120,9 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         const report=await acaRead(env.DB,who,aca[1],url.searchParams.get('asOf')??new Date().toISOString(),aca[2]?'csv':'json')
         return aca[2]?new Response(report as string,{headers:{...headers,'content-type':'text/csv; charset=utf-8','content-disposition':`attachment; filename="lanyard-aca-${aca[1]}.csv"`}}):json(report)
       }
+      // TIPS-002: a workweek's tip-credit checks, and its make-up pay inputs as a CSV.
+      if (path === '/api/lanyard/tipcredit') return json(await tipCreditRead(env.DB, who, url.searchParams.get('week') ?? '', 'json'))
+      if (path === '/api/lanyard/tipcredit.csv') { const week = url.searchParams.get('week') ?? ''; return new Response(await tipCreditRead(env.DB, who, week, 'csv') as string, { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-tip-credit-${week}.csv"` } }) }
       const file = path.match(/^\/api\/lanyard\/batches\/([\w-]+)\.csv$/)
       if (file) return new Response(await batchCsv(env.DB, who, file[1]), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-${file[1]}.csv"` } })
       if (path === '/api/lanyard/intervals' || path === '/app/intervals') {

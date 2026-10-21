@@ -43,6 +43,12 @@ An unresolved correction blocks export of its earlier source. Finish reviewing t
 
 Payroll sibling: [Envelope](https://github.com/just-every/run-envelope).
 
+## Tip credit and make-up pay
+
+Where a cafe pays tipped employees a cash wage below the minimum wage and takes a tip credit, the owner sets it up in **Payroll → Tip credit**: the cafe, its state, the minimum wage that applies there and the jobs whose work produces tips, effective from a date. You enter the minimum wage; Lanyard keeps no state or local minimum wage rates. A later minimum wage is saved from its own date and earlier weeks keep theirs. California, Washington, Oregon, Nevada, Minnesota, Alaska and Montana bar a tip credit, so a setup there is refused.
+
+Each workweek (Monday to Sunday) Lanyard checks every person with approved time in a tipped job at such a cafe: their tipped minutes at the cafe's minimum wage against the same minutes at their own job rate plus the cash tips they declared at clock-out. A shortfall is a make-up pay input for that person and week. Download a week's inputs and add them in your payroll provider; Lanyard does not pay them or add them to a payroll batch. Time in the cafe's other jobs, such as side work recorded with **Change job** on the phone clock, is listed as non-tipped duty time so you can apply your own reviewed dual-jobs treatment. The owner reads every check; a manager reads the people of their own cafe.
+
 ## ACA hours for the filer
 
 The owner defines a variable-hour measurement group in **Payroll → ACA hours measurement**. Choose 3–12 complete calendar months, the administrative end (0–90 days later), and the stability end. The report separates the monthly 130-hour test from the standard look-back average of 30 hours per elapsed seven-day week. It counts current approved payable hours at every cafe and lists waiting time and corrections separately.
