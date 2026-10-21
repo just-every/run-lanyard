@@ -10,7 +10,7 @@ export function holidayPay(c:Context,name:string,p:Record<string,any>) {
  if(name==='holidaypay.correct'){
   keys(p,['id','revision','minutes','reason']);const r=get(c.s,'holidaypay',p.id);exact(r,p)
   const minutes=integer(Number(p.minutes),'paid holiday minutes',0,1440)
-  if(minutes){const fresh=nonWorkReview(c.s,r.staffId,r.site,r.date,c.now);need(fresh&&fresh.eligible&&!fresh.pending,'Cannot pay non-work time for recorded or scheduled holiday work',409)}
+  if(minutes){const fresh=nonWorkReview(c.s,r.staffId,r.site,r.date,c.now);need(fresh&&fresh.eligible&&!fresh.pending,'Cannot pay non-work time for recorded holiday work',409)}
   const {versions,...prior}=r
   return put(c,'holidaypay',{...r,minutes,costCents:Math.round(minutes*r.rateCents/60),batchId:null,versions:[...(versions??[]),prior],correction:{by:c.a.id,at:c.now,reason:text(p.reason,'reason',500)}},r)
  }

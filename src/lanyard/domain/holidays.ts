@@ -40,13 +40,12 @@ export function workedHoliday(s:State,t:Row,now:string) {
 }
 export function nonWorkReview(s:State,staffId:string,site:string,on:string,now:string) {
  const h=s.holidays.find(h=>h.site===site&&h.date===on&&h.enabled),rule=holidayRule(s,site,on),person=s.staff.find(p=>p.id===staffId)
- if(!h||!rule||!rule.nonWorkMinutes||!person?.active||person.erased_at||(person.site??'')!==site)return null
+ if(!h||!rule||!rule.nonWorkMinutes||!person||person.erased_at||(person.site??'')!==site)return null
  const fact={holidayId:h.id,holidayRevision:h.revision,holiday:h.name,date:on,site,ruleId:rule.id,ruleRevision:rule.revision,beforeAfter:rule.beforeAfter,adjacent:adjacentShifts(s,staffId,on)}
  const eligibility=holidayEligibility(s,staffId,fact,now),start=instantAt(on,'00:00',s.timezone),end=instantAt(dayAfter(on),'00:00',s.timezone)
  const worked=s.timesheets.some(t=>t.staffId===staffId&&t.status!=='superseded'&&t.start<end&&t.end>start)||s.clocks.some(k=>k.staffId===staffId&&k.start<end&&(k.end??now)>start)
- const scheduled=s.shifts.some(x=>x.staffId===staffId&&x.status==='published'&&x.start<end&&x.end>start)
  const basis=rateAt(s,staffId,'',on),minutes=rule.nonWorkMinutes,costCents=basis.cents===null?null:Math.round(minutes*basis.cents/60)
- const review={...fact,...eligibility,staffId,name:person.name,kind:'non-work',minutes,costCents,code:rule.code+' non-work',rateCents:basis.cents,basis,eligible:eligibility.eligible&&!worked&&!scheduled,pending:eligibility.pending||end>now,reasons:[...eligibility.reasons,...(worked?['Worked or pending holiday time exists']:scheduled?['Scheduled holiday shift was not worked']:[]),...(end>now?['Holiday has not ended']:[])]}
+ const review={...fact,...eligibility,staffId,name:person.name,kind:'non-work',minutes,costCents,code:rule.code+' non-work',rateCents:basis.cents,basis,eligible:eligibility.eligible&&!worked,pending:eligibility.pending||end>now,reasons:[...eligibility.reasons,...(worked?['Worked or pending holiday time exists']:[]),...(end>now?['Holiday has not ended']:[])]}
  return {...review,digest:canonical(review)}
 }
 export function holidayReviews(s:State,now:string) {

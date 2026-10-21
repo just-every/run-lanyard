@@ -71,4 +71,18 @@ export async function holidayApi(h) {
  const schedule=await h.send('/api/lanyard/schedule/review',{week:'2025-12-01',shifts:[f.companyShift]},h.owner)
  assert.equal(schedule.status,200);assert.equal(schedule.value.sites.reduce((n,x)=>n+x.costCents,0),18400)
  const schedulePage=(await h.send('/app/schedule?week=2025-12-01&view=draft',undefined,h.owner)).text;assert.match(schedulePage,/Company service day/);assert.match(schedulePage,/additional scheduled premium \$24.00/)
+ // Non-work means no worked time: an unworked scheduled holiday and retained
+ // inactive employment remain eligible when the configured attendance rule permits them.
+ const idle=await h.person('Idle')
+ await h.cmd('staff.save',{...pin(idle),name:idle.name,email:idle.email,payrollId:idle.payrollId,role:'staff',active:true,site:'Ocean Beach',hourlyRate:'20.00'})
+ const planned=f.spec(idle,'2025-12-01')
+ await h.cmd('availability.save',{staffId:idle.id,start:planned.start,end:planned.end})
+ const scheduled=await h.cmd('roster.prepare',{week:'2025-12-01',shifts:[f.companyShift,planned]});await h.cmd('roster.publish',pin(scheduled))
+ await h.cmd('staff.save',{id:idle.id,revision:2,name:idle.name,email:idle.email,payrollId:idle.payrollId,role:'staff',active:false,site:'Ocean Beach',hourlyRate:'20.00'})
+ const retained=(await h.state()).holidayReviews.find(r=>r.staffId===idle.id&&r.date==='2025-12-01'&&r.kind==='non-work')
+ assert.ok(retained.eligible&&!retained.pending,'scheduled but unworked holiday and later deactivation do not remove earned eligibility')
+ await h.cmd('holidaypay.approve',{staffId:idle.id,site:'Ocean Beach',date:retained.date,reference:'idle-company-holiday',digest:retained.digest})
+ const historical=await h.cmd('payroll.prepare',{});assert.ok(historical.lines.some(l=>l.staffId===idle.id&&l.holidayPayId&&l.minutes===480))
+ await h.cmd('payroll.export',pin(historical))
+
 }
