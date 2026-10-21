@@ -1,5 +1,5 @@
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { shiftAttachment, tipCreditRead, acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { fairnessRead, shiftAttachment, tipCreditRead, acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -109,7 +109,16 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     if (path === '/app/roster' && request.method === 'GET') return new Response(null, { status: 301, headers: { ...headers, location: '/app/schedule' + url.search } })
     who = await principal(request, env, isAgent)
     if (request.method === 'GET') {
-      if (pages.has(path)) return renderApp(await state(env, who), path + url.search)
+      if (pages.has(path)) {
+        const view:any=await state(env,who)
+        if(path==='/app/schedule'&&['owner','manager'].includes(who.role)) {
+          const {weekModel}=await import('./ui/week'),w=weekModel(view,Date.now(),url.searchParams,true)
+          const site=who.role==='manager'?view.staff.find((p:any)=>p.id===view.actor.staffId)?.site??'':w.site
+          return renderApp(view,path+url.search,{result:{fairness:await fairnessRead(env.DB,who,w.week,site,Number(url.searchParams.get('fairWeeks')??8))}})
+        }
+        return renderApp(view,path+url.search)
+      }
+      if (path === '/api/lanyard/fairness') return json(await fairnessRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       // CONTACT-001: the audited emergency contact card, as a screen and as JSON.
       const card = path.match(/^\/(app|api\/lanyard)\/contacts\/([\w-]+)$/)
       if (card?.[1] === 'app') { const contactCard = await contactRead(env.DB, who, card[2]); return renderApp(await state(env, who), path, { result: { contactCard } }) }

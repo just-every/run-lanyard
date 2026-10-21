@@ -1,3 +1,4 @@
+import {fairnessCard} from './fairness'
 // Schedule: the owner-picked week shift calendar, then the week's draft and planning.
 import {scheduleHolidays} from './holidays'
 import {h,manager,form,exact,outcome,titleRow,rows,staffOf} from './shared'
@@ -27,5 +28,5 @@ function draftBanner(s:any,w:Week,back:string,extras:any) {
 export function schedule(s:any,w:Week,extras:any,now:number,back:string,q:URLSearchParams) {
  const home=w.site||staffOf(s,s.actor.staffId)?.site,title=manager(s)?`${w.site||'All cafes'} · ${w.headcount} staff`:`${home?home+' · ':''}My shifts`
  const noPeople=manager(s)&&!rows(s,'staff').length?`<div class="banner"><p>Add your team in People first, then build the week here.</p><a class="button primary" href="/app/people#add">Add people</a></div>`:''
- return `${titleRow(title,s,now)}${manager(s)?dashboardCard(s):''}${offerCards(s,w.tz,back)}${swapCards(s,w.tz,back)}${openShiftCards(s,w.tz,back)}${manager(s)?overtimeCard(s,w.week,w.tz,back):''}${acaWarnings(s)}${historyCard(s,w.week,w.tz,manager(s))}${noPeople}${scheduleHolidays(s,w)}${reviewCard(s,s.scheduleReviews?.find((r:any)=>r?.week===w.week),w.tz)}${draftBanner(s,w,back,extras)}<section class="schedule" aria-label="Schedule">${grid(s,w,now,back,q)}</section>${shiftworkCard(s,w,back)}${askbar(s)}<div class="below">${planner(s,w,back,extras)}</div>`
+ return `${titleRow(title,s,now)}${manager(s)?dashboardCard(s):''}${offerCards(s,w.tz,back)}${swapCards(s,w.tz,back)}${openShiftCards(s,w.tz,back)}${manager(s)?overtimeCard(s,w.week,w.tz,back):''}${acaWarnings(s)}${historyCard(s,w.week,w.tz,manager(s))}${noPeople}${scheduleHolidays(s,w)}${reviewCard(s,s.scheduleReviews?.find((r:any)=>r?.week===w.week),w.tz)}${draftBanner(s,w,back,extras)}<section class="schedule" aria-label="Schedule">${grid(s,w,now,back,q)}</section>${shiftworkCard(s,w,back)}${askbar(s)}<div class="below">${planner(s,w,back,extras)}${fairnessCard(extras.result?.fairness)}</div>`
 }

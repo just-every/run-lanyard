@@ -1,3 +1,4 @@
+import {preferenceReport} from './fairness'
 import {type Actor,type Context,type State,kinds,object,text,need,sha,canonical,get,manager,instant} from './model'
 import {actor,live,load,saved,commit} from './storage'
 import {offline,issuesFor} from './offline'
@@ -349,4 +350,10 @@ export async function tipCreditRead(db:D1Database,identity:Actor,week:string,for
 
 export async function shiftAttachment(db:D1Database,identity:Actor,answerId:string,fileId:string) {
  const a=await live(db,identity),s=await load(db);return handoverFile(db,answersFor(s,fresh(a,s)),answerId,fileId)
+}
+
+/** FAIR-001: read-only preference inputs under the existing cafe report authority. */
+export async function fairnessRead(db:D1Database,identity:Actor,week:string,site:string,weeks:number) {
+ const a=await live(db,identity),s=await load(db),f=fresh(a,s)
+ return preferenceReport(s,f,week,site,weeks)
 }
