@@ -5,6 +5,9 @@ const preparation = [
  ['payroll.prepare','ids?: array of approved, unexported timesheet IDs'],
 ]
 const human = [
+ ['premiumrule.save','Owner','site, from, preset (CA, NY-hospitality or employer), minimumCents; employer preset also requires reportingGuaranteeMinutes, splitMinutes, spreadMinutes and spreadThresholdMinutes; id + revision to edit'],
+ ['premium.prepare','Owner or cafe manager','kind (reporting, split or spread), timeId (approved) or shiftId + reportedAt + canceledAt (no work after arrival), reason; reviewDate for a prior daily premium date when a correction moved work; employerSplit, regularlyScheduled, voluntary and resident facts; id + revision to revise'],
+ ['premium.decide','Owner or cafe manager','id, revision, decision (approve or dispute), reason; reviewed inputs retain source revisions and rule facts'],
  ['holiday.seed','Owner','site, year: seed observed federal dates without replacing employer edits'],
  ['holiday.save','Owner','site, date, name, enabled; id + revision when editing'],
  ['holidayrule.save','Owner','site, from, mode (multiplier or added), value (total multiplier or added cents/hour), nonWorkMinutes, beforeAfter, code; id + revision when editing'],

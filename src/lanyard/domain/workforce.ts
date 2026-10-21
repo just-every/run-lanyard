@@ -73,7 +73,7 @@ export function hideRates(v:any):any {
  if(v&&typeof v==='object') {
   // Holiday amounts are new wage inputs. Preserve existing non-holiday review
   // figures, including TIME-009's manager approval cost.
-  const excluded=['rateBasis','holidayBasis',...(v.holidayId||v.holidayLine?['unitCents','rateCents','costCents','basis','digest']:[])]
+  const excluded=['rateBasis','holidayBasis',...(v.premiumLine||v.allocations&&v.rule?['costCents','unitCents','rateCents','rule','allocations','facts','sourceDigest','trace']:[]),...(v.holidayId||v.holidayLine?['unitCents','rateCents','costCents','basis','digest']:[])]
   return Object.fromEntries(Object.entries(v).filter(([k])=>!excluded.includes(k)).map(([k,x])=>[k,hideRates(x)]))
  }
  return v

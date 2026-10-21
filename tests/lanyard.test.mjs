@@ -1778,3 +1778,6 @@ test('PAY-009: the payroll administrator defines and opens a pay schedule, revie
 test('PAYRULE-002: federal and site holidays, eligibility, retained area premiums, earnings, non-work service and once-only signed payroll corrections',()=>run(async h=>{const {holidayApi}=await import('./holidays-api.mjs');await holidayApi(h)}))
 
 test('PAYRULE-002: owners configure holidays, inspect eligibility, approve non-work pay and view area payroll, schedule costs and employee estimates at 1440 and 390',async()=>{const {holidayBrowser}=await import('./holidays-journey.mjs');await holidayBrowser()})
+
+test('PAYRULE-003: CA reporting and split, NY call-in and spread inputs retain source/area rates, reasoned disputes, own estimates and once-only signed payroll corrections',()=>run(async h=>{const {premiumApi}=await import('./premiums-api.mjs');await premiumApi(h)}))
+test('PAYRULE-003: owners configure and review premium facts, managers dispute and approve inputs, payroll exports and staff read estimates at 1440 and 390',async()=>{const {premiumBrowser}=await import('./premiums-journey.mjs');await premiumBrowser()})

@@ -7,6 +7,7 @@
 // links the payroll provider's pay statement, which stays authoritative. Tips (TIPS-001) and
 // premiums (PAYRULE-001/002/003, POLICY-001) join the estimate when those clauses ship.
 import {type Context,type Row,keys,text,integer,need,put} from './model'
+import {premiumEstimate} from './premiums'
 import {holidayEstimate} from './holidays'
 import {groupOn,payRange,payPieces,classified} from './payschedules'
 import {type State} from './model'
@@ -30,21 +31,21 @@ export function earningsOf(staffId:string,week:string,tz:string,shifts:any[],tim
   const range=payRange(group,week),inside=(d:string)=>range.start<=d&&d<=range.end
   const minutes=(list:any[])=>list.filter(t=>t.staffId===staffId).flatMap(t=>payPieces(state,t)).filter(p=>inside(p.date)).reduce((n,p)=>n+p.minutes,0)
   const approved=timesheets.filter(t=>t.staffId===staffId&&t.status==='approved'),pending=timesheets.filter(t=>t.staffId===staffId&&t.status==='submitted')
-  const premium=holiday(range.start,range.end)
+  const premium=holiday(range.start,range.end),jurisdiction=state?premiumEstimate(state,staffId,range.start,range.end):{minutes:0,costCents:0}
   const worked=minutes(approved),overtime=classified(state,staffId).filter(p=>inside(p.date)).reduce((n,p)=>n+p.overtimeMinutes,0),regular=worked-overtime,priced=settings.estimates&&typeof rateCents==='number'
-  return {holiday:premium,week:range.start,end:range.end,payDate:range.payDate,statementUrl:settings.statementUrl,scheduledMinutes:minutes(shifts.filter(t=>t.status==='published')),regularMinutes:regular,overtimeMinutes:overtime,pendingMinutes:minutes(pending),approvedIds:approved.map(t=>t.id),pendingIds:pending.map(t=>t.id),estimates:settings.estimates,rateCents:priced?rateCents:null,estimateCents:priced?premium.costCents===null?null:Math.round((regular*rateCents+overtime*rateCents*1.5)/60)+premium.costCents:null}
+  return {jurisdiction,holiday:premium,week:range.start,end:range.end,payDate:range.payDate,statementUrl:settings.statementUrl,scheduledMinutes:minutes(shifts.filter(t=>t.status==='published')),regularMinutes:regular,overtimeMinutes:overtime,pendingMinutes:minutes(pending),approvedIds:approved.map(t=>t.id),pendingIds:pending.map(t=>t.id),estimates:settings.estimates,rateCents:priced?rateCents:null,estimateCents:priced?premium.costCents===null?null:Math.round((regular*rateCents+overtime*rateCents*1.5)/60)+premium.costCents+jurisdiction.costCents:null}
  }
  const days=[0,1,2,3,4,5,6].map(i=>addDays(week,i)),inWeek=(r:any)=>r.staffId===staffId&&days.includes(localDate(r.start,tz))
  const scheduled=shifts.filter(x=>inWeek(x)&&x.status==='published').reduce((n,x)=>n+Math.round((Date.parse(x.end)-Date.parse(x.start))/60000)-(x.breakMinutes??0),0)
  const approved=timesheets.filter(t=>inWeek(t)&&t.status==='approved'),pending=timesheets.filter(t=>inWeek(t)&&t.status==='submitted')
- const premium=holiday(week,days[6])
+ const premium=holiday(week,days[6]),jurisdiction=state?premiumEstimate(state,staffId,week,days[6]):{minutes:0,costCents:0}
  const worked=approved.reduce((n,t)=>n+t.minutes,0),overtime=Math.max(0,worked-WEEK_MINUTES),regular=worked-overtime
  const priced=settings.estimates&&typeof rateCents==='number'
  return {
-  holiday:premium,week,end:days[6],payDate:settings.payDays===null?null:addDays(days[6],settings.payDays),statementUrl:settings.statementUrl,
+  jurisdiction,holiday:premium,week,end:days[6],payDate:settings.payDays===null?null:addDays(days[6],settings.payDays),statementUrl:settings.statementUrl,
   scheduledMinutes:scheduled,regularMinutes:regular,overtimeMinutes:overtime,pendingMinutes:pending.reduce((n,t)=>n+t.minutes,0),
   approvedIds:approved.map(t=>t.id),pendingIds:pending.map(t=>t.id),estimates:settings.estimates,
-  rateCents:priced?rateCents:null,estimateCents:priced?premium.costCents===null?null:Math.round((regular*rateCents+overtime*rateCents*1.5)/60)+premium.costCents:null,
+  rateCents:priced?rateCents:null,estimateCents:priced?premium.costCents===null?null:Math.round((regular*rateCents+overtime*rateCents*1.5)/60)+premium.costCents+jurisdiction.costCents:null,
  }
 }
 

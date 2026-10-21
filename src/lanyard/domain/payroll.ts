@@ -1,6 +1,7 @@
 // Willow payroll's reviewed file + immutable SHA + unique source claims.
 // Each correction exports only the signed difference from prior claimed time.
 import {type Context,type Row,keys,text,need,prepare,manager,staff,get,exact,put,sha,canonical} from './model'
+import {premiumLines,arrivalLines} from './premiums'
 import {holidayLines,nonWorkLines} from './holiday-pay'
 import {priced} from './workforce'
 import {regularLines} from './segmentpay'
@@ -11,15 +12,15 @@ function cell(value:unknown,numeric=false) { let s=String(value??'');if(!numeric
 // pay_code: "regular" is net worked time; "meal premium" and "rest premium" are BREAK-001 premium inputs
 // (minutes of premium pay at the regular rate, not worked time), exported as signed differences like hours.
 export function csv(lines:Row[]|any[]) {
- const holiday=lines.some(l=>l.holidayLine)
+ const holiday=lines.some(l=>l.holidayLine),premium=lines.some(l=>l.premiumLine)
  const traced=lines.some(l=>l.overtimeKey)
  const segmented=lines.some(l=>l.area!==undefined)
- return 'payroll_id,time_id,revision,start_utc,end_utc,minutes,hours,corrects,pay_code'+(segmented?',job_id,work_area,location,source_start_utc,source_end_utc':'')+(traced?',workweek_start,pay_period_id,source_period_starts,premium_multiplier,adjustment_label':'')+(holiday?',earnings_cents,premium_rate_cents,holiday_date,holiday_rule_revision':'')+'\r\n'+lines.map(l=>[cell(l.payrollId),cell(l.timeId),cell(l.revision,true),cell(l.start),cell(l.end),cell(l.minutes,true),cell((l.minutes/60).toFixed(4),true),cell(l.corrects),cell(l.payCode??'regular'),...(segmented?[cell(l.job),cell(l.area),cell(l.site),cell(l.sourceStart??l.start),cell(l.sourceEnd??l.end)]:[]),...(traced?[cell(l.trace?.week),cell(l.trace?.targetPeriodId),cell(l.trace?.sourcePeriods?.join(';')),cell(l.multiplier??'',true),cell(l.label)]:[]),...(holiday?[cell(l.costCents??'',true),cell(l.unitCents??l.rateCents??'',true),cell(l.date),cell(l.ruleRevision??'',true)]:[])].join(',')).join('\r\n')+'\r\n'
+ return 'payroll_id,time_id,revision,start_utc,end_utc,minutes,hours,corrects,pay_code'+(segmented?',job_id,work_area,location,source_start_utc,source_end_utc':'')+(traced?',workweek_start,pay_period_id,source_period_starts,premium_multiplier,adjustment_label':'')+(premium?',premium_earnings_cents,premium_rule_id,premium_rule_revision,premium_source_ids':'')+(holiday?',earnings_cents,premium_rate_cents,holiday_date,holiday_rule_revision':'')+'\r\n'+lines.map(l=>[cell(l.payrollId),cell(l.timeId),cell(l.revision,true),cell(l.start),cell(l.end),cell(l.minutes,true),cell((l.minutes/60).toFixed(4),true),cell(l.corrects),cell(l.payCode??'regular'),...(segmented?[cell(l.job),cell(l.area),cell(l.site),cell(l.sourceStart??l.start),cell(l.sourceEnd??l.end)]:[]),...(traced?[cell(l.trace?.week),cell(l.trace?.targetPeriodId),cell(l.trace?.sourcePeriods?.join(';')),cell(l.multiplier??'',true),cell(l.label)]:[]),...(premium?[cell(l.premiumLine?l.costCents:'',true),cell(l.premiumLine?l.ruleId:''),cell(l.premiumLine?l.ruleRevision:''),cell(l.premiumLine?(l.trace?.sources??[]).map((x:any)=>x.id+':'+x.revision).join(';'):'')]:[]),...(holiday?[cell(l.costCents??'',true),cell(l.unitCents??l.rateCents??'',true),cell(l.date),cell(l.ruleRevision??'',true)]:[])].join(',')).join('\r\n')+'\r\n'
 }
 /** Premium minutes already exported for a timesheet's lineage, by pay code. */
 const exportedPremium=(c:Context,rootId:string,code:string)=>c.s.batches.filter(b=>b.status==='exported'||b.status==='acknowledged').flatMap(b=>b.lines).filter((l:any)=>l.rootId===rootId&&l.payCode===code).reduce((n:number,l:any)=>n+l.minutes,0)
 /** BREAK-001: each premium code's difference from what this lineage already exported. */
-function premiumLines(c:Context,t:Row,base:Record<string,any>) {
+function breakPremiumLines(c:Context,t:Row,base:Record<string,any>) {
  const codes=['meal premium','rest premium']
  return codes.map(code=>({...base,payCode:code,minutes:(t.premiums??[]).filter((p:any)=>p.code===code).reduce((n:number,p:any)=>n+p.minutes,0)-exportedPremium(c,t.rootId,code)})).filter(l=>l.minutes!==0)
 }
@@ -32,10 +33,10 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
   const selected=ids?ids.map((id:string)=>{const t=available.find(r=>r.id===id);need(t,unclaimed.some(r=>r.id===id)?'Selected time is in an open pay period; lock the period first':'Selected time is not approved or is already exported',409);return t}):available
   // TIME-007: a provisionally closed punch is never exported; it is listed as held until confirmed or corrected and approved.
   const held=[...c.s.clocks.filter(k=>provisional(c.s,k,c.now)).map(k=>({clockId:k.id,staffId:k.staffId,start:k.start,reason:'provisional close'})),...unclaimed.filter(t=>heldByPeriod(c.s,t)).map(t=>({timeId:t.id,staffId:t.staffId,start:t.start,reason:'pay period open'}))]
-  const nonwork=nonWorkLines(c),adjustments=await overtimeInputs(c)
+  const nonwork=[...nonWorkLines(c),...arrivalLines(c)],adjustments=await overtimeInputs(c)
   for(const l of adjustments)need(staff(c,l.staffId).payroll_id,'Set the staff payroll ID first',409)
   need((selected.length>0||adjustments.length>0||nonwork.length>0)&&selected.length<=500,`No approved unexported time, or too many entries${held.length?`; ${held.length} provisionally closed punch${held.length===1?'':'es'} held until confirmed`:''}`,409)
-  const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).flatMap((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);const base={timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,sourceStart:t.start,sourceEnd:t.end,corrects:t.corrects,rootId:t.rootId,rateBasis:priced(c.s,t.staffId,t)};return [...regularLines(c,t,base),...premiumLines(c,t,base),...holidayLines(c,t,base)]})
+  const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).flatMap((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);const base={timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,sourceStart:t.start,sourceEnd:t.end,corrects:t.corrects,rootId:t.rootId,rateBasis:priced(c.s,t.staffId,t)};return [...regularLines(c,t,base),...breakPremiumLines(c,t,base),...holidayLines(c,t,base),...premiumLines(c,t,base)]})
   for(const l of nonwork)need(l.payrollId,'Set the staff payroll ID first',409)
   lines.push(...adjustments,...nonwork)
   const r=put(c,'batches',{status:'draft',lines,held,csvPreview:csv(lines),preparedBy:c.a.id,preparedAt:c.now})
@@ -45,14 +46,17 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
   manager(c.a);keys(p,['id','revision']);const b=get(c.s,'batches',p.id);exact(b,p);need(b.status==='draft','Batch already exported',409)
   const checked=new Set<string>(),adjustments=await overtimeInputs(c)
   for(const line of b.lines) {
+   if(line.arrivalPremiumId){need(arrivalLines(c).some(l=>l.arrivalPremiumId===line.arrivalPremiumId&&canonical(l)===canonical(line)),'Arrival premium sources changed; prepare again',409);continue}
    if(line.holidayPayId){const current=nonWorkLines(c).find(l=>l.holidayPayId===line.holidayPayId);need(current&&canonical(current)===canonical(line),'Holiday pay sources, period or payroll identity changed; prepare again',409);const r=get(c.s,'holidaypay',line.holidayPayId);put(c,'holidaypay',{...r,batchId:b.id},r);continue}
    if(line.overtimeKey){need(staff(c,line.staffId).payroll_id===line.payrollId,'Reviewed payroll identity changed; prepare a new batch',409);need(adjustments.some(l=>l.overtimeKey===line.overtimeKey&&l.minutes===line.minutes&&l.sourceDigest===line.sourceDigest),'Workweek overtime sources or destination changed; prepare a new batch',409);continue}
    const t=get(c.s,'timesheets',line.timeId),person=staff(c,line.staffId)
    need(t.status==='approved'&&t.revision===line.revision&&person.payroll_id===line.payrollId,'Reviewed payroll sources changed; prepare a new batch',409)
    need(!heldByPeriod(c.s,t),'This time\'s pay period was reopened; lock it before exporting',409)
    // A premium line rides on its timesheet's regular line, which claims the revision.
+   if(line.premiumLine){need(premiumLines(c,t,{timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,sourceStart:t.start,sourceEnd:t.end,corrects:t.corrects,rootId:t.rootId,rateBasis:priced(c.s,t.staffId,t)}).some(l=>canonical(l)===canonical(line)),'Premium decision or sources changed; prepare again',409);continue}
    if(line.holidayLine){need(holidayLines(c,t,{timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,sourceStart:t.start,sourceEnd:t.end,corrects:t.corrects,rootId:t.rootId,rateBasis:priced(c.s,t.staffId,t)}).some(l=>canonical(l)===canonical(line)),'Holiday premium inputs changed; prepare a new batch',409);continue}
-   if(line.payCode){need(premiumLines(c,t,{}).some(l=>l.payCode===line.payCode&&l.minutes===line.minutes),'Premium inputs changed; prepare a new batch',409);continue}
+   if(line.payCode){need(breakPremiumLines(c,t,{}).some(l=>l.payCode===line.payCode&&l.minutes===line.minutes),'Premium inputs changed; prepare a new batch',409);continue}
+   premiumLines(c,t,{})
    if(checked.has(t.id))continue
    checked.add(t.id)
    need(!c.s.claims.some(cl=>cl.time_id===t.id&&cl.time_revision===t.revision),'Time revision already claimed by another export',409)
