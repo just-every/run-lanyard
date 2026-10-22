@@ -7,11 +7,11 @@
  const render=state=>{pending.textContent=`${state.events.length} saved captures · ${state.events.filter(e=>e.status==='rejected').length} need review`;document.querySelector('#kiosk-current').textContent=current.clocks.some(k=>k.status==='open')?(current.language==='es'?'Entrada registrada':'Clocked in'):(current.language==='es'?'Salida registrada':'Clocked out')}
  async function load(){
   try{current=await request('state');key=`kiosk:${current.deviceId}:${current.actorId}`;login.hidden=true;panel.hidden=false;document.documentElement.lang=current.language;const w=words[current.language]||words.en;document.querySelector('#kiosk-heading').textContent=w[0];[...form.querySelectorAll('button'),document.querySelector('#kiosk-retry'),document.querySelector('#kiosk-signout')].forEach((b,i)=>b.textContent=w[i+1]);document.querySelector('#photo-label').hidden=!current.photoRequired;document.querySelector('#photo-consent-label').hidden=!current.photoRequired
-   await vault(async(state,save)=>{state.owner={actorId:current.actorId,staffId:current.staffId};state.client='kiosk';await save();render(state)});await sync()
+   await vault(async(state,save)=>{state.owner={actorId:current.actorId,staffId:current.staffId};state.client='kiosk';state.deviceId=current.deviceId;await save();render(state)});await sync()
   }catch(e){status.textContent=e.status===401?'Verify your personal PIN to use this clock.':e.message}
  }
  async function sync(){if(busy||!current)return;busy=true
-  try{await vault(async(state,save)=>{for(const e of state.events){if(e.status==='rejected')break;try{await request('capture',{...e.capture,photo:e.photo,photoConsent:e.photoConsent});state.events=state.events.filter(x=>x!==e);await save()}catch(error){if(!error.status)break;e.status='rejected';e.error=error.message;if([401,403].includes(error.status))state.revoked=true;await save();status.textContent='Capture retained for manager review. '+error.message;break}}render(state)})}
+  try{await vault(async(state,save)=>{for(const e of state.events){if(e.status==='rejected')break;try{await request('capture',{...e.capture,photo:e.photo,photoConsent:e.photoConsent});current=await request('state');state.events=state.events.filter(x=>x!==e);await save()}catch(error){if(!error.status)break;e.status='rejected';e.error=error.message;if([401,403].includes(error.status))state.revoked=true;await save();status.textContent='Capture retained for manager review. '+error.message;break}}render(state)})}
   catch(e){status.textContent=e.message}finally{busy=false}
  }
  login.addEventListener('submit',async event=>{event.preventDefault();try{await request('signin',Object.fromEntries(new FormData(login)));login.reset();status.textContent='';await load()}catch(e){status.textContent=e.message}})

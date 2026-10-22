@@ -30,6 +30,7 @@ export function chatCommand(c:Context,name:string,p:Record<string,any>){
   const members=p.members??[];need(Array.isArray(members)&&members.length<=50&&members.every((id:any)=>typeof id==='string'),'Choose thread members')
   const list=[...new Set([...members,...(me?[me.id]:[])])]
   if(['direct','group'].includes(p.kind)){
+   need(me,'Direct and group threads require your own linked employee identity',403)
    need(list.length>1&&(p.kind!=='direct'||list.length===2),'Choose the other thread members')
    need(list.every(id=>c.s.staff.some(x=>x.id===id&&x.active&&!x.erased_at&&x.site===site)),'Members must be active at the cafe',403)
   }else need(members.length===0,'This thread uses current cafe or shift membership')

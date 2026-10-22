@@ -45,7 +45,7 @@ export async function harness(options = {}) {
     const confirmMail = async email => {
       const message = mailbox.findLast(m => m.to.includes(email))
       assert.ok(message, 'invitation accepted by the mail provider')
-      const token = new URL(message.text.match(/http:\/\/[^\s]+\/auth\/confirm\?token=[^\s]+/)[0]).searchParams.get('token')
+      const token = new URL(message.text.match(/https?:\/\/[^\s]+\/auth\/confirm\?token=[^\s]+/)[0]).searchParams.get('token')
       const r = await send('/auth/confirm', { token })
       assert.equal(r.status, 303, JSON.stringify(r.value)); return r.cookie
     }
