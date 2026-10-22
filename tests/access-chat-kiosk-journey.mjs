@@ -22,7 +22,7 @@ export async function accessApi(h){
  const grant=await h.cmd('access.grant',{levelId:level.id,staffId:lead.id,site:'Ocean Beach'})
  const before=await h.state(),draft=await h.cmd('roster.prepare',{week,shifts},lead.cookie)
  assert.equal(draft.status,'draft');assert.equal('rateBasis' in draft.shifts[0],false)
- const noWrites=async(n,p,c=lead.cookie)=>{const s=await h.state();await h.cmd(n,p,c,403);const after=await h.state();assert.equal(after.version,s.version);assert.deepEqual(after.events,s.events)}
+ const noWrites=async(n,p,c=lead.cookie)=>{const before=await retained(h);await h.cmd(n,p,c,403);assert.deepEqual(await retained(h),before)}
  await noWrites('roster.publish',pin(draft));await noWrites('time.approve',{id:'synthetic-lanyard-1',revision:1});await noWrites('agent.create',{label:'Attempt'});await noWrites('roster.prepare',{week,shifts:shifts.map(s=>({...s,site:'Mission'}))})
  await noWrites('access.level.save',{name:'Payroll',site:'Ocean Beach',permissions:['payroll.export']})
  await noWrites('access.level.save',{name:'Foreign empty level',site:'Mission',permissions:[]});await noWrites('access.level.save',{name:'Foreign empty level',site:'Ocean Beach',permissions:[]},foreign.cookie)
@@ -45,9 +45,9 @@ export async function accessApi(h){
  const restored=await h.cmd('access.restore',{staffId:lead.id})
  assert.equal(restored.staffId,lead.id);assert.deepEqual(restored.before['Ocean Beach'],[])
  assert.ok(restored.after['Ocean Beach'].includes('schedule.publish'))
- const retained=(await h.send('/api/lanyard/access',undefined,h.owner)).value.grants.find(g=>g.id===grant.id)
- assert.ok(retained.archivedAt);assert.equal(retained.revoked,true);assert.equal(retained.changes.at(-1).action,'access.restore')
- assert.deepEqual(retained.changes.at(-1).before,[]);assert.ok(retained.changes.at(-1).after.includes('schedule.publish'))
+ const savedGrant=(await h.send('/api/lanyard/access',undefined,h.owner)).value.grants.find(g=>g.id===grant.id)
+ assert.ok(savedGrant.archivedAt);assert.equal(savedGrant.revoked,true);assert.equal(savedGrant.changes.at(-1).action,'access.restore')
+ assert.deepEqual(savedGrant.changes.at(-1).before,[]);assert.ok(savedGrant.changes.at(-1).after.includes('schedule.publish'))
  assert.equal((await h.state(lead.cookie)).actor.role,'manager')
  assert.equal((await h.send(`/api/lanyard/intervals?site=Ocean%20Beach&date=${week}&size=60`,undefined,lead.cookie)).status,200)
  const nativeDraft=await h.cmd('roster.prepare',{week,shifts},lead.cookie)
@@ -158,10 +158,10 @@ export async function kioskApi(h){
  // Spread failures across devices so this asserts the per-person limiter, not device locking.
  const attempts=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Person limit one',photo:false}},h.owner)
  const spare=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Person limit two',photo:false}},h.owner)
- for(let n=0;n<4;n++)assert.equal((await post('signin',{email:alex.email,pin:'000000'},attempts.cookie)).status,401)
- assert.equal((await post('signin',{email:alex.email,pin:'000000'},spare.cookie)).status,401)
+ for(let n=0;n<4;n++)assert.equal((await post('signin',{email:ben.email,pin:'000000'},attempts.cookie)).status,401)
+ assert.equal((await post('signin',{email:ben.email,pin:'000000'},spare.cookie)).status,401)
  const beforeSixth=await retained(h),sessionsBefore=(await h.db.prepare('SELECT * FROM l_kiosk_sessions ORDER BY token_hash').all()).results
- const sixth=await post('signin',{email:alex.email,pin:'123456'},spare.cookie)
+ const sixth=await post('signin',{email:ben.email,pin:'234567'},spare.cookie)
  assert.equal(sixth.status,401,sixth.text);assert.equal(sixth.cookie,undefined)
  assert.deepEqual(await retained(h),beforeSixth);assert.deepEqual((await h.db.prepare('SELECT * FROM l_kiosk_sessions ORDER BY token_hash').all()).results,sessionsBefore)
  // Security counters may advance on refusal; no identity/session or workforce write is allowed.
