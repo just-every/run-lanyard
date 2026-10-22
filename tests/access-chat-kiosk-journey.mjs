@@ -101,7 +101,7 @@ export async function kioskApi(h){
  return f
 }
 export async function surfaceBrowser(){
- const h=await harness(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const h=await harness({secure:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  try{
  const f=await crew(h)
  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
@@ -111,7 +111,7 @@ export async function surfaceBrowser(){
  await h.cmd('kiosk.pin',{pin:'123456',language:'es',consent:true},f.alex.cookie)
  const e=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Counter tablet',photo:false}},h.owner)
  for(const width of [1440,390]){
-  const ctx=await browser.newContext({viewport:{width,height:1000}})
+  const ctx=await browser.newContext({viewport:{width,height:1000},ignoreHTTPSErrors:true})
   await ctx.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js'))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
   const cookie=async c=>{await ctx.clearCookies();const [name,...v]=c.split('=');await ctx.addCookies([{name,value:v.join('='),url:h.origin,secure:name.startsWith('__Host-')}])}
   await cookie(h.owner);const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));const shot=async name=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,name+' overflow');if(process.env.C33_SCREENS){await mkdir(process.env.C33_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C33_SCREENS,`${name}-${width}.png`),fullPage:true})}}

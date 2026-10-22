@@ -12,7 +12,7 @@ let bundle
 export async function harness(options = {}) {
   bundle ??= await build({ entryPoints: ['tests/worker.ts'], bundle: true, write: false, format: 'esm', platform: 'neutral', conditions: ['workerd', 'worker', 'browser'], external: ['node:*'], target: 'es2023' })
   const socket = createServer(); await new Promise(r => socket.listen(0, '127.0.0.1', r)); const port = socket.address().port; await new Promise(r => socket.close(r))
-  const dir = options.root ? join(options.root, '.wrangler/state/v3') : await mkdtemp(join(tmpdir(), 'lanyard-test-')), origin = `http://127.0.0.1:${port}`, setup = randomBytes(32).toString('hex')
+  const dir = options.root ? join(options.root, '.wrangler/state/v3') : await mkdtemp(join(tmpdir(), 'lanyard-test-')), origin = `${options.secure ? "https" : "http"}://127.0.0.1:${port}`, setup = randomBytes(32).toString('hex')
   const auth = { AUTH_LOCAL: 'true', OWNER_EMAIL: 'owner@venue.example', SESSION_SECRET: randomBytes(32).toString('hex'), SETUP_TOKEN: setup, MAIL_PROVIDER: 'resend', MAIL_API_KEY: 'synthetic-test-network-edge', MAIL_FROM: 'auth@venue.example', ...options.auth, AUTH_ORIGIN: origin }
   const mailbox = []
   // Fake only the paid mail provider; native invitation and session routes stay real.
@@ -22,7 +22,7 @@ export async function harness(options = {}) {
     mailbox.push(await request.json())
     return Response.json({ id: randomBytes(16).toString('hex') })
   }
-  const mfOptions = { ...convertV4MiniflareOptions({ host: '127.0.0.1', port, modules: true, script: bundle.outputFiles[0].text, compatibilityDate: '2026-09-08', compatibilityFlags: ['nodejs_compat'], d1Databases: { DB: 'local-foundation-only' }, r2Buckets: { FILES: 'lanyard-files' }, bindings: auth, outboundService }), resourcePersistencePath: dir }
+  const mfOptions = { ...convertV4MiniflareOptions({ host: '127.0.0.1', port, https:Boolean(options.secure), modules: true, script: bundle.outputFiles[0].text, compatibilityDate: '2026-09-08', compatibilityFlags: ['nodejs_compat'], d1Databases: { DB: 'local-foundation-only' }, r2Buckets: { FILES: 'lanyard-files' }, bindings: auth, outboundService }), resourcePersistencePath: dir }
   const mf = new Miniflare(mfOptions)
   try {
     let db = await mf.getD1Database('DB')
