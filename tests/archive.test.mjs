@@ -66,12 +66,26 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     await h.cmd('staff.save',{id:calendarPerson.id,revision:1,name:calendarPerson.name,email:calendarPerson.email,payrollId:calendarPerson.payrollId,role:'staff',active:true,hourlyRate:'20.00'})
     const review=(await h.state()).holidayReviews.find(r=>r.staffId===calendarPerson.id&&r.date==='2026-10-12'&&r.kind==='non-work')
     await h.cmd('holidaypay.approve',{staffId:calendarPerson.id,site:'',date:review.date,reference:'archive-holiday-service',digest:review.digest})
+    // New product records travel, while kiosk authentication must be re-established.
+    const kioskPerson=await h.person('KioskArchive')
+    await h.cmd('staff.save',{id:kioskPerson.id,revision:1,name:kioskPerson.name,email:kioskPerson.email,payrollId:kioskPerson.payrollId,role:'staff',active:true,site:'Archive cafe'})
+    const level=await h.cmd('access.level.save',{name:'Archive shift lead',site:'Archive cafe',permissions:['draft.edit']})
+    await h.cmd('access.grant',{levelId:level.id,site:'Archive cafe',staffId:kioskPerson.id})
+    const thread=await h.cmd('chat.create',{kind:'announcement',site:'Archive cafe',title:'Archive operational handover'})
+    const message=await h.cmd('chat.send',{threadId:thread.id,text:'synthetic-lanyard-1',attachment:{name:'archive.txt',type:'text/plain',data:btoa('synthetic-lanyard-2')}})
+    await h.cmd('chat.acknowledge',{id:message.id,revision:message.revision},kioskPerson.cookie)
+    await h.cmd('kiosk.pin',{pin:'123456',language:'es',consent:true},kioskPerson.cookie)
+    const enrolled=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Archive cafe',label:'Archive tablet',photo:true,consent:true}},h.owner)
+    const login=await h.send('/api/lanyard/kiosk/signin',{email:kioskPerson.email,pin:'123456'},enrolled.cookie),kioskCookie=enrolled.cookie+'; '+login.cookie
+    const punch=await h.send('/api/lanyard/kiosk/capture',{name:'clock.in',input:{commandId:crypto.randomUUID(),capturedAt:'2026-10-13T14:00:00Z'},photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true},kioskCookie)
+    assert.equal(punch.status,200,punch.text);const photoId=punch.value.result.kioskReceipt.photoId
+    const originalChat=(await h.send('/api/lanyard/chat',undefined,h.owner)).value,originalAccess=(await h.send('/api/lanyard/access',undefined,h.owner)).value
     const journal=await h.cmd('import.journal',{jobId:imported.job.id}),original=await h.state()
     const identity={auth:h.auth,owner:h.owner}
     await h.close();h=null
     const old=join(temporary,'before.rer'),later=join(temporary,'later.rer'),again=join(temporary,'again.rer')
     await command(source,['export','--output',old,'--no-queue'])
-    const bytes=await readFile(old,'utf8');assert.ok(bytes.includes('Temporary joiner'));assert.ok(!bytes.includes('Excluded secret'));assert.ok(!bytes.includes('token_hash'));assert.ok(!bytes.includes('scopes_json'));assert.ok(!bytes.includes('comparison.read'))
+    const bytes=await readFile(old,'utf8');assert.ok(bytes.includes('Temporary joiner'));assert.ok(!bytes.includes('Excluded secret'));assert.ok(!bytes.includes('token_hash'));assert.ok(!bytes.includes('scopes_json'));assert.ok(!bytes.includes('comparison.read'));for(const table of ['l_kiosk_devices','l_kiosk_pins','l_kiosk_sessions','l_kiosk_attempts'])assert.equal(bytes.includes(table),false,table)
     await command(restored,['import','--input',old,'--yes','--no-queue'])
     await command(restored,['export','--output',again,'--no-queue'])
     const rows=text=>text.split('\n').filter(Boolean).map(JSON.parse).filter(r=>r.kind==='part')
@@ -82,6 +96,14 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.equal((await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agentKey.token}`})).status,401)
     const owner=await h.signIn(h.auth.OWNER_EMAIL),back=await h.state(owner)
     assert.deepEqual(back.agentKeys,[])
+    assert.deepEqual(back.kiosks,[])
+    assert.equal((await h.send('/api/lanyard/kiosk/state',undefined,kioskCookie)).status,403)
+    assert.equal((await h.send('/api/lanyard/kiosk/signin',{email:kioskPerson.email,pin:'123456'},enrolled.cookie)).status,403)
+    assert.deepEqual((await h.send('/api/lanyard/chat',undefined,owner)).value,originalChat)
+    assert.deepEqual((await h.send('/api/lanyard/access',undefined,owner)).value,originalAccess)
+    assert.deepEqual(back.kioskreceipts,original.kioskreceipts)
+    const photo=await h.mf.dispatchFetch(h.origin+'/api/lanyard/kiosk-photos/'+photoId,{headers:{cookie:owner}})
+    assert.equal(photo.status,200);assert.deepEqual([...new Uint8Array(await photo.arrayBuffer())],[255,216,255,217])
     assert.equal((await h.send('/api/lanyard/agent/fairness/compare?week=2026-10-12&site=synthetic-scope-cafe',undefined,'',{authorization:`Bearer ${agentKey.token}`})).status,401)
     const freshKey=await h.cmd('agent.create',{label:'Restored preparation only'},owner);assert.deepEqual(freshKey.scopes,[]);assert.deepEqual(freshKey.cafes,[])
     assert.equal((await h.send('/api/lanyard/agent/fairness/compare?week=2026-10-12&site=synthetic-scope-cafe',undefined,'',{authorization:`Bearer ${freshKey.token}`})).status,404)
