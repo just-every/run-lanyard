@@ -90,7 +90,7 @@ export async function kioskApi(h){
  for(const [name,n,input] of [['clock.breakStart',30,{kind:'meal'}],['clock.breakEnd',60,{}],['clock.out',180,{breakMinutes:0}]]){const c=await post('capture',capture(name,n,input),cookie,stamp);assert.equal(c.status,200,c.text)}
  own=await post('state',undefined,cookie);assert.equal(own.value.receipts.length,4);assert.ok(own.value.receipts.every(x=>x.photoId&&x.staffId===alex.id))
  const time=(await h.state()).timesheets.find(t=>t.staffId===alex.id);assert.equal(time.rounding.increment,15);assert.ok(time.payable.start);assert.equal(time.start,at(0));assert.equal(time.end,at(180))
- const path='/api/lanyard/kiosk-photos/'+receipt.photoId;assert.equal((await h.send(path,undefined,h.owner)).status,200);assert.equal((await h.send(path,undefined,ben.cookie)).status,404);assert.equal((await h.send('/api/lanyard/state',undefined,cookie)).status,401)
+ const path='/api/lanyard/kiosk-photos/'+receipt.photoId;assert.equal((await h.send(path,undefined,h.owner)).status,200);const bytes=await h.mf.dispatchFetch(h.origin+path,{headers:{cookie:h.owner}});assert.deepEqual([...new Uint8Array(await bytes.arrayBuffer())],[255,216,255,217]);assert.equal((await h.send(path,undefined,ben.cookie)).status,404);assert.equal((await h.send('/api/lanyard/state',undefined,cookie)).status,401)
  await h.restart();assert.equal((await post('state',undefined,cookie)).value.staffId,alex.id)
  await post('signout',{},cookie);assert.equal((await post('state',undefined,cookie)).status,401)
  const second=await post('signin',{email:ben.email,pin:'234567'});cookie=device+'; '+second.cookie;assert.equal((await post('state',undefined,cookie)).value.language,'en');assert.equal((await post('state',undefined,cookie)).value.clocks.length,0)
@@ -161,4 +161,23 @@ export async function kioskOffline(){
   await page.goto(h.origin+'/app/kiosk');assert.equal((await page.locator('body').innerText()).includes('Kiosk is unavailable'),true)
   await context.close()
  }finally{await browser.close();await h.close()}
+}
+
+export async function kioskSegmentApi(h){
+ const {handoverFixture}=await import('./shiftwork-fixture.mjs'),f=await handoverFixture(h),{alex,start,end,counter,kitchen}=f
+ await h.cmd('kiosk.pin',{pin:'123456',language:'en',consent:true},alex.cookie)
+ const enrolled=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Kitchen tablet',photo:false}},h.owner)
+ const signin=await h.send('/api/lanyard/kiosk/signin',{email:alex.email,pin:'123456'},enrolled.cookie);assert.equal(signin.status,200,signin.text)
+ const cookie=enrolled.cookie+'; '+signin.cookie,post=async(name,at,extra={})=>{const r=await h.send('/api/lanyard/kiosk/capture',{name,input:{commandId:crypto.randomUUID(),capturedAt:at,...extra}},cookie);assert.equal(r.status,200,r.text);return r.value.result}
+ await post('clock.in',start);await post('clock.transfer',new Date(Date.parse(start)+180*60000).toISOString(),{job:kitchen.id})
+ const time=(await post('clock.out',end,{breakMinutes:30})).timesheet,approved=await h.cmd('time.approve',pin(time))
+ assert.deepEqual(approved.workSegments.map(p=>[p.job,p.site,p.minutes,p.rateBasis.segments.map(x=>x.cents),p.rateBasis.costCents]),[[counter.id,'Ocean Beach',169,[2000],5633],[kitchen.id,'Ocean Beach',281,[2400],11240]])
+ assert.equal(approved.workSegments.reduce((n,p)=>n+p.minutes,0),450)
+ const batch=await h.cmd('payroll.prepare',{ids:[approved.id]}),exported=await h.cmd('payroll.export',pin(batch)),csv=(await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,h.owner)).text
+ assert.ok(csv.includes(counter.id));assert.ok(csv.includes(kitchen.id));assert.equal(csv.split('\r\n').filter(l=>l.startsWith('ALEX,')).length,2)
+ await h.cmd('kiosk.pin',{pin:'345678',language:'es',consent:true},alex.cookie)
+ assert.equal((await h.send('/api/lanyard/kiosk/state',undefined,cookie)).status,401,'a PIN change revokes an already active kiosk session')
+ const again=await h.send('/api/lanyard/kiosk/signin',{email:alex.email,pin:'345678'},enrolled.cookie),changed=enrolled.cookie+'; '+again.cookie
+ const person=(await h.state()).staff.find(x=>x.id===alex.id);await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:person.role,active:false,site:person.site})
+ assert.equal((await h.send('/api/lanyard/kiosk/state',undefined,changed)).status,401,'deactivation revokes an active kiosk employee session')
 }
