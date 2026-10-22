@@ -423,7 +423,7 @@ export async function customAccessRead(db:D1Database,identity:Actor){
  const a=await live(db,identity),s=await load(db),v:any=accessView(s,a)
  if(a.role==='agent')return v
  const home=s.staff.find(p=>p.id===a.staffId)?.site??''
- if(allowed(s,a,'draft.view',home)||allowed(s,a,'draft.edit',home)){v.people=s.staff.filter(p=>p.active&&!p.erased_at&&p.site===home).map(p=>({id:p.id,name:p.name}));v.jobs=s.jobs.map(j=>({id:j.id,name:j.name}));v.drafts=s.rosters.filter(r=>r.status==='draft'&&s.shifts.filter(x=>x.rosterId===r.id).every(x=>(x.site||s.staff.find(p=>p.id===x.staffId)?.site)===home)).map(r=>({...r,shifts:s.shifts.filter(x=>x.rosterId===r.id)}))
+ if(allowed(s,a,'draft.view',home)||allowed(s,a,'draft.edit',home)){v.people=s.staff.filter(p=>p.active&&!p.erased_at&&p.site===home).map(p=>({id:p.id,name:p.name}));v.jobs=s.jobs.map(j=>({id:j.id,name:j.name}));v.drafts=s.rosters.filter(r=>r.status==='draft'&&s.shifts.filter(x=>x.rosterId===r.id&&x.status==='draft').every(x=>(x.site||s.staff.find(p=>p.id===x.staffId)?.site)===home)).map(r=>({...r,shifts:s.shifts.filter(x=>x.rosterId===r.id&&x.status==='draft')}))
  }
  if(allowed(s,a,'swap.approve',home))v.swaps=s.swaps.filter(w=>[w.give,w.take].every(x=>!x||x.site===home))
  return allowed(s,a,'wages.view',home)?v:wageRedact(v)
