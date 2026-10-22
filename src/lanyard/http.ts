@@ -81,6 +81,12 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   }
   if (!request.headers.get('content-type')?.includes('application/x-www-form-urlencoded')) fail('Use JSON or a form', 415)
   const params = new URLSearchParams(raw), input: Record<string, unknown> = Object.fromEntries(params)
+  if(params.has('draftStaff')){
+    const row={staffId:String(input.draftStaff),start:String(input.draftStart),end:String(input.draftEnd),breakMinutes:Number(input.draftBreak),site:String(input.draftSite),job:String(input.draftJob??'')}
+    if(params.has('existingShifts')){let rows;try{rows=JSON.parse(String(input.existingShifts))}catch{fail('Reload the draft before editing')};const index=Number(input.draftIndex);if(!Array.isArray(rows)||!Number.isInteger(index)||index<0||index>=rows.length)fail('Reload the draft before editing');rows[index]={...rows[index],...row};input.shifts=rows}else input.shifts=[row]
+    for(const k of ['draftStaff','draftStart','draftEnd','draftBreak','draftSite','draftJob','existingShifts','draftIndex'])delete input[k]
+  }
+  if(params.has('shiftChoice')){const choice=String(input.shiftChoice);if(choice){const [id,revision]=choice.split('|');input.shiftId=id;input.shiftRevision=Number(revision)}delete input.shiftChoice}
   if(params.has('members'))input.members=params.getAll('members')
   if('shiftRevision' in input)input.shiftRevision=Number(input.shiftRevision)
   if (params.has('permissions')||new URL(request.url).searchParams.get('name')==='access.level.save') input.permissions=params.getAll('permissions')
@@ -220,6 +226,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
           const q=new URL(back,url.origin).searchParams,site=q.get('site')??String(input.site??''),demand=await demandRead(env.DB,who,site,q.get('date')??'')
           displayed={demand,learning:await learnProposalRead(env.DB,who,demand.site,8)}
         }
+        if(new URL(back,url.origin).pathname==='/app/access')displayed={access:await customAccessRead(env.DB,who)}
         const response=withClockCookie(await renderApp(await state(env, who), back, { message: 'Saved.', result: displayed }), name.startsWith('clockbrowser.') ? result : null)
         if(name==='kiosk.enroll')response.headers.append('set-cookie',String((result as any).cookie))
         return response
