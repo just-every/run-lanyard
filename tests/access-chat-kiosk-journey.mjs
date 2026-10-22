@@ -120,7 +120,7 @@ export async function surfaceBrowser(){
   const cookie=async c=>{await ctx.clearCookies();const [name,...v]=c.split('=');await ctx.addCookies([{name,value:v.join('='),url:h.origin,secure:name.startsWith('__Host-')}])}
   await cookie(h.owner);const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));const shot=async name=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,name+' overflow');if(process.env.C33_SCREENS){await mkdir(process.env.C33_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C33_SCREENS,`${name}-${width}.png`),fullPage:true})}}
   await page.goto(h.origin+'/app/access');await page.getByRole('heading',{name:'Access levels',exact:true}).waitFor()
-  const create=page.locator('form[action*="name=access.level.save"]').last();await create.locator('[name=name]').fill('Browser lead '+width);await create.locator('[name=site]').fill('Ocean Beach');await create.locator('[name=permissions][value="draft.edit"]').check();await create.locator('[name=permissions][value="swap.approve"]').check();await create.getByRole('button',{name:'Create level'}).click()
+  const create=page.locator('form[action*="name=access.level.save"]').filter({has:page.getByRole('button',{name:'Create level',exact:true})});await create.locator('[name=name]').fill('Browser lead '+width);await create.locator('[name=site]').fill('Ocean Beach');await create.locator('[name=permissions][value="draft.edit"]').check();await create.locator('[name=permissions][value="swap.approve"]').check();await create.getByRole('button',{name:'Create level'}).click()
   const level=(await h.send('/api/lanyard/access',undefined,h.owner)).value.levels.find(x=>x.name==='Browser lead '+width);assert.ok(level)
   const grant=page.locator('form[action*="name=access.grant"]');await grant.locator('[name=levelId]').selectOption(level.id);await grant.locator('[name=staffId]').selectOption(f.lead.id);await grant.locator('[name=site]').fill('Ocean Beach');await grant.getByRole('button',{name:'Assign level'}).click();await shot('access')
   await cookie(f.lead.cookie);await page.goto(h.origin+'/app/access');const draft=page.locator('form[action*="name=roster.prepare"]');await draft.locator('[name=week]').fill(f.week);await draft.locator('[name=shifts]').fill(JSON.stringify(f.shifts));await draft.getByRole('button',{name:'Prepare draft'}).click();assert.ok((await h.state()).rosters.some(r=>r.week===f.week&&r.status==='draft'));await shot('delegated-draft')
@@ -128,5 +128,37 @@ export async function surfaceBrowser(){
   await cookie(e.cookie);await page.goto(h.origin+'/app/kiosk');await page.locator('#kiosk-signin [name=email]').fill(f.alex.email);await page.locator('#kiosk-signin [name=pin]').fill('123456');await page.getByRole('button',{name:'Verify employee'}).click();await page.getByRole('heading',{name:'Tu reloj'}).waitFor();await shot('kiosk')
   await page.getByRole('button',{name:'Cerrar sesión para la siguiente persona'}).click();await page.getByRole('button',{name:'Verify employee'}).waitFor();assert.equal(await page.locator('#kiosk-person').isVisible(),false);assert.deepEqual(errors,[]);await ctx.close()
  }
+ }finally{await browser.close();await h.close()}
+}
+
+export async function kioskOffline(){
+ const h=await harness({secure:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ try{
+  const f=await crew(h),{alex}=f
+  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+  await h.cmd('kiosk.pin',{pin:'123456',language:'en',consent:true},alex.cookie)
+  const enrolled=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Offline counter',photo:false}},h.owner)
+  const context=await browser.newContext({viewport:{width:390,height:1000},ignoreHTTPSErrors:true}),[name,...value]=enrolled.cookie.split('=')
+  await context.addCookies([{name,value:value.join('='),url:h.origin,secure:true}])
+  let disconnected=true
+  await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path==='/api/lanyard/kiosk/capture'&&disconnected)return route.abort('internetdisconnected');if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js'))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
+  let page=await context.newPage();await page.goto(h.origin+'/app/kiosk');await page.locator('[name=email]').fill(alex.email);await page.locator('[name=pin]').fill('123456');await page.getByRole('button',{name:'Verify employee'}).click();await page.getByRole('heading',{name:'Your clock',exact:true}).waitFor()
+  const start=Date.now()-4*3600000,at=n=>new Date(start+n*60000),capture=async(n,label,count)=>{await page.clock.setFixedTime(at(n));await page.getByRole('button',{name:label,exact:true}).click();await page.waitForFunction(n=>document.querySelector('#kiosk-pending').textContent.startsWith(n+' saved'),count)}
+  await context.setOffline(true);await capture(0,'Clock in',1);await capture(30,'Start meal',2)
+  await page.close();await h.restart();await context.setOffline(false);page=await context.newPage();await page.goto(h.origin+'/app/kiosk');await page.getByRole('heading',{name:'Your clock',exact:true}).waitFor();await capture(60,'End break',3);await capture(180,'Clock out',4)
+  const encrypted=await page.evaluate(async()=>{const names=await indexedDB.databases(),name=names.find(d=>d.name.includes('kiosk:')).name,db=await new Promise((resolve,reject)=>{const r=indexedDB.open(name);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});try{const tx=db.transaction('vault'),get=k=>new Promise((resolve,reject)=>{const r=tx.objectStore('vault').get(k);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});const key=await get('key'),state=await get('state');return {extractable:key.extractable,plain:new TextDecoder().decode(state.data),bytes:state.data.byteLength}}finally{db.close()}})
+  assert.equal(encrypted.extractable,false);assert.ok(encrypted.bytes>0);assert.equal(encrypted.plain.includes('capturedAt'),false);assert.equal((await h.state()).clocks.length,0)
+  disconnected=false;await page.getByRole('button',{name:'Retry saved captures'}).click();await page.waitForFunction(()=>document.querySelector('#kiosk-pending').textContent.startsWith('0 saved'))
+  let state=await h.state();assert.equal(state.timesheets.length,1);assert.equal(state.timesheets[0].minutes,150);assert.equal(state.clocks[0].breaks.length,1);assert.equal(state.kioskreceipts.length,4);assert.ok(state.kioskreceipts.every(r=>r.receivedAt>r.capturedAt))
+  await page.reload();await page.getByRole('heading',{name:'Your clock',exact:true}).waitFor();assert.equal((await h.state()).timesheets.length,1)
+  disconnected=true;await capture(200,'Clock in',1);await h.cmd('kiosk.revoke',{id:enrolled.value.id})
+  // No employee retry precedes the owner's sign-in. The manager recovery UI reveals only a count.
+  const [ownerName,...ownerValue]=h.owner.split('=');await context.addCookies([{name:ownerName,value:ownerValue.join('='),url:h.origin}]);await page.goto(h.origin+'/app/time');const recovery=page.locator('[data-clock-recovery]');await recovery.waitFor();const notice=await recovery.innerText();assert.ok(notice.includes('1 unsynced punch'));assert.equal(notice.includes('Alex'),false);assert.equal(notice.includes('capturedAt'),false)
+  if(process.env.C33_SCREENS)for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await mkdir(process.env.C33_SCREENS,{recursive:true});await recovery.screenshot({path:join(process.env.C33_SCREENS,`kiosk-recovery-${width}.png`)})}
+  await recovery.getByRole('button',{name:'Submit unsynced punches for review'}).click();await page.waitForFunction(()=>document.querySelector('[data-clock-recovery]').textContent.includes('No punches were automatically applied'))
+  state=await h.state();assert.equal(state.clockissues.length,1);assert.equal(state.timesheets.length,1);assert.equal(state.clockissues[0].originalActorId,(await h.state(alex.cookie)).actor.id)
+  const issue=state.clockissues[0];await h.cmd('clockissue.resolve',{...pin(issue),commandId:crypto.randomUUID(),reason:'Owner reviewed kiosk original; no additional work was performed.'});assert.equal((await h.state()).clockissues[0].status,'resolved');assert.equal((await h.state()).timesheets.length,1)
+  await page.goto(h.origin+'/app/kiosk');assert.equal((await page.locator('body').innerText()).includes('Kiosk is unavailable'),true)
+  await context.close()
  }finally{await browser.close();await h.close()}
 }
