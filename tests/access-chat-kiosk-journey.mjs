@@ -1,0 +1,124 @@
+import assert from 'node:assert/strict'
+import {harness} from './harness.mjs'
+import {readFile,mkdir} from 'node:fs/promises'
+import {join} from 'node:path'
+import {chromium} from '@playwright/test'
+const pin=r=>({id:r.id,revision:r.revision})
+export async function crew(h){
+ await h.cmd('settings.save',{timezone:'UTC'})
+ const alex=await h.person('Alex'),ben=await h.person('Ben'),lead=await h.person('Lead','manager'),foreign=await h.person('Foreign','manager')
+ for(const p of [alex,ben,lead,foreign])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site:p===foreign?'Mission':'Ocean Beach',position:'Counter',hourlyRate:'20.00'})
+ const day=new Date(Date.now()+14*86400000).toISOString().slice(0,10),week=new Date(Date.parse(day+'T12:00Z')-((new Date(day+'T12:00Z').getUTCDay()+6)%7)*86400000).toISOString().slice(0,10)
+ for(const p of [alex,ben])await h.cmd('availability.save',{staffId:p.id,start:week+'T00:00:00Z',end:new Date(Date.parse(week+'T00:00Z')+7*86400000).toISOString()})
+ const shifts=[{staffId:alex.id,site:'Ocean Beach',start:week+'T09:00:00Z',end:week+'T12:00:00Z',breakMinutes:0}]
+ return {alex,ben,lead,foreign,week,shifts}
+}
+export async function accessApi(h){
+ const f=await crew(h),{alex,ben,lead,foreign,week,shifts}=f
+ let level=await h.cmd('access.level.save',{name:'Shift lead',site:'Ocean Beach',permissions:['draft.view','draft.edit','swap.approve']})
+ await h.cmd('access.grant',{levelId:level.id,staffId:lead.id,site:'Mission'},h.owner,403)
+ const grant=await h.cmd('access.grant',{levelId:level.id,staffId:lead.id,site:'Ocean Beach'})
+ const before=await h.state(),draft=await h.cmd('roster.prepare',{week,shifts},lead.cookie)
+ assert.equal(draft.status,'draft');assert.equal('rateBasis' in draft.shifts[0],false)
+ const noWrites=async(n,p,c=lead.cookie)=>{const s=await h.state();await h.cmd(n,p,c,403);const after=await h.state();assert.equal(after.version,s.version);assert.deepEqual(after.events,s.events)}
+ await noWrites('roster.publish',pin(draft));await noWrites('time.approve',{id:'synthetic-lanyard-1',revision:1});await noWrites('agent.create',{label:'Attempt'});await noWrites('roster.prepare',{week,shifts:shifts.map(s=>({...s,site:'Mission'}))})
+ await noWrites('access.level.save',{name:'Payroll',site:'Ocean Beach',permissions:['payroll.export']})
+ const payroll=await h.cmd('access.level.save',{name:'Payroll owner',site:'Ocean Beach',permissions:['payroll.export']});await noWrites('access.grant',{levelId:payroll.id,staffId:alex.id,site:'Ocean Beach'})
+ const state=await h.state(lead.cookie);assert.equal(state.actor.role,'staff');assert.deepEqual(state.batches,[]);assert.ok(!state.staff.some(x=>x.id===ben.id));assert.equal((await h.send('/api/lanyard/intervals?site=Ocean%20Beach',undefined,lead.cookie)).status,403)
+ const contact=await h.send('/api/lanyard/contacts/'+alex.id,undefined,lead.cookie);assert.equal(contact.status,404);assert.ok((await h.state()).events.some(x=>x.action==='contact.refused'&&x.entityId===alex.id))
+ await h.cmd('roster.publish',pin(draft));const shift=(await h.state()).shifts.find(x=>x.rosterId===draft.id)
+ let swap=await h.cmd('swap.propose',{shiftId:shift.id,revision:shift.revision,to:ben.id},alex.cookie);swap=await h.cmd('swap.respond',{...pin(swap),decision:'accepted'},ben.cookie)
+ const prepared=await h.send('/api/lanyard/access',undefined,lead.cookie);assert.ok(prepared.value.swaps.some(x=>x.id===swap.id));assert.equal('rateBasis' in (prepared.value.drafts[0]?.shifts[0]??{}),false)
+ // Editing the level is effective for the next request in this still-active native session.
+ level=await h.cmd('access.level.save',{...pin(level),name:level.name,site:level.site,permissions:['draft.view','draft.edit']})
+ await noWrites('swap.decide',{...pin(swap),decision:'approved'})
+ assert.deepEqual(level.changes.at(-1).before,['draft.view','draft.edit','swap.approve']);assert.deepEqual(level.changes.at(-1).after,['draft.view','draft.edit'])
+ level=await h.cmd('access.level.save',{...pin(level),name:level.name,site:level.site,permissions:['draft.view','draft.edit','swap.approve']})
+ swap=await h.cmd('swap.decide',{...pin(swap),decision:'approved'},lead.cookie);assert.equal(swap.status,'approved')
+ await h.cmd('access.revoke',pin(grant));await noWrites('roster.prepare',{week,shifts})
+ const key=await h.cmd('agent.create',{label:'Preparation only'}),ctx=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${key.token}`});assert.deepEqual(ctx.value.accesslevels,[]);assert.deepEqual(ctx.value.accessgrants,[]);assert.equal(ctx.value.access,null)
+ assert.ok((await h.state()).events.some(e=>e.action==='access.revoke'))
+ return f
+}
+export async function chatApi(h){
+ const f=await crew(h),{alex,ben,lead,foreign,week,shifts}=f
+ const announcement=await h.cmd('chat.create',{kind:'announcement',site:'Ocean Beach',title:'Opening checklist'},lead.cookie)
+ await h.cmd('chat.send',{threadId:announcement.id,text:'synthetic-lanyard-1: check the espresso station',attachment:{name:'handover.txt',type:'text/plain',data:btoa('synthetic-lanyard-2')}},lead.cookie)
+ const read=async(c=alex.cookie,q='')=>h.send('/api/lanyard/chat'+q,undefined,c)
+ let view=(await read()).value;assert.ok(view.threads.some(t=>t.id===announcement.id));const message=view.messages[0];assert.equal('data' in message.attachments[0],false)
+ await h.cmd('chat.acknowledge',pin(message),alex.cookie);await h.cmd('chat.acknowledge',pin(message),alex.cookie);assert.equal((await read()).value.reads.filter(x=>x.messageId===message.id).length,1)
+ assert.equal((await read(alex.cookie,'?q=espresso')).value.messages.length,1)
+ await h.cmd('chat.send',{threadId:announcement.id,text:'Attempt'},alex.cookie,403)
+ const attachment=`/api/lanyard/chat/messages/${message.id}/files/${message.attachments[0].id}`;assert.equal((await h.send(attachment,undefined,ben.cookie)).text,'synthetic-lanyard-2');assert.equal((await h.send(attachment,undefined,foreign.cookie)).status,404)
+ const direct=await h.cmd('chat.create',{kind:'direct',site:'Ocean Beach',title:'Closing handover',members:[ben.id]},alex.cookie)
+ await h.cmd('chat.send',{threadId:direct.id,text:'Please request the swap through Schedule.'},alex.cookie)
+ assert.equal((await read(lead.cookie)).value.threads.some(t=>t.id===direct.id),false,'managers cannot read private operational DMs without membership')
+ const group=await h.cmd('chat.create',{kind:'group',site:'Ocean Beach',title:'Counter group',members:[ben.id,lead.id]},alex.cookie);assert.ok((await read(ben.cookie)).value.threads.some(t=>t.id===group.id))
+ const draft=await h.cmd('roster.prepare',{week,shifts});await h.cmd('roster.publish',pin(draft));const shift=(await h.state()).shifts.find(x=>x.rosterId===draft.id)
+ const handover=await h.cmd('chat.create',{kind:'shift',site:'Ocean Beach',title:'Shift handover',shiftId:shift.id,shiftRevision:shift.revision},alex.cookie)
+ await h.cmd('chat.send',{threadId:handover.id,text:'Swap requested in chat, not approved.'},alex.cookie)
+ assert.equal((await h.state()).swaps.length,0);assert.equal((await h.state()).shifts.find(x=>x.id===shift.id).staffId,alex.id)
+ let swap=await h.cmd('swap.propose',{shiftId:shift.id,revision:shift.revision,to:ben.id},alex.cookie);swap=await h.cmd('swap.respond',{...pin(swap),decision:'accepted'},ben.cookie);assert.equal((await h.state()).shifts.find(x=>x.id===shift.id).staffId,alex.id)
+ await h.cmd('swap.decide',{...pin(swap),decision:'approved'},lead.cookie)
+ assert.equal((await read()).value.threads.some(t=>t.id===handover.id),false);assert.ok((await read(ben.cookie)).value.threads.some(t=>t.id===handover.id));assert.equal(handover.shiftRevision,shift.revision)
+ const person=(await h.state()).staff.find(x=>x.id===ben.id)
+ await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:person.role,active:true,site:'Mission'})
+ assert.equal((await read(ben.cookie)).value.messages.some(m=>m.id===message.id),false);assert.equal((await h.send(attachment,undefined,ben.cookie)).status,404)
+ await h.cmd('chat.send',{threadId:direct.id,text:'Transferred attempt'},ben.cookie,404)
+ const changed=(await h.state()).staff.find(x=>x.id===ben.id);await h.cmd('staff.save',{...pin(changed),name:changed.name,email:changed.email,payrollId:changed.payrollId,role:changed.role,active:false,site:'Mission'})
+ assert.equal((await read(ben.cookie)).status,403);assert.deepEqual((await h.state()).chatmessages,[])
+ return f
+}
+export async function kioskApi(h){
+ const f=await crew(h),{alex,ben,lead,foreign}=f
+ await h.cmd('kiosk.enroll',{site:'Ocean Beach',label:'Attempt',photo:false},lead.cookie,403)
+ await h.cmd('kiosk.pin',{pin:'123456',language:'es',consent:true},alex.cookie)
+ await h.cmd('kiosk.pin',{pin:'234567',language:'en',consent:true},ben.cookie)
+ const enrolled=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Counter tablet',photo:true,consent:true}},h.owner);assert.equal(enrolled.status,200,enrolled.text);assert.equal('cookie' in enrolled.value,false)
+ const device=enrolled.cookie,post=async(path,input,c=device,headers={})=>h.send('/api/lanyard/kiosk/'+path,input,c,headers)
+ assert.equal((await post('signin',{email:alex.email,pin:'000000'})).status,401)
+ const login=await post('signin',{email:alex.email,pin:'123456'});assert.equal(login.status,200,login.text);let cookie=device+'; '+login.cookie
+ let own=await post('state',undefined,cookie);assert.equal(own.value.staffId,alex.id);assert.equal(own.value.language,'es');assert.equal(own.value.clocks.length,0)
+ // JPEG fixture contains only an inert signature; this asserts byte custody, not camera hardware.
+ const photo=btoa(String.fromCharCode(255,216,255,217)),start=new Date(Date.now()-4*3600000),at=n=>new Date(start.getTime()+n*60000).toISOString(),stamp={'x-test-now':String(Date.now())}
+ const capture=(name,n,extra={})=>({name,input:{commandId:crypto.randomUUID(),capturedAt:at(n),...extra},photo,photoConsent:true})
+ const inEvent=capture('clock.in',0)
+ assert.equal((await post('capture',{...inEvent,photo:undefined},cookie,stamp)).status,403)
+ let punch=await post('capture',inEvent,cookie,stamp);assert.equal(punch.status,200,punch.text);const receipt=punch.value.result.kioskReceipt;assert.equal(receipt.language,'es');assert.ok(receipt.photoId)
+ const again=await post('capture',inEvent,cookie,stamp);assert.equal(again.status,200);assert.equal(again.value.result.id,punch.value.result.id)
+ for(const [name,n,input] of [['clock.breakStart',30,{kind:'meal'}],['clock.breakEnd',60,{}],['clock.out',180,{breakMinutes:0}]]){const c=await post('capture',capture(name,n,input),cookie,stamp);assert.equal(c.status,200,c.text)}
+ own=await post('state',undefined,cookie);assert.equal(own.value.receipts.length,4);assert.ok(own.value.receipts.every(x=>x.photoId&&x.staffId===alex.id))
+ const path='/api/lanyard/kiosk-photos/'+receipt.photoId;assert.equal((await h.send(path,undefined,h.owner)).status,200);assert.equal((await h.send(path,undefined,ben.cookie)).status,404);assert.equal((await h.send('/api/lanyard/state',undefined,cookie)).status,401)
+ await h.restart();assert.equal((await post('state',undefined,cookie)).value.staffId,alex.id)
+ await post('signout',{},cookie);assert.equal((await post('state',undefined,cookie)).status,401)
+ const second=await post('signin',{email:ben.email,pin:'234567'});cookie=device+'; '+second.cookie;assert.equal((await post('state',undefined,cookie)).value.language,'en');assert.equal((await post('state',undefined,cookie)).value.clocks.length,0)
+ assert.equal((await post('capture',capture('roster.publish',190,{}),cookie)).status,403)
+ assert.equal((await post('capture',capture('clock.transfer',190,{site:'Mission',job:'synthetic-lanyard-1'}),cookie)).status,403)
+ await h.cmd('kiosk.revoke',{id:enrolled.value.id});assert.equal((await post('capture',capture('clock.in',200),cookie)).status,403);assert.equal((await post('state',undefined,cookie)).status,403)
+ const locked=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Lock test',photo:false}},h.owner);for(let n=0;n<5;n++)assert.equal((await post('signin',{email:'unknown@venue.example',pin:'000000'},locked.cookie)).status,401)
+ assert.equal((await post('signin',{email:alex.email,pin:'123456'},locked.cookie)).status,403)
+ assert.ok((await h.state()).events.some(e=>e.action==='kiosk.revoke'))
+ return f
+}
+export async function surfaceBrowser(){
+ const h=await harness(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ try{
+ const f=await crew(h)
+ await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+ await h.cmd('chat.create',{kind:'site',site:'Ocean Beach',title:'Morning service'})
+ const t=(await h.send('/api/lanyard/chat',undefined,f.alex.cookie)).value.threads[0];await h.cmd('chat.send',{threadId:t.id,text:'Grinder cleaned; milk delivery is on the way.'},f.alex.cookie)
+ await h.cmd('access.level.save',{name:'Shift lead',site:'Ocean Beach',permissions:['draft.view','draft.edit','swap.approve']})
+ await h.cmd('kiosk.pin',{pin:'123456',language:'es',consent:true},f.alex.cookie)
+ const e=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Counter tablet',photo:false}},h.owner)
+ for(const width of [1440,390]){
+  const ctx=await browser.newContext({viewport:{width,height:1000}})
+  await ctx.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js'))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
+  const cookie=async c=>{await ctx.clearCookies();const [name,...v]=c.split('=');await ctx.addCookies([{name,value:v.join('='),url:h.origin}])}
+  await cookie(h.owner);const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));const shot=async name=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,name+' overflow');if(process.env.C33_SCREENS){await mkdir(process.env.C33_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C33_SCREENS,`${name}-${width}.png`),fullPage:true})}}
+  await page.goto(h.origin+'/app/access');await page.getByRole('heading',{name:'Access levels',exact:true}).waitFor();await shot('access')
+  await cookie(f.alex.cookie);await page.goto(h.origin+'/app/chat');await page.getByRole('heading',{name:'Morning service',exact:true}).waitFor();await page.getByRole('button',{name:'Acknowledge',exact:true}).first().click();assert.ok((await page.locator('main').innerText()).includes('Acknowledged'));await page.locator('input[name=q]').fill('Grinder');await page.getByRole('button',{name:'Search',exact:true}).click();assert.ok((await page.locator('main').innerText()).includes('Grinder cleaned'));await shot('chat')
+  await cookie(e.cookie);await page.goto(h.origin+'/app/kiosk');await page.locator('#kiosk-signin [name=email]').fill(f.alex.email);await page.locator('#kiosk-signin [name=pin]').fill('123456');await page.getByRole('button',{name:'Verify employee'}).click();await page.getByRole('heading',{name:'Tu reloj'}).waitFor();await shot('kiosk')
+  await page.getByRole('button',{name:'Cerrar sesión para la siguiente persona'}).click();await page.getByRole('button',{name:'Verify employee'}).waitFor();assert.equal(await page.locator('#kiosk-person').isVisible(),false);assert.deepEqual(errors,[]);await ctx.close()
+ }
+ }finally{await browser.close();await h.close()}
+}

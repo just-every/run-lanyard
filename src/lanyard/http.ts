@@ -1,3 +1,8 @@
+import {kioskResponse,kioskAdmin,kioskPin} from './kiosk'
+import {chatRead,chatFile} from './domain/chat'
+import {load} from './domain/storage'
+import {restricted} from './domain/access'
+import {customAccessRead} from './domain'
 import { runtimeBindings, type Bindings } from '../auth.server'
 import { learningRead, fairnessCompare, fairnessRead, shiftAttachment, tipCreditRead, acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, demandRead, learnProposalRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
@@ -10,7 +15,7 @@ import { timezone as zone } from './domain/settings'
 
 const headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin' }
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers })
-const pages = new Set(['/app', '/app/schedule', '/app/time', '/app/payroll', '/app/people', '/app/import', '/app/agent', '/app/wall'])
+const pages = new Set(['/app', '/app/schedule', '/app/time', '/app/payroll', '/app/people', '/app/import', '/app/agent', '/app/wall', '/app/access', '/app/chat'])
 // The screen a form returns to, with its own query (week, cafe, day) but never another origin or path.
 function returnTo(value: string | null): string {
   if (!value?.startsWith('/app')) return '/app'
@@ -23,10 +28,13 @@ async function state(env: Bindings, who: Actor) {
   if (env.VENUE_TIMEZONE) await env.DB.prepare('UPDATE l_meta SET timezone=? WHERE id=1 AND version=0 AND timezone<>?').bind(zone(env.VENUE_TIMEZONE), zone(env.VENUE_TIMEZONE)).run()
   // Independent reads go to D1 together, so a page waits for one round trip instead of several in a row.
   const [snap, keys, browsers, jobs] = await Promise.all([snapshot(env.DB, who, env.SESSION_SECRET), agentKeys(env, who), clockBrowsers(env, who), who.role === 'owner' ? env.DB.prepare("SELECT id,state,checkpoint,total,fingerprint,error FROM ik_jobs WHERE destination='lanyard:staff' AND namespace='lanyard.staff.csv.v1' AND mapping_version='staff-csv-v1' AND principal_id=? ORDER BY rowid DESC LIMIT 30").bind(who.id).all() : null])
-  return { ...snap, agentKeys: keys, clockBrowsers: browsers, importJobs: jobs ? jobs.results : [] }
+  return { ...snap, kiosks:who.role==='owner'?(await env.DB.prepare('SELECT id,site,label,photo,locked,revoked_at FROM l_kiosk_devices').all()).results:[], chat:who.role==='agent'?null:chatRead(await load(env.DB),who), agentKeys: keys, clockBrowsers: browsers, importJobs: jobs ? jobs.results : [] }
 }
 
 async function execute(request: Request, env: Bindings, who: Actor, name: string, input: Record<string, unknown>) {
+  if(restricted(await load(env.DB),who)&&['agent.create','agent.revoke','staff.invite'].includes(name))fail('Owner required',403)
+  if(name==='kiosk.pin')return kioskPin(env,who,input)
+  if(name==='kiosk.enroll'||name==='kiosk.revoke')return kioskAdmin(env,who,name,input)
   if (name.startsWith('agent.') || name === 'staff.invite') return credentialCommand(request, env, who, name, input)
   if (name.startsWith('import.')) return importCommand(env.DB, who, name, input)
   if (name.startsWith('clockbrowser.')) return clockBrowserCommand(env, who, name, input)
@@ -72,6 +80,9 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   }
   if (!request.headers.get('content-type')?.includes('application/x-www-form-urlencoded')) fail('Use JSON or a form', 415)
   const params = new URLSearchParams(raw), input: Record<string, unknown> = Object.fromEntries(params)
+  if(params.has('members'))input.members=params.getAll('members')
+  if('shiftRevision' in input)input.shiftRevision=Number(input.shiftRevision)
+  if (params.has('permissions')||new URL(request.url).searchParams.get('name')==='access.level.save') input.permissions=params.getAll('permissions')
   if (params.has('scopes')) input.scopes = params.getAll('scopes')
   if (params.has('cafes')) input.cafes = params.getAll('cafes')
   if (params.has('comparisonConsent')) input.comparisonConsent = params.get('comparisonConsent') === 'on'
@@ -113,11 +124,24 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     if (request.method === 'POST' && !isAgent && (request.headers.get('origin') !== env.AUTH_ORIGIN || request.headers.get('sec-fetch-site') === 'cross-site')) fail('Cross-site request refused', 403)
     // The schedule was called the roster; old links keep working.
     if (path === '/app/roster' && request.method === 'GET') return new Response(null, { status: 301, headers: { ...headers, location: '/app/schedule' + url.search } })
+    const kiosk=await kioskResponse(request,env);if(kiosk)return kiosk
     who = await principal(request, env, isAgent)
     if (request.method === 'GET') {
+      const custom=restricted(await load(env.DB),who)
+      if(custom&&!['/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path))fail('This read is unavailable to custom levels',403)
+      if(path==='/app/chat'||path==='/api/lanyard/chat'){
+       const chat=chatRead(await load(env.DB),who,url.searchParams.get('q')??'',url.searchParams.get('threadId')??'')
+       return path==='/app/chat'?renderApp(await state(env,who),path+url.search,{result:{chat}}):json(chat)
+      }
+      const chatAttachment=path.match(/^\/api\/lanyard\/chat\/messages\/([\w-]+)\/files\/([\w-]+)$/)
+      if(chatAttachment){const f=chatFile(await load(env.DB),who,chatAttachment[1],chatAttachment[2]);return new Response(f.bytes,{headers:{...headers,'content-type':'application/octet-stream','content-disposition':`attachment; filename="${f.name.replace(/[^\w. -]/g,'_')}"`}})}
+      const photo=path.match(/^\/api\/lanyard\/kiosk-photos\/([\w-]+)$/)
+      if(photo){const f=await env.DB.prepare('SELECT staff_id,bytes FROM l_kiosk_photos WHERE id=?').bind(photo[1]).first<any>();if(!f||who.role==='agent'||who.role!=='owner'&&who.staffId!==f.staff_id)fail('Not found',404);return new Response(new Uint8Array(f.bytes),{headers:{...headers,'content-type':'image/jpeg','content-disposition':'attachment; filename="punch.jpg"'}})}
+      if(path==='/api/lanyard/access')return json(await customAccessRead(env.DB,who))
+      if(path==='/app/access')return renderApp(await state(env,who),path,{result:{access:await customAccessRead(env.DB,who)}})
       if (pages.has(path)) {
         const view:any=await state(env,who)
-        if(path==='/app/schedule'&&['owner','manager'].includes(who.role)) {
+        if(path==='/app/schedule'&&!custom&&['owner','manager'].includes(who.role)) {
           const {weekModel}=await import('./ui/week'),w=weekModel(view,Date.now(),url.searchParams,true)
           const site=who.role==='manager'?view.staff.find((p:any)=>p.id===view.actor.staffId)?.site??'':w.site
           const weeks=Number(url.searchParams.get('fairWeeks')??8),fairness=await fairnessRead(env.DB,who,w.week,site,weeks)
@@ -180,6 +204,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       const printed = path.match(/^\/api\/lanyard\/postings\/([\w-]+)\.pdf$/)
       if (printed) { const { bytes, name } = await schedulePdf(env.DB, who, printed[1]); return new Response(bytes, { headers: { ...headers, 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${name}"` } }) }
     } else {
+      if(restricted(await load(env.DB),who)&&path==='/api/lanyard/schedule/review')fail('Use the scoped draft command',403)
       if (path === '/api/lanyard/schedule/review') return json(await previewSchedule(env.DB, who, await inputBody(request)))
       if (path === '/app/action') {
         const input = await inputBody(request), name = url.searchParams.get('name') ?? ''
@@ -194,7 +219,9 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
           const q=new URL(back,url.origin).searchParams,site=q.get('site')??String(input.site??''),demand=await demandRead(env.DB,who,site,q.get('date')??'')
           displayed={demand,learning:await learnProposalRead(env.DB,who,demand.site,8)}
         }
-        return withClockCookie(await renderApp(await state(env, who), back, { message: 'Saved.', result: displayed }), name.startsWith('clockbrowser.') ? result : null)
+        const response=withClockCookie(await renderApp(await state(env, who), back, { message: 'Saved.', result: displayed }), name.startsWith('clockbrowser.') ? result : null)
+        if(name==='kiosk.enroll')response.headers.append('set-cookie',String((result as any).cookie))
+        return response
       }
       if (path === '/api/lanyard/command' || path === '/api/lanyard/agent/command') {
         const body = await inputBody(request)
@@ -202,6 +229,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         if (isAgent && !['roster.prepare', 'time.prepare', 'payroll.prepare', 'learn.propose'].includes(String(body.name))) fail('Agents can only prepare drafts', 403)
         const result = await execute(request, env, who, String(body.name), body.input as Record<string, unknown>)
         if (String(body.name).startsWith('clockbrowser.')) { const { token, ...shown } = result as Record<string, unknown>; return withClockCookie(json(shown), result) }
+        if(String(body.name)==='kiosk.enroll'){const {cookie,...shown}=result as any;const response=json(shown);response.headers.append('set-cookie',cookie);return response}
         return json(result)
       }
     }

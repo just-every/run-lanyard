@@ -44,7 +44,7 @@
       const response = await fetch('/api/lanyard/command', {
         method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},signal:controller.signal,
         body:JSON.stringify({name:'clock.recover',input:{
-          commandId:event.recoveryId,capture:event.capture,actorId:savedActor,
+          commandId:event.recoveryId,capture:event.capture,actorId:event.originalActorId||savedActor,
           error:event.error || 'Device-reported unsynced capture from a revoked session',
         }}),
       })
@@ -68,7 +68,7 @@
         await clock.withState(savedActor, null, async (state, save) => {
           for (const event of remaining(state)) {
             if (!event.recoveryId) { event.recoveryId = crypto.randomUUID(); await save() }
-            await recover(savedActor, event)
+            await recover(savedActor, {...event,originalActorId:state.client==='kiosk'?state.owner?.actorId:undefined})
             state.revoked = true
             event.recovered = true; event.reported = true; event.status = 'rejected'
             event.error ||= 'Submitted for manager review after access was revoked. This original will not be replayed.'

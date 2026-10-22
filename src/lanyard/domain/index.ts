@@ -1,3 +1,6 @@
+import {clockLanguage,kioskCheck,kioskReceipt} from './kiosk'
+import {chatCommand} from './chat'
+import {accessCommand,authorizeCommand,restricted,accessView,wageRedact,allowed} from './access'
 import {noticeCommand,reconcileNotices,noticesFor} from './notices'
 import {demandRule,demandCommand} from './demand'
 import {demandReport} from './demand-compare'
@@ -68,20 +71,27 @@ import {holidayPay} from './holiday-pay'
 import {holidayReviews} from './holidays'
 export {actor}
 export type {Actor} from './model'
-const commands=['learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
+const commands=['clocklanguage.save','chat.create','chat.send','chat.acknowledge','access.level.save','access.grant','access.revoke','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
  need(person,'Staff access revoked',403);return {...a,role:person.role}
 }
-export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string,net?:Context['net'],files?:R2Bucket):Promise<object> {
+export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string,net?:Context['net'],files?:R2Bucket,kiosk?:Context['kiosk']):Promise<object> {
  need(commands.includes(name)||['aca.plan.save','aca.credit.save','job.save','workforce.save','shiftwork.save','shiftwork.respond'].includes(name),'Unknown command',404);const a=await live(db,identity),p=object(input)
  if(a.role==='agent')need(['roster.prepare','time.prepare','payroll.prepare','learn.propose'].includes(name),'Agents may prepare drafts only; a human manager must approve',403)
  const commandId=name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID(),digest=await sha(canonical({name,input:p}))
- const previous=await saved(db,commandId,a,digest);if(previous)return previous
- const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret,net,files,rollback:[]}
+ // Kiosk authority is rechecked before returning a saved result.
+ const previous=kiosk?null:await saved(db,commandId,a,digest);if(previous)return previous
+ const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret,net,files,kiosk,rollback:[]}
  try {
- let result:any=noticeCommand(c,name,p)
+ await kioskCheck(c,name,p)
+ if(kiosk){const previous=await saved(db,commandId,a,digest);if(previous)return previous}
+ authorizeCommand(c,name,p)
+ let result:any=clockLanguage(c,name,p)
+ if(result===undefined)result=chatCommand(c,name,p)
+ if(result===undefined)result=accessCommand(c,name,p)
+ if(result===undefined)result=noticeCommand(c,name,p)
  if(result===undefined)result=demandRule(c,name,p)
  if(result===undefined)result=await demandCommand(c,name,p)
  if(result===undefined)result=await learnCommand(c,name,p)
@@ -133,6 +143,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=workforce(c,name,p)
  if(result===undefined)result=tipCredit(c,name,p)
  need(result!==undefined,'Unknown command',404)
+ const receipt=kioskReceipt(c,name,p);if(receipt)result={...result,kioskReceipt:receipt}
  if(['roster.publish','shift.change','cover.approve','swap.decide','overtime.substitute','openshift.approve'].includes(name))checkSegmentAssignments(s,before)
  // AUTO-001: an active rule approves the clean punched time this command submitted.
  autoApprove(c,before)
@@ -144,6 +155,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
   result={...safe,lines:lines.map(({payrollId,rateBasis,...line}:any)=>withoutRates(line))}
  }
  if(!['owner','manager'].includes(a.role))result=hideRates(result)
+ if(restricted(s,a)&&!allowed(s,a,'wages.view',s.staff.find(p=>p.id===a.staffId)?.site??''))result=wageRedact(result)
  const ownerRow=await db.prepare("SELECT id,email FROM oa_operators WHERE role='owner' AND status='active' ORDER BY created_at LIMIT 1").first<{id:string;email:string}>()
  if(ownerRow)await reconcileNotices(c,await actor(db,{userId:ownerRow.id,email:ownerRow.email,isOwner:true}))
  return await commit(c,before,name,commandId,digest,result)
@@ -154,7 +166,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
 }
 export async function snapshot(db:D1Database,identity:Actor,secret?:string):Promise<object> {
  const a0=await live(db,identity),events=a0.role==='agent'?null:db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at FROM l_events ORDER BY at DESC,id DESC').all<Event>()
- const s=await load(db),a=fresh(a0,s),manages=['owner','manager'].includes(a.role),agent=a.role==='agent'
+ const s=await load(db),native=fresh(a0,s),a=restricted(s,native)?{...native,role:'staff' as const}:native,manages=['owner','manager'].includes(a.role),agent=a.role==='agent'
  const staff=s.staff.filter(p=>manages||agent||p.id===a.staffId).map(p=>agent?{id:p.id,name:p.name,active:!!p.active,position:p.position,site:p.site}:{id:p.id,name:p.name,email:p.email,payrollId:p.payroll_id,role:p.role,active:!!p.active,revision:p.version,erasedAt:p.erased_at,position:p.position,site:p.site,...(manages||(p.id===a.staffId&&earnSettings(s.earnings).estimates)?{hourlyRateCents:p.rate_cents}:{})})
  const result:Record<string,any>={actor:{id:a.id,email:agent?undefined:a.email,name:agent?undefined:identity.name,role:a.role,staffId:a.staffId},version:s.version,settings:{timezone:s.timezone},staff}
  for(const k of kinds)result[k]=s[k]
@@ -264,6 +276,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  if(!manages)result.jobs=s.jobs.map(({versions,...r})=>r)
  // AUDIT-001: each role reads only its own slice of the activity list.
  result.events=events?readable(s,a,(await events).results):[]
+ result.clocklanguages=agent?[]:s.clocklanguages.filter(r=>r.staffId===a.staffId);result.kioskreceipts=agent?[]:s.kioskreceipts.filter(r=>a.role==='owner'||r.staffId===a.staffId);result.accesslevels=[];result.accessgrants=[];result.chatthreads=[];result.chatmessages=[];result.chatreads=[]
+ result.access=agent?null:accessView(s,native)
  return result
 }
 export async function batchCsv(db:D1Database,identity:Actor,id:string):Promise<string> {
@@ -310,7 +324,7 @@ export async function dashboardRead(db:D1Database,identity:Actor,asOf:string,sit
 }
 /** CONTACT-001: a person's emergency contact card; every view and every refused attempt is an activity event naming the reader and the person. */
 export async function contactRead(db:D1Database,identity:Actor,staffId:string) {
- const a=await live(db,identity),s=await load(db),f=a.role==='agent'?a:fresh(a,s),ok=mayRead(s,f,staffId)
+ const a=await live(db,identity),s=await load(db),f=a.role==='agent'?a:fresh(a,s),ok=mayRead(s,f,staffId)&&(f.staffId===staffId||!restricted(s,f)||allowed(s,f,'contacts.view',s.staff.find(p=>p.id===staffId)?.site??''))
  await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,f.role,ok?'contact.view':'contact.refused',staffId,new Date().toISOString()).run()
  need(ok,'Not found',404)
  return contactCard(s,staffId)
@@ -403,4 +417,13 @@ export async function fairnessCompare(db:D1Database,identity:Actor,week:string,s
 export async function learningRead(db:D1Database,identity:Actor,week:string,site:string,weeks:number) {
  const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
  return learningReport(s,f,week,site,weeks,new Date().toISOString())
+}
+
+export async function customAccessRead(db:D1Database,identity:Actor){
+ const a=await live(db,identity),s=await load(db),v:any=accessView(s,a)
+ if(a.role==='agent')return v
+ const home=s.staff.find(p=>p.id===a.staffId)?.site??''
+ if(allowed(s,a,'draft.view',home)||allowed(s,a,'draft.edit',home))v.drafts=s.rosters.filter(r=>r.status==='draft'&&s.shifts.filter(x=>x.rosterId===r.id).every(x=>(x.site||s.staff.find(p=>p.id===x.staffId)?.site)===home)).map(r=>({...r,shifts:s.shifts.filter(x=>x.rosterId===r.id)}))
+ if(allowed(s,a,'swap.approve',home))v.swaps=s.swaps.filter(w=>[w.give,w.take].every(x=>!x||x.site===home))
+ return allowed(s,a,'wages.view',home)?v:wageRedact(v)
 }

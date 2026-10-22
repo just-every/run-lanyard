@@ -1888,3 +1888,9 @@ test('DEMAND-001: hourly forecasts from entered sales carry event uplift, uncert
 test('DEMAND-001: the forecast, incomplete and interval screens work at 1440 and 390',async()=>{const {demandBrowser}=await import('./demand-journey.mjs');await demandBrowser()})
 test('LEARN-001: comparable demand forecasts propose a held-out growth change that a manager approves, declines or reverts without altering history or schedules',()=>run(async h=>{const {learnApi}=await import('./learn-demand-journey.mjs');await learnApi(h)}))
 test('LEARN-001: a manager reviews the held-out comparison and approves then reverts a proposal at 1440 and 390',async()=>{const {learnBrowser}=await import('./learn-demand-journey.mjs');await learnBrowser()})
+
+// Scoped access, operational messages and shared-device authority use native HTTP doors.
+test('ACCESS-003: site-scoped draft and swap permissions, grant ceilings, live revocation, contact refusal and wage exclusion',()=>run(async h=>{const {accessApi}=await import('./access-chat-kiosk-journey.mjs');await accessApi(h)}))
+test('CHAT-001: operational announcements and handovers, acknowledgments, search, attachments and current membership',()=>run(async h=>{const {chatApi}=await import('./access-chat-kiosk-journey.mjs');await chatApi(h)}))
+test('CLOCK-001: device and employee verification, consecutive users, private photo receipts, timed breaks and revocation',()=>run(async h=>{const {kioskApi}=await import('./access-chat-kiosk-journey.mjs');await kioskApi(h)}))
+test('ACCESS-003 CHAT-001 CLOCK-001: native access forms, message acknowledgments and Spanish kiosk at 1440 and 390',async()=>{const {surfaceBrowser}=await import('./access-chat-kiosk-journey.mjs');await surfaceBrowser()})
