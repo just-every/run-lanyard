@@ -1,4 +1,4 @@
-import {type Bindings} from '../auth.server'
+import {operatorAuth,type Bindings} from '../auth.server'
 import {type Actor,command} from './domain'
 import {load,actor} from './domain/storage'
 import {need,keys,text,keyed,sha} from './domain/model'
@@ -46,6 +46,7 @@ export async function kioskResponse(request:Request,env:Bindings):Promise<Respon
   const d=await device(request,env)
   if(path==='/app/kiosk')return kioskPage(d)
   const raw=request.method==='POST'?await request.text():'';need(raw.length<160000,'Request is too large',413);let p:any={};if(raw){try{p=JSON.parse(raw)}catch{need(false,'Invalid JSON')}}
+  if(path==='/api/lanyard/kiosk/enter'&&request.method==='POST'){keys(p,[]);const ended=await operatorAuth(env).signOut(request),response=json({entered:true});response.headers.append('set-cookie',ended.cookie);return response}
   if(path==='/api/lanyard/kiosk/signin'&&request.method==='POST'){
    keys(p,['email','pin']);const email=typeof p.email==='string'?p.email.trim().toLowerCase():''
    const v=await env.DB.prepare(`SELECT s.*,p.digest,p.version AS pin_version,o.id AS operator_id FROM l_staff s JOIN l_kiosk_pins p ON p.staff_id=s.id JOIN oa_operators o ON o.email=s.email COLLATE NOCASE AND o.status='active' WHERE s.email=? COLLATE NOCASE AND s.active=1 AND s.erased_at IS NULL AND s.site=?`).bind(email,d.site).first<any>()
@@ -58,7 +59,7 @@ export async function kioskResponse(request:Request,env:Bindings):Promise<Respon
    }
    const value=random(),hash=await sha(value)
    await env.DB.batch([env.DB.prepare('UPDATE l_kiosk_sessions SET revoked_at=? WHERE device_id=? AND revoked_at IS NULL').bind(new Date().toISOString(),d.id),env.DB.prepare('INSERT INTO l_kiosk_sessions(token_hash,device_id,staff_id,staff_version,pin_version,operator_id,expires_at) VALUES(?,?,?,?,?,?,?)').bind(hash,d.id,v.id,v.version,v.pin_version,v.operator_id,now+5*60000),env.DB.prepare('UPDATE l_kiosk_devices SET failures=0 WHERE id=?').bind(d.id),audit(env,{id:v.operator_id,email:v.email,role:'staff'},'kiosk.signin',d.id)])
-   const response=json({verified:true});response.headers.set('set-cookie',cookie(SESSION,value,300));return response
+   const response=json({verified:true});response.headers.append('set-cookie',cookie(SESSION,value,300));response.headers.append('set-cookie',(await operatorAuth(env).signOut(request)).cookie);return response
   }
   const current=await session(request,env,d)
   if(path==='/api/lanyard/kiosk/signout'&&request.method==='POST'){

@@ -217,6 +217,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         const input = await inputBody(request), name = url.searchParams.get('name') ?? ''
         if (name === 'staff.save' && !('active' in input)) input.active = false
         const result = await execute(request, env, who, name, input), { token, ...shown } = result as Record<string, unknown>
+        if(name==='kiosk.enroll'){const response=new Response(null,{status:303,headers:{...headers,location:'/app/kiosk'}});response.headers.append('set-cookie',String((result as any).cookie));return response}
         let displayed:any=name === 'import.preview' || name === 'sales.preview' ? { ...shown, csv: input.csv, mapping: input.mapping, site: input.site } : name.startsWith('clockbrowser.') ? shown : result
         if(name.startsWith('fairness.')&&['owner','manager'].includes(who.role)) {
           const q=new URL(back,url.origin).searchParams
