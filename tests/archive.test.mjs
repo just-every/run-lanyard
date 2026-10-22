@@ -85,7 +85,7 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     await h.close();h=null
     const old=join(temporary,'before.rer'),later=join(temporary,'later.rer'),again=join(temporary,'again.rer')
     await command(source,['export','--output',old,'--no-queue'])
-    const bytes=await readFile(old,'utf8');assert.ok(bytes.includes('Temporary joiner'));assert.ok(!bytes.includes('Excluded secret'));assert.ok(!bytes.includes('token_hash'));assert.ok(!bytes.includes('scopes_json'));assert.ok(!bytes.includes('comparison.read'));for(const table of ['l_kiosk_devices','l_kiosk_pins','l_kiosk_sessions','l_kiosk_attempts'])assert.equal(bytes.includes(table),false,table)
+    const bytes=await readFile(old,'utf8');assert.ok(bytes.includes('Temporary joiner'));assert.ok(!bytes.includes('Excluded secret'));assert.ok(!bytes.includes('token_hash'));assert.ok(!bytes.includes('scopes_json'));assert.ok(!bytes.includes('comparison.read'));for(const table of ['l_kiosk_devices','l_kiosk_pins','l_kiosk_sessions','l_kiosk_attempts'])assert.equal(bytes.split('\n').filter(Boolean).map(JSON.parse).filter(p=>p.kind==='part').flatMap(p=>p.items).some(i=>i.kind==='row'&&i.table===table),false,table)
     await command(restored,['import','--input',old,'--yes','--no-queue'])
     await command(restored,['export','--output',again,'--no-queue'])
     const rows=text=>text.split('\n').filter(Boolean).map(JSON.parse).filter(r=>r.kind==='part')

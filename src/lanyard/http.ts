@@ -113,7 +113,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   if(params.has('taskLines')){input.tasks=String(input.taskLines).split(/\r?\n/).map(v=>v.trim()).filter(Boolean);delete input.taskLines}
   if(params.has('taskText')){input.tasks=params.getAll('taskText').filter(v=>v.trim());delete input.taskText}
   if(params.has('segmentUntil')){const until=params.getAll('segmentUntil'),job=params.getAll('segmentJob'),area=params.getAll('segmentArea');input.segments=until.map((v,i)=>({until:Number(v),job:job[i],area:area[i]})).filter((v,i)=>until[i]||v.job||v.area);for(const k of ['segmentUntil','segmentJob','segmentArea'])delete input[k]}
-  for (const key of ['shifts', 'ids', 'items']) if (input[key]) { try { input[key] = JSON.parse(String(input[key])) } catch { fail(`Invalid ${key}`) } }
+  for (const key of ['shifts', 'ids', 'items']) if (typeof input[key]==='string'&&input[key]) { try { input[key] = JSON.parse(String(input[key])) } catch { fail(`Invalid ${key}`) } }
   if ('active' in input) input.active = input.active === 'on' || input.active === 'true' || input.active === '1'
   return input
 }
