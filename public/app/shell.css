@@ -1,5 +1,5 @@
 /* Lanyard app shell: the one white top bar, page width, controls, cards and tables.
-   Tokens live in /rer-theme.css; this file only uses them. */
+   Tokens live in /rer-theme.css and /fonts/fonts.css; this file only uses them. */
 *,*::before,*::after{box-sizing:border-box}
 html.rer-themed .lanyard-app{margin:0;padding:0;max-width:none;min-height:100vh;background:var(--white);color:var(--ink);font:15px/1.45 var(--font-sans);overflow-wrap:anywhere}
 html.rer-themed .lanyard-app main{padding:16px 30px 32px;max-width:1600px;margin:0 auto;background:transparent;border:0;border-radius:0;box-shadow:none}

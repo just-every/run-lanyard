@@ -1,4 +1,4 @@
-/* The run site's chrome: page, type scale, header, footer and actions. Tokens are in rer-theme.css. */
+/* The run site's chrome: page, type scale, header, footer and actions. Tokens are in rer-theme.css and fonts/fonts.css. */
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
 body{margin:0;background:var(--white);color:var(--ink);font:400 17px/1.55 var(--font-sans);overflow-x:clip}
