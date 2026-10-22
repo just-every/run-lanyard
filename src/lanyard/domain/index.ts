@@ -80,7 +80,7 @@ function fresh(a:Actor,s:State) {
 export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string,net?:Context['net'],files?:R2Bucket,kiosk?:Context['kiosk']):Promise<object> {
  need(commands.includes(name)||['aca.plan.save','aca.credit.save','job.save','workforce.save','shiftwork.save','shiftwork.respond'].includes(name),'Unknown command',404);const a=await live(db,identity),p=object(input)
  if(a.role==='agent')need(['roster.prepare','time.prepare','payroll.prepare','learn.propose'].includes(name),'Agents may prepare drafts only; a human manager must approve',403)
- const commandId=name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID(),digest=await sha(canonical({name,input:p,...(kiosk?{kioskDevice:kiosk.deviceId,photoDigest:kiosk.photo?await sha(kiosk.photo):null}:{})}))
+ const commandId=name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID(),digest=await sha(canonical({name,input:p,...(kiosk?{kioskDevice:kiosk.deviceId,photoDigest:kiosk.photo?await sha(kiosk.photo):null,photoFailure:kiosk.photoFailure??null}:{})}))
  // Kiosk authority is rechecked before returning a saved result.
  const previous=kiosk?null:await saved(db,commandId,a,digest);if(previous)return previous
  const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret,net,files,kiosk,rollback:[]}
@@ -143,7 +143,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=workforce(c,name,p)
  if(result===undefined)result=tipCredit(c,name,p)
  need(result!==undefined,'Unknown command',404)
- const receipt=kioskReceipt(c,name,p);if(receipt)result={...result,kioskReceipt:receipt}
+ const capture=kioskReceipt(c,name,p,result);if(capture)result={...capture.result,kioskReceipt:capture.receipt}
  if(['roster.publish','shift.change','cover.approve','swap.decide','overtime.substitute','openshift.approve'].includes(name))checkSegmentAssignments(s,before)
  // AUTO-001: an active rule approves the clean punched time this command submitted.
  autoApprove(c,before)

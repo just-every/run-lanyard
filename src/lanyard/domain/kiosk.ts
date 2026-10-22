@@ -12,13 +12,22 @@ export async function kioskCheck(c:Context,name:string,p:Record<string,any>){
  const site=name==='clock.in'?(shift?siteOf(c.s,shift):c.s.staff.find(x=>x.id===c.a.staffId)?.site):open?currentOf(c.s,open).site:k.site
  need(site===k.site,'Device is not approved for this shift cafe',403)
  need(!k.photo||k.photoRequired,'Photo collection is disabled on this device',403)
- need(!k.photoRequired||k.photoConsent&&typeof k.photo==='string','Explicit photo consent and a photo are required for this punch',403)
+ if(k.photoFailure)need(k.photoRequired&&!k.photo&&['camera denied','camera failed','photo consent declined'].includes(k.photoFailure),'Choose an explicit photo failure')
+ need(!k.photoRequired||k.photoFailure||k.photoConsent&&typeof k.photo==='string','Explicit photo consent and a photo are required for this punch',403)
  if(k.photo){need(k.photoConsent&&typeof k.photo==='string'&&k.photo.length<=134000&&/^[A-Za-z0-9+/]*={0,2}$/.test(k.photo),'Invalid punch photo');const bytes=Uint8Array.from(atob(k.photo),x=>x.charCodeAt(0));need(bytes.length<=100000&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255,'Use a JPEG photo up to 100 KB')}
 }
-export function kioskReceipt(c:Context,name:string,p:Record<string,any>){
+export function kioskReceipt(c:Context,name:string,p:Record<string,any>,result:any){
  const k=c.kiosk;if(!k)return
  const id=crypto.randomUUID(),entity=c.entity,photoId=k.photo?crypto.randomUUID():null
  if(k.photo){const bytes=Uint8Array.from(atob(k.photo),x=>x.charCodeAt(0));c.sql.push(c.db.prepare('INSERT INTO l_kiosk_photos(id,staff_id,device_id,command_id,bytes,created_at) VALUES(?,?,?,?,?,?)').bind(photoId,c.a.staffId,k.deviceId,p.commandId,bytes,c.now))}
- const receipt=put(c,'kioskreceipts',{staffId:c.a.staffId,deviceId:k.deviceId,site:k.site,language:k.language,name,commandId:p.commandId,capturedAt:p.capturedAt,receivedAt:c.now,photoId,entityId:entity,photoConsent:Boolean(k.photo&&k.photoConsent)})
- c.entity=entity;return receipt
+ const receipt=put(c,'kioskreceipts',{staffId:c.a.staffId,deviceId:k.deviceId,site:k.site,language:k.language,name,commandId:p.commandId,capturedAt:p.capturedAt,receivedAt:c.now,photoId,entityId:entity,photoConsent:Boolean(k.photo&&k.photoConsent),photoException:k.photoFailure??null})
+ if(k.photoFailure){
+  const message='punch photo unavailable: '+k.photoFailure,clock=c.s.clocks.find(x=>x.staffId===c.a.staffId&&(x.id===entity||x.timesheetId===entity))
+  if(clock){const flags=[...new Set([...(clock.exceptions??[]),message])],updated=put(c,'clocks',{...clock,exceptions:flags},clock)
+   if(result.clock)result={...result,clock:updated};else if(result.id===clock.id)result=updated
+   const time=c.s.timesheets.find(t=>t.id===clock.timesheetId)
+   if(time){const updatedTime=put(c,'timesheets',{...time,exceptions:[...new Set([...(time.exceptions??[]),message])]},time);if(result.timesheet)result={...result,timesheet:updatedTime}}
+  }
+ }
+ c.entity=entity;return {receipt,result}
 }
