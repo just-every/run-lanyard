@@ -9,6 +9,7 @@ const guides = [
   { slug: 'move-in', file: 'MOVE-IN.md', title: 'Move in', group: 'Start here' },
   { slug: 'schedule', file: 'SCHEDULE.md', title: 'Schedule, call-outs and time off', group: 'Run the week' },
   { slug: 'time', file: 'TIME.md', title: 'Clock and timesheets', group: 'Run the week' },
+  { slug: 'access-chat-kiosk', file: 'ACCESS-CHAT-KIOSK.md', title: 'Access levels, shared clocks and operational conversations', group: 'Run the week' },
   { slug: 'payroll', file: 'PAYROLL.md', title: 'Payroll exports', group: 'Run the week' },
   { slug: 'backup-restore', file: 'BACKUP-RESTORE.md', title: 'Backup and restore', group: 'Look after Lanyard' },
   { slug: 'holidays', file: 'HOLIDAYS.md', title: 'Holiday calendars and pay inputs', group: 'Reference' },

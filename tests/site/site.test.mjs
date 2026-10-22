@@ -58,7 +58,7 @@ test('PUBLIC-001, PEOPLE-002, PAYRULE-002 and PAYRULE-003: the run site builds, 
     for(const width of [1440,390]){
       const context=await browser.newContext({viewport:{width,height:1000}}),page=await context.newPage(),errors=[]
       page.on('pageerror',e=>errors.push(e.message))
-      for(const guide of [{slug:'workforce',title:'Jobs, qualifications and effective rates',content:'workforce.save'},{slug:'holidays',title:'Holiday calendars and pay inputs',content:'non-work'},{slug:'payroll',title:'Payroll exports',content:'Reporting, split and spread premium inputs'}]){
+      for(const guide of [{slug:'workforce',title:'Jobs, qualifications and effective rates',content:'workforce.save'},{slug:'holidays',title:'Holiday calendars and pay inputs',content:'non-work'},{slug:'payroll',title:'Payroll exports',content:'Reporting, split and spread premium inputs'},{slug:'access-chat-kiosk',title:'Access levels, shared clocks and operational conversations',content:'These capabilities are partial'}]){
       await page.goto(`http://127.0.0.1:${server.address().port}/docs/${guide.slug}`,{waitUntil:'networkidle'})
       assert.equal(await page.getByRole('heading',{name:guide.title,exact:true}).isVisible(),true)
       assert.ok((await page.locator('article').innerText()).includes(guide.content))
@@ -66,6 +66,7 @@ test('PUBLIC-001, PEOPLE-002, PAYRULE-002 and PAYRULE-003: the run site builds, 
       if(process.env.WORKFORCE_SCREENS){mkdirSync(process.env.WORKFORCE_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.WORKFORCE_SCREENS,`guide-${width}.png`),fullPage:true})}
       if(guide.slug==='holidays'&&process.env.HOLIDAY_GUIDE_SCREENS){mkdirSync(process.env.HOLIDAY_GUIDE_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.HOLIDAY_GUIDE_SCREENS,`holiday-guide-${width}.png`),fullPage:true})}
       if(guide.slug==='payroll'&&process.env.PREMIUM_GUIDE_SCREENS){mkdirSync(process.env.PREMIUM_GUIDE_SCREENS,{recursive:true});await page.getByRole('heading',{name:'Reporting, split and spread premium inputs',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:join(process.env.PREMIUM_GUIDE_SCREENS,`premium-guide-${width}.png`),fullPage:false})}
+      if(guide.slug==='access-chat-kiosk'&&process.env.C33_GUIDE_SCREENS){mkdirSync(process.env.C33_GUIDE_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C33_GUIDE_SCREENS,`guide-${width}.png`),fullPage:true})}
       assert.deepEqual(errors,[])}await context.close()
     }
   } finally {if(browser)await browser.close();await new Promise(r=>server.close(r))}
