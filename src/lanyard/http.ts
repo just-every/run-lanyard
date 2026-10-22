@@ -135,7 +135,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     who = await principal(request, env, isAgent)
     if (request.method === 'GET') {
       const custom=restricted(await load(env.DB),who)
-      if(custom&&!['/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path))fail('This read is unavailable to custom levels',403)
+      if(custom&&!['/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path))fail('This read is unavailable to custom levels',403)
       if(path==='/app/chat'||path==='/api/lanyard/chat'){
        const chat=chatRead(await load(env.DB),who,url.searchParams.get('q')??'',url.searchParams.get('threadId')??'')
        return path==='/app/chat'?renderApp(await state(env,who),path+url.search,{result:{chat}}):json(chat)
