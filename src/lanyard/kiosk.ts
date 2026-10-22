@@ -45,7 +45,7 @@ export async function kioskResponse(request:Request,env:Bindings):Promise<Respon
   if(request.method==='POST')need(request.headers.get('origin')===env.AUTH_ORIGIN&&request.headers.get('sec-fetch-site')!=='cross-site','Cross-site request refused',403)
   const d=await device(request,env)
   if(path==='/app/kiosk')return kioskPage(d)
-  const raw=request.method==='POST'?await request.text():'';need(raw.length<160000,'Request is too large',413);const p=raw?JSON.parse(raw):{}
+  const raw=request.method==='POST'?await request.text():'';need(raw.length<160000,'Request is too large',413);let p:any={};if(raw){try{p=JSON.parse(raw)}catch{need(false,'Invalid JSON')}}
   if(path==='/api/lanyard/kiosk/signin'&&request.method==='POST'){
    keys(p,['email','pin']);const email=typeof p.email==='string'?p.email.trim().toLowerCase():''
    const v=await env.DB.prepare(`SELECT s.*,p.digest,p.version AS pin_version,o.id AS operator_id FROM l_staff s JOIN l_kiosk_pins p ON p.staff_id=s.id JOIN oa_operators o ON o.email=s.email COLLATE NOCASE AND o.status='active' WHERE s.email=? COLLATE NOCASE AND s.active=1 AND s.erased_at IS NULL AND s.site=?`).bind(email,d.site).first<any>()
@@ -73,5 +73,5 @@ export async function kioskResponse(request:Request,env:Bindings):Promise<Respon
    return json(result)
   }
   return json({error:'Not found'},404)
- }catch(e){const status=Number((e as any)?.status)||400;return json({error:status<500?(e as Error).message:'Kiosk unavailable'},status)}
+ }catch(e){const status=Number((e as any)?.status)||500;return json({error:status<500?(e as Error).message:'Kiosk unavailable'},status)}
 }

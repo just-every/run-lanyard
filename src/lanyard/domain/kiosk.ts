@@ -11,6 +11,7 @@ export async function kioskCheck(c:Context,name:string,p:Record<string,any>){
  const open=c.s.clocks.find(x=>x.staffId===c.a.staffId&&x.status==='open'),shift=name==='clock.in'?c.s.shifts.find(x=>x.id===checkClockIn(c.s,c.a.staffId!,String(p.capturedAt)).shiftId):undefined
  const site=name==='clock.in'?(shift?siteOf(c.s,shift):c.s.staff.find(x=>x.id===c.a.staffId)?.site):open?currentOf(c.s,open).site:k.site
  need(site===k.site,'Device is not approved for this shift cafe',403)
+ need(!k.photo||k.photoRequired,'Photo collection is disabled on this device',403)
  need(!k.photoRequired||k.photoConsent&&typeof k.photo==='string','Explicit photo consent and a photo are required for this punch',403)
  if(k.photo){need(k.photoConsent&&typeof k.photo==='string'&&k.photo.length<=134000&&/^[A-Za-z0-9+/]*={0,2}$/.test(k.photo),'Invalid punch photo');const bytes=Uint8Array.from(atob(k.photo),x=>x.charCodeAt(0));need(bytes.length<=100000&&bytes[0]===255&&bytes[1]===216&&bytes[2]===255,'Use a JPEG photo up to 100 KB')}
 }

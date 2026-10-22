@@ -170,6 +170,7 @@ export async function kioskSegmentApi(h){
  const enrolled=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Kitchen tablet',photo:false}},h.owner)
  const signin=await h.send('/api/lanyard/kiosk/signin',{email:alex.email,pin:'123456'},enrolled.cookie);assert.equal(signin.status,200,signin.text)
  const cookie=enrolled.cookie+'; '+signin.cookie,post=async(name,at,extra={})=>{const r=await h.send('/api/lanyard/kiosk/capture',{name,input:{commandId:crypto.randomUUID(),capturedAt:at,...extra}},cookie);assert.equal(r.status,200,r.text);return r.value.result}
+ const refused=await h.send('/api/lanyard/kiosk/capture',{name:'clock.in',input:{commandId:crypto.randomUUID(),capturedAt:start},photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true},cookie);assert.equal(refused.status,403,'a device without employer photo approval cannot collect optional photos')
  await post('clock.in',start);await post('clock.transfer',new Date(Date.parse(start)+180*60000).toISOString(),{job:kitchen.id})
  const time=(await post('clock.out',end,{breakMinutes:30})).timesheet,approved=await h.cmd('time.approve',pin(time))
  assert.deepEqual(approved.workSegments.map(p=>[p.job,p.site,p.minutes,p.rateBasis.segments.map(x=>x.cents),p.rateBasis.costCents]),[[counter.id,'Ocean Beach',169,[2000],5633],[kitchen.id,'Ocean Beach',281,[2400],11240]])
