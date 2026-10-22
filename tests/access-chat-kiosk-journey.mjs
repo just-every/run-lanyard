@@ -55,7 +55,7 @@ export async function accessApi(h){
  await h.restart();assert.equal((await h.state(lead.cookie)).actor.role,'manager')
  await noWrites('access.grant',{levelId:empty.id,staffId:lead.id,site:'Ocean Beach'},foreign.cookie)
  // An archive is history, not authority to reconvert a native manager.
- const restoredPeer=await h.person('Restored peer','manager')
+ const restoredPeer=await h.person('RestoredPeer','manager')
  await h.cmd('staff.save',{...pin(restoredPeer),name:restoredPeer.name,email:restoredPeer.email,payrollId:restoredPeer.payrollId,role:'manager',active:true,site:'Ocean Beach'})
  const peerGrant=await h.cmd('access.grant',{levelId:empty.id,staffId:restoredPeer.id,site:'Ocean Beach'})
  await h.cmd('access.restore',{staffId:restoredPeer.id})
