@@ -26,7 +26,7 @@ export async function accessApi(h){
  await noWrites('access.level.save',{name:'Foreign empty level',site:'Mission',permissions:[]});await noWrites('access.level.save',{name:'Foreign empty level',site:'Ocean Beach',permissions:[]},foreign.cookie)
  const empty=await h.cmd('access.level.save',{name:'No administrative permissions',site:'Ocean Beach',permissions:[]});await noWrites('access.grant',{levelId:empty.id,staffId:foreign.id,site:'Ocean Beach'})
  const payroll=await h.cmd('access.level.save',{name:'Payroll owner',site:'Ocean Beach',permissions:['payroll.export']});await noWrites('access.grant',{levelId:payroll.id,staffId:alex.id,site:'Ocean Beach'})
- const state=await h.state(lead.cookie);assert.equal(state.actor.role,'staff');assert.deepEqual(state.batches,[]);assert.ok(!state.staff.some(x=>x.id===ben.id));assert.equal((await h.send('/api/lanyard/intervals?site=Ocean%20Beach',undefined,lead.cookie)).status,403)
+ const state=await h.state(lead.cookie);assert.deepEqual(state.access.sites,['Ocean Beach']);assert.equal(state.actor.role,'staff');assert.deepEqual(state.batches,[]);assert.ok(!state.staff.some(x=>x.id===ben.id));assert.equal((await h.send('/api/lanyard/intervals?site=Ocean%20Beach',undefined,lead.cookie)).status,403)
  const contact=await h.send('/api/lanyard/contacts/'+alex.id,undefined,lead.cookie);assert.equal(contact.status,404);assert.ok((await h.state()).events.some(x=>x.action==='contact.refused'&&x.entityId===alex.id))
  await h.cmd('roster.publish',pin(draft));const shift=(await h.state()).shifts.find(x=>x.rosterId===draft.id)
  let swap=await h.cmd('swap.propose',{shiftId:shift.id,revision:shift.revision,to:ben.id},alex.cookie);swap=await h.cmd('swap.respond',{...pin(swap),decision:'accepted'},ben.cookie)

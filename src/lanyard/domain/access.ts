@@ -76,7 +76,7 @@ export function authorizeCommand(c:Context,name:string,p:Record<string,any>){
 }
 export function accessView(s:State,a:Actor){
  const own=a.role==='owner',grants=s.accessgrants.filter(g=>own||g.staffId===a.staffId),ids=new Set(grants.map(g=>g.levelId))
- return {catalog,levels:s.accesslevels.filter(l=>own||ids.has(l.id)),grants,sites:[...new Set(s.staff.map(p=>p.site).filter(Boolean))],people:own?s.staff.filter(p=>p.active&&!p.erased_at).map(p=>({id:p.id,name:p.name})):[],drafts:[],swaps:[]}
+ return {catalog,levels:s.accesslevels.filter(l=>own||ids.has(l.id)),grants,sites:own?[...new Set(s.staff.map(p=>p.site).filter(Boolean))]:[s.staff.find(p=>p.id===a.staffId)?.site].filter(Boolean),people:own?s.staff.filter(p=>p.active&&!p.erased_at).map(p=>({id:p.id,name:p.name})):[],drafts:[],swaps:[]}
 }
 export function wageRedact(v:any):any{
  if(Array.isArray(v))return v.map(wageRedact)
