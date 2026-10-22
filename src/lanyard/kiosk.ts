@@ -52,7 +52,9 @@ export async function kioskResponse(request:Request,env:Bindings):Promise<Respon
    const v=await env.DB.prepare(`SELECT s.*,p.digest,p.version AS pin_version,o.id AS operator_id FROM l_staff s JOIN l_kiosk_pins p ON p.staff_id=s.id JOIN oa_operators o ON o.email=s.email COLLATE NOCASE AND o.status='active' WHERE s.email=? COLLATE NOCASE AND s.active=1 AND s.erased_at IS NULL AND s.site=?`).bind(email,d.site).first<any>()
    const now=Date.now(),window=Math.floor(now/900000),digest=await keyed(env.SESSION_SECRET,`kiosk-pin:${v?.id??'unknown'}:${String(p.pin)}`)
    const attempt=v?await env.DB.prepare('SELECT count FROM l_kiosk_attempts WHERE staff_id=? AND window=?').bind(v.id,window).first<any>():null
-   if(!v||typeof p.pin!=='string'||!/^\d{6}$/.test(p.pin)||digest!==v.digest||(attempt?.count??0)>=5){
+   // A blocked person is refused before verification; retain the limiter and device state unchanged.
+   if((attempt?.count??0)>=5)return json({error:'Unable to verify employee. Repeated failures lock this kiosk.'},401)
+   if(!v||typeof p.pin!=='string'||!/^\d{6}$/.test(p.pin)||digest!==v.digest){
     const q=[env.DB.prepare('UPDATE l_kiosk_devices SET failures=failures+1,locked=CASE WHEN failures>=4 THEN 1 ELSE locked END WHERE id=?').bind(d.id)]
     if(v)q.push(env.DB.prepare('INSERT INTO l_kiosk_attempts(staff_id,window,count) VALUES(?,?,1) ON CONFLICT(staff_id) DO UPDATE SET count=CASE WHEN window=excluded.window THEN count+1 ELSE 1 END,window=excluded.window').bind(v.id,window))
     await env.DB.batch(q);return json({error:'Unable to verify employee. Repeated failures lock this kiosk.'},401)

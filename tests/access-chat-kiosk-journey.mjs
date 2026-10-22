@@ -5,7 +5,7 @@ import {join} from 'node:path'
 import {chromium} from '@playwright/test'
 const pin=r=>({id:r.id,revision:r.revision})
 // Compare retained business data and sessions, excluding derived read-time timestamps.
-const retained=async h=>Promise.all(['l_meta','l_staff','l_records','l_events','l_commands','l_kiosk_sessions'].map(async table=>(await h.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()).results))
+const retained=async h=>Promise.all(['l_meta','l_staff','l_records','l_events','l_commands','l_kiosk_sessions','l_kiosk_devices','l_kiosk_attempts'].map(async table=>(await h.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()).results))
 export async function crew(h){
  await h.cmd('settings.save',{timezone:'UTC'})
  const alex=await h.person('Alex'),ben=await h.person('Ben'),lead=await h.person('Lead','manager'),foreign=await h.person('Foreign','manager')
@@ -164,7 +164,7 @@ export async function kioskApi(h){
  const sixth=await post('signin',{email:ben.email,pin:'234567'},spare.cookie)
  assert.equal(sixth.status,401,sixth.text);assert.equal(sixth.cookie,undefined)
  assert.deepEqual(await retained(h),beforeSixth);assert.deepEqual((await h.db.prepare('SELECT * FROM l_kiosk_sessions ORDER BY token_hash').all()).results,sessionsBefore)
- // Security counters may advance on refusal; no identity/session or workforce write is allowed.
+ // A person already blocked by the limiter cannot change security counters either.
  assert.ok((await h.state()).events.some(e=>e.action==='kiosk.revoke'))
  return f
 }
