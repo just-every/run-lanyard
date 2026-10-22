@@ -80,6 +80,7 @@ export async function kioskApi(h){
  const login=await post('signin',{email:alex.email,pin:'123456'});assert.equal(login.status,200,login.text);let cookie=device+'; '+login.cookie
  let own=await post('state',undefined,cookie);assert.equal(own.value.staffId,alex.id);assert.equal(own.value.language,'es');assert.equal(own.value.clocks.length,0)
  // JPEG fixture contains only an inert signature; this asserts byte custody, not camera hardware.
+ await h.cmd('roundrule.save',{site:'Ocean Beach',from:'2020-01-01',method:'nearest',increment:15,apply:'capture'})
  const photo=btoa(String.fromCharCode(255,216,255,217)),start=new Date(Date.now()-4*3600000),at=n=>new Date(start.getTime()+n*60000).toISOString(),stamp={'x-test-now':String(Date.now())}
  const capture=(name,n,extra={})=>({name,input:{commandId:crypto.randomUUID(),capturedAt:at(n),...extra},photo,photoConsent:true})
  const inEvent=capture('clock.in',0)
@@ -88,10 +89,12 @@ export async function kioskApi(h){
  const again=await post('capture',inEvent,cookie,stamp);assert.equal(again.status,200);assert.equal(again.value.result.id,punch.value.result.id)
  for(const [name,n,input] of [['clock.breakStart',30,{kind:'meal'}],['clock.breakEnd',60,{}],['clock.out',180,{breakMinutes:0}]]){const c=await post('capture',capture(name,n,input),cookie,stamp);assert.equal(c.status,200,c.text)}
  own=await post('state',undefined,cookie);assert.equal(own.value.receipts.length,4);assert.ok(own.value.receipts.every(x=>x.photoId&&x.staffId===alex.id))
+ const time=(await h.state()).timesheets.find(t=>t.staffId===alex.id);assert.equal(time.rounding.increment,15);assert.ok(time.payable.start);assert.equal(time.start,at(0));assert.equal(time.end,at(180))
  const path='/api/lanyard/kiosk-photos/'+receipt.photoId;assert.equal((await h.send(path,undefined,h.owner)).status,200);assert.equal((await h.send(path,undefined,ben.cookie)).status,404);assert.equal((await h.send('/api/lanyard/state',undefined,cookie)).status,401)
  await h.restart();assert.equal((await post('state',undefined,cookie)).value.staffId,alex.id)
  await post('signout',{},cookie);assert.equal((await post('state',undefined,cookie)).status,401)
  const second=await post('signin',{email:ben.email,pin:'234567'});cookie=device+'; '+second.cookie;assert.equal((await post('state',undefined,cookie)).value.language,'en');assert.equal((await post('state',undefined,cookie)).value.clocks.length,0)
+ const bin=await post('capture',capture('clock.in',190),cookie);assert.equal(bin.status,200,bin.text);const bout=await post('capture',capture('clock.out',210,{breakMinutes:0}),cookie);assert.equal(bout.status,200,bout.text);assert.equal(bout.value.result.timesheet.staffId,ben.id);assert.equal(bout.value.result.kioskReceipt.language,'en')
  assert.equal((await post('capture',capture('roster.publish',190,{}),cookie)).status,403)
  assert.equal((await post('capture',capture('clock.transfer',190,{site:'Mission',job:'synthetic-lanyard-1'}),cookie)).status,403)
  await h.cmd('kiosk.revoke',{id:enrolled.value.id});assert.equal((await post('capture',capture('clock.in',200),cookie)).status,403);assert.equal((await post('state',undefined,cookie)).status,403)
@@ -111,11 +114,16 @@ export async function surfaceBrowser(){
  await h.cmd('kiosk.pin',{pin:'123456',language:'es',consent:true},f.alex.cookie)
  const e=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Counter tablet',photo:false}},h.owner)
  for(const width of [1440,390]){
+  await h.cmd('chat.send',{threadId:t.id,text:`Grinder cleaned for width ${width}.`},f.alex.cookie)
   const ctx=await browser.newContext({viewport:{width,height:1000},ignoreHTTPSErrors:true})
   await ctx.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js'))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
   const cookie=async c=>{await ctx.clearCookies();const [name,...v]=c.split('=');await ctx.addCookies([{name,value:v.join('='),url:h.origin,secure:name.startsWith('__Host-')}])}
   await cookie(h.owner);const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));const shot=async name=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,name+' overflow');if(process.env.C33_SCREENS){await mkdir(process.env.C33_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C33_SCREENS,`${name}-${width}.png`),fullPage:true})}}
-  await page.goto(h.origin+'/app/access');await page.getByRole('heading',{name:'Access levels',exact:true}).waitFor();await shot('access')
+  await page.goto(h.origin+'/app/access');await page.getByRole('heading',{name:'Access levels',exact:true}).waitFor()
+  const create=page.locator('form[action*="name=access.level.save"]').last();await create.locator('[name=name]').fill('Browser lead '+width);await create.locator('[name=site]').fill('Ocean Beach');await create.locator('[name=permissions][value="draft.edit"]').check();await create.locator('[name=permissions][value="swap.approve"]').check();await create.getByRole('button',{name:'Create level'}).click()
+  const level=(await h.send('/api/lanyard/access',undefined,h.owner)).value.levels.find(x=>x.name==='Browser lead '+width);assert.ok(level)
+  const grant=page.locator('form[action*="name=access.grant"]');await grant.locator('[name=levelId]').selectOption(level.id);await grant.locator('[name=staffId]').selectOption(f.lead.id);await grant.locator('[name=site]').fill('Ocean Beach');await grant.getByRole('button',{name:'Assign level'}).click();await shot('access')
+  await cookie(f.lead.cookie);await page.goto(h.origin+'/app/access');const draft=page.locator('form[action*="name=roster.prepare"]');await draft.locator('[name=week]').fill(f.week);await draft.locator('[name=shifts]').fill(JSON.stringify(f.shifts));await draft.getByRole('button',{name:'Prepare draft'}).click();assert.ok((await h.state()).rosters.some(r=>r.week===f.week&&r.status==='draft'));await shot('delegated-draft')
   await cookie(f.alex.cookie);await page.goto(h.origin+'/app/chat');await page.getByRole('heading',{name:'Morning service',exact:true}).waitFor();await page.getByRole('button',{name:'Acknowledge',exact:true}).first().click();assert.ok((await page.locator('main').innerText()).includes('Acknowledged'));await page.locator('input[name=q]').fill('Grinder');await page.getByRole('button',{name:'Search',exact:true}).click();assert.ok((await page.locator('main').innerText()).includes('Grinder cleaned'));await shot('chat')
   await cookie(e.cookie);await page.goto(h.origin+'/app/kiosk');await page.locator('#kiosk-signin [name=email]').fill(f.alex.email);await page.locator('#kiosk-signin [name=pin]').fill('123456');await page.getByRole('button',{name:'Verify employee'}).click();await page.getByRole('heading',{name:'Tu reloj'}).waitFor();await shot('kiosk')
   await page.getByRole('button',{name:'Cerrar sesión para la siguiente persona'}).click();await page.getByRole('button',{name:'Verify employee'}).waitFor();assert.equal(await page.locator('#kiosk-person').isVisible(),false);assert.deepEqual(errors,[]);await ctx.close()
