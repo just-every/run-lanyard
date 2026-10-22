@@ -2,12 +2,12 @@ import {type Actor,type State,type Context,type Row,need,text,keys,get,exact,put
 import {siteOf} from './team'
 export const catalog=['draft.view','draft.edit','schedule.publish','swap.approve','leave.approve','time.approve','punch.edit','wages.view','tips.manage','payroll.export','payroll.submit','people.manage','reports.view','integrations.manage','contacts.view'] as const
 const managerDefault=catalog.filter(p=>!['people.manage','integrations.manage','payroll.submit'].includes(p))
-export function restricted(s:State,a:Actor){return a.role!=='owner'&&a.role!=='agent'&&s.accessgrants.some(g=>g.staffId===a.staffId)}
+export function restricted(s:State,a:Actor){return a.role!=='owner'&&a.role!=='agent'&&s.accessgrants.some(g=>g.staffId===a.staffId&&!g.archivedAt)}
 export function permissions(s:State,a:Actor,site:string):string[]{
  if(a.role==='owner')return [...catalog]
  if(a.role==='agent')return []
  if(!restricted(s,a))return a.role==='manager'&&s.staff.some(p=>p.id===a.staffId&&p.site===site)?managerDefault:[]
- return [...new Set(s.accessgrants.filter(g=>g.staffId===a.staffId&&g.site===site&&!g.revoked).flatMap(g=>s.accesslevels.find(l=>l.id===g.levelId)?.permissions??[]))] as string[]
+ return [...new Set(s.accessgrants.filter(g=>g.staffId===a.staffId&&g.site===site&&!g.revoked&&!g.archivedAt).flatMap(g=>s.accesslevels.find(l=>l.id===g.levelId)?.permissions??[]))] as string[]
 }
 export function allowed(s:State,a:Actor,permission:string,site:string){return permissions(s,a,site).includes(permission)}
 function administerSite(c:Context,site:string,staffId?:string){
@@ -19,6 +19,20 @@ function administerSite(c:Context,site:string,staffId?:string){
 export function accessCommand(c:Context,name:string,p:Record<string,any>){
  if(!name.startsWith('access.'))return undefined
  need(c.a.role!=='agent'&&(c.a.role==='owner'||c.a.role==='manager'),'Access administrator required',403)
+ if(name==='access.restore'){
+  need(c.a.role==='owner','Only the owner restores native authority',403)
+  keys(p,['staffId']);const staffId=text(p.staffId,'person'),person=c.s.staff.find(x=>x.id===staffId)
+  need(person&&!person.erased_at,'Person not found',404)
+  const grants=c.s.accessgrants.filter(g=>g.staffId===staffId&&!g.archivedAt)
+  need(grants.length,'This person already has native authority',409)
+  const target:Actor={id:staffId,email:person.email,role:person.role,staffId},sites=[...new Set([person.site??'',...grants.map(g=>g.site)])].filter(Boolean)
+  const before=Object.fromEntries(sites.map(site=>[site,permissions(c.s,target,site)]))
+  for(const g of grants)put(c,'accessgrants',{...g,revoked:true,archivedAt:c.now,restoredBy:c.a.id},g)
+  const after=Object.fromEntries(sites.map(site=>[site,permissions(c.s,target,site)]))
+  for(const old of grants){const g=get(c.s,'accessgrants',old.id);g.changes=[...g.changes,{action:name,actor:c.a.id,at:c.now,before:before[g.site],after:after[g.site]}]}
+  c.entity=staffId
+  return {staffId,before,after}
+ }
  if(name==='access.level.save'){
   keys(p,['id','revision','name','permissions','site'])
   const site=text(p.site,'site',80),old=p.id?get(c.s,'accesslevels',p.id):undefined
@@ -37,14 +51,14 @@ export function accessCommand(c:Context,name:string,p:Record<string,any>){
   administerSite(c,site,String(p.staffId))
   need(c.s.staff.some(x=>x.id===p.staffId&&x.active&&!x.erased_at),'Active person required')
   const target=c.s.staff.find(x=>x.id===p.staffId)!
-  need(c.a.role==='owner'||target.role!=='manager'||c.s.accessgrants.some(g=>g.staffId===target.id),'Only the owner replaces native manager authority',403)
+  need(c.a.role==='owner'||target.role!=='manager'||c.s.accessgrants.some(g=>g.staffId===target.id&&!g.archivedAt),'Only the owner replaces native manager authority',403)
   need(level.permissions.every((v:string)=>allowed(c.s,c.a,v,site)),'Cannot grant permissions you do not hold',403)
   need(c.a.role==='owner'||c.a.staffId!==p.staffId,'Only the owner changes their own custom grants',403)
-  need(!c.s.accessgrants.some(g=>!g.revoked&&g.levelId===level.id&&g.staffId===p.staffId&&g.site===site),'Grant already exists',409)
+  need(!c.s.accessgrants.some(g=>!g.archivedAt&&!g.revoked&&g.levelId===level.id&&g.staffId===p.staffId&&g.site===site),'Grant already exists',409)
   return put(c,'accessgrants',{staffId:p.staffId,site,levelId:level.id,revoked:false,changes:[{actor:c.a.id,at:c.now,before:[],after:level.permissions}]})
  }
  if(name==='access.revoke'){
-  keys(p,['id','revision']);const g=get(c.s,'accessgrants',p.id),level=get(c.s,'accesslevels',g.levelId);exact(g,p);administerSite(c,g.site,g.staffId)
+  keys(p,['id','revision']);const g=get(c.s,'accessgrants',p.id),level=get(c.s,'accesslevels',g.levelId);exact(g,p);need(!g.archivedAt,'Assignment is archived',409);administerSite(c,g.site,g.staffId)
   need(c.a.role==='owner'||c.a.staffId!==g.staffId,'Only the owner changes their own custom grants',403)
   need(level.permissions.every((v:string)=>allowed(c.s,c.a,v,g.site)),'Cannot revoke a level beyond your permissions',403)
   return put(c,'accessgrants',{...g,revoked:true,changes:[...g.changes,{actor:c.a.id,at:c.now,before:level.permissions,after:[]}]},g)

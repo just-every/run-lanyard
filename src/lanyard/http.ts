@@ -24,7 +24,7 @@ function returnTo(value: string | null): string {
 
 async function customMode(env:Bindings,who:Actor){
   if(who.role==='owner'||who.role==='agent')return false
-  return Boolean(await env.DB.prepare("SELECT 1 FROM l_records WHERE kind='accessgrants' AND json_extract(data,'$.staffId')=? LIMIT 1").bind(who.staffId??'').first())
+  return Boolean(await env.DB.prepare("SELECT 1 FROM l_records WHERE kind='accessgrants' AND json_extract(data,'$.staffId')=? AND json_extract(data,'$.archivedAt') IS NULL LIMIT 1").bind(who.staffId??'').first())
 }
 
 async function state(env: Bindings, who: Actor, withChat=false) {
