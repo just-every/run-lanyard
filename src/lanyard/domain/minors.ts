@@ -39,6 +39,10 @@ export function minorIssues(s:State,staffId:string,w:any,other?:any[],skip:strin
   const years=age(r.birthDate,p.date);if(years>=18)continue
   if(years<14){add('work under age 14 requires separate authorization');continue}
   if(p.date<r.calendarFrom||p.date>r.calendarThrough){add('school calendar is not configured for this date');continue}
+  // A missing calendar date is unknown, never permission to use a holiday limit.
+  const weekStart=week(p.date),weekEnd=dayAfter(weekStart,6),nextDate=dayAfter(p.date)
+  if((years<16||['NY','WA'].includes(r.state))&&(weekStart<r.calendarFrom||weekEnd>r.calendarThrough))add('school calendar must cover the full workweek')
+  if(years>=16&&['CA','WA'].includes(r.state)&&nextDate>r.calendarThrough)add('school calendar must include the next day')
   const school=r.schoolDays.includes(p.date),schoolWeek=r.schoolDays.some((d:string)=>week(d)===week(p.date)),day=new Date(p.date+'T00:00:00Z').getUTCDay(),tomorrow=r.schoolDays.includes(dayAfter(p.date))
   const labor=dayAfter(p.date.slice(0,4)+'-09-01',(8-new Date(p.date.slice(0,4)+'-09-01T00:00:00Z').getUTCDay())%7),summer=p.date>=p.date.slice(0,4)+'-06-01'&&p.date<=labor
   let daily=years<16?(school?180:480):1440,weekly=years<16?(schoolWeek?1080:2400):10080,earliest=years<16?420:0,latest=years<16?(summer?1260:1140):1440,days=7

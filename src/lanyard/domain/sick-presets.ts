@@ -15,6 +15,9 @@ export const sickPresets=[
  make('SEATTLE1','Seattle · tier 1 (1–49 full-time equivalents)',40,null,null,40,null,90,60,'https://www.seattle.gov/laborstandards/ordinances/paid-sick-and-safe-time'),
  make('SEATTLE2','Seattle · tier 2 (50–249 full-time equivalents)',40,null,null,56,null,90,60,'https://www.seattle.gov/laborstandards/ordinances/paid-sick-and-safe-time'),
  make('SEATTLE','Seattle · tier 3 standalone sick bank',30,null,null,72,null,90,60,'https://www.seattle.gov/laborstandards/ordinances/paid-sick-and-safe-time'),
+ make('SEATTLE_PTO1','Seattle · tier 1 combined PTO',40,null,null,40,null,90,60,'https://www.seattle.gov/laborstandards/ordinances/paid-sick-and-safe-time',['illness','care','safe','employer-approved PTO']),
+ make('SEATTLE_PTO2','Seattle · tier 2 combined PTO',40,null,null,56,null,90,60,'https://www.seattle.gov/laborstandards/ordinances/paid-sick-and-safe-time',['illness','care','safe','employer-approved PTO']),
+ make('SEATTLE_PTO3','Seattle · tier 3 combined PTO',30,null,null,108,null,90,60,'https://www.seattle.gov/laborstandards/ordinances/paid-sick-and-safe-time',['illness','care','safe','employer-approved PTO']),
  make('SF','San Francisco · state/local paid floor',30,null,80,80,null,90,60,'https://www.sf.gov/information/understanding-paid-sick-leave',['illness','care','safe','preventive care','jury duty','court witness']),
  make('LA','Los Angeles · state/local paid floor',30,null,80,80,48,90,60,'https://wagesla.lacity.org/',['illness','care','safe','preventive care','jury duty','court witness']),
  make('PHILADELPHIA','Philadelphia · paid tier',40,40,null,40,40,90,60,'https://www.phila.gov/documents/paid-sick-leave-information/')

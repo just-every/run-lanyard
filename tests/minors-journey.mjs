@@ -103,6 +103,27 @@ async function minorVariants(){
   assert.ok(over.conflicts.some(x=>x.reason.includes('outside permitted clock hours')))
   const school=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[shift('2025-10-20','16:00','21:00')]})
   assert.ok(school.conflicts.some(x=>x.reason.includes('school-day limit 240')))
+  // Unknown next-day or week dates cannot become implicit non-school permission.
+  record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',calendarThrough:'2025-10-24',schoolDays:['2025-10-24']})
+  const unknown=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[shift('2025-10-24','16:00','23:30')]})
+  assert.ok(unknown.conflicts.some(x=>x.reason.includes('calendar must include the next day')))
+  await h.cmd('roster.publish',pin(unknown),h.owner,409)
+  record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',schoolDays:['2025-10-24','2025-10-25']})
+  const nextSchool=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[shift('2025-10-24','16:00','23:30')]})
+  assert.ok(nextSchool.conflicts.some(x=>x.reason.includes('outside permitted clock hours')))
+  record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',schoolDays:['2025-10-24']})
+  const nextFree=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[shift('2025-10-24','16:00','23:30')]})
+  assert.deepEqual(nextFree.conflicts,[],'an explicitly covered non-school next day permits the existing extended hours')
+  record=await h.cmd('minor.save',{...input,...pin(record),state:'federal',birthDate:'2010-01-01',calendarFrom:'2025-10-20',calendarThrough:'2025-10-20',schoolDays:[]})
+  const incompleteWeek=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[shift('2025-10-20','16:00','17:00')]})
+  assert.ok(incompleteWeek.conflicts.some(x=>x.reason.includes('calendar must cover the full workweek')))
+  await h.cmd('roster.publish',pin(incompleteWeek),h.owner,409)
+  for(const state of ['NY','WA']){
+   record=await h.cmd('minor.save',{...input,...pin(record),state,calendarFrom:'2025-10-20',calendarThrough:'2025-10-21',schoolDays:[]})
+   const incomplete=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[shift('2025-10-20','16:00','17:00')]})
+   assert.ok(incomplete.conflicts.some(x=>x.reason.includes('calendar must cover the full workweek')),state+' must not infer a non-school week from missing dates')
+   await h.cmd('roster.publish',pin(incomplete),h.owner,409)
+  }
   // An expired reference is not a verified permit; show a specific warning.
   record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',permitThrough:'2025-10-01'})
   const permit=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[shift('2025-10-20','16:00','17:00')]})
