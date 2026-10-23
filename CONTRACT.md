@@ -330,7 +330,7 @@ A Deputy buyer's day-one reviews (17 October 2026, rounds 1 and 2) named the wee
 
 ## Status
 
-Judged from the code and tests at commit `a79f82081c3e2eb5af83c5e7c2292377576763cc` (22 October 2026).
+Judged from the code and tests at commit `98cbcb04dbd00c04274c0e7dc6518764d469cb2e` (23 October 2026).
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
