@@ -6,6 +6,27 @@
       await window.LanyardClock.signOut(button)
     } catch { button.disabled = false; button.textContent = 'Retry sign out' }
   })
+  // Shared icon-control tooltip: delayed pointer hover, immediate keyboard focus.
+  const tooltip = document.createElement('span')
+  tooltip.id = 'control-tooltip'; tooltip.role = 'tooltip'; tooltip.hidden = true
+  document.body.append(tooltip)
+  let tipTimer, tipTarget
+  const hideTip = () => { clearTimeout(tipTimer); tooltip.hidden = true; tipTarget?.removeAttribute('aria-describedby'); tipTarget = null }
+  const showTip = target => {
+    hideTip(); tipTarget = target; tooltip.textContent = target.dataset.tooltip; tooltip.hidden = false
+    target.setAttribute('aria-describedby', tooltip.id)
+    const box = target.getBoundingClientRect(), bounds = tooltip.getBoundingClientRect()
+    tooltip.style.left = Math.max(8, Math.min(innerWidth - bounds.width - 8, box.left + box.width / 2 - bounds.width / 2)) + 'px'
+    tooltip.style.top = Math.min(innerHeight - bounds.height - 8, box.bottom + 6) + 'px'
+  }
+  document.querySelectorAll('[data-tooltip]').forEach(target => {
+    target.addEventListener('mouseenter', () => { tipTimer = setTimeout(() => showTip(target), 300) })
+    target.addEventListener('mouseleave', hideTip)
+    target.addEventListener('focus', () => showTip(target))
+    target.addEventListener('blur', hideTip)
+  })
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') hideTip() })
+  window.addEventListener('scroll', hideTip, true)
   const timezone = document.body.dataset.timezone
   const wallFormat = new Intl.DateTimeFormat('en-GB-u-ca-gregory-nu-latn', {
     timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23',

@@ -1,3 +1,4 @@
+import {differentialEstimate} from './differentials'
 // EARN-001: an employee's own hours and estimated earnings for one workweek, Monday to Sunday on
 // the venue calendar (PAY-009 pay schedules replace it). A record counts in the week of its venue
 // start date. Approved time over 40 hours in the week is overtime at 1.5x the hourly rate; the
@@ -25,27 +26,28 @@ export function earnSettings(list:Row[]|any[]):EarnSettings {
 
 /** One person's week from their own published shifts and timesheets; no coworker row is read. */
 export function earningsOf(staffId:string,week:string,tz:string,shifts:any[],timesheets:any[],rateCents:number|null,settings:EarnSettings,state?:State) {
+ const differential=(start:string,end:string)=>state&&settings.estimates?differentialEstimate(state,staffId,start,end):{minutes:0,costCents:0}
  const holiday=(start:string,end:string)=>{const p=state?holidayEstimate(state,staffId,start,end,new Date().toISOString()):{minutes:0,nonWorkMinutes:0,costCents:0,workedCostCents:0,nonWorkCostCents:0};return settings.estimates?p:{...p,costCents:0,workedCostCents:0,nonWorkCostCents:0}}
  const group=state?groupOn(state,staffId,week):undefined
  if(group&&state){
   const range=payRange(group,week),inside=(d:string)=>range.start<=d&&d<=range.end
   const minutes=(list:any[])=>list.filter(t=>t.staffId===staffId).flatMap(t=>payPieces(state,t)).filter(p=>inside(p.date)).reduce((n,p)=>n+p.minutes,0)
   const approved=timesheets.filter(t=>t.staffId===staffId&&t.status==='approved'),pending=timesheets.filter(t=>t.staffId===staffId&&t.status==='submitted')
-  const premium=holiday(range.start,range.end),jurisdiction=state?premiumEstimate(state,staffId,range.start,range.end):{minutes:0,costCents:0}
+  const diff=differential(range.start,range.end),premium=holiday(range.start,range.end),jurisdiction=state?premiumEstimate(state,staffId,range.start,range.end):{minutes:0,costCents:0}
   const worked=minutes(approved),overtime=classified(state,staffId).filter(p=>inside(p.date)).reduce((n,p)=>n+p.overtimeMinutes,0),regular=worked-overtime,priced=settings.estimates&&typeof rateCents==='number'
-  return {jurisdiction,holiday:premium,week:range.start,end:range.end,payDate:range.payDate,statementUrl:settings.statementUrl,scheduledMinutes:minutes(shifts.filter(t=>t.status==='published')),regularMinutes:regular,overtimeMinutes:overtime,pendingMinutes:minutes(pending),approvedIds:approved.map(t=>t.id),pendingIds:pending.map(t=>t.id),estimates:settings.estimates,rateCents:priced?rateCents:null,estimateCents:priced?premium.costCents===null?null:Math.round((regular*rateCents+overtime*rateCents*1.5)/60)+premium.costCents+jurisdiction.costCents:null}
+  return {differential:diff,jurisdiction,holiday:premium,week:range.start,end:range.end,payDate:range.payDate,statementUrl:settings.statementUrl,scheduledMinutes:minutes(shifts.filter(t=>t.status==='published')),regularMinutes:regular,overtimeMinutes:overtime,pendingMinutes:minutes(pending),approvedIds:approved.map(t=>t.id),pendingIds:pending.map(t=>t.id),estimates:settings.estimates,rateCents:priced?rateCents:null,estimateCents:priced?premium.costCents===null||diff.costCents===null?null:Math.round((regular*rateCents+overtime*rateCents*1.5)/60)+premium.costCents+jurisdiction.costCents+diff.costCents:null}
  }
  const days=[0,1,2,3,4,5,6].map(i=>addDays(week,i)),inWeek=(r:any)=>r.staffId===staffId&&days.includes(localDate(r.start,tz))
  const scheduled=shifts.filter(x=>inWeek(x)&&x.status==='published').reduce((n,x)=>n+Math.round((Date.parse(x.end)-Date.parse(x.start))/60000)-(x.breakMinutes??0),0)
  const approved=timesheets.filter(t=>inWeek(t)&&t.status==='approved'),pending=timesheets.filter(t=>inWeek(t)&&t.status==='submitted')
- const premium=holiday(week,days[6]),jurisdiction=state?premiumEstimate(state,staffId,week,days[6]):{minutes:0,costCents:0}
+ const diff=differential(week,days[6]),premium=holiday(week,days[6]),jurisdiction=state?premiumEstimate(state,staffId,week,days[6]):{minutes:0,costCents:0}
  const worked=approved.reduce((n,t)=>n+t.minutes,0),overtime=Math.max(0,worked-WEEK_MINUTES),regular=worked-overtime
  const priced=settings.estimates&&typeof rateCents==='number'
  return {
-  jurisdiction,holiday:premium,week,end:days[6],payDate:settings.payDays===null?null:addDays(days[6],settings.payDays),statementUrl:settings.statementUrl,
+  differential:diff,jurisdiction,holiday:premium,week,end:days[6],payDate:settings.payDays===null?null:addDays(days[6],settings.payDays),statementUrl:settings.statementUrl,
   scheduledMinutes:scheduled,regularMinutes:regular,overtimeMinutes:overtime,pendingMinutes:pending.reduce((n,t)=>n+t.minutes,0),
   approvedIds:approved.map(t=>t.id),pendingIds:pending.map(t=>t.id),estimates:settings.estimates,
-  rateCents:priced?rateCents:null,estimateCents:priced?premium.costCents===null?null:Math.round((regular*rateCents+overtime*rateCents*1.5)/60)+premium.costCents+jurisdiction.costCents:null,
+  rateCents:priced?rateCents:null,estimateCents:priced?premium.costCents===null||diff.costCents===null?null:Math.round((regular*rateCents+overtime*rateCents*1.5)/60)+premium.costCents+jurisdiction.costCents+diff.costCents:null,
  }
 }
 

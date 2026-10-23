@@ -1896,3 +1896,6 @@ test('CLOCK-001: device and employee verification, consecutive users, private ph
 test('ACCESS-003 CHAT-001 CLOCK-001: native access forms, message acknowledgments and Spanish kiosk at 1440 and 390',async()=>{const {surfaceBrowser,kioskOffline}=await import('./access-chat-kiosk-journey.mjs');await surfaceBrowser();await kioskOffline()})
 
 test('CLOCK-001: kiosk job changes retain qualified job rates and split payroll once; PIN and employee changes revoke active device sessions',()=>run(async h=>{const {kioskSegmentApi}=await import('./access-chat-kiosk-journey.mjs');await kioskSegmentApi(h)}))
+
+test('PAYRULE-001: differential boundaries, stacking, retained area rates and signed mapped payroll under one claim',()=>run(async h=>{const {differentialApi}=await import('./differentials-journey.mjs');await differentialApi(h)}))
+test('PAYRULE-001: differential configuration, payroll, own estimates and icon tooltips at 1440 and 390',async()=>{const {differentialBrowser}=await import('./differentials-journey.mjs');await differentialBrowser()})

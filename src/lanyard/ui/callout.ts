@@ -49,7 +49,7 @@ export function coverPopover(s:any,w:Week,x:any,back:string,waitLink:string) {
  const reopen=(coverage?.status==='reopened'||coverage?.status==='waiting')&&!accepted.length&&!pending.length?form('cover.reopen',back,exact(x),'Offer to eligible replacements','class="approve"','primary'):''
  const escalation=coverage?.status==='reopened'?`<p class="left-out"><strong>Coverage reopened</strong> · ${h(person(s,x.staffId))} has no recorded clock-in at the configured no-show point. The assignment stays until another replacement is approved.</p>`:''
  const side=w.days.indexOf(dateKey(x.start,w.tz))<3?' to-right':''
- return `<aside class="cover${side}" aria-label="Cover for ${h(person(s,x.staffId))}, ${h(day(dateKey(x.start,w.tz)))}"><div class="cover-head"><strong>${qualified.length?`${h(qualified.length)} qualified · no overtime`:'No one qualifies without overtime'}</strong><a class="close" href="${h(waitLink)}" aria-label="Close">×</a></div>${escalation}${list?`<ul>${list}</ul>`:''}${leftOut(s,w,c.leftOut??[])}${approve||wait||reopen?`<div class="cover-actions">${reopen}${approve}${wait}</div>`:''}</aside>`
+ return `<aside class="cover${side}" aria-label="Cover for ${h(person(s,x.staffId))}, ${h(day(dateKey(x.start,w.tz)))}"><div class="cover-head"><strong>${qualified.length?`${h(qualified.length)} qualified · no overtime`:'No one qualifies without overtime'}</strong><a class="close" href="${h(waitLink)}" aria-label="Close" data-tooltip="Close cover">×</a></div>${escalation}${list?`<ul>${list}</ul>`:''}${leftOut(s,w,c.leftOut??[])}${approve||wait||reopen?`<div class="cover-actions">${reopen}${approve}${wait}</div>`:''}</aside>`
 }
 /** Offers waiting on the signed-in teammate's answer. */
 export function offerCards(s:any,tz:string,back:string) {

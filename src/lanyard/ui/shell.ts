@@ -13,7 +13,7 @@ function sitePicker(sites:string[],site:string,path:string,q:URLSearchParams) {
 }
 function weekStepper(w:Week,path:string,q:URLSearchParams) {
  const to=(week:string)=>{const p=new URLSearchParams(q);p.set('week',week);for(const k of ['view','day','cover'])p.delete(k);return `${path}?${p}`}
- return `<div class="week-nav"><a href="${h(to(addDays(w.week,-7)))}" aria-label="Previous week"><span class="chev left" aria-hidden="true"></span></a><span>Week of ${h(day(w.week))}</span><a href="${h(to(addDays(w.week,7)))}" aria-label="Next week"><span class="chev right" aria-hidden="true"></span></a></div>`
+ return `<div class="week-nav"><a href="${h(to(addDays(w.week,-7)))}" aria-label="Previous week" data-tooltip="Previous week"><span class="chev left" aria-hidden="true"></span></a><span>Week of ${h(day(w.week))}</span><a href="${h(to(addDays(w.week,7)))}" aria-label="Next week" data-tooltip="Next week"><span class="chev right" aria-hidden="true"></span></a></div>`
 }
 function publishState(w:Week) {
  if(w.view==='published'&&w.published)return `<p class="pub-state done">Published ${h(w.published.publishedAt?day(dateKey(w.published.publishedAt,w.tz)):day(w.week))} · ${h(w.confirmed)} of ${h(w.people)} confirmed${w.confirmed===w.people?' ✓':''}</p>`
@@ -22,7 +22,7 @@ function publishState(w:Week) {
 }
 function me(s:any) {
  const name=staffOf(s,s.actor.staffId)?.name??(s.actor.name||String(s.actor.email).split('@')[0].split(/[._-]+/).map((w:string)=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ')),links=[...(owner(s)?[['/app/import','Import staff'],['/app/agent','Agent access'],['/auth/settings/identity','Sign-in settings']]:[])]
- return `<details class="me menu"><summary aria-label="Account">${avatar(name)}</summary><div class="menu-list right"><p class="menu-head"><strong>${h(name)}</strong><span>${h(s.actor.email)} · ${h(s.actor.role)}</span></p>${links.map(([href,label])=>`<a href="${href}">${h(label)}</a>`).join('')}<button type="button" data-signout class="link">Sign out</button></div></details>`
+ return `<details class="me menu"><summary aria-label="Account" data-tooltip="Account menu">${avatar(name)}</summary><div class="menu-list right"><p class="menu-head"><strong>${h(name)}</strong><span>${h(s.actor.email)} · ${h(s.actor.role)}</span></p>${links.map(([href,label])=>`<a href="${href}">${h(label)}</a>`).join('')}<button type="button" data-signout class="link">Sign out</button></div></details>`
 }
 export function topbar(s:any,tabs:Tab[],tab:string,w:Week,q:URLSearchParams) {
  const path=`/app/${tab==='roster'?'schedule':tab}`,dated=['schedule','time'].includes(tab)

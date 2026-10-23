@@ -1,3 +1,4 @@
+import {differentialBasis,differentialRules} from './differentials'
 // Gauge time's submitted -> approved revision flow, adapted to hours only;
 // Glove field capture preserves device time and command identity on retries.
 import {holidayBasis} from './holidays'
@@ -28,8 +29,13 @@ export function approve(c:Context,submitted:Row) {
  const exported=c.s.claims.filter(cl=>cl.root_id===r.rootId).reduce((n,cl)=>n+cl.minutes,0)
  const clock=c.s.clocks.find(k=>k.id===r.clockId),shift=c.s.shifts.find(x=>x.id===clock?.shiftId),job=r.job??shift?.job??'',site=r.site??shift?.site??''
  const plan=r.segmentPlan??segmentPlan(c.s,r.staffId,r,clock?.shiftId),workSegments=reconcileSegments(c.s,r.staffId,r,plan)
- const rated={...r,job,site,segmentPlan:plan,workSegments,rateBasis:workSegments.length?segmentBasis(r.staffId,workSegments):rateBasis(c.s,r.staffId,{...r,job,site})}
- const approved={...rated,holidayBasis:holidayBasis(c.s,rated),status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now}
+ // A correction reprices changed minutes from its approved source, not today's wages.
+ const retained=(basis:any,job:string,area?:string)=>{const source=old?.workSegments?.find((w:any)=>w.job===job&&w.area===area)?.rateBasis??old?.rateBasis;if(!source)return basis;const segments=basis.segments.map((p:any)=>{const original=source.segments.find((q:any)=>q.date===p.date)??source.segments.at(-1);return {...p,...original,minutes:p.minutes,date:p.date}});return {...basis,segments,costCents:segments.some((p:any)=>p.cents===null)?null:segments.reduce((n:number,p:any)=>n+Math.round(p.minutes*p.cents/60),0)}}
+ for(const w of workSegments)w.rateBasis=retained(w.rateBasis,w.job,w.area)
+ const rated:Row={...r,job,site,segmentPlan:plan,workSegments,rateBasis:workSegments.length?segmentBasis(r.staffId,workSegments):retained(rateBasis(c.s,r.staffId,{...r,job,site}),job)}
+ rated.differentialContext=old?.differentialContext??{role:c.s.staff.find(x=>x.id===r.staffId)?.position??'',tag:(c.s.shifts.find(x=>x.id===rated.segmentPlan?.shiftId)??c.s.shifts.find(x=>x.staffId===r.staffId&&x.status==='published'&&x.start<r.end&&x.end>r.start))?.label??''}
+ const rules=differentialRules(c.s,rated)
+ const approved={...rated,differentialRules:rules,differentialBasis:differentialBasis(c.s,rated,rules),holidayBasis:holidayBasis(c.s,rated),status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now}
  // A bulk caller may catch a refusal: finish every check and calculation before changing either revision.
  if(old)put(c,'timesheets',{...old,status:'superseded',supersededBy:r.id},old)
  return put(c,'timesheets',approved,r)
