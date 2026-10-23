@@ -1,3 +1,4 @@
+import {minorIssues} from './minors'
 import {type Context,type Row,type State,keys,text,need,prepare,manager,self,staff,work,get,exact,put,overlap} from './model'
 import {qualification,rateBasis} from './workforce'
 import {localDate} from './settings'
@@ -21,6 +22,7 @@ export function conflicts(c:Context,shifts:Row[],week:string) {
  for(const s of shifts) {
   const person=c.s.staff.find(p=>p.id===s.staffId)
   const reason=!person?.active||person.erased_at?'Staff inactive':patternFit(c.s,s.staffId,s)?.unavailable?'Marked unavailable':!available(c.s,s.staffId,s)?'Outside availability':onLeave(c.s,s.staffId,s)?'Approved leave':null
+  for(const reason of minorIssues(c.s,s.staffId,s,[...shifts,...c.s.shifts.filter(x=>x.status==='published'&&c.s.rosters.find(r=>r.id===x.rosterId)?.week!==week)]))errors.push({shiftId:s.id,staffId:s.staffId,reason})
   const unqualified=qualification(c.s,s.staffId,s);if(unqualified)errors.push({shiftId:s.id,staffId:s.staffId,reason:unqualified})
   if(reason)errors.push({shiftId:s.id,staffId:s.staffId,reason})
   const others=[...shifts.filter(x=>x.id!==s.id),...c.s.shifts.filter(x=>x.status==='published'&&c.s.rosters.find(r=>r.id===x.rosterId)?.week!==week)]

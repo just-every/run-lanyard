@@ -1,3 +1,4 @@
+import {minorCommand,checkMinorAssignments} from './minors'
 import {differentialCommand} from './differentials'
 import {clockLanguage,kioskCheck,kioskReceipt} from './kiosk'
 import {chatCommand} from './chat'
@@ -72,7 +73,7 @@ import {holidayPay} from './holiday-pay'
 import {holidayReviews} from './holidays'
 export {actor}
 export type {Actor} from './model'
-const commands=['differential.save','clocklanguage.save','chat.create','chat.send','chat.acknowledge','access.level.save','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
+const commands=['minor.save','differential.save','clocklanguage.save','chat.create','chat.send','chat.acknowledge','access.level.save','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -89,7 +90,8 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  await kioskCheck(c,name,p)
  if(kiosk){const previous=await saved(db,commandId,a,digest);if(previous)return previous}
  authorizeCommand(c,name,p)
- let result:any=differentialCommand(c,name,p)
+ let result:any=minorCommand(c,name,p)
+ if(result===undefined)result=differentialCommand(c,name,p)
  if(result===undefined)result=clockLanguage(c,name,p)
  if(result===undefined)result=chatCommand(c,name,p)
  if(result===undefined)result=accessCommand(c,name,p)
@@ -146,7 +148,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=tipCredit(c,name,p)
  need(result!==undefined,'Unknown command',404)
  const capture=kioskReceipt(c,name,p,result);if(capture)result={...capture.result,kioskReceipt:capture.receipt}
- if(['roster.publish','shift.change','cover.approve','swap.decide','overtime.substitute','openshift.approve'].includes(name))checkSegmentAssignments(s,before)
+ if(['roster.publish','shift.change','cover.approve','swap.decide','overtime.substitute','openshift.approve'].includes(name)){checkSegmentAssignments(s,before);checkMinorAssignments(s,before)}
  // AUTO-001: an active rule approves the clean punched time this command submitted.
  autoApprove(c,before)
  // TIME-004: whatever the command, time in a locked or closed pay period is rechecked before the write.
@@ -188,6 +190,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.premiumrules=agent?[]:s.premiumrules.filter(r=>a.role==='owner'||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??''))
  result.premiuminputs=agent?[]:s.premiuminputs.filter(r=>r.staffId===a.staffId||manages&&mayReadPerson(s,a,r.staffId)).map(r=>({...r,current:premiumCurrent(s,r)}))
  if(!manages&&!earnSettings(s.earnings).estimates)result.premiuminputs=result.premiuminputs.map(hideRates)
+ result.minors=a.role==='owner'?s.minors:[]
  result.differentials=manages?s.differentials.filter(r=>a.role==='owner'||!r.site||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??'')):[]
  result.holidays=agent?[]:s.holidays.filter(r=>a.role==='owner'||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??''))
  result.holidayrules=agent?[]:s.holidayrules.filter(r=>a.role==='owner'||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??''))

@@ -20,7 +20,7 @@ export function pickupFit(s:State,staffId:string,o:Row) {
  if(o.pool?!o.pool.includes(p.id):(p.site??'')!==o.site||(o.position&&p.position!==o.position))return {block:'not eligible'}
  // Hours are counted in the week's published revision, as a shift in it would be.
  const f=fit(s,staffId,{...o,rosterId:s.rosters.find(r=>r.week===o.week&&r.status==='published')?.id} as Row)
- return f.reason&&f.reason!=='overtime'?{block:f.reason}:{overtime:f.reason==='overtime'?f.after:null,after:f.after}
+ return f.reason&&f.reason!=='overtime'?{block:f.minorRule??f.reason}:{overtime:f.reason==='overtime'?f.after:null,after:f.after}
 }
 /** COVER-004: the offer log for an open shift posted at `at`: who was eligible then, in the order chosen. */
 export function offerLog(s:State,o:Record<string,any>,at:string) {
@@ -46,8 +46,8 @@ function scoped(c:Context,site:string) {
 }
 function recheck(c:Context,o:Row,staffId:string,mine:boolean) {
  need(o.status==='open','This open shift is no longer open',409);need(o.start>c.now,'This open shift has already started',409)
- need(opensFor(o,staffId)<=c.now,'This open shift has not been offered to this person yet',409)
  const f=pickupFit(c.s,staffId,o);if(f.block)need(false,f.block==='not eligible'?'This open shift is not offered to this person':mine||c.a.role!=='staff'?`Not eligible for this shift: ${f.block}`:'Not eligible for this shift',409)
+ need(opensFor(o,staffId)<=c.now,'This open shift has not been offered to this person yet',409)
  return f
 }
 /** Open shift rows a draft carries (SCHEDULE-002 position-only template rows); posted when the draft is published. */

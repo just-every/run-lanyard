@@ -1,3 +1,4 @@
+import {minorIssues} from './minors'
 // Call-out cover: the person (or a manager) calls out of a published shift, Lanyard
 // offers it to every qualified teammate who stays inside overtime, each answers,
 // and a manager approves one accepted offer. Only the cover's clock-in closes it.
@@ -12,7 +13,7 @@ import {siteOf} from './team'
 import {coverageCase} from './coverage'
 
 const WEEK_LIMIT=40*60, DAY_LIMIT=8*60
-type Fit={staffId:string;before:number;after:number;reason?:'overtime'|'already on'|'unavailable'|'time off'|'not qualified'|'maximum hours';shiftId?:string;overlap?:number}
+type Fit={staffId:string;before:number;after:number;reason?:'overtime'|'already on'|'unavailable'|'time off'|'not qualified'|'maximum hours'|'minor rule';minorRule?:string;shiftId?:string;overlap?:number}
 
 /** Minutes a person is already published for in the shift's workweek and on its day. */
 function load(s:State,staffId:string,shift:Row,skip:string[]) {
@@ -24,6 +25,7 @@ function load(s:State,staffId:string,shift:Row,skip:string[]) {
 /** One teammate measured against the shift (ignoring shifts they would give up, for a swap): qualified, or the reason they are left out. */
 export function fit(s:State,staffId:string,shift:Row,skip:string[]=[]):Fit {
  const {week,day,clash}=load(s,staffId,shift,skip),f:Fit={staffId,before:week,after:week+shift.minutes}
+ const minors=minorIssues(s,staffId,shift,undefined,skip);if(minors.length)return {...f,reason:'minor rule',minorRule:minors.join('; ')}
  if(qualification(s,staffId,shift))return {...f,reason:'not qualified'}
  if(clash)return {...f,reason:'already on',shiftId:clash.id,overlap:(Math.min(Date.parse(clash.end),Date.parse(shift.end))-Math.max(Date.parse(clash.start),Date.parse(shift.start)))/60000}
  if(!available(s,staffId,shift))return {...f,reason:'unavailable'}
@@ -35,7 +37,7 @@ export function fit(s:State,staffId:string,shift:Row,skip:string[]=[]):Fit {
 /** Teammates in the caller's position (everyone, if positions are not set): qualified by least hours after,
  * left out by reason (overtime first, then whoever overlaps the shift least: the nearest to covering it). */
 export function shortlist(s:State,shift:Row) {
- const caller=s.staff.find(p=>p.id===shift.staffId),order={'overtime':0,'already on':1,'time off':2,'unavailable':3,'not qualified':4,'maximum hours':5}
+ const caller=s.staff.find(p=>p.id===shift.staffId),order={'overtime':0,'already on':1,'time off':2,'unavailable':3,'not qualified':4,'maximum hours':5,'minor rule':6}
  const team=s.staff.filter(p=>p.id!==shift.staffId&&p.active&&!p.erased_at&&(!caller?.position||p.position===caller.position)).map(p=>fit(s,p.id,shift))
  // AVAIL-001: whoever's effective pattern marks the whole shift preferred ranks first.
  const preferred=(f:Fit)=>patternFit(s,f.staffId,shift)?.preferred?0:1

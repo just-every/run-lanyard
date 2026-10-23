@@ -1,3 +1,4 @@
+import {minorClock,minorIssues} from './minors'
 import {differentialBasis,differentialRules} from './differentials'
 // Gauge time's submitted -> approved revision flow, adapted to hours only;
 // Glove field capture preserves device time and command identity on retries.
@@ -85,6 +86,7 @@ export function time(c:Context,name:string,p:Record<string,any>) {
    need(!c.s.clocks.some(r=>r.staffId===staffId&&r.end&&r.end>at),'Clock capture predates an existing clock; ask a manager to prepare missed time',409)
    // TIME-006: refused before any write, or accepted with its flags kept for the timesheet.
    const check=checkClockIn(c.s,staffId,at),net=checkNetwork(c.s,cafeOf(c,staffId,check.shiftId),c.net)
+   const minorWarnings=minorClock(c.s,staffId,at,check.shiftId);need(!minorWarnings.length,minorWarnings.join('; '),409)
    // CLOCK-006: the clock-in questions, answered before anything is written; their flags join the punch's.
    const asked=answer(c,staffId,check.shiftId,'in',p.answers),flags=[...check.exceptions,...net.exceptions,...asked.flags]
    const clock=put(c,'clocks',{staffId,start:at,end:null,status:'open',capturedBy:c.a.id,receivedAt:c.now,shiftId:check.shiftId,...(flags.length?{exceptions:flags}:{}),...(net.network?{network:{in:net.network}}:{}),...(asked.answers.length?{answers:asked.answers}:{}),...(siteByNetwork(c.s,c.net)!==null?{seenAt:siteByNetwork(c.s,c.net)}:{})})
@@ -98,7 +100,8 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   const net=checkNetwork(c.s,currentOf(c.s,open).site,c.net),network=net.network?{...open.network,out:net.network}:open.network
   // CLOCK-006: clock-out answers join the clock-in ones on the punch and its timesheet; their flags become exceptions.
   const asked=answer(c,staffId,open.shiftId,'out',p.answers),answers=[...(open.answers??[]),...asked.answers],flags=[...net.exceptions,...asked.flags].filter(e=>!open.exceptions?.includes(e))
-  const done=closeClock(c,{...open,exceptions:[...(open.exceptions??[]),...flags],...(network?{network}:{})},at,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,'Phone clock',answers.length?{answers}:{},breakWords(c,staffId,p))
+  const minorFlags=minorIssues(c.s,staffId,{start:open.start,end:at,minutes:(Date.parse(at)-Date.parse(open.start))/60000-Number(p.breakMinutes)},undefined,open.shiftId?[open.shiftId]:[])
+  const done=closeClock(c,{...open,exceptions:[...(open.exceptions??[]),...flags,...minorFlags],...(network?{network}:{})},at,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,'Phone clock',answers.length?{answers}:{},breakWords(c,staffId,p))
   attach(c,asked.injuries,open.id);c.entity=done.timesheet.id;return done
  }
  if(name==='time.confirm') {
