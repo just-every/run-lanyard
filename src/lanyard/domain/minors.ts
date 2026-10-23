@@ -16,7 +16,8 @@ export function minorCommand(c:Context,name:string,p:Record<string,any>){
  const calendarFrom=date(p.calendarFrom,'school calendar start'),calendarThrough=date(p.calendarThrough,'school calendar end');need(calendarThrough>=calendarFrom&&Date.parse(calendarThrough)-Date.parse(calendarFrom)<=366*86400000,'Provide at most one year of school calendar')
  const input=typeof p.schoolDays==='string'?p.schoolDays.split(/[\s,]+/).filter(Boolean):p.schoolDays;need(Array.isArray(input)&&input.length<=366,'Provide dated school days')
  const schoolDays=[...new Set(input.map(x=>date(x,'school date')))];need(schoolDays.every(d=>d>=calendarFrom&&d<=calendarThrough),'School dates must be within the calendar')
- const schoolStart=integer(Number(p.schoolStart),'school start minute',0,1439),schoolEnd=integer(Number(p.schoolEnd),'school end minute',1,1440);need(schoolStart<schoolEnd,'School ends after it starts')
+ const minute=(v:any)=>typeof v==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(v)?Number(v.slice(0,2))*60+Number(v.slice(3)):Number(v)
+ const schoolStart=integer(minute(p.schoolStart),'school start minute',0,1439),schoolEnd=integer(minute(p.schoolEnd),'school end minute',1,1440);need(schoolStart<schoolEnd,'School ends after it starts')
  const {versions,...prior}:any=old??{}
  return put(c,'minors',{staffId:person.id,birthDate,state:p.state,permit:text(p.permit,'work permit reference',160,true),permitThrough:p.permitThrough?date(p.permitThrough,'permit expiry'):'',calendarFrom,calendarThrough,schoolDays,schoolStart,schoolEnd,presetVersion:'2026-10-23',source:SOURCES[p.state],by:c.a.id,at:c.now,versions:old?[...(versions??[]),prior]:[]},old)
 }
@@ -47,7 +48,8 @@ export function minorIssues(s:State,staffId:string,w:any,other?:any[],skip:strin
   if(r.state==='OR'&&years>=16)weekly=2640
   if(r.state==='CO'&&years>=16){daily=480;weekly=2400}
   const a=wall(p.start,s.timezone),b=wall(p.end,s.timezone),from=Number(a.time.slice(0,2))*60+Number(a.time.slice(3)),until=b.date===p.date?Number(b.time.slice(0,2))*60+Number(b.time.slice(3)):1440
-  if(from<earliest||until>latest)add(`outside permitted clock hours (${earliest}–${latest} venue minutes)`)
+  const label=(n:number)=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')
+  if(from<earliest||until>latest)add(`outside permitted clock hours (${label(earliest)}–${label(latest)} venue time)`)
   if(school&&years<16&&from<r.schoolEnd&&until>r.schoolStart)add('work overlaps configured school hours')
   if(r.state==='WA'&&school&&years>=16&&from<r.schoolEnd&&until>r.schoolStart)add('work overlaps configured school hours; school release is not recorded')
   const dayMinutes=all.filter(x=>x.date===p.date).reduce((n,x)=>n+x.minutes,0)+candidate.filter(x=>x.date===p.date).reduce((n,x)=>n+x.minutes,0)

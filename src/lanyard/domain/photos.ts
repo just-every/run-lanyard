@@ -37,7 +37,7 @@ export function photoReceipt(c:Context,name:string,p:any,result:any,photo:any){
 }
 export function photosForTime(s:State,t:Row){
  const clock=s.clocks.find(k=>k.id===t.clockId||k.timesheetId===t.id||k.timesheetId===t.rootId),ids=new Set([t.id,t.rootId,clock?.id,clock?.timesheetId])
- return [...s.kioskreceipts,...s.photoreceipts].filter(r=>r.staffId===t.staffId&&ids.has(r.entityId)).map(r=>({name:r.name,capturedAt:r.capturedAt,photoId:r.photoId,photoException:r.photoException,erasedAt:r.erasedAt}))
+ return [...s.kioskreceipts,...s.photoreceipts].filter(r=>r.staffId===t.staffId&&ids.has(r.entityId)).sort((a,b)=>a.capturedAt.localeCompare(b.capturedAt)||a.name.localeCompare(b.name)).map(r=>({name:r.name,capturedAt:r.capturedAt,photoId:r.photoId,photoException:r.photoException,erasedAt:r.erasedAt}))
 }
 export async function photoCommand(c:Context,name:string,p:any){
  if(!['photo.save','photo.hold','photo.erase'].includes(name))return
