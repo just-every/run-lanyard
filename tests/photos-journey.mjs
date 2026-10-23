@@ -16,8 +16,12 @@ export async function photoApi(h){
  const f=await photoFixture(h),{alex,ben,lead,policy}=f,photo=btoa('\xff\xd8\xffsynthetic-lanyard-8'),input={photo,photoConsent:true,photoNoticeSeen:true}
  // Kiosk enrollment already records employer consent and employee notice/consent.
  await h.cmd('kiosk.pin',{pin:'123456',language:'en',consent:true},alex.cookie)
- const enrolled=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Photo tablet',photo:false}},h.owner);assert.equal(enrolled.status,200)
+ const enrolled=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Photo tablet',photo:false,consent:true}},h.owner);assert.equal(enrolled.status,200)
  const beforeSiteConsent=await h.send('/api/lanyard/kiosk/state',undefined,enrolled.cookie);assert.equal(beforeSiteConsent.status,401)
+ const unconsented=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'No photo authorization',photo:false}},h.owner)
+ const noPhotoLogin=await h.send('/api/lanyard/kiosk/signin',{email:alex.email,pin:'123456'},unconsented.cookie),noPhotoCookie=unconsented.cookie+'; '+noPhotoLogin.cookie
+ assert.equal((await h.send('/api/lanyard/kiosk/state',undefined,noPhotoCookie)).value.photoEnrollmentNeeded,true)
+ assert.equal((await h.send('/api/lanyard/kiosk/capture',{name:'clock.in',input:{commandId:'synthetic-lanyard-69',capturedAt:local('2025-06-01','09:00')},photo,photoConsent:true},noPhotoCookie)).status,403,'site policy cannot replace the required employer consent at enrollment')
  const signin=await h.send('/api/lanyard/kiosk/signin',{email:alex.email,pin:'123456'},enrolled.cookie);assert.equal(signin.status,200,signin.text)
  const cookies=enrolled.cookie+'; '+signin.cookie
  assert.equal((await h.send('/api/lanyard/kiosk/state',undefined,cookies)).value.photoRequired,true,'site policy overrides a no-photo enrollment')
@@ -98,16 +102,18 @@ export async function photoBrowser(){
  await as(h.owner);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'});const photos=page.locator('#approve .punch-photos img');assert.equal(await photos.count(),2);await photos.first().scrollIntoViewIfNeeded();await page.waitForFunction(()=>[...document.querySelectorAll('#approve .punch-photos img')].every(i=>i.complete&&i.naturalWidth>0));await shot('photo-approval')
  const account=page.locator('summary[aria-label="Account"]');await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'});await shot('photo-tooltip')
  assert.equal(await page.evaluate(()=>window.photoStreams.every(s=>s.getTracks().every(t=>t.readyState==='ended'))),true)
+ // A new employee has no later punch that would forbid this historical capture.
+ const dana=await h.person('Dana');await h.cmd('staff.save',{...pin(dana),name:dana.name,email:dana.email,payrollId:dana.payrollId,role:'staff',active:true,site:'Mission',hourlyRate:'20.00'})
  // A browser-level camera denial keeps the real punch with a named exception.
- await context.clearPermissions();await context.grantPermissions([],{origin:h.origin});await as(f.ben.cookie);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'})
- for(const [name,at]of [['Clock in','2025-06-06T16:00:00Z'],['Clock out','2025-06-06T17:00:00Z']]){await page.clock.setFixedTime(new Date(at));await page.getByLabel("I have read this site's photo notice").check();await page.getByLabel('I consent to a still photo for this punch').check();try{await Promise.all([page.waitForEvent('load'),page.waitForResponse(r=>r.url().endsWith('/api/lanyard/command')&&r.request().postDataJSON()?.name===(name==='Clock in'?'clock.in':'clock.out')),page.getByRole('button',{name,exact:true}).click()]);await page.waitForLoadState('networkidle')}catch(error){throw new Error(name+': '+await page.locator('[data-clock-status]').innerText(),{cause:error})}}
- const cameraDenied=(await h.state()).timesheets.find(t=>t.staffId===f.ben.id&&t.exceptions?.some(e=>e.includes('camera denied')));assert.ok(cameraDenied,'real browser permission denial becomes an explicit timesheet exception');assert.ok(cameraDenied.photoReview.every(p=>!p.photoId&&p.photoException==='camera denied'))
+ await context.clearPermissions();await context.grantPermissions([],{origin:h.origin});await as(dana.cookie);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'})
+ for(const [name,at]of [['Clock in','2025-06-06T16:00:00Z'],['Clock out','2025-06-06T17:00:00Z']]){await page.clock.setFixedTime(new Date(at));await page.getByLabel("I have read this site's photo notice").check();await page.getByLabel('I consent to a still photo for this punch').check();try{await Promise.all([page.waitForEvent('load'),page.waitForResponse(r=>r.url().endsWith('/api/lanyard/command')&&r.request().postDataJSON()?.name===(name==='Clock in'?'clock.in':'clock.out')),page.getByRole('button',{name,exact:true}).click()]);await page.waitForLoadState('networkidle')}catch(error){throw new Error(name+': '+await page.locator('[data-clock-status]').innerText()+' '+await page.locator('[data-clock-events]').innerText(),{cause:error})}}
+ const cameraDenied=(await h.state()).timesheets.find(t=>t.staffId===dana.id&&t.exceptions?.some(e=>e.includes('camera denied')));assert.ok(cameraDenied,'real browser permission denial becomes an explicit timesheet exception');assert.ok(cameraDenied.photoReview.every(p=>!p.photoId&&p.photoException==='camera denied'))
  const bulk=await h.cmd('time.approveMany',{items:[pin(cameraDenied)]});assert.equal(bulk.approved.length,0);assert.match(bulk.skipped[0].reason,/camera denied/)
  await as(h.owner);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'});await page.locator('#approve').getByText('punch photo unavailable: camera denied',{exact:false}).first().scrollIntoViewIfNeeded();await shot('photo-camera-denied')
  await context.grantPermissions(['camera'],{origin:h.origin})
  // The kiosk uses the same real still path instead of an arbitrary file upload.
  await h.cmd('kiosk.pin',{pin:'123456',language:'en',consent:true},f.alex.cookie)
- const device=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Photo kiosk',photo:false}},h.owner)
+ const device=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Photo kiosk',photo:false,consent:true}},h.owner)
  await as(device.cookie);await page.goto(h.origin+'/app/kiosk',{waitUntil:'networkidle'});await page.locator('[name=email]').fill(f.alex.email);await page.locator('[name=pin]').fill('123456');await page.getByRole('button',{name:'Verify employee'}).click();await page.getByRole('heading',{name:'Your clock',exact:true}).waitFor()
  const kioskStart=Date.now()-120000
  for(const [name,offset]of [['Clock in',0],['Clock out',60000]]){await page.clock.setFixedTime(new Date(kioskStart+offset));await page.locator('[name=photoConsent]').check();await page.getByRole('button',{name,exact:true}).click();await page.waitForFunction(n=>document.querySelector('#kiosk-pending').textContent.startsWith('0 saved')&&document.querySelector('#kiosk-current').textContent===(n==='Clock in'?'Clocked in':'Clocked out'),name)}

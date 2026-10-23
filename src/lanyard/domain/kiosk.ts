@@ -9,8 +9,9 @@ export async function kioskCheck(c:Context,name:string,p:Record<string,any>){
  // Recheck site-wide employer policy inside the same state revision as capture.
  const policy=c.s.photopolicies.find(p=>p.site===k.site),siteRequired=Boolean(policy?.kiosk&&(name==='clock.in'||name==='clock.out'||name.startsWith('clock.break')&&policy.breaks))
  k.photoRequired=Boolean(k.photoRequired||siteRequired)
- const current=await c.db.prepare(`SELECT 1 FROM l_kiosk_sessions k JOIN l_kiosk_devices d ON d.id=k.device_id JOIN l_staff s ON s.id=k.staff_id JOIN l_kiosk_pins p ON p.staff_id=s.id WHERE k.token_hash=? AND d.id=? AND k.revoked_at IS NULL AND k.expires_at>? AND d.revoked_at IS NULL AND d.locked=0 AND s.active=1 AND s.erased_at IS NULL AND s.version=k.staff_version AND p.version=k.pin_version AND s.site=d.site`).bind(k.sessionHash,k.deviceId,Date.now()).first()
+ const current=await c.db.prepare(`SELECT d.photo_consent FROM l_kiosk_sessions k JOIN l_kiosk_devices d ON d.id=k.device_id JOIN l_staff s ON s.id=k.staff_id JOIN l_kiosk_pins p ON p.staff_id=s.id WHERE k.token_hash=? AND d.id=? AND k.revoked_at IS NULL AND k.expires_at>? AND d.revoked_at IS NULL AND d.locked=0 AND s.active=1 AND s.erased_at IS NULL AND s.version=k.staff_version AND p.version=k.pin_version AND s.site=d.site`).bind(k.sessionHash,k.deviceId,Date.now()).first<{photo_consent:number}>()
  need(current,'Kiosk access was revoked',403)
+ need(!k.photoRequired||current.photo_consent,'Photo policy requires the owner to approve photo custody at enrollment',403)
  const open=c.s.clocks.find(x=>x.staffId===c.a.staffId&&x.status==='open'),shift=name==='clock.in'?c.s.shifts.find(x=>x.id===checkClockIn(c.s,c.a.staffId!,String(p.capturedAt)).shiftId):undefined
  const site=name==='clock.in'?(shift?siteOf(c.s,shift):c.s.staff.find(x=>x.id===c.a.staffId)?.site):open?currentOf(c.s,open).site:k.site
  need(site===k.site,'Device is not approved for this shift cafe',403)
