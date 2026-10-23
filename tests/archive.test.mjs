@@ -166,8 +166,8 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.equal(locationBack.georeceipts.length,2);assert.ok(locationBack.georeceipts.every(r=>r.latitude===undefined&&r.longitude===undefined&&r.erasedAt))
     const locatedTime=locationBack.timesheets.find(t=>t.id===nativeOut.timesheet.id);assert.equal(locatedTime.minutes,60);assert.equal(locatedTime.locationReview.length,2)
     await h.close();h=null
-    h=await harness({root:source,...identity})
-    await h.cmd('staff.erase',{id:p.id,revision:1},erasedOwner);await h.close();h=null
+    h=await harness({root:source,...identity});const finalOwner=await h.signIn(h.auth.OWNER_EMAIL)
+    await h.cmd('staff.erase',{id:p.id,revision:1},finalOwner);await h.close();h=null
     await command(source,['export','--output',later,'--no-queue'])
     await command(erased,['import','--input',old,'--journal',later,'--yes','--no-queue'],4)
     await command(erased,['import','--input',later,'--yes','--no-queue'])

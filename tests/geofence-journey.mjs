@@ -46,6 +46,11 @@ export async function geofenceApi(h){
  const failed=(await h.state()).georeceipts.find(r=>r.id===denied.locationReceiptId);assert.equal(failed.latitude,undefined)
  await capture('clock.in','2025-06-03T16:00:00Z',undefined)
  const missing=await capture('clock.out','2025-06-03T17:00:00Z',undefined);assert.ok(missing.timesheet.exceptions.includes('location unavailable'))
+ await capture('clock.in','2025-06-04T16:00:00Z',{...coords('2025-06-04T16:00:00Z'),latitude:37.7615,accuracyMeters:50})
+ const boundary=await capture('clock.out','2025-06-04T17:00:00Z',coords('2025-06-04T17:00:00Z'))
+ assert.ok(boundary.timesheet.exceptions.includes('geofence boundary uncertain'),'the entire accuracy circle must fit, not just its center')
+ const inReceipt=receipts.find(r=>r.id===inside.locationReceiptId)
+ await h.cmd('location.erase',{...pin(inReceipt),reason:'Too early',consent:true},h.owner,409,{'x-test-now':String(Date.parse('2025-06-02T16:00:00Z'))})
  await h.cmd('geofence.save',{...f.policy,revision:rule.revision,longitude:-122.51})
  assert.deepEqual((await h.state()).georeceipts.find(r=>r.id===inside.locationReceiptId).geofence,{latitude:37.76,longitude:-122.5,radiusMeters:200,maxAccuracyMeters:50})
  const held=await h.cmd('location.hold',{...pin(reviewed),hold:true,reason:'Employer dispute hold'})
@@ -57,13 +62,13 @@ export async function geofenceApi(h){
  await h.restart();assert.ok((await h.state()).georeceipts.find(r=>r.id===source.id).erasedAt)
  // Enrollment revocation applies to new captures and to an identical prior retry.
  await h.cmd('clockbrowser.revoke',{id:device.value.id})
- await capture('clock.in','2025-06-04T16:00:00Z',coords('2025-06-04T16:00:00Z'),403)
+ await capture('clock.in','2025-06-05T16:00:00Z',coords('2025-06-05T16:00:00Z'),403)
  const originalIn=receipts.find(r=>r.id===inside.locationReceiptId)
  await h.cmd('clock.in',{commandId:originalIn.commandId,capturedAt:originalIn.capturedAt,location:coords(originalIn.capturedAt)},cookie,403)
  const rejected=await h.cmd('clock.report',{commandId:crypto.randomUUID(),capture:{name:'clock.in',input:{commandId:crypto.randomUUID(),capturedAt:'2025-06-04T16:00:00Z',location:coords('2025-06-04T16:00:00Z')}},error:'Device access revoked'},alex.cookie)
  assert.equal(rejected.capture.input.location,undefined)
  assert.ok(!JSON.stringify((await h.state(lead.cookie)).clockissues).includes('latitude'),'rejected-capture reports never expose coordinates to managers')
- assert.equal((await h.state()).georeceipts.length,6)
+ assert.equal((await h.state()).georeceipts.length,8)
 }
 export async function geofenceBrowser(){
  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
@@ -76,8 +81,10 @@ export async function geofenceBrowser(){
  const review=page.locator('#approve .punch-locations');assert.match(await review.innerText(),/inside geofence/);assert.match(await review.innerText(),/out-of-zone punch/);assert.match(await review.innerText(),/accuracy 5 m/)
  await review.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
  if(process.env.C37_SCREENS){await mkdir(process.env.C37_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C37_SCREENS,`location-review-${width}.png`)})}
+ await page.getByRole('link',{name:'Previous week',exact:true}).focus();await page.getByRole('tooltip',{name:'Previous week',exact:true}).waitFor({state:'visible'})
  const account=page.locator('summary[aria-label="Account"]');await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'})
  await page.getByText('Filter and approve many',{exact:true}).click();const bulk=page.getByRole('button',{name:'Approve 1 shown',exact:true});await bulk.scrollIntoViewIfNeeded();await bulk.click();await page.waitForLoadState('networkidle');assert.match(await page.getByRole('status').filter({hasText:'Approved 0 · skipped 1'}).innerText(),/Approved 0 · skipped 1/);assert.match(await page.getByRole('status').filter({hasText:'Approved 0 · skipped 1'}).innerText(),/out-of-zone punch/)
  if(process.env.C37_SCREENS)await page.screenshot({path:join(process.env.C37_SCREENS,`location-bulk-skip-${width}.png`)})
+ await page.goto(h.origin+'/app/agent',{waitUntil:'networkidle'});await page.getByText('Human command reference',{exact:true}).click();const command=page.locator('dt').filter({hasText:'geofence.save'});await command.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.C37_SCREENS)await page.screenshot({path:join(process.env.C37_SCREENS,`location-command-reference-${width}.png`)})
  }finally{await context.close();await h.close()}}}finally{await browser.close()}
 }
