@@ -28,7 +28,7 @@ export async function clockBrowserCommand(env: Bindings, who: Actor, name: strin
     const site = String(input.site ?? '').trim(), label = String(input.label ?? '').trim()
     if (site.length > 80 || !label || label.length > 80) fail('Enter a label of at most 80 characters for this browser')
     const type=input.type??'browser'
-    if(!['phone','browser'].includes(String(type)))fail('Choose an owner-classified phone or browser clock')
+    if(typeof type!=='string'||!['phone','browser'].includes(type))fail('Choose an owner-classified phone or browser clock')
     const id = crypto.randomUUID(), bytes = crypto.getRandomValues(new Uint8Array(32)), token = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
     await env.DB.batch([env.DB.prepare('INSERT INTO l_clock_browsers(id,site,label,token_hash,enrolled_by,created_at,device_type) VALUES(?,?,?,?,?,?,?)').bind(id, site, label, await hash(token), who.id, new Date().toISOString(),type), audit(env, who, name, id)])
     return { id, token }

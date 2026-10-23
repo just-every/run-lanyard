@@ -88,3 +88,9 @@ is no second conflicting classification source. Future multi-job clock segments
 (PAYSYNC-003), payroll classification (PAY-001), differentials (PAYRULE-001) and
 holiday/premium calculations (PAYRULE-002/003) must inherit these qualification,
 effective-rate and retained-basis checks before shipping.
+
+## Private minor work records
+
+In **People → Minor work rules**, the owner records a birth date, state permit reference and expiry, and dated school calendar with school start/end times. Birth and permit records remain owner-only while finer authority awaits policy approval. Rule messages disclose the rule and limit, not a birth date.
+
+The shipped non-agricultural checks run before schedule publication, offers, swaps, pickups and clock-in. Recorded approved/submitted/returned work joins plans without counting overlapping intervals twice; a pending reduction cannot remove approved hours, and an approved correction replaces the superseded source. Manual work and clock closure retain violations for review instead of discarding worked time. Colorado checks any elapsed 24-hour window; California's non-school overnight boundary includes 00:30 but not later. Expired references are flagged. A reference is not a verified state permit, and complete state school-release, supervision, consent and variance rules remain open in CONTRACT.md.

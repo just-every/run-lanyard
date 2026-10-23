@@ -5,9 +5,9 @@ const preparation = [
  ['payroll.prepare','ids?: array of approved, unexported timesheet IDs'],
 ]
 const human = [
- ['photo.save','Owner','site, native (phones and browsers), breaks, retentionDays from captured time, consent: true; revision to edit. No automatic deletion. Kiosk requirements remain enrollment settings.'],
+ ['photo.save','Owner','site, phone, browser, kiosk, breaks, retentionDays from captured time, consent: true; revision to edit. Legacy native sets both phone/browser settings. Device type uses owner-enrolled credentials; unknown requires either enabled setting. Site kiosks still require prior employer photo consent at enrollment. No automatic deletion.'],
  ['photo.hold / photo.erase','Owner','staffId; hold adds hold boolean and reason; erase adds mode (retention or former), reason and explicit consent. Holds block erasure and former requires deactivation; punch facts remain.'],
- ['sickpolicy.save','Owner','site, from, preset (CA, CO, IL, NY, OR, WA, NYC, CHICAGO, SEATTLE, SF, LA, PHILADELPHIA or employer), code; id + revision for a later effective version. Employer fields: denominator, annualAccrual, bankCap, carry, annualUse, wait, increment (minutes; blank cap uncapped).'],
+ ['sickpolicy.save','Owner','site, from, preset (CA, CO, IL, NY/NY40, OR, WA, NYC/NYC40, CHICAGO, SEATTLE/SEATTLE1/SEATTLE2, SF, LA, PHILADELPHIA or employer), code, normalDayMinutes (longest covered normal day; legacy 480); id + revision for a later effective version. Employer fields: denominator, annualAccrual, bankCap, carry, annualUse, wait, increment (minutes; blank cap uncapped).'],
  ['sick.request','Linked staff','policyId, start, end, minutes, purpose: one day, listed category only; no medical detail'],
  ['sick.decide / sick.correct','Owner','id, revision; decide adds decision (approved/rejected) and unique reference on approval; correct adds minutes and reason. Reversals retain punch facts and signed payroll differences.'],
  ['minor.save','Owner','staffId, birthDate, state (federal, CA, NY, IL, WA, OR, CO), permit?, permitThrough?, calendarFrom, calendarThrough, schoolDays (dated array), schoolStart, schoolEnd (minutes); id + revision to edit. Birth/permit facts are owner-only.'],

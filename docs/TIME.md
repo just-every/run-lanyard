@@ -61,3 +61,11 @@ The employee or a manager confirms the end or enters the real one. That submits 
 ## Web time clock on approved networks
 
 On **People**, under **Web time clock**, the owner can limit a cafe's clock-in and clock-out to its approved public IP ranges (one per line, such as `203.0.113.0/24`) and to browsers enrolled as that cafe's clock. Choose whether a punch from another network is refused or accepted and flagged; a flagged punch waits for a manager's single approval. To enrol the store computer, open **People** on that computer and select **Enrol this browser**; revoke it from the same card. Each punch records only the network address it came from and which approval matched.
+
+## Punch photo notice and custody
+
+When the work site's photo policy requires a still, read its notice and consent at each punch. The camera opens at the punch and stops immediately afterwards. A declined or unavailable camera keeps the punch with a named exception for review; bulk approval skips it. This does not compare faces. Current photo readers are the employee and owner; wider manager readers await policy confirmation.
+
+Owners configure phone, browser and shared-kiosk requirements in **People → Punch photo custody**, with optional break photos, retention days and explicit approval. **Web time clock → Enrol this browser as a time clock** classifies a phone or browser clock using its revocable credential. The label is an employer classification, not hardware attestation. Unenrolled or revoked credentials use the stricter enabled setting; changing a user-agent does not bypass it. The native form uses the upcoming shift's work cafe, then the current cafe after a job/site transfer. A kiosk still needs employer photo consent at enrollment before a site requirement can collect images.
+
+Photo-required native and kiosk captures use the encrypted offline queue. Reconciliation preserves their stills; a rejected or revoked capture sent for manager review omits image bytes and consent details. The owner can place a hold or explicitly erase only expired eligible images while keeping punch facts; nothing deletes automatically.
