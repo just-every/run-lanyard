@@ -53,6 +53,15 @@ export async function sickApi(){
    await h.cmd('sick.correct',{...pin(paid),minutes:0,reason:'Employer-reviewed cancellation'})
    const reversal=await h.cmd('payroll.prepare',{});assert.deepEqual(reversal.lines.map(l=>[l.minutes,l.costCents]),[[-120,-4000]]);await h.cmd('payroll.export',pin(reversal));assert.equal((await report('2026-01-09')).balanceMinutes,carried)
    assert.equal((await h.send('/api/lanyard/aca/'+plan.id,undefined,h.owner)).value.rows[0].paidLeaveMinutes,0)
+   // The California catalog includes the state-floor purposes, with no medical
+   // free text. Correcting each reviewed use keeps the balance probe independent.
+   for(const [i,purpose]of ['preventive care','jury duty','court witness'].entries()){
+    const day=add('2026-01-20',i),u=await h.cmd('sick.request',{...request,start:local(day,'09:00'),end:local(day,'10:00'),minutes:60,purpose},alex.cookie)
+    const decided=await h.cmd('sick.decide',{...pin(u),decision:'approved',reference:'synthetic-lanyard-70-'+i})
+    assert.equal(decided.purpose,purpose);assert.equal(decided.minutes,60)
+    await h.cmd('sick.correct',{...pin(decided),minutes:0,reason:'Reviewed category proof cancellation'})
+   }
+   const refusedPurpose=await h.cmd('sick.request',{...request,start:local('2026-01-25','09:00'),end:local('2026-01-25','10:00'),minutes:60,purpose:'Unlisted category'},alex.cookie,400);assert.match(refusedPurpose.error,/permitted reason/)
    // Cross-site worked time earns each location's bank once, not the employee's home bank.
    // Waiting periods and increments are enforced without creating a request.
    const person=(await h.state()).staff.find(p=>p.id===ben.id);await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:'staff',active:true,site:'Ocean Beach',hourlyRate:'20.00',startDate:'2026-01-08'})
