@@ -1945,3 +1945,6 @@ test('LEAVE-003: policy, unmaintained label, own request, owner approval, export
 
 test('CLOCK-005: kiosk and native stills, private approval review, camera exceptions, bulk skips, holds and explicit expired-photo erasure',()=>run(async h=>{const {photoApi}=await import('./photos-journey.mjs');await photoApi(h)}))
 test('CLOCK-005: photo policy, notice, consented camera capture and private approval at 1440 and 390',async()=>{const {photoBrowser}=await import('./photos-journey.mjs');await photoBrowser()})
+
+test('CLOCK-003: event-only location consent, accuracy, private review, bulk refusal, retention and device revocation through native commands',()=>run(async h=>{const {geofenceApi}=await import('./geofence-journey.mjs');await geofenceApi(h)}))
+test('CLOCK-003: owner sees captured location and bulk exception at 1440 and 390',async()=>{const {geofenceBrowser}=await import('./geofence-journey.mjs');await geofenceBrowser()})

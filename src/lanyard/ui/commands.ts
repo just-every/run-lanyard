@@ -5,9 +5,11 @@ const preparation = [
  ['payroll.prepare','ids?: array of approved, unexported timesheet IDs'],
 ]
 const human = [
+ ['geofence.save','Owner','site, latitude, longitude, radiusMeters, maxAccuracyMeters, retentionDays, enabled and consent: true; revision to edit. Native API foundation; no background tracking or browser permission capture.'],
+ ['location.review / location.hold / location.erase','Owner','id and revision from private georeceipts; review adds reason, hold adds hold boolean and reason; erase adds reason and consent: true. Explicit erasure requires expired retention and no hold. Captured times and flags remain.'],
  ['photo.save','Owner','site, phone, browser, kiosk, breaks, retentionDays from captured time, consent: true; revision to edit. Legacy native sets both phone/browser settings. Device type uses owner-enrolled credentials; unknown requires either enabled setting. Site kiosks still require prior employer photo consent at enrollment. No automatic deletion.'],
  ['photo.hold / photo.erase','Owner','staffId; hold adds hold boolean and reason; erase adds mode (retention or former), reason and explicit consent. Holds block erasure and former requires deactivation; punch facts remain.'],
- ['sickpolicy.save','Owner','site, from, preset (CA, CO, IL, NY/NY40, OR, WA, NYC/NYC40, CHICAGO, SEATTLE/SEATTLE1/SEATTLE2, SF, LA, PHILADELPHIA or employer), code, normalDayMinutes (longest covered normal day; legacy 480); id + revision for a later effective version. Employer fields: denominator, annualAccrual, bankCap, carry, annualUse, wait, increment (minutes; blank cap uncapped).'],
+ ['sickpolicy.save','Owner','site, from, preset (CA, CO, IL, NY or NY40, OR, WA, NYC or NYC40, CHICAGO, SEATTLE, SEATTLE1, SEATTLE2, SEATTLE_PTO1, SEATTLE_PTO2, SEATTLE_PTO3, SF, LA, PHILADELPHIA or employer), code, normalDayMinutes (longest covered normal day; legacy 480); id + revision for a later effective version. Employer fields: denominator, annualAccrual, bankCap, carry, annualUse, wait, increment (minutes; blank cap uncapped).'],
  ['sick.request','Linked staff','policyId, start, end, minutes, purpose: one day, listed category only; no medical detail'],
  ['sick.decide / sick.correct','Owner','id, revision; decide adds decision (approved/rejected) and unique reference on approval; correct adds minutes and reason. Reversals retain punch facts and signed payroll differences.'],
  ['minor.save','Owner','staffId, birthDate, state (federal, CA, NY, IL, WA, OR, CO), permit?, permitThrough?, calendarFrom, calendarThrough, schoolDays (dated array), schoolStart, schoolEnd (minutes); id + revision to edit. Birth/permit facts are owner-only.'],
@@ -34,7 +36,7 @@ const human = [
  ['cover.respond','Linked staff','id, revision, decision (accepted or declined), note?: a current pinned offer made to you, before shift end'],
  ['cover.reopen','Owner or cafe manager','id, revision: explicitly refresh a waiting or no-show coverage case; assignment stays until another acceptance and exact approval'],
  ['cover.approve','Manager','id, revision: an accepted offer; moves the shift to that person'],
- ['clock.in','Linked staff','commandId, capturedAt; required-photo sites add photoNoticeSeen, photoConsent and base64 JPEG photo, or named photoFailure (camera denied, camera failed, photo consent declined)'],
+ ['clock.in','Linked staff','commandId, capturedAt; geofenced sites require an enrolled clock credential. Optional location: latitude, longitude, accuracyMeters, observedAt, consent: true, noticeSeen: true; or noticeSeen: true and failure (permission denied, unavailable, consent declined). Missing evidence is flagged. Required-photo sites add photoNoticeSeen, photoConsent and base64 JPEG photo, or named photoFailure (camera denied, camera failed, photo consent declined)'],
  ['clock.out','Linked staff','commandId, capturedAt, breakMinutes'],
  ['clock.transfer','Linked staff','commandId, capturedAt, job, site?: change job (or eligible cafe) on your open clock'],
  ['time.approve','Manager','id, revision; another person’s submitted time'],

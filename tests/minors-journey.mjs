@@ -9,8 +9,8 @@ export async function minorFixture(h){
  const alex=await h.person('Alex'),ben=await h.person('Ben'),morgan=await h.person('Morgan','manager')
  for(const p of [alex,ben,morgan])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site:'Ocean Beach',position:'Service',hourlyRate:'20.00'})
  const today=new Date().toISOString().slice(0,10),future=add(today,10),week=add(future,-((new Date(future+'T00:00:00Z').getUTCDay()+6)%7)),last=add(week,6),past=add(today,-7),birthday=add(today,-10),birthDate=String(Number(birthday.slice(0,4))-15)+birthday.slice(4)
- const schoolDays=Array.from({length:35},(_,n)=>add(past,n)).filter(d=>![0,6].includes(new Date(d+'T00:00:00Z').getUTCDay()))
- const input={staffId:alex.id,birthDate,state:'federal',permit:'synthetic-lanyard-1',permitThrough:last,calendarFrom:past,calendarThrough:add(past,60),schoolDays,schoolStart:480,schoolEnd:900}
+ const schoolDays=Array.from({length:42},(_,n)=>add(past,n-7)).filter(d=>![0,6].includes(new Date(d+'T00:00:00Z').getUTCDay()))
+ const input={staffId:alex.id,birthDate,state:'federal',permit:'synthetic-lanyard-1',permitThrough:last,calendarFrom:add(past,-7),calendarThrough:add(past,60),schoolDays,schoolStart:480,schoolEnd:900}
  const minor=await h.cmd('minor.save',input)
  const spec=(day,start='16:00',end='19:00',person=alex)=>({staffId:person.id,start:local(day,start),end:local(day,end),breakMinutes:0,site:'Ocean Beach',label:'After school'})
  for(const p of [alex,ben])await h.cmd('availability.save',{staffId:p.id,start:local(past,'00:00'),end:local(add(week,14),'00:00')})
