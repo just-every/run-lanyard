@@ -5,13 +5,15 @@ import {join} from 'node:path'
 import {chromium} from '@playwright/test'
 import {harness} from './harness.mjs'
 export async function offlineJourney() {
- const h=await harness(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const h=await harness(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']})
  try {
   const alex=await h.person('Alex'),priya=await h.person('Priya','manager')
+  for(const person of [alex,priya])await h.cmd('staff.save',{id:person.id,revision:person.revision,name:person.name,email:person.email,payrollId:person.payrollId,role:person.role,active:true,site:'Ocean Beach'})
+  await h.cmd('photo.save',{site:'Ocean Beach',native:true,breaks:true,retentionDays:30,consent:true})
   await h.cmd('roundrule.save',{site:'',from:'2026-10-01',method:'nearest',increment:15,apply:'capture'})
   await h.cmd('roundrule.save',{site:'',from:'2026-10-13',method:'nearest',increment:5,apply:'capture'})
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
-  const context=await browser.newContext({viewport:{width:390,height:1000}})
+  const context=await browser.newContext({viewport:{width:390,height:1000},permissions:['camera']})
   context.setDefaultTimeout(20000)
   const [name,...value]=alex.cookie.split('=')
   await context.addCookies([{name,value:value.join('='),url:h.origin}])
@@ -19,7 +21,7 @@ export async function offlineJourney() {
   await context.route('**/*',async route=>{
    const path=new URL(route.request().url()).pathname
    if(path==='/api/lanyard/command'&&disconnected)return route.abort('internetdisconnected')
-   if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path==='/lanyard.js'||path==='/clock-outbox.js'||path==='/clock-recovery.js') {
+   if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js')) {
     try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}
    }
    await route.continue()
@@ -28,12 +30,13 @@ export async function offlineJourney() {
   const open=async()=>{await page.goto(h.origin+'/app/time?week=2026-10-12',{waitUntil:'networkidle'});await page.locator('[data-clock-form] button[type=submit]').first().waitFor({state:'visible'})}
   await open()
   await context.setOffline(true)
-  const capture=async(at,label)=>{await page.clock.setFixedTime(new Date(at));await page.getByRole('button',{name:label,exact:true}).click()}
+  const capture=async(at,label)=>{await page.clock.setFixedTime(new Date(at));await page.getByLabel("I have read this site's photo notice").check();await page.getByLabel('I consent to a still photo for this punch').check();await page.getByRole('button',{name:label,exact:true}).click()}
   await capture('2026-10-12T14:07:00Z','Clock in')
   await page.getByRole('button',{name:'Start meal break',exact:true}).waitFor()
   await capture('2026-10-12T18:00:00Z','Start meal break')
   await page.getByRole('button',{name:'End meal break',exact:true}).waitFor()
   await page.close()
+  await h.restart()
   await context.setOffline(false)
   page=await context.newPage();await open()
   await capture('2026-10-12T18:30:00Z','End meal break')
@@ -47,7 +50,7 @@ export async function offlineJourney() {
     const [key,sealed]=await Promise.all([read('key'),read('state')]);return {extractable:key.extractable,plain:new TextDecoder().decode(sealed.data),bytes:sealed.data.byteLength}
    }finally{db.close()}
   })
-  assert.equal(encrypted.extractable,false);assert.ok(encrypted.bytes>0);assert.ok(!encrypted.plain.includes('capturedAt'))
+  assert.equal(encrypted.extractable,false);assert.ok(encrypted.bytes>0);assert.ok(!encrypted.plain.includes('capturedAt'));assert.ok(!encrypted.plain.includes('/9j/'))
   assert.equal((await h.state(alex.cookie)).clocks.length,0,'offline captures do not pretend server acceptance')
   // Look at the pending state in both widths with realistic originals retained.
   if(process.env.CLOCK_SCREENS)await mkdir(process.env.CLOCK_SCREENS,{recursive:true})
@@ -65,6 +68,8 @@ export async function offlineJourney() {
   assert.equal(time.rounding.increment,15);assert.equal(time.start,'2026-10-12T14:07:00.000Z')
   assert.equal(time.end,'2026-10-12T22:08:00.000Z')
   assert.equal(saved.clocks[0].breaks.length,1)
+  assert.equal(saved.photoreceipts.length,4);assert.ok(saved.photoreceipts.every(r=>r.photoId&&r.photoConsent&&!r.photoException),'all clock and timed-break stills survive page and Worker restart')
+  assert.equal((await h.db.prepare('SELECT count(*) AS n FROM l_kiosk_photos').first()).n,4)
   assert.ok(saved.clocks[0].breaks[0].receivedAt>saved.clocks[0].breaks[0].start)
   await page.getByText('Clock history',{exact:true}).click()
   await page.getByText('Capture receipts',{exact:true}).click()
@@ -93,7 +98,7 @@ export async function offlineJourney() {
   disconnected=true
   await capture('2026-10-13T14:00:00Z','Clock in')
   await page.waitForFunction(()=>document.querySelectorAll('[data-clock-events] li').length===1)
-  await h.cmd('staff.save',{id:alex.id,revision:1,name:alex.name,email:alex.email,payrollId:'ALEX',role:'staff',active:false})
+  await h.cmd('staff.save',{id:alex.id,revision:2,name:alex.name,email:alex.email,payrollId:'ALEX',role:'staff',active:false})
   disconnected=false
   // Access was revoked while the employee was offline: no employee retry precedes manager sign-in.
   await h.cmd('clock.in',{commandId:'revoked-direct',capturedAt:'2026-10-13T14:00:00Z'},alex.cookie,403)
@@ -117,6 +122,7 @@ export async function offlineJourney() {
   assert.equal((await h.state()).clocks.length,1,'manager recovery never applies captured time')
   const reports=(await h.state(priya.cookie)).clockissues
   assert.equal(reports.length,2)
+  assert.ok(reports.every(r=>!('photo' in r.capture.input)&&!('photoConsent' in r.capture.input)),'rejected and revoked capture reports contain punch facts, never image bytes or consent metadata')
   assert.ok(reports.some(r=>r.capture.input.capturedAt==='2026-10-13T14:00:00.000Z'&&r.status==='unresolved'))
   await h.cmd('staff.save',{id:alex.id,revision:2,name:alex.name,email:alex.email,payrollId:'ALEX',role:'staff',active:true})
   await context.addCookies([{name,value:value.join('='),url:h.origin}])
