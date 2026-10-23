@@ -202,9 +202,9 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.photoholds=a.role==='owner'?s.photoholds:[]
  result.sickpolicies=a.role==='owner'?s.sickpolicies:agent?[]:s.sickpolicies.filter(p=>p.site===(s.staff.find(x=>x.id===a.staffId)?.site??'')||sickReports(s,localDate(new Date().toISOString(),s.timezone),a.staffId).some(r=>r.policyId===p.id&&r.sources.length)).map(({versions,by,at,...p})=>p)
  result.sickuses=a.role==='owner'?s.sickuses:agent?[]:s.sickuses.filter(u=>u.staffId===a.staffId)
- if(a.role!=='owner'&&!earnSettings(s.earnings).estimates)result.sickuses=result.sickuses.map(({rateCents,costCents,...u}:any)=>u)
+ if(a.role!=='owner'&&!earnSettings(s.earnings).estimates)result.sickuses=result.sickuses.map(wageRedact)
  result.sickBalances=a.role==='owner'?sickReports(s,localDate(new Date().toISOString(),s.timezone)):agent?[]:sickReports(s,localDate(new Date().toISOString(),s.timezone),a.staffId)
- if(a.role!=='owner'&&!earnSettings(s.earnings).estimates)result.sickBalances=result.sickBalances.map((r:any)=>({...r,sources:r.sources.map(({rateCents,costCents,...e}:any)=>e)}))
+ if(a.role!=='owner'&&!earnSettings(s.earnings).estimates)result.sickBalances=result.sickBalances.map(wageRedact)
  if(a.role!=='owner')result.batches=result.batches.filter((b:any)=>!b.lines.some((l:any)=>l.sickLine))
  result.minors=a.role==='owner'?s.minors:[]
  result.differentials=manages?s.differentials.filter(r=>a.role==='owner'||!r.site||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??'')):[]

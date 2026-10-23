@@ -76,7 +76,7 @@ export async function sickApi(){
    const unlisted=await h.cmd('sickpolicy.save',{site:'Unlisted city',from:'2025-01-01',preset:'employer',code:'CUSTOM',denominator:40,annualAccrual:2400,bankCap:4800,carry:2400,annualUse:2400,wait:90,increment:60});assert.equal(unlisted.label,'Employer-configured, unmaintained')
    const agent=await h.cmd('agent.create',{label:'Paid leave test'}),context=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agent.token}`});assert.deepEqual(context.value.sickuses,[]);assert.deepEqual(context.value.sickBalances,[])
    await h.cmd('sickpolicy.save',{},alex.cookie,403)
-   await h.cmd('earnings.save',{estimates:false,statementUrl:'',payDays:''});const hidden=await h.state(alex.cookie);assert.ok(hidden.sickBalances.every(b=>b.sources.every(s=>s.rateCents===undefined&&s.costCents===undefined)));assert.ok(hidden.sickuses.every(u=>u.rateCents===undefined&&u.costCents===undefined))
+   await h.cmd('earnings.save',{estimates:false,statementUrl:'',payDays:''});const hidden=await h.state(alex.cookie);assert.ok(hidden.sickBalances.every(b=>b.sources.every(s=>s.rateCents===undefined&&s.costCents===undefined)));assert.ok(hidden.sickuses.every(u=>u.rateCents===undefined&&u.costCents===undefined));assert.doesNotMatch(JSON.stringify([hidden.sickuses,hidden.sickBalances]),/"(?:rateCents|costCents)":/,'estimate-off redaction includes retained leave correction versions, not just the current amount')
   }
  }finally{await h.close()}}
  await sickDayFloors()
