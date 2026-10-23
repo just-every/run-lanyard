@@ -30,7 +30,10 @@
     "rer": "rer",
     "test:lanyard": "node --test --test-concurrency=1 tests/lanyard.test.mjs tests/logbook.test.mjs tests/coverage.test.mjs",
     "test:archive": "node --test --test-concurrency=1 tests/archive.test.mjs",
-    "test:site": "node --test tests/site/*.test.mjs"
+    "test:site": "node --test tests/site/*.test.mjs",
+    "test:lanyard:core": "node scripts/test-lanyard.mjs core",
+    "test:lanyard:planning": "node scripts/test-lanyard.mjs planning",
+    "test:lanyard:rules": "node scripts/test-lanyard.mjs rules"
   },
   "dependencies": {
     "@tanstack/react-router": "1.170.41",

@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [app, archive]
+        shard: [app, core, planning, rules, archive]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -34,12 +34,12 @@ jobs:
         run: node scripts/edition-authoring/cli.mjs check
       - run: npm install --global pnpm@10.12.4
       - run: pnpm install --frozen-lockfile
-      - if: matrix.shard == 'app'
+      - if: matrix.shard != 'archive'
         run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec rer check --profile first-party
       - if: matrix.shard == 'app'
         run: pnpm exec rer verify --no-queue
-      - if: matrix.shard == 'archive'
+      - if: matrix.shard != 'app'
         run: pnpm run verify:app
 
   verify:
@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 1
     steps:
-      - name: Require both verification shards
+      - name: Require every verification shard
         env:
           RESULT: ${{ needs.checks.result }}
         run: test "$RESULT" = success

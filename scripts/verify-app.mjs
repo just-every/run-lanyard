@@ -1,8 +1,11 @@
-// The seed's CI runs its public-door archive journey beside the application
-// checks. A normal local rer verify still runs every command.
+// CI partitions the public-door journeys to retain the 15-minute job bound.
+// A normal local rer verify still runs every command.
 import {spawn} from 'node:child_process'
 const shards={
- app:['build','typecheck','test:lanyard','test:site','test:runtime'],
+ app:['build','typecheck','test:site','test:runtime'],
+ core:['test:lanyard:core'],
+ planning:['test:lanyard:planning'],
+ rules:['test:lanyard:rules'],
  archive:['test:archive'],
 }
 const selected=process.env.SEED_VERIFY_SHARD
