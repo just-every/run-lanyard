@@ -70,6 +70,17 @@ test('native access, owner-only grants, staff isolation, CSRF and immediate revo
   await h.cmd('staff.erase', { id: sam.id, revision: 1 }, h.owner, 409)
 }))
 
+test('staff cannot change the sign-in email to another person’s staff identity', () => run(async h => {
+  const alex = await h.person('Alex')
+  const priya = await h.cmd('staff.save', { name: 'Priya', email: 'priya@venue.example', payrollId: 'PRIYA', role: 'manager', active: true, site: 'Ocean Beach' })
+  const before = await h.state(alex.cookie)
+  assert.deepEqual([before.actor.role, before.actor.staffId], ['staff', alex.id])
+  const changed = await h.send('/auth/email', { email: priya.email }, alex.cookie)
+  assert.equal(changed.status, 404, changed.text)
+  const after = await h.state(alex.cookie)
+  assert.deepEqual([after.actor.role, after.actor.staffId], ['staff', alex.id])
+}))
+
 test('availability, approved leave, conflicts, exact roster publication and personal confirmation', () => run(async h => {
   const alex = await h.person('Alex'), manager = await h.person('Priya', 'manager')
   await h.cmd('availability.save', { start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' }, alex.cookie)
