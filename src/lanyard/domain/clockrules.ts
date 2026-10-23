@@ -19,9 +19,11 @@ const wall=(at:number,tz:string)=>new Intl.DateTimeFormat('en-US',{timeZone:tz,h
  * The punch's shift is the person's published shift in progress at the captured time, else
  * the earliest one starting within 12 hours after it; none means the punch is unscheduled.
  */
+export const shiftForClock=(s:State,staffId:string,at:string)=>s.shifts.filter(x=>x.staffId===staffId&&x.status==='published'&&Date.parse(x.end)>Date.parse(at)&&Date.parse(x.start)-Date.parse(at)<=HORIZON).sort((a,b)=>a.start.localeCompare(b.start))[0]
+
 export function checkClockIn(s:State,staffId:string,at:string):{shiftId:string|null;exceptions:string[]} {
  const person=s.staff.find(p=>p.id===staffId),t=Date.parse(at)
- const shift=s.shifts.filter(x=>x.staffId===staffId&&x.status==='published'&&Date.parse(x.end)>t&&Date.parse(x.start)-t<=HORIZON).sort((a,b)=>a.start.localeCompare(b.start))[0]
+ const shift=shiftForClock(s,staffId,at)
  const rule=ruleFor(s,shift?.site||person?.site||'',person?.position??'')
  if(!shift) {
   if(rule.unscheduled==='refuse')fail('No scheduled shift: clock-in without a shift is not allowed here. Ask a manager to record your time.',409)

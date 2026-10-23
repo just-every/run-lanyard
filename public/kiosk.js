@@ -17,8 +17,9 @@
  login.addEventListener('submit',async event=>{event.preventDefault();try{await request('signin',Object.fromEntries(new FormData(login)));login.reset();status.textContent='';await load()}catch(e){status.textContent=e.message}})
  form.addEventListener('submit',async event=>{event.preventDefault();if(!current||busy)return;busy=true
   try{const name=event.submitter.name,input={commandId:crypto.randomUUID(),capturedAt:new Date().toISOString()},data=new FormData(form);if(name==='clock.out')input.breakMinutes=0;if(name==='clock.breakStart')input.kind='meal';if(name==='clock.transfer')input.job=data.get('job');let photo,photoFailure
-   if(current.photoRequired&&data.get('photoFailure'))photoFailure=String(data.get('photoFailure'));
-   else if(current.photoRequired){
+   const photoRequired=current.photoRequired&&(!name.startsWith('clock.break')||current.photoBreaks)&& (name!=='clock.transfer'||current.photoTransfers)
+   if(photoRequired&&data.get('photoFailure'))photoFailure=String(data.get('photoFailure'));
+   else if(photoRequired){
     if(!data.get('photoConsent'))photoFailure='photo consent declined'
     else{const captured=await window.LanyardPunchPhoto.still(document.querySelector('[data-kiosk-video]'));photo=captured.photo;photoFailure=captured.photoFailure}
    }

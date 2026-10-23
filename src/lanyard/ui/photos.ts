@@ -1,7 +1,8 @@
+import {shiftForClock} from '../domain/clockrules'
 import {PHOTO_NOTICE,nativePhotoRequired} from '../domain/photos'
 import {h,rows,owner,card,disclosure,form,field,hidden,staffSelect,person} from './shared'
-export function photoFields(s:any){
- const open=rows(s,'clocks').find(k=>k.staffId===s.actor.staffId&&k.status==='open'),shift=open?rows(s,'shifts').find(x=>x.id===open.shiftId):null,site=open?.transfers?.at(-1)?.site||shift?.site||rows(s,'staff').find(p=>p.id===s.actor.staffId)?.site||'',policy=rows(s,'photopolicies').find(p=>p.site===site)
+export function photoFields(s:any,now=Date.now()){
+ const open=rows(s,'clocks').find(k=>k.staffId===s.actor.staffId&&k.status==='open'),shift=open?rows(s,'shifts').find(x=>x.id===open.shiftId):shiftForClock(s,s.actor.staffId,new Date(now).toISOString()),site=open?.transfers?.at(-1)?.site||shift?.site||rows(s,'staff').find(p=>p.id===s.actor.staffId)?.site||'',policy=rows(s,'photopolicies').find(p=>p.site===site)
  if(!nativePhotoRequired(policy,s.photoDevices?.find((d:any)=>d.site===site)?.type))return ''
  return `<fieldset data-punch-photo data-photo-breaks="${h(policy.breaks)}"><legend>Punch photo notice</legend><p>${h(PHOTO_NOTICE)}</p><label class="check"><input type="checkbox" name="photoNoticeSeen"> I have read this site's photo notice</label><label class="check"><input type="checkbox" name="photoConsent"> I consent to a still photo for this punch</label><p class="note">The camera opens only when you capture a required punch and stops immediately after the still. Declining or a camera failure keeps the punch with a named exception.</p><video data-punch-video hidden muted playsinline aria-label="Punch camera preview"></video></fieldset>`
 }

@@ -23,14 +23,19 @@ export async function photoApi(h){
  assert.equal((await h.send('/api/lanyard/kiosk/state',undefined,cookies)).value.photoRequired,true,'site policy overrides a no-photo enrollment')
  const refused=await h.send('/api/lanyard/kiosk/capture',{name:'clock.in',input:{commandId:'synthetic-lanyard-40',capturedAt:local('2025-06-01','09:00')}},cookies);assert.equal(refused.status,403,'new site policy cannot be bypassed with a stale no-photo client')
  const kiosk=async(name,at)=>{const r=await h.send('/api/lanyard/kiosk/capture',{name,input:{commandId:crypto.randomUUID(),capturedAt:local('2025-06-01',at),...(name==='clock.out'?{breakMinutes:0}:{})},photo,photoConsent:true},cookies);assert.equal(r.status,200,r.text);return r.value.result}
- await kiosk('clock.in','09:00');const kt=await kiosk('clock.out','10:00')
+ await kiosk('clock.in','09:00')
+ const optionalBreak={name:'clock.breakStart',input:{commandId:'synthetic-lanyard-67',capturedAt:local('2025-06-01','09:15'),kind:'meal'}}
+ const noExtra=await h.send('/api/lanyard/kiosk/capture',{...optionalBreak,photo,photoConsent:true},cookies);assert.equal(noExtra.status,403,'site break-photos off refuses optional image collection')
+ assert.equal((await h.send('/api/lanyard/kiosk/capture',optionalBreak,cookies)).status,200)
+ assert.equal((await h.send('/api/lanyard/kiosk/capture',{name:'clock.breakEnd',input:{commandId:'synthetic-lanyard-68',capturedAt:local('2025-06-01','09:25')}},cookies)).status,200)
+ const kt=await kiosk('clock.out','10:00')
  const before=(await h.state()).clocks.length
  await h.cmd('clock.in',{commandId:'synthetic-lanyard-9',capturedAt:local('2025-06-02','09:00'),photo,photoConsent:true},ben.cookie,403);assert.equal((await h.state()).clocks.length,before,'missing notice cannot write a punch or photo')
  const start={commandId:'synthetic-lanyard-10',capturedAt:local('2025-06-02','09:00'),...input},native=await h.cmd('clock.in',start,ben.cookie),replay=await h.cmd('clock.in',start,ben.cookie);assert.deepEqual(replay,native)
  const done=await h.cmd('clock.out',{commandId:'synthetic-lanyard-11',capturedAt:local('2025-06-02','10:00'),breakMinutes:0,...input},ben.cookie)
  assert.equal((await h.state()).photonotices.filter(n=>n.staffId===ben.id).length,1)
- const reviewed=(await h.state()).timesheets.filter(t=>[kt.timesheet.id,done.timesheet.id].includes(t.id));assert.ok(reviewed.every(t=>t.photoReview.length===2&&t.photoReview.every(p=>p.photoId)))
- for(const t of reviewed)for(const p of t.photoReview){const path='/api/lanyard/kiosk-photos/'+p.photoId;assert.equal((await h.send(path,undefined,h.owner)).status,200);assert.equal((await h.send(path,undefined,t.staffId===ben.id?ben.cookie:alex.cookie)).status,200);assert.equal((await h.send(path,undefined,t.staffId===ben.id?alex.cookie:ben.cookie)).status,404);assert.equal((await h.send(path,undefined,lead.cookie)).status,404)}
+ const reviewed=(await h.state()).timesheets.filter(t=>[kt.timesheet.id,done.timesheet.id].includes(t.id));assert.ok(reviewed.every(t=>t.photoReview.filter(p=>p.photoId).length===2&&t.photoReview.every(p=>!p.photoException)))
+ for(const t of reviewed)for(const p of t.photoReview.filter(p=>p.photoId)){const path='/api/lanyard/kiosk-photos/'+p.photoId;assert.equal((await h.send(path,undefined,h.owner)).status,200);assert.equal((await h.send(path,undefined,t.staffId===ben.id?ben.cookie:alex.cookie)).status,200);assert.equal((await h.send(path,undefined,t.staffId===ben.id?alex.cookie:ben.cookie)).status,404);assert.equal((await h.send(path,undefined,lead.cookie)).status,404)}
  await h.cmd('time.approve',pin(kt.timesheet));await h.cmd('time.approve',pin(done.timesheet))
  await h.cmd('clock.in',{commandId:'synthetic-lanyard-12',capturedAt:local('2025-06-03','09:00'),photoNoticeSeen:true,photoConsent:true,photoFailure:'camera denied'},ben.cookie)
  const denied=await h.cmd('clock.out',{commandId:'synthetic-lanyard-13',capturedAt:local('2025-06-03','10:00'),breakMinutes:0,photoNoticeSeen:true,photoConsent:false,photoFailure:'photo consent declined'},ben.cookie)
@@ -60,6 +65,10 @@ export async function photoApi(h){
  // Unclassified devices must satisfy the enabled phone requirement.
  await h.cmd('clock.in',{...missing,photo,photoConsent:true,photoNoticeSeen:true},ben.cookie,200)
  await h.cmd('clock.out',{commandId:'synthetic-lanyard-63',capturedAt:local('2025-06-05','10:00'),breakMinutes:0,...input},ben.cookie)
+ await crossSiteShift(h,ben)
+ assert.ok(!(await h.send('/app/time',undefined,ben.cookie)).text.includes('data-punch-photo'),'clock-in renders the upcoming work-site policy rather than the home cafe policy')
+ const at=Date.now();await h.cmd('clock.in',{commandId:'synthetic-lanyard-65',capturedAt:new Date(at-60000).toISOString()},ben.cookie)
+ await h.cmd('clock.out',{commandId:'synthetic-lanyard-66',capturedAt:new Date(at).toISOString(),breakMinutes:0},ben.cookie)
  await h.cmd('photo.hold',{staffId:ben.id,hold:true,reason:'Employer legal hold'})
  await h.cmd('photo.erase',{staffId:ben.id,mode:'retention',consent:true,reason:'Expired photo review'},h.owner,409)
  const person=(await h.state()).staff.find(p=>p.id===ben.id);await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:person.role,active:false,site:person.site,hourlyRate:'20.00'})
@@ -89,6 +98,13 @@ export async function photoBrowser(){
  await as(h.owner);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'});const photos=page.locator('#approve .punch-photos img');assert.equal(await photos.count(),2);await photos.first().scrollIntoViewIfNeeded();await page.waitForFunction(()=>[...document.querySelectorAll('#approve .punch-photos img')].every(i=>i.complete&&i.naturalWidth>0));await shot('photo-approval')
  const account=page.locator('summary[aria-label="Account"]');await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'});await shot('photo-tooltip')
  assert.equal(await page.evaluate(()=>window.photoStreams.every(s=>s.getTracks().every(t=>t.readyState==='ended'))),true)
+ // A browser-level camera denial keeps the real punch with a named exception.
+ await context.clearPermissions();await context.grantPermissions([],{origin:h.origin});await as(f.ben.cookie);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'})
+ for(const [name,at]of [['Clock in','2025-06-06T16:00:00Z'],['Clock out','2025-06-06T17:00:00Z']]){await page.clock.setFixedTime(new Date(at));await page.getByLabel("I have read this site's photo notice").check();await page.getByLabel('I consent to a still photo for this punch').check();await Promise.all([page.waitForResponse(r=>r.url().endsWith('/api/lanyard/command')&&r.request().postDataJSON()?.name===(name==='Clock in'?'clock.in':'clock.out')),page.getByRole('button',{name,exact:true}).click()]);await page.waitForLoadState('networkidle')}
+ const cameraDenied=(await h.state()).timesheets.find(t=>t.staffId===f.ben.id&&t.exceptions?.some(e=>e.includes('camera denied')));assert.ok(cameraDenied,'real browser permission denial becomes an explicit timesheet exception');assert.ok(cameraDenied.photoReview.every(p=>!p.photoId&&p.photoException==='camera denied'))
+ const bulk=await h.cmd('time.approveMany',{items:[pin(cameraDenied)]});assert.equal(bulk.approved.length,0);assert.match(bulk.skipped[0].reason,/camera denied/)
+ await as(h.owner);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'});await page.locator('#approve').getByText('punch photo unavailable: camera denied',{exact:false}).first().scrollIntoViewIfNeeded();await shot('photo-camera-denied')
+ await context.grantPermissions(['camera'],{origin:h.origin})
  // The kiosk uses the same real still path instead of an arbitrary file upload.
  await h.cmd('kiosk.pin',{pin:'123456',language:'en',consent:true},f.alex.cookie)
  const device=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Photo kiosk',photo:false}},h.owner)
@@ -98,5 +114,14 @@ export async function photoBrowser(){
  assert.equal(await page.evaluate(()=>window.photoStreams.length===2&&window.photoStreams.every(s=>s.getTracks().every(t=>t.readyState==='ended'))),true)
  const owner=await h.signIn(h.auth.OWNER_EMAIL),state=await h.state(owner),receipts=state.kioskreceipts.filter(r=>r.staffId===f.alex.id);assert.equal(receipts.length,2);assert.ok(receipts.every(r=>r.photoId&&r.photoConsent));await shot('photo-kiosk-capture')
  await as(owner);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'});const kioskImages=page.locator('#approve .punch-photos img');assert.equal(await kioskImages.count(),4);await kioskImages.last().scrollIntoViewIfNeeded();await page.waitForFunction(()=>[...document.querySelectorAll('#approve .punch-photos img')].every(i=>i.complete&&i.naturalWidth>0));await shot('photo-kiosk-review')
+ await crossSiteShift(h,f.ben,owner);await as(f.ben.cookie);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'});assert.equal(await page.locator('[data-punch-photo]').count(),0);await page.locator('[data-clock]').scrollIntoViewIfNeeded();await shot('photo-cross-site-policy')
  }finally{await context.close();await h.close()}}}finally{await browser.close()}
+}
+
+async function crossSiteShift(h,person,owner=h.owner){
+ const start=new Date(Date.now()-120000).toISOString(),end=new Date(Date.now()+3600000).toISOString()
+ const on=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(start)),utc=Date.parse(on+'T00:00:00Z'),week=new Date(utc-((new Date(utc).getUTCDay()+6)%7)*86400000).toISOString().slice(0,10)
+ await h.cmd('availability.save',{staffId:person.id,start,end},owner)
+ const roster=await h.cmd('roster.prepare',{week,shifts:[{staffId:person.id,start,end,site:'Ocean Beach',breakMinutes:0}]},owner)
+ assert.deepEqual(roster.conflicts,[]);await h.cmd('roster.publish',pin(roster),owner)
 }

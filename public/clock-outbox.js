@@ -154,8 +154,7 @@
       const projected = project(state), onBreak = projected?.breaks?.find(item => !item.end), next = !projected ? 'in' : onBreak ? 'break' : 'out'
       if (phase !== next) {
         phase = next
-        const photo=fields.out.querySelector('[data-punch-photo]')||fields.in.querySelector('[data-punch-photo]')
-        fieldset.replaceChildren(...(next === 'break' ? photo?.dataset.photoBreaks==='true'?[photo.cloneNode(true)]:[] : [fields[next].cloneNode(true)]))
+        fieldset.replaceChildren(...(next === 'break' ? [] : [fields[next].cloneNode(true)]))
         actions.replaceChildren()
         if (next === 'out') for (const kind of ['meal','rest']) {
           const button = document.createElement('button')
