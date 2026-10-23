@@ -63,7 +63,7 @@ export async function people(c:Context,name:string,p:Record<string,any>) {
   return put(c,'leave',{staffId,...w,reason:text(p.reason,'reason',500,true),status:'pending',requestedBy:c.a.id,requestedAt:c.now,...(flags.length?{flags}:{})})
  }
  if(name==='leave.decide') {
-  manager(c.a);keys(p,['id','revision','decision','override']);const r=get(c.s,'leave',p.id);exact(r,p);need(r.status==='pending','Request already decided',409);need(['approved','rejected'].includes(p.decision),'Invalid decision');need(r.staffId!==c.a.staffId&&r.requestedBy!==c.a.id,'You cannot decide your own leave',403)
+  manager(c.a);keys(p,['id','revision','decision','override']);const r=get(c.s,'leave',p.id);need(!c.s.sickuses.some(u=>u.leaveId===r.id),'Use the private paid-leave review door',403);exact(r,p);need(r.status==='pending','Request already decided',409);need(['approved','rejected'].includes(p.decision),'Invalid decision');need(r.staffId!==c.a.staffId&&r.requestedBy!==c.a.id,'You cannot decide your own leave',403)
   if(p.decision==='approved')need(!c.s.shifts.some(s=>s.staffId===r.staffId&&s.status==='published'&&overlap(s,r)),'Approved leave would conflict with a published shift',409)
   return put(c,'leave',{...r,status:p.decision,decidedBy:c.a.id,decidedAt:c.now,...(p.decision==='approved'?overrideOf(c,r,p):{})},r)
  }

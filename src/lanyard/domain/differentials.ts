@@ -27,6 +27,7 @@ export function differentialRules(s:State,t:Row):any[] {
  * Allocate each area's payable minutes once by elapsed weight/largest remainder.
  * A multiplier operates on the running rate after earlier rules; each line is only its increment. */
 export function differentialBasis(s:State,t:Row,rules:any[]) {
+ if(!rules.length)return []
  const shift=s.shifts.find(x=>x.id===t.segmentPlan?.shiftId)??s.shifts.find(x=>x.staffId===t.staffId&&x.start<t.end&&x.end>t.start&&x.status==='published')
  const context=s.timesheets.find(x=>x.id===t.corrects)?.differentialContext??t.differentialContext
  const tag=context?.tag??shift?.label??'',role=context?.role??s.staff.find(x=>x.id===t.staffId)?.position??''

@@ -5,6 +5,9 @@ const preparation = [
  ['payroll.prepare','ids?: array of approved, unexported timesheet IDs'],
 ]
 const human = [
+ ['sickpolicy.save','Owner','site, from, preset (CA, CO, IL, NY, OR, WA, NYC, CHICAGO, SEATTLE, SF, LA, PHILADELPHIA or employer), code; id + revision for a later effective version. Employer fields: denominator, annualAccrual, bankCap, carry, annualUse, wait, increment (minutes; blank cap uncapped).'],
+ ['sick.request','Linked staff','policyId, start, end, minutes, purpose: one day, listed category only; no medical detail'],
+ ['sick.decide / sick.correct','Owner','id, revision; decide adds decision (approved/rejected) and unique reference on approval; correct adds minutes and reason. Reversals retain punch facts and signed payroll differences.'],
  ['minor.save','Owner','staffId, birthDate, state (federal, CA, NY, IL, WA, OR, CO), permit?, permitThrough?, calendarFrom, calendarThrough, schoolDays (dated array), schoolStart, schoolEnd (minutes); id + revision to edit. Birth/permit facts are owner-only.'],
  ['differential.save','Owner','name, from, through?, site?, role? (position), tag? (exact shift label), days (0 Sunday to 6 Saturday), startMinute, endMinute (exclusive), mode (added cents/hour or multiplier), value, order, code (mapped); id + revision to edit'],
  ['premiumrule.save','Owner','site, from, preset (CA, NY-hospitality or employer), minimumCents; employer preset also requires reportingGuaranteeMinutes, splitMinutes, spreadMinutes and spreadThresholdMinutes; id + revision to edit'],

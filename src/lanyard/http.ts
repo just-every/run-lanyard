@@ -1,3 +1,5 @@
+import {sickCsv,sickReports} from './domain/sick'
+import {localDate} from './domain/settings'
 import {kioskResponse,kioskAdmin,kioskPin} from './kiosk'
 import {chatRead,chatFile} from './domain/chat'
 import {load} from './domain/storage'
@@ -147,6 +149,14 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if(chatAttachment){const f=chatFile(await load(env.DB),who,chatAttachment[1],chatAttachment[2]);return new Response(f.bytes,{headers:{...headers,'content-type':'application/octet-stream','content-disposition':`attachment; filename="${f.name.replace(/[^\w. -]/g,'_')}"`}})}
       const photo=path.match(/^\/api\/lanyard\/kiosk-photos\/([\w-]+)$/)
       if(photo){const f=await env.DB.prepare('SELECT staff_id,bytes FROM l_kiosk_photos WHERE id=?').bind(photo[1]).first<any>();if(!f||who.role==='agent'||who.role!=='owner'&&who.staffId!==f.staff_id)fail('Not found',404);return new Response(new Uint8Array(f.bytes),{headers:{...headers,'content-type':'image/jpeg','content-disposition':'attachment; filename="punch.jpg"'}})}
+      if(path==='/api/lanyard/sick-balances.csv'||path==='/api/lanyard/sick-balances'){
+       if(who.role!=='owner')fail('Owner required',403)
+       const current=await load(env.DB),today=localDate(new Date().toISOString(),current.timezone),on=url.searchParams.get('asOf')??today
+       if(!/^\d{4}-\d{2}-\d{2}$/.test(on)||!Number.isFinite(Date.parse(on+'T00:00:00Z'))||new Date(on+'T00:00:00Z').toISOString().slice(0,10)!==on||on>today)fail('Use a valid past or current as-of date',400)
+       if(!path.endsWith('.csv'))return json(sickReports(current,on))
+       await env.DB.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),who.id,who.role,'sick.download','balances',new Date().toISOString()).run()
+       return new Response(sickCsv(current,on),{headers:{...headers,'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="lanyard-leave-balances.csv"'}})
+      }
       if(path==='/api/lanyard/access')return json(await customAccessRead(env.DB,who))
       if(path==='/app/access')return renderApp(await state(env,who),path,{result:{access:await customAccessRead(env.DB,who)}})
       if (pages.has(path)) {
