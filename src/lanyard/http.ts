@@ -29,13 +29,14 @@ async function customMode(env:Bindings,who:Actor){
   return Boolean(await env.DB.prepare("SELECT 1 FROM l_records WHERE kind='accessgrants' AND json_extract(data,'$.staffId')=? AND json_extract(data,'$.archivedAt') IS NULL LIMIT 1").bind(who.staffId??'').first())
 }
 
-async function state(env: Bindings, who: Actor, withChat=false) {
+async function state(request:Request,env: Bindings, who: Actor, withChat=false) {
   // A new installation takes the time zone its owner gave at setup until anything is saved.
   if (env.VENUE_TIMEZONE) await env.DB.prepare('UPDATE l_meta SET timezone=? WHERE id=1 AND version=0 AND timezone<>?').bind(zone(env.VENUE_TIMEZONE), zone(env.VENUE_TIMEZONE)).run()
   // Independent reads go to D1 together, so a page waits for one round trip instead of several in a row.
   const [snap, keys, browsers, jobs] = await Promise.all([snapshot(env.DB, who, env.SESSION_SECRET), agentKeys(env, who), clockBrowsers(env, who), who.role === 'owner' ? env.DB.prepare("SELECT id,state,checkpoint,total,fingerprint,error FROM ik_jobs WHERE destination='lanyard:staff' AND namespace='lanyard.staff.csv.v1' AND mapping_version='staff-csv-v1' AND principal_id=? ORDER BY rowid DESC LIMIT 30").bind(who.id).all() : null])
   const revokedKiosks=who.role==='owner'||who.role==='manager'?(await env.DB.prepare('SELECT id,site FROM l_kiosk_devices WHERE revoked_at IS NOT NULL OR locked=1').all<{id:string;site:string}>()).results.filter(d=>who.role==='owner'||d.site===(snap as any).staff.find((p:any)=>p.id===who.staffId)?.site).map(d=>d.id):[]
-  return { ...snap, revokedKiosks,kiosks:who.role==='owner'?(await env.DB.prepare('SELECT id,site,label,photo,locked,revoked_at FROM l_kiosk_devices').all()).results:[], ...(withChat?{chat:chatRead(await load(env.DB),who)}:{}), agentKeys: keys, clockBrowsers: browsers, importJobs: jobs ? jobs.results : [] }
+  const photoDevices=who.role==='agent'?[]:(await networkOf(request,env)).browsers.map(b=>({site:b.site,type:b.type}))
+  return { ...snap, photoDevices,revokedKiosks,kiosks:who.role==='owner'?(await env.DB.prepare('SELECT id,site,label,photo,locked,revoked_at FROM l_kiosk_devices').all()).results:[], ...(withChat?{chat:chatRead(await load(env.DB),who)}:{}), agentKeys: keys, clockBrowsers: browsers, importJobs: jobs ? jobs.results : [] }
 }
 
 async function execute(request: Request, env: Bindings, who: Actor, name: string, input: Record<string, unknown>) {
@@ -45,7 +46,7 @@ async function execute(request: Request, env: Bindings, who: Actor, name: string
   if (name.startsWith('import.')) return importCommand(env.DB, who, name, input)
   if (name.startsWith('clockbrowser.')) return clockBrowserCommand(env, who, name, input)
   // CLOCK-007: a punch carries its network identity (edge client IP and enrolled-browser cookie).
-  return command(env.DB, who, name, input, env.SESSION_SECRET, name === 'clock.in' || name === 'clock.out' ? await networkOf(request, env) : undefined, env.FILES)
+  return command(env.DB, who, name, input, env.SESSION_SECRET, ['clock.in','clock.out','clock.breakStart','clock.breakEnd'].includes(name) ? await networkOf(request, env) : undefined, env.FILES)
 }
 
 /** CLOCK-007: an enrolment's token goes only into this response's HttpOnly cookie, never into the page or JSON. */
@@ -143,7 +144,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if(custom&&!['/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path))fail('This read is unavailable to custom levels',403)
       if(path==='/app/chat'||path==='/api/lanyard/chat'){
        const chat=chatRead(await load(env.DB),who,url.searchParams.get('q')??'',url.searchParams.get('threadId')??'')
-       return path==='/app/chat'?renderApp(await state(env,who),path+url.search,{result:{chat}}):json(chat)
+       return path==='/app/chat'?renderApp(await state(request,env,who),path+url.search,{result:{chat}}):json(chat)
       }
       const chatAttachment=path.match(/^\/api\/lanyard\/chat\/messages\/([\w-]+)\/files\/([\w-]+)$/)
       if(chatAttachment){const f=chatFile(await load(env.DB),who,chatAttachment[1],chatAttachment[2]);return new Response(f.bytes,{headers:{...headers,'content-type':'application/octet-stream','content-disposition':`attachment; filename="${f.name.replace(/[^\w. -]/g,'_')}"`}})}
@@ -158,9 +159,9 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
        return new Response(sickCsv(current,on),{headers:{...headers,'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="lanyard-leave-balances.csv"'}})
       }
       if(path==='/api/lanyard/access')return json(await customAccessRead(env.DB,who))
-      if(path==='/app/access')return renderApp(await state(env,who),path,{result:{access:await customAccessRead(env.DB,who)}})
+      if(path==='/app/access')return renderApp(await state(request,env,who),path,{result:{access:await customAccessRead(env.DB,who)}})
       if (pages.has(path)) {
-        const view:any=await state(env,who)
+        const view:any=await state(request,env,who)
         if(path==='/app/schedule'&&!custom&&['owner','manager'].includes(who.role)) {
           const {weekModel}=await import('./ui/week'),w=weekModel(view,Date.now(),url.searchParams,true)
           const site=who.role==='manager'?view.staff.find((p:any)=>p.id===view.actor.staffId)?.site??'':w.site
@@ -178,9 +179,9 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/fairness') return json(await fairnessRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       // CONTACT-001: the audited emergency contact card, as a screen and as JSON.
       const card = path.match(/^\/(app|api\/lanyard)\/contacts\/([\w-]+)$/)
-      if (card?.[1] === 'app') { const contactCard = await contactRead(env.DB, who, card[2]); return renderApp(await state(env, who), path, { result: { contactCard } }) }
+      if (card?.[1] === 'app') { const contactCard = await contactRead(env.DB, who, card[2]); return renderApp(await state(request,env,who), path, { result: { contactCard } }) }
       if (card) return json(await contactRead(env.DB, who, card[2]))
-      if (path === '/api/lanyard/state' || path === '/api/lanyard/agent/context') return json(await state(env, who))
+      if (path === '/api/lanyard/state' || path === '/api/lanyard/agent/context') return json(await state(request,env,who))
       const aca = path.match(/^\/api\/lanyard\/aca\/([\w-]+)(\.csv)?$/)
       if (aca) {
         const report=await acaRead(env.DB,who,aca[1],url.searchParams.get('asOf')??new Date().toISOString(),aca[2]?'csv':'json')
@@ -193,11 +194,11 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (file) return new Response(await batchCsv(env.DB, who, file[1]), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-${file[1]}.csv"` } })
       if (path === '/api/lanyard/intervals' || path === '/app/intervals') {
         const report = await intervalsRead(env.DB, who, url.searchParams.get('site') ?? '', url.searchParams.get('date') ?? '', Number(url.searchParams.get('size') ?? 60))
-        return path === '/app/intervals' ? renderApp(await state(env, who), path + url.search, { result: { report } }) : json(report)
+        return path === '/app/intervals' ? renderApp(await state(request,env,who), path + url.search, { result: { report } }) : json(report)
       }
       if (path === '/api/lanyard/demand' || path === '/app/demand') {
         const report = await demandRead(env.DB, who, url.searchParams.get('site') ?? '', url.searchParams.get('date') ?? '')
-        return path === '/app/demand' ? renderApp(await state(env, who), path + url.search, { result: { demand: report, learning: await learnProposalRead(env.DB, who, report.site, 8) } }) : json(report)
+        return path === '/app/demand' ? renderApp(await state(request,env,who), path + url.search, { result: { demand: report, learning: await learnProposalRead(env.DB, who, report.site, 8) } }) : json(report)
       }
       const ruled = path.match(/^\/api\/lanyard\/autorules\/([\w-]+)\/preview$/)
       if (ruled) return json(await autoRulePreview(env.DB, who, ruled[1]))
@@ -241,7 +242,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
           displayed={demand,learning:await learnProposalRead(env.DB,who,demand.site,8)}
         }
         if(new URL(back,url.origin).pathname==='/app/access')displayed={access:await customAccessRead(env.DB,who)}
-        const response=withClockCookie(await renderApp(await state(env, who,back.startsWith('/app/chat')), back, { message: 'Saved.', result: displayed }), name.startsWith('clockbrowser.') ? result : null)
+        const response=withClockCookie(await renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { message: 'Saved.', result: displayed }), name.startsWith('clockbrowser.') ? result : null)
         if(name==='kiosk.enroll')response.headers.append('set-cookie',String((result as any).cookie))
         return response
       }
@@ -259,7 +260,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
   } catch (error) {
     const status = Number((error as any)?.status) || 500
     const message = status < 500 ? (error as Error).message : 'Could not save this change. Refresh and try again.'
-    if (path === '/app/action' && who) return renderApp(await state(env, who,back.startsWith('/app/chat')), back, { error: message })
+    if (path === '/app/action' && who) return renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message })
     if (pages.has(path) && status === 401) return new Response(null, { status: 303, headers: { ...headers, location: '/signin?returnTo=' + encodeURIComponent(path) } })
     return json({ error: message }, status)
   }

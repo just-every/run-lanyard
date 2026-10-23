@@ -4,7 +4,7 @@
 // the client IP the edge reports and which approval matched, never other device data.
 import {type Context,type State,keys,text,integer,need,fail,put} from './model'
 
-export type Net={ip:string;browsers:{id:string;site:string}[]}
+export type Net={ip:string;browsers:{id:string;site:string;type?:string}[]}
 const MODES=['off','refuse','flag']
 
 /** An address as [family, bigint], or null. */

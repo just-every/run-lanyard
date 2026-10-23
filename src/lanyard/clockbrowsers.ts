@@ -14,12 +14,12 @@ const audit = (env: Bindings, who: Actor, action: string, id: string) => env.DB.
 /** The punch's network identity: the edge-reported client IP and the cafes this browser is enrolled for. */
 export async function networkOf(request: Request, env: Bindings): Promise<Net> {
   const token = tokenOf(request), ip = request.headers.get('CF-Connecting-IP') ?? ''
-  const browsers = token && token.length <= 200 ? (await env.DB.prepare('SELECT id,site FROM l_clock_browsers WHERE token_hash=? AND revoked_at IS NULL').bind(await hash(token)).all<{ id: string; site: string }>()).results : []
+  const browsers = token && token.length <= 200 ? (await env.DB.prepare('SELECT id,site,device_type AS type FROM l_clock_browsers WHERE token_hash=? AND revoked_at IS NULL').bind(await hash(token)).all<{ id: string; site: string; type: string }>()).results : []
   return { ip, browsers }
 }
 export async function clockBrowsers(env: Bindings, who: Actor) {
   if (who.role !== 'owner') return []
-  return (await env.DB.prepare('SELECT id,site,label,created_at AS createdAt,revoked_at AS revokedAt FROM l_clock_browsers ORDER BY created_at DESC').all()).results
+  return (await env.DB.prepare('SELECT id,site,label,device_type AS type,created_at AS createdAt,revoked_at AS revokedAt FROM l_clock_browsers ORDER BY created_at DESC').all()).results
 }
 /** Owner only. Enrol returns the token once, for the response's cookie; it is never stored or shown. */
 export async function clockBrowserCommand(env: Bindings, who: Actor, name: string, input: Record<string, unknown>): Promise<{ id: string; token?: string }> {
@@ -27,8 +27,10 @@ export async function clockBrowserCommand(env: Bindings, who: Actor, name: strin
   if (name === 'clockbrowser.enroll') {
     const site = String(input.site ?? '').trim(), label = String(input.label ?? '').trim()
     if (site.length > 80 || !label || label.length > 80) fail('Enter a label of at most 80 characters for this browser')
+    const type=input.type??'browser'
+    if(!['phone','browser'].includes(String(type)))fail('Choose an owner-classified phone or browser clock')
     const id = crypto.randomUUID(), bytes = crypto.getRandomValues(new Uint8Array(32)), token = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
-    await env.DB.batch([env.DB.prepare('INSERT INTO l_clock_browsers(id,site,label,token_hash,enrolled_by,created_at) VALUES(?,?,?,?,?,?)').bind(id, site, label, await hash(token), who.id, new Date().toISOString()), audit(env, who, name, id)])
+    await env.DB.batch([env.DB.prepare('INSERT INTO l_clock_browsers(id,site,label,token_hash,enrolled_by,created_at,device_type) VALUES(?,?,?,?,?,?,?)').bind(id, site, label, await hash(token), who.id, new Date().toISOString(),type), audit(env, who, name, id)])
     return { id, token }
   }
   if (name === 'clockbrowser.revoke') {

@@ -39,15 +39,36 @@ export async function photoApi(h){
  const agent=await h.cmd('agent.create',{label:'Photo reader refusal'}),context=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agent.token}`});assert.deepEqual(context.value.photoreceipts,[]);assert.deepEqual(context.value.kioskreceipts,[]);assert.deepEqual(context.value.photonotices,[]);assert.ok(context.value.timesheets.every(t=>!t.photoReview))
  const managers=await h.state(lead.cookie);assert.ok(managers.timesheets.every(t=>!t.photoReview));assert.deepEqual(managers.photoreceipts,[]);assert.deepEqual(managers.kioskreceipts,[])
  const path='/api/lanyard/kiosk-photos/'+native.photoReceipt.photoId;assert.ok([401,403,404].includes((await h.send(path,undefined,'',{authorization:`Bearer ${agent.token}`})).status))
+ // Device requirements use an owner-classified credential, never a spoofable UA.
+ await h.cmd('photo.save',{site:'Mission',phone:true,browser:false,kiosk:false,breaks:true,retentionDays:30,consent:true,revision:policy.revision})
+ const enroll=async type=>{const r=await h.send('/api/lanyard/command',{name:'clockbrowser.enroll',input:{site:'Mission',label:'Reviewed '+type,type}},h.owner);assert.equal(r.status,200,r.text);return r}
+ const browserDevice=await enroll('browser'),browserCookie=ben.cookie+'; '+browserDevice.cookie
+ assert.ok(!(await h.send('/app/time',undefined,browserCookie)).text.includes('data-punch-photo'))
+ await h.cmd('clock.in',{commandId:'synthetic-lanyard-64',capturedAt:local('2025-06-04','09:00'),...input},browserCookie,403)
+ const browserIn=await h.cmd('clock.in',{commandId:'synthetic-lanyard-60',capturedAt:local('2025-06-04','09:00')},browserCookie)
+ assert.ok(!browserIn.photoReceipt)
+ await h.cmd('clock.out',{commandId:'synthetic-lanyard-61',capturedAt:local('2025-06-04','10:00'),breakMinutes:0},browserCookie)
+ const phoneDevice=await enroll('phone'),phoneCookie=ben.cookie+'; '+phoneDevice.cookie
+ assert.ok((await h.send('/app/time',undefined,phoneCookie)).text.includes('data-punch-photo'))
+ const missing={commandId:'synthetic-lanyard-62',capturedAt:local('2025-06-05','09:00')},unchanged=(await h.state()).clocks.length
+ await h.cmd('clock.in',missing,phoneCookie,403,{'user-agent':'synthetic-lanyard-browser','x-photo-device':'browser'})
+ assert.equal((await h.state()).clocks.length,unchanged)
+ await h.cmd('clockbrowser.enroll',{site:'Mission',label:'Unauthorized',type:'browser'},ben.cookie,403)
+ await h.cmd('clockbrowser.revoke',{id:browserDevice.value.id})
+ await h.cmd('clock.in',missing,browserCookie,403)
+ assert.equal((await h.state()).clocks.length,unchanged,'revocation restores the conservative unknown-device requirement')
+ // Unclassified devices must satisfy the enabled phone requirement.
+ await h.cmd('clock.in',{...missing,photo,photoConsent:true,photoNoticeSeen:true},ben.cookie,200)
+ await h.cmd('clock.out',{commandId:'synthetic-lanyard-63',capturedAt:local('2025-06-05','10:00'),breakMinutes:0,...input},ben.cookie)
  await h.cmd('photo.hold',{staffId:ben.id,hold:true,reason:'Employer legal hold'})
  await h.cmd('photo.erase',{staffId:ben.id,mode:'retention',consent:true,reason:'Expired photo review'},h.owner,409)
  const person=(await h.state()).staff.find(p=>p.id===ben.id);await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:person.role,active:false,site:person.site,hourlyRate:'20.00'})
  await h.cmd('photo.hold',{staffId:ben.id,hold:false,reason:'Hold released after employer review'})
- const erased=await h.cmd('photo.erase',{staffId:ben.id,mode:'former',consent:true,reason:'Expired photos of former employee'});assert.equal(erased.erased,2);assert.equal((await h.send(path,undefined,h.owner)).status,404)
+ const erased=await h.cmd('photo.erase',{staffId:ben.id,mode:'former',consent:true,reason:'Expired photos of former employee'});assert.equal(erased.erased,4);assert.equal((await h.send(path,undefined,h.owner)).status,404)
  assert.equal((await h.cmd('photo.erase',{staffId:alex.id,mode:'retention',consent:true,reason:'Expired kiosk photos'})).erased,2)
  const final=await h.state();assert.ok(final.timesheets.some(t=>t.id===done.timesheet.id&&t.status==='approved'&&t.minutes===60));assert.ok(final.timesheets.find(t=>t.id===denied.timesheet.id).exceptions.some(x=>x.includes('camera denied')));assert.equal((await h.db.prepare('SELECT count(*) AS n FROM l_kiosk_photos').first()).n,0)
  await h.cmd('photo.save',{...policy,revision:policy.revision},lead.cookie,403)
- await h.restart();assert.equal((await h.state()).photoreceipts.filter(p=>p.erasedAt).length,2)
+ await h.restart();assert.equal((await h.state()).photoreceipts.filter(p=>p.erasedAt).length,4)
 }
 export async function photoBrowser(){
  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']})
@@ -56,7 +77,8 @@ export async function photoBrowser(){
  await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
  const as=async cookie=>{const [name,...value]=cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])}
  const shot=async name=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.C35_SCREENS){await mkdir(process.env.C35_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C35_SCREENS,`${name}-${width}.png`)})}}
- await as(h.owner);await page.goto(h.origin+'/app/people',{waitUntil:'networkidle'});await page.locator('#photo-custody').getByText('Mission · Photos on · 30 days',{exact:true}).click();await page.locator('#photo-custody').scrollIntoViewIfNeeded();await shot('photo-policy')
+ await as(h.owner);await page.goto(h.origin+'/app/people',{waitUntil:'networkidle'});await page.locator('#photo-custody').getByText('Mission · Photos on · 30 days',{exact:true}).click();const policyForm=page.locator('#photo-custody form').first();await policyForm.getByLabel('Phone photos',{exact:true}).selectOption('true');await policyForm.getByLabel('Browser clock photos',{exact:true}).selectOption('false');await policyForm.locator('[name=consent]').check();await Promise.all([page.waitForResponse(r=>r.url().includes('name=photo.save')),policyForm.getByRole('button',{name:'Save photo policy',exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);await page.locator('#photo-custody').getByText('Mission · Photos on · 30 days',{exact:true}).click();await page.locator('#photo-custody').scrollIntoViewIfNeeded();await shot('photo-policy')
+ const enrollment=page.locator('#clock-networks');await enrollment.getByText('Enrol this browser as a time clock',{exact:true}).click();const deviceForm=enrollment.locator('form').filter({has:page.getByRole('button',{name:'Enrol this browser',exact:true})});await deviceForm.getByLabel('Cafe',{exact:true}).selectOption('Mission');await deviceForm.getByLabel('Label (e.g. Back office PC)',{exact:true}).fill('Reviewed employee phone');await deviceForm.getByLabel('Photo device type').selectOption('phone');await Promise.all([page.waitForResponse(r=>r.url().includes('name=clockbrowser.enroll')),deviceForm.getByRole('button',{name:'Enrol this browser',exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);await page.locator('#clock-networks').scrollIntoViewIfNeeded();await shot('photo-device-type')
  await as(f.ben.cookie);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'});await page.getByLabel("I have read this site's photo notice").check();await page.getByLabel('I consent to a still photo for this punch').check();await shot('photo-notice')
  await Promise.all([page.waitForResponse(r=>r.url().endsWith('/api/lanyard/command')&&r.request().postDataJSON()?.name==='clock.in'),page.getByRole('button',{name:'Clock in',exact:true}).click()]);await page.waitForLoadState('networkidle');await page.getByRole('button',{name:'Clock out',exact:true}).waitFor({state:'visible'})
  // Real elapsed minute: the clock public door accepts payable whole minutes, never synthetic application time.

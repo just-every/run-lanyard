@@ -7,13 +7,14 @@ import {type Context,type State,type Row,keys,text,need,integer,put,self} from '
 import {checkClockIn} from './clockrules'
 import {currentOf} from './transfers'
 export const PHOTO_NOTICE='A still photo is captured only at this punch with your consent. No face matching or template is made. Only you and the owner can read it. It remains until the owner explicitly erases eligible photos under the site retention rule; punch facts and exceptions remain.'
+export function nativePhotoRequired(policy:any,type?:string){return type==='phone'?Boolean(policy?.phone??policy?.native):type==='browser'?Boolean(policy?.browser??policy?.native):Boolean(policy?.phone??policy?.native)||Boolean(policy?.browser??policy?.native)}
 export const photoRule=(s:State,site:string)=>s.photopolicies.find(p=>p.site===site)
 export function photoSite(c:Context,name:string,p:any){const open=c.s.clocks.find(k=>k.staffId===c.a.staffId&&k.status==='open'),shift=name==='clock.in'?c.s.shifts.find(x=>x.id===checkClockIn(c.s,c.a.staffId!,p.capturedAt).shiftId):undefined;return shift?.site||(open?currentOf(c.s,open).site:c.s.staff.find(w=>w.id===c.a.staffId)?.site)||''}
 export function photoBefore(c:Context,name:string,p:any){
  if(c.kiosk||!['clock.in','clock.out','clock.breakStart','clock.breakEnd'].includes(name))return null
  const fields={photo:p.photo,consent:p.photoConsent===true,failure:p.photoFailure,notice:p.photoNoticeSeen===true}
  for(const key of ['photo','photoConsent','photoFailure','photoNoticeSeen'])delete p[key]
- const site=photoSite(c,name,p),policy=photoRule(c.s,site),required=Boolean(policy?.native&&(name==='clock.in'||name==='clock.out'||policy.breaks))
+ const site=photoSite(c,name,p),policy=photoRule(c.s,site),required=Boolean(nativePhotoRequired(policy,c.net?.browsers.find(b=>b.site===site)?.type)&&(name==='clock.in'||name==='clock.out'||policy?.breaks))
  if(!required){need(!fields.photo&&!fields.failure,'Photo collection is disabled for this capture',403);return null}
  self(c.a)
  need(fields.notice,'Read and acknowledge the photo notice before capture',403)
@@ -43,12 +44,15 @@ export async function photoCommand(c:Context,name:string,p:any){
  if(!['photo.save','photo.hold','photo.erase'].includes(name))return
  need(c.a.role==='owner','Only the owner administers photo custody',403)
  if(name==='photo.save'){
-  keys(p,['site','native','kiosk','breaks','retentionDays','consent','revision']);const site=text(p.site,'site',80),old=photoRule(c.s,site);if(old)need(Number(p.revision)===old.revision,'Photo policy changed; reload',409)
-  need([true,false,'true','false'].includes(p.native)&&[true,false,'true','false'].includes(p.breaks),'Choose explicit native and break photo settings')
+  keys(p,['site','native','phone','browser','kiosk','breaks','retentionDays','consent','revision']);const site=text(p.site,'site',80),old=photoRule(c.s,site);if(old)need(Number(p.revision)===old.revision,'Photo policy changed; reload',409)
+  const explicit=(v:any)=>[true,false,'true','false'].includes(v),yes=(v:any)=>v===true||v==='true'
+  need((explicit(p.native)||explicit(p.phone)&&explicit(p.browser))&&explicit(p.breaks),'Choose explicit phone/browser and break photo settings')
+  const phone=p.phone===undefined?yes(p.native):yes(p.phone),browser=p.browser===undefined?yes(p.native):yes(p.browser)
+  need((p.phone===undefined||explicit(p.phone))&&(p.browser===undefined||explicit(p.browser)),'Choose explicit phone/browser photo settings')
   need(p.kiosk===undefined||[true,false,'true','false'].includes(p.kiosk),'Choose an explicit kiosk photo setting')
   need(p.consent===true||p.consent==='on','Explicit employer approval is required',403)
   const {versions,...prior}:any=old??{}
-  return put(c,'photopolicies',{site,native:p.native===true||p.native==='true',kiosk:p.kiosk===true||p.kiosk==='true',breaks:p.breaks===true||p.breaks==='true',retentionDays:integer(Number(p.retentionDays),'retention days',1,3650),by:c.a.id,at:c.now,versions:old?[...(versions??[]),prior]:[]},old)
+  return put(c,'photopolicies',{site,native:phone||browser,phone,browser,kiosk:p.kiosk===true||p.kiosk==='true',breaks:p.breaks===true||p.breaks==='true',retentionDays:integer(Number(p.retentionDays),'retention days',1,3650),by:c.a.id,at:c.now,versions:old?[...(versions??[]),prior]:[]},old)
  }
  const staffId=text(p.staffId,'staff ID'),person=c.s.staff.find(p=>p.id===staffId);need(person,'Person not found',404)
  if(name==='photo.hold'){
