@@ -15,13 +15,24 @@ export async function failedBulkFixture(h) {
  const review=(await h.state()).holidayReviews.find(r=>r.staffId===person.id&&r.date==='2025-11-27'&&r.kind==='non-work')
  const holiday=await h.cmd('holidaypay.approve',{staffId:person.id,site:'Ocean Beach',date:review.date,reference:'maya-company-holiday',digest:review.digest})
  const {approvalRequired,approval,...correction}=await enter('2025-11-27',{corrects:source.id}),clean=await enter('2025-11-28')
- return {person,source,correction,clean,holiday,items:[pin(correction),pin(clean)]}
+ // Compare the same public read projection before and after the refused bulk action.
+ // Command results contain retained fields; state additionally supplies photo review.
+ const before=await h.state()
+ const sourceBefore=before.timesheets.find(r=>r.id===source.id)
+ const {review,...correctionBefore}=before.timesheets.find(r=>r.id===correction.id)
+ const {photoReview,...sourceStored}=sourceBefore
+ assert.deepEqual(sourceStored,source)
+ assert.deepEqual(photoReview,[],'Manual time has no captured punch photos')
+ const {photoReview:pendingPhotos,...pendingStored}=correctionBefore
+ assert.deepEqual(pendingStored,correction)
+ assert.deepEqual(pendingPhotos,[])
+ return {person,source,sourceBefore,correction,correctionBefore,clean,holiday,items:[pin(correction),pin(clean)]}
 }
 export async function assertFailedBulk(h,f) {
  const state=await h.state()
- assert.deepEqual(state.timesheets.find(r=>r.id===f.source.id),f.source,'A refused approval leaves every retained source field unchanged')
+ assert.deepEqual(state.timesheets.find(r=>r.id===f.source.id),f.sourceBefore,'A refused approval leaves every retained source field unchanged')
  const {review,...pending}=state.timesheets.find(r=>r.id===f.correction.id)
- assert.deepEqual(pending,f.correction,'The refused correction stays pending at its reviewed revision')
+ assert.deepEqual(pending,f.correctionBefore,'The refused correction stays pending at its reviewed revision')
  assert.equal(state.timesheets.find(r=>r.id===f.clean.id).status,'approved','A separate valid item still succeeds')
  assert.deepEqual(state.holidaypay.find(r=>r.id===f.holiday.id),f.holiday)
  assert.ok(!state.events.some(e=>e.action==='time.approve'&&e.entityId===f.correction.id))
