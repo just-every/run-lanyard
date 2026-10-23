@@ -26,7 +26,7 @@
     target.addEventListener('blur', hideTip)
   })
   document.addEventListener('keydown', event => { if (event.key === 'Escape') hideTip() })
-  window.addEventListener('scroll', hideTip, true)
+  window.addEventListener('scroll', () => { const focused = document.activeElement; if (focused?.matches('[data-tooltip]')) showTip(focused); else hideTip() }, true)
   const timezone = document.body.dataset.timezone
   const wallFormat = new Intl.DateTimeFormat('en-GB-u-ca-gregory-nu-latn', {
     timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23',

@@ -47,7 +47,7 @@ export function differentialBasis(s:State,t:Row,rules:any[]) {
   return pieces.map(({signature,weight,active,...p})=>{
    let rate=p.rateCents
    const additions=active.map((r:any)=>{const increment=r.mode==='added'?r.value:rate===null?null:rate*(r.value-1);if(rate!==null&&increment!==null)rate+=increment;return {ruleId:r.id,ruleRevision:r.revision,name:r.name,code:r.code,order:r.order,mode:r.mode,value:r.value,unitCents:increment,costCents:increment===null?null:Math.round(p.minutes*increment/60)}})
-   return {...p,additions,costCents:additions.some((x:any)=>x.costCents===null)?null:additions.reduce((n:number,x:any)=>n+x.costCents,0)}
+   return {...p,baseCostCents:p.rateCents===null?null:Math.round(p.minutes*p.rateCents/60),additions,costCents:additions.some((x:any)=>x.costCents===null)?null:additions.reduce((n:number,x:any)=>n+x.costCents,0)}
   })
  })
 }
@@ -61,5 +61,5 @@ export function differentialLines(c:Context,t:Row,base:Record<string,any>) {
 }
 export function differentialEstimate(s:State,staffId:string,start:string,end:string){
  const parts=s.timesheets.filter(t=>t.staffId===staffId&&t.status==='approved').flatMap(t=>t.differentialBasis??[]).filter(p=>p.date>=start&&p.date<=end)
- return {minutes:parts.filter(p=>p.additions.length).reduce((n,p)=>n+p.minutes,0),costCents:parts.some(p=>p.costCents===null)?null:parts.reduce((n,p)=>n+p.costCents,0)}
+ return {baseCostCents:parts.some(p=>p.baseCostCents===null)?null:parts.reduce((n,p)=>n+p.baseCostCents,0),baseMinutes:parts.reduce((n,p)=>n+p.minutes,0),minutes:parts.filter(p=>p.additions.length).reduce((n,p)=>n+p.minutes,0),costCents:parts.some(p=>p.costCents===null)?null:parts.reduce((n,p)=>n+p.costCents,0)}
 }

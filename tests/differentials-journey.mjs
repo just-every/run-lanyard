@@ -51,7 +51,7 @@ export async function differentialApi(h){
  assert.equal((await h.send(`/api/lanyard/batches/${sent.id}.csv`,undefined,h.owner)).text,sent.csv)
  const claims=await h.db.prepare('SELECT * FROM l_payroll_claims WHERE root_id=?').bind(approved.rootId).all()
  assert.equal(claims.results.length,2);assert.equal(claims.results.reduce((n,c)=>n+c.minutes,0),240)
- const own=await h.send('/app/time?week=2025-10-06',undefined,alex.cookie);assert.match(own.text,/Shift differential \(approved\)/);assert.ok(own.text.includes('$21.26'))
+ const own=await h.send('/app/time?week=2025-10-06',undefined,alex.cookie);assert.match(own.text,/Shift differential \(approved\)/);assert.ok(own.text.includes('$21.26'));assert.ok(own.text.includes('$109.26'),'own total uses retained area base rates as well as differentials')
  assert.deepEqual((await h.state(ben.cookie)).differentials,[]);assert.ok(!(await h.state(ben.cookie)).timesheets.some(t=>t.staffId===alex.id))
  const agent=await h.cmd('agent.create',{label:'Differential test'}),context=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agent.token}`})
  assert.deepEqual(context.value.differentials,[]);assert.ok(context.value.timesheets.every(t=>!t.differentialRules&&t.differentialBasis.length===0))
@@ -72,7 +72,7 @@ export async function differentialBrowser(){
  await Promise.all([page.waitForResponse(r=>r.url().includes('name=differential.save')),form.getByRole('button',{name:'Save differential'}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);assert.ok((await page.locator('#differentials').innerText()).includes('Next week'));await page.locator('#differentials').scrollIntoViewIfNeeded();await shot('differential-settings')
  const account=page.locator('summary[aria-label="Account"]');await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'});await shot('differential-tooltip-focus');await account.blur();await account.hover();assert.equal(await page.getByRole('tooltip').isVisible(),false);await page.getByRole('tooltip').waitFor({state:'visible'})
  const batch=await h.cmd('payroll.prepare',{});await h.cmd('payroll.export',pin(batch));await page.reload({waitUntil:'networkidle'});await page.locator('.batch').first().scrollIntoViewIfNeeded();assert.ok((await page.locator('.batch').first().innerText()).includes('additional differential pay'));await shot('differential-export')
- await as(f.alex.cookie);await page.goto(h.origin+'/app/time?week=2025-10-06',{waitUntil:'networkidle'});assert.ok((await page.locator('#earnings').innerText()).includes('$22.76'));await page.locator('#earnings').scrollIntoViewIfNeeded();await shot('differential-earnings')
+ await as(f.alex.cookie);await page.goto(h.origin+'/app/time?week=2025-10-06',{waitUntil:'networkidle'});assert.ok((await page.locator('#earnings').innerText()).includes('$22.76'));assert.ok((await page.locator('#earnings').innerText()).includes('$134.76'));await page.locator('#earnings').scrollIntoViewIfNeeded();await shot('differential-earnings')
  const previous=page.getByRole('link',{name:'Previous week',exact:true});await previous.focus();await page.getByRole('tooltip',{name:'Previous week',exact:true}).waitFor({state:'visible'});await shot('differential-week-tooltip')
  }finally{await context.close();await h.close()}}}finally{await browser.close()}
 }
