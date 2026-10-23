@@ -19,7 +19,7 @@ export async function failedBulkFixture(h) {
  // Command results contain retained fields; state additionally supplies photo review.
  const before=await h.state()
  const sourceBefore=before.timesheets.find(r=>r.id===source.id)
- const {review,...correctionBefore}=before.timesheets.find(r=>r.id===correction.id)
+ const {review:pendingReview,...correctionBefore}=before.timesheets.find(r=>r.id===correction.id)
  const {photoReview,...sourceStored}=sourceBefore
  assert.deepEqual(sourceStored,source)
  assert.deepEqual(photoReview,[],'Manual time has no captured punch photos')
