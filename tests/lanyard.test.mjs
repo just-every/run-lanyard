@@ -170,6 +170,17 @@ test('ROSTER-004: staff see their cafe’s published team by name, position and 
   assert.deepEqual((await view(lee)).names, ['Lee'])
 }))
 
+test('managers see base wages only for staff at their own cafe', () => run(async h => {
+  const priya = await h.person('Priya', 'manager'), lee = await h.person('Lee')
+  const place = (p, site, hourlyRate) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site, hourlyRate })
+  await place(priya, 'Ocean Beach', '25.00')
+  await place(lee, 'North Park', '37.21')
+  const staff = (await h.state(priya.cookie)).staff
+  assert.equal(staff.find(p => p.id === priya.id).hourlyRateCents, 2500)
+  assert.equal(staff.find(p => p.id === lee.id).hourlyRateCents, undefined)
+  assert.equal((await h.state()).staff.find(p => p.id === lee.id).hourlyRateCents, 3721)
+}))
+
 test('TIME-008: a manager filters a 60-person week to clean timesheets and approves the shown revisions at once; changed, own, foreign-cafe and unfiltered items are skipped with reasons', () => run(async h => {
   const place = (p, site) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site })
   const clocked = async (p, d) => {
