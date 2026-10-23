@@ -204,6 +204,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.sickuses=a.role==='owner'?s.sickuses:agent?[]:s.sickuses.filter(u=>u.staffId===a.staffId)
  if(a.role!=='owner'&&!earnSettings(s.earnings).estimates)result.sickuses=result.sickuses.map(({rateCents,costCents,...u}:any)=>u)
  result.sickBalances=a.role==='owner'?sickReports(s,localDate(new Date().toISOString(),s.timezone)):agent?[]:sickReports(s,localDate(new Date().toISOString(),s.timezone),a.staffId)
+ if(a.role!=='owner'&&!earnSettings(s.earnings).estimates)result.sickBalances=result.sickBalances.map((r:any)=>({...r,sources:r.sources.map(({rateCents,costCents,...e}:any)=>e)}))
+ if(a.role!=='owner')result.batches=result.batches.filter((b:any)=>!b.lines.some((l:any)=>l.sickLine))
  result.minors=a.role==='owner'?s.minors:[]
  result.differentials=manages?s.differentials.filter(r=>a.role==='owner'||!r.site||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??'')):[]
  result.holidays=agent?[]:s.holidays.filter(r=>a.role==='owner'||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??''))
@@ -230,7 +232,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  if(agent) {
   result.clocks=[];result.teamviews=[];result.leave=s.leave.filter(r=>r.status==='approved').map(r=>({id:r.id,staffId:r.staffId,start:r.start,end:r.end,status:r.status,revision:r.revision}))
   result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,network,answers,...r})=>r)
-  result.batches=s.batches.map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,rateBasis,...l}:any)=>withoutRates(l))}))
+  result.batches=s.batches.filter(b=>!b.lines.some((l:any)=>l.sickLine)).map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,rateBasis,...l}:any)=>withoutRates(l))}))
  }
  // COVER-001: managers read every swap; a person reads the swaps they are in, with both names, and their own swap choices.
  const named=(w:any)=>({...w,fromName:s.staff.find(p=>p.id===w.fromId)?.name??'Former staff',toName:s.staff.find(p=>p.id===w.toId)?.name??'Former staff'})
@@ -302,7 +304,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  return result
 }
 export async function batchCsv(db:D1Database,identity:Actor,id:string):Promise<string> {
- const a=await live(db,identity);manager(a);const s=await load(db);manager(fresh(a,s));const b=get(s,'batches',id);need(['exported','acknowledged'].includes(b.status),'Batch has not been exported',409);need(typeof b.csv==='string'&&await sha(b.csv)===b.sha256,'Stored payroll file integrity check failed',409)
+ const a=await live(db,identity);manager(a);const s=await load(db);manager(fresh(a,s));const b=get(s,'batches',id);need(a.role==='owner'||!b.lines.some((l:any)=>l.sickLine),'Only the owner reads private paid-leave payroll',403);need(['exported','acknowledged'].includes(b.status),'Batch has not been exported',409);need(typeof b.csv==='string'&&await sha(b.csv)===b.sha256,'Stored payroll file integrity check failed',409)
  await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,a.role,'payroll.download',b.id,new Date().toISOString()).run()
  return b.csv
 }

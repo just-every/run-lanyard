@@ -14,7 +14,7 @@ export function differentialCommand(c:Context,name:string,p:Record<string,any>) 
  const minute=(v:any,end=false)=>typeof v==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(v)?v==='00:00'&&end?1440:Number(v.slice(0,2))*60+Number(v.slice(3)):Number(v)
  const startMinute=integer(minute(p.startMinute),'start minute',0,1439),endMinute=integer(minute(p.endMinute,true),'end minute',1,1440);need(startMinute<endMinute,'Use separate rules for a window crossing midnight')
  need(['added','multiplier'].includes(p.mode),'Choose added cents/hour or multiplier')
- const value=Number(p.value);need(Number.isFinite(value)&&(p.mode==='added'?Number.isSafeInteger(value)&&value>=0&&value<=999999:value>=1&&value<=10&&Number.isInteger(value*100)),'Invalid differential value')
+ const value=Number(p.value);need(Number.isFinite(value)&&(p.mode==='added'?Number.isSafeInteger(value)&&value>=0&&value<=999999:value>=1&&value<=10&&Math.round(value*100)/100===value),'Invalid differential value')
  const code=text(p.code,'mapped payroll code',80);need(!['regular','meal premium','rest premium','weekly overtime premium'].includes(code),'Choose a distinct differential code')
  const {versions,...prior}:any=old??{}
  return put(c,'differentials',{name:text(p.name,'name',80),from,through,site:text(p.site,'site',80,true),role:text(p.role,'position',80,true),tag:text(p.tag,'shift tag',120,true),startMinute,endMinute,days:[...days].sort(),mode:p.mode,value,order:integer(Number(p.order),'stacking order',0,999),code,by:c.a.id,at:c.now,versions:old?[...(versions??[]),prior]:[]},old)
@@ -48,7 +48,7 @@ export function differentialBasis(s:State,t:Row,rules:any[]) {
   for(const p of [...pieces].sort((a,b)=>(area.minutes*b.weight/total-b.minutes)-(area.minutes*a.weight/total-a.minutes)||a.start.localeCompare(b.start)))if(left-->0)p.minutes++
   return pieces.map(({signature,weight,active,...p})=>{
    let rate=p.rateCents
-   const additions=active.map((r:any)=>{const increment=r.mode==='added'?r.value:rate===null?null:rate*(r.value-1);if(rate!==null&&increment!==null)rate+=increment;return {ruleId:r.id,ruleRevision:r.revision,name:r.name,code:r.code,order:r.order,mode:r.mode,value:r.value,unitCents:increment,costCents:increment===null?null:Math.round(p.minutes*increment/60)}})
+   const additions=active.map((r:any)=>{const increment=r.mode==='added'?r.value:rate===null?null:rate*(Math.round(r.value*100)-100)/100;if(rate!==null&&increment!==null)rate+=increment;return {ruleId:r.id,ruleRevision:r.revision,name:r.name,code:r.code,order:r.order,mode:r.mode,value:r.value,unitCents:increment,costCents:increment===null?null:Math.round(p.minutes*increment/60)}})
    return {...p,baseCostCents:p.rateCents===null?null:Math.round(p.minutes*p.rateCents/60),additions,costCents:additions.some((x:any)=>x.costCents===null)?null:additions.reduce((n:number,x:any)=>n+x.costCents,0)}
   })
  })

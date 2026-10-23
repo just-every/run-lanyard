@@ -37,7 +37,7 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
   const selected=ids?ids.map((id:string)=>{const t=available.find(r=>r.id===id);need(t,unclaimed.some(r=>r.id===id)?'Selected time is in an open pay period; lock the period first':'Selected time is not approved or is already exported',409);return t}):available
   // TIME-007: a provisionally closed punch is never exported; it is listed as held until confirmed or corrected and approved.
   const held=[...c.s.clocks.filter(k=>provisional(c.s,k,c.now)).map(k=>({clockId:k.id,staffId:k.staffId,start:k.start,reason:'provisional close'})),...unclaimed.filter(t=>heldByPeriod(c.s,t)).map(t=>({timeId:t.id,staffId:t.staffId,start:t.start,reason:'pay period open'}))]
-  const nonwork=[...sickLines(c),...nonWorkLines(c),...arrivalLines(c)],adjustments=await overtimeInputs(c)
+  const nonwork=[...(c.a.role==='owner'?sickLines(c):[]),...nonWorkLines(c),...arrivalLines(c)],adjustments=await overtimeInputs(c)
   for(const l of adjustments)need(staff(c,l.staffId).payroll_id,'Set the staff payroll ID first',409)
   need((selected.length>0||adjustments.length>0||nonwork.length>0)&&selected.length<=500,`No approved unexported time, or too many entries${held.length?`; ${held.length} provisionally closed punch${held.length===1?'':'es'} held until confirmed`:''}`,409)
   const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).flatMap((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);const base={timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,sourceStart:t.start,sourceEnd:t.end,corrects:t.corrects,rootId:t.rootId,rateBasis:priced(c.s,t.staffId,t)};return [...regularLines(c,t,base),...breakPremiumLines(c,t,base),...holidayLines(c,t,base),...premiumLines(c,t,base),...differentialLines(c,t,base)]})
@@ -48,6 +48,7 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
  }
  if(name==='payroll.export') {
   manager(c.a);keys(p,['id','revision']);const b=get(c.s,'batches',p.id);exact(b,p);need(b.status==='draft','Batch already exported',409)
+  need(c.a.role==='owner'||!b.lines.some((l:any)=>l.sickLine),'Only the owner exports private paid-leave payroll',403)
   const checked=new Set<string>(),adjustments=await overtimeInputs(c)
   for(const line of b.lines) {
    if(line.sickUseId){need(sickLines(c).some(l=>canonical(l)===canonical(line)),'Paid-leave sources changed; prepare again',409);continue}
@@ -76,7 +77,7 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
   return put(c,'batches',{...b,status:'exported',csv:b.csvPreview,sha256:await sha(b.csvPreview),exportedBy:c.a.id,exportedAt:c.now},b)
  }
  if(name==='payroll.acknowledge') {
-  manager(c.a);keys(p,['id','revision','reference']);const b=get(c.s,'batches',p.id);exact(b,p);need(b.status==='exported','Only exported payroll can be acknowledged',409)
+  manager(c.a);keys(p,['id','revision','reference']);const b=get(c.s,'batches',p.id);exact(b,p);need(c.a.role==='owner'||!b.lines.some((l:any)=>l.sickLine),'Only the owner acknowledges private paid-leave payroll',403);need(b.status==='exported','Only exported payroll can be acknowledged',409)
   return put(c,'batches',{...b,status:'acknowledged',reference:text(p.reference,'reference',120),acknowledgedBy:c.a.id,acknowledgedAt:c.now},b)
  }
  return undefined

@@ -32,6 +32,7 @@ export async function differentialApi(h){
  await h.cmd('differential.save',{...base,name:'Foreign rule',site:'Mission',startMinute:0,endMinute:1440,value:99999})
  await h.cmd('differential.save',{...base,name:'Foreign position',role:'Supervisor',startMinute:0,endMinute:1440,value:99999})
  await h.cmd('differential.save',{...base,name:'Foreign tag',tag:'Opening',startMinute:0,endMinute:1440,value:99999})
+ const fractional=await h.cmd('differential.save',{...base,name:'Future fractional multiplier',from:'2027-01-01',mode:'multiplier',value:1.15,startMinute:0,endMinute:60});assert.equal(fractional.value,1.15)
  await h.cmd('differential.save',{...base,name:'Future night',from:'2025-10-13',startMinute:1320,endMinute:1440,value:300})
  await h.cmd('differential.save',{...base,...pin(night),name:'Night',startMinute:1320,endMinute:1440,from:'2025-10-13',value:400})
  assert.deepEqual((await h.state()).timesheets.find(t=>t.id===approved.id).differentialBasis,parts,'effective updates preserve approved history')

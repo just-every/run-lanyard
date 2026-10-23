@@ -44,6 +44,7 @@ export async function photoCommand(c:Context,name:string,p:any){
  need(c.a.role==='owner','Only the owner administers photo custody',403)
  if(name==='photo.save'){
   keys(p,['site','native','breaks','retentionDays','consent','revision']);const site=text(p.site,'site',80),old=photoRule(c.s,site);if(old)need(Number(p.revision)===old.revision,'Photo policy changed; reload',409)
+  need([true,false,'true','false'].includes(p.native)&&[true,false,'true','false'].includes(p.breaks),'Choose explicit native and break photo settings')
   need(p.consent===true||p.consent==='on','Explicit employer approval is required',403)
   const {versions,...prior}:any=old??{}
   return put(c,'photopolicies',{site,native:p.native===true||p.native==='true',breaks:p.breaks===true||p.breaks==='true',retentionDays:integer(Number(p.retentionDays),'retention days',1,3650),by:c.a.id,at:c.now,versions:old?[...(versions??[]),prior]:[]},old)

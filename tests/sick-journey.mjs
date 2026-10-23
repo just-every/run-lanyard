@@ -34,7 +34,13 @@ export async function sickApi(){
   const balance=await report('2026-01-09');assert.equal(balance.balanceMinutes,carried-120);assert.equal(balance.annualUsed,120)
   const batch=await h.cmd('payroll.prepare',{}),competing=await h.cmd('payroll.prepare',{}),line=batch.lines.find(l=>l.sickUseId===use.id)
   assert.deepEqual([line.minutes,line.costCents,line.payCode,line.balanceMinutes],[120,4000,'SICK-'+preset,carried-120])
+  if(preset==='CA'){
+   assert.ok(!(await h.state(morgan.cookie)).batches.some(b=>b.id===batch.id),'private paid-leave batch is owner-only')
+   await h.cmd('payroll.export',pin(batch),morgan.cookie,403)
+   const key=await h.cmd('agent.create',{label:'Private leave preparation fence'}),prepared=await h.send('/api/lanyard/agent/command',{name:'payroll.prepare',input:{}},'',{authorization:`Bearer ${key.token}`});assert.equal(prepared.status,200,prepared.text);assert.ok(prepared.value.result.lines.every(l=>!l.sickLine),'agent preparation does not receive private paid-leave lines')
+  }
   const sent=await h.cmd('payroll.export',pin(batch));await h.cmd('payroll.export',pin(competing),h.owner,409)
+  if(preset==='CA')assert.equal((await h.send('/api/lanyard/batches/'+sent.id+'.csv',undefined,morgan.cookie)).status,403)
   assert.match(sent.csv,/leave_earnings_cents,leave_balance_minutes,leave_policy_id,leave_rule_version/)
   const csv=await h.send('/api/lanyard/sick-balances.csv?asOf=2026-01-09',undefined,h.owner);assert.equal(csv.status,200);assert.ok(csv.text.includes('SICK-'+preset));assert.ok(csv.text.includes(entries[0].id));assert.ok(!csv.text.includes('purpose'))
   assert.equal((await h.send('/api/lanyard/sick-balances.csv',undefined,ben.cookie)).status,403)
@@ -61,6 +67,7 @@ export async function sickApi(){
    const unlisted=await h.cmd('sickpolicy.save',{site:'Unlisted city',from:'2025-01-01',preset:'employer',code:'CUSTOM',denominator:40,annualAccrual:2400,bankCap:4800,carry:2400,annualUse:2400,wait:90,increment:60});assert.equal(unlisted.label,'Employer-configured, unmaintained')
    const agent=await h.cmd('agent.create',{label:'Paid leave test'}),context=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agent.token}`});assert.deepEqual(context.value.sickuses,[]);assert.deepEqual(context.value.sickBalances,[])
    await h.cmd('sickpolicy.save',{},alex.cookie,403)
+   await h.cmd('earnings.save',{estimates:false,statementUrl:'',payDays:''});const hidden=await h.state(alex.cookie);assert.ok(hidden.sickBalances.every(b=>b.sources.every(s=>s.rateCents===undefined&&s.costCents===undefined)));assert.ok(hidden.sickuses.every(u=>u.rateCents===undefined&&u.costCents===undefined))
   }
  }finally{await h.close()}}
 }
