@@ -77,7 +77,7 @@ export async function geofenceBrowser(){
  await review.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
  if(process.env.C37_SCREENS){await mkdir(process.env.C37_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C37_SCREENS,`location-review-${width}.png`)})}
  const account=page.locator('summary[aria-label="Account"]');await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'})
- const bulk=page.getByRole('button',{name:'Approve 1 shown',exact:true});await bulk.scrollIntoViewIfNeeded();await bulk.click();await page.waitForLoadState('networkidle');assert.match(await page.getByRole('status').innerText(),/Approved 0 · skipped 1/);assert.match(await page.getByRole('status').innerText(),/out-of-zone punch/)
+ await page.getByText('Filter and approve many',{exact:true}).click();const bulk=page.getByRole('button',{name:'Approve 1 shown',exact:true});await bulk.scrollIntoViewIfNeeded();await bulk.click();await page.waitForLoadState('networkidle');assert.match(await page.getByRole('status').innerText(),/Approved 0 · skipped 1/);assert.match(await page.getByRole('status').innerText(),/out-of-zone punch/)
  if(process.env.C37_SCREENS)await page.screenshot({path:join(process.env.C37_SCREENS,`location-bulk-skip-${width}.png`)})
  }finally{await context.close();await h.close()}}}finally{await browser.close()}
 }
