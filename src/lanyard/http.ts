@@ -148,7 +148,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       const chatAttachment=path.match(/^\/api\/lanyard\/chat\/messages\/([\w-]+)\/files\/([\w-]+)$/)
       if(chatAttachment){const f=chatFile(await load(env.DB),who,chatAttachment[1],chatAttachment[2]);return new Response(f.bytes,{headers:{...headers,'content-type':'application/octet-stream','content-disposition':`attachment; filename="${f.name.replace(/[^\w. -]/g,'_')}"`}})}
       const photo=path.match(/^\/api\/lanyard\/kiosk-photos\/([\w-]+)$/)
-      if(photo){const f=await env.DB.prepare('SELECT staff_id,bytes FROM l_kiosk_photos WHERE id=?').bind(photo[1]).first<any>();if(!f||who.role==='agent'||who.role!=='owner'&&who.staffId!==f.staff_id)fail('Not found',404);return new Response(new Uint8Array(f.bytes),{headers:{...headers,'content-type':'image/jpeg','content-disposition':'attachment; filename="punch.jpg"'}})}
+      if(photo){const f=await env.DB.prepare('SELECT staff_id,bytes FROM l_kiosk_photos WHERE id=?').bind(photo[1]).first<any>();if(!f||who.role==='agent'||who.role!=='owner'&&who.staffId!==f.staff_id)fail('Not found',404);return new Response(new Uint8Array(f.bytes),{headers:{...headers,'content-type':'image/jpeg','content-disposition':'inline; filename="punch.jpg"'}})}
       if(path==='/api/lanyard/sick-balances.csv'||path==='/api/lanyard/sick-balances'){
        if(who.role!=='owner')fail('Owner required',403)
        const current=await load(env.DB),today=localDate(new Date().toISOString(),current.timezone),on=url.searchParams.get('asOf')??today

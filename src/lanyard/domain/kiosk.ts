@@ -20,6 +20,7 @@ export function kioskReceipt(c:Context,name:string,p:Record<string,any>,result:a
  const k=c.kiosk;if(!k)return
  const id=crypto.randomUUID(),entity=c.entity,photoId=k.photo?crypto.randomUUID():null
  if(k.photo){const bytes=Uint8Array.from(atob(k.photo),x=>x.charCodeAt(0));c.sql.push(c.db.prepare('INSERT INTO l_kiosk_photos(id,staff_id,device_id,command_id,bytes,created_at) VALUES(?,?,?,?,?,?)').bind(photoId,c.a.staffId,k.deviceId,p.commandId,bytes,c.now))}
+ if(k.photo&&k.photoConsent&&!c.s.photonotices.some(n=>n.staffId===c.a.staffId&&n.site===k.site))put(c,'photonotices',{staffId:c.a.staffId,site:k.site,text:k.language==='es'?'Doy mi consentimiento para guardar esta foto de forma privada para mí y el propietario hasta que se elimine explícitamente.':'I consent to this punch photo being stored privately for me and the owner until explicitly deleted.',version:1,seenAt:c.now,by:c.a.id,source:'kiosk notice'})
  const receipt=put(c,'kioskreceipts',{staffId:c.a.staffId,deviceId:k.deviceId,site:k.site,language:k.language,name,commandId:p.commandId,capturedAt:p.capturedAt,receivedAt:c.now,photoId,entityId:entity,photoConsent:Boolean(k.photo&&k.photoConsent),photoException:k.photoFailure??null})
  if(k.photoFailure){
   const message='punch photo unavailable: '+k.photoFailure,clock=c.s.clocks.find(x=>x.staffId===c.a.staffId&&(x.id===entity||x.timesheetId===entity))

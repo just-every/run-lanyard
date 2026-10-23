@@ -5,6 +5,8 @@ const preparation = [
  ['payroll.prepare','ids?: array of approved, unexported timesheet IDs'],
 ]
 const human = [
+ ['photo.save','Owner','site, native (phones and browsers), breaks, retentionDays from captured time, consent: true; revision to edit. No automatic deletion. Kiosk requirements remain enrollment settings.'],
+ ['photo.hold / photo.erase','Owner','staffId; hold adds hold boolean and reason; erase adds mode (retention or former), reason and explicit consent. Holds block erasure and former requires deactivation; punch facts remain.'],
  ['sickpolicy.save','Owner','site, from, preset (CA, CO, IL, NY, OR, WA, NYC, CHICAGO, SEATTLE, SF, LA, PHILADELPHIA or employer), code; id + revision for a later effective version. Employer fields: denominator, annualAccrual, bankCap, carry, annualUse, wait, increment (minutes; blank cap uncapped).'],
  ['sick.request','Linked staff','policyId, start, end, minutes, purpose: one day, listed category only; no medical detail'],
  ['sick.decide / sick.correct','Owner','id, revision; decide adds decision (approved/rejected) and unique reference on approval; correct adds minutes and reason. Reversals retain punch facts and signed payroll differences.'],
@@ -32,7 +34,7 @@ const human = [
  ['cover.respond','Linked staff','id, revision, decision (accepted or declined), note?: a current pinned offer made to you, before shift end'],
  ['cover.reopen','Owner or cafe manager','id, revision: explicitly refresh a waiting or no-show coverage case; assignment stays until another acceptance and exact approval'],
  ['cover.approve','Manager','id, revision: an accepted offer; moves the shift to that person'],
- ['clock.in','Linked staff','commandId, capturedAt'],
+ ['clock.in','Linked staff','commandId, capturedAt; required-photo sites add photoNoticeSeen, photoConsent and base64 JPEG photo, or named photoFailure (camera denied, camera failed, photo consent declined)'],
  ['clock.out','Linked staff','commandId, capturedAt, breakMinutes'],
  ['clock.transfer','Linked staff','commandId, capturedAt, job, site?: change job (or eligible cafe) on your open clock'],
  ['time.approve','Manager','id, revision; another person’s submitted time'],

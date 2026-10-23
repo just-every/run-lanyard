@@ -1905,3 +1905,6 @@ test('MINOR-001: owner records, named scheduler conflicts and private coworker s
 
 test('LEAVE-003: every preset accrues approved work, caps and carries, pays partial leave once, exports source balances and reconciles ACA',async()=>{const {sickApi}=await import('./sick-journey.mjs');await sickApi()})
 test('LEAVE-003: policy, unmaintained label, own request, owner approval, export and earnings at 1440 and 390',async()=>{const {sickBrowser}=await import('./sick-journey.mjs');await sickBrowser()})
+
+test('CLOCK-005: kiosk and native stills, private approval review, camera exceptions, bulk skips, holds and explicit expired-photo erasure',()=>run(async h=>{const {photoApi}=await import('./photos-journey.mjs');await photoApi(h)}))
+test('CLOCK-005: photo policy, notice, consented camera capture and private approval at 1440 and 390',async()=>{const {photoBrowser}=await import('./photos-journey.mjs');await photoBrowser()})

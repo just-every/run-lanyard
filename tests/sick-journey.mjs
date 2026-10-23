@@ -5,13 +5,13 @@ import {chromium} from '@playwright/test'
 import {harness} from './harness.mjs'
 import {pin,local} from './workforce-journey.mjs'
 const add=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10)
-export async function sickFixture(h,preset='CA',count=2){
+export async function sickFixture(h,preset='CA',count=2,workedHours=48){
  const alex=await h.person('Alex'),ben=await h.person('Ben'),morgan=await h.person('Morgan','manager')
  for(const p of [alex,ben,morgan])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site:'Ocean Beach',position:'Service',hourlyRate:'20.00',startDate:'2020-01-01'})
  const policy=await h.cmd('sickpolicy.save',{site:'Ocean Beach',from:'2025-01-01',preset,code:'SICK-'+preset})
  const entries=[]
  for(let i=0;i<count;i++){
-  const start=local(add('2025-01-01',i*7),'00:00'),end=local(add('2025-01-01',i*7+2),'00:00')
+  const start=local(add('2025-01-01',i*7),'00:00'),end=new Date(Date.parse(start)+workedHours*3600000).toISOString()
   const t=await h.cmd('time.prepare',{staffId:alex.id,start,end,site:'Ocean Beach',breakMinutes:0,reason:'Synthetic approved work for annual accrual reconciliation'})
   entries.push(await h.cmd('time.approve',pin(t)))
  }
@@ -67,7 +67,7 @@ export async function sickApi(){
 export async function sickBrowser(){
  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  try{for(const width of [1440,390]){const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
- try{const f=await sickFixture(h),page=await context.newPage()
+ try{const f=await sickFixture(h,'CA',12,8),page=await context.newPage()
  await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
  const as=async cookie=>{const [name,...value]=cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])}
  const shot=async name=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.C35_SCREENS){await mkdir(process.env.C35_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C35_SCREENS,`${name}-${width}.png`)})}}

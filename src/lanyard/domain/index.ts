@@ -1,3 +1,4 @@
+import {photoCommand,photoBefore,photoReceipt,photosForTime} from './photos'
 import {sickCommand,sickReports} from './sick'
 import {minorCommand,checkMinorAssignments} from './minors'
 import {differentialCommand} from './differentials'
@@ -74,7 +75,7 @@ import {holidayPay} from './holiday-pay'
 import {holidayReviews} from './holidays'
 export {actor}
 export type {Actor} from './model'
-const commands=['sickpolicy.save','sick.request','sick.decide','sick.correct','minor.save','differential.save','clocklanguage.save','chat.create','chat.send','chat.acknowledge','access.level.save','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
+const commands=['photo.save','photo.hold','photo.erase','sickpolicy.save','sick.request','sick.decide','sick.correct','minor.save','differential.save','clocklanguage.save','chat.create','chat.send','chat.acknowledge','access.level.save','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -91,7 +92,9 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  await kioskCheck(c,name,p)
  if(kiosk){const previous=await saved(db,commandId,a,digest);if(previous)return previous}
  authorizeCommand(c,name,p)
- let result:any=sickCommand(c,name,p)
+ const pendingPhoto=photoBefore(c,name,p)
+ let result:any=await photoCommand(c,name,p)
+ if(result===undefined)result=sickCommand(c,name,p)
  if(result===undefined)result=minorCommand(c,name,p)
  if(result===undefined)result=differentialCommand(c,name,p)
  if(result===undefined)result=clockLanguage(c,name,p)
@@ -149,6 +152,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=workforce(c,name,p)
  if(result===undefined)result=tipCredit(c,name,p)
  need(result!==undefined,'Unknown command',404)
+ result=photoReceipt(c,name,p,result,pendingPhoto)
  const capture=kioskReceipt(c,name,p,result);if(capture)result={...capture.result,kioskReceipt:capture.receipt}
  if(['roster.publish','shift.change','cover.approve','swap.decide','overtime.substitute','openshift.approve'].includes(name)){checkSegmentAssignments(s,before);checkMinorAssignments(s,before)}
  // AUTO-001: an active rule approves the clean punched time this command submitted.
@@ -192,6 +196,10 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.premiumrules=agent?[]:s.premiumrules.filter(r=>a.role==='owner'||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??''))
  result.premiuminputs=agent?[]:s.premiuminputs.filter(r=>r.staffId===a.staffId||manages&&mayReadPerson(s,a,r.staffId)).map(r=>({...r,current:premiumCurrent(s,r)}))
  if(!manages&&!earnSettings(s.earnings).estimates)result.premiuminputs=result.premiuminputs.map(hideRates)
+ result.photopolicies=agent?[]:s.photopolicies.filter(p=>a.role==='owner'||p.site===(s.staff.find(w=>w.id===a.staffId)?.site??'')||s.shifts.some(x=>x.staffId===a.staffId&&x.status==='published'&&x.site===p.site)).map(({versions,...p})=>p)
+ result.photonotices=agent?[]:s.photonotices.filter(p=>a.role==='owner'||p.staffId===a.staffId)
+ result.photoreceipts=agent?[]:s.photoreceipts.filter(p=>a.role==='owner'||p.staffId===a.staffId)
+ result.photoholds=a.role==='owner'?s.photoholds:[]
  result.sickpolicies=a.role==='owner'?s.sickpolicies:agent?[]:s.sickpolicies.filter(p=>p.site===(s.staff.find(x=>x.id===a.staffId)?.site??'')||sickReports(s,localDate(new Date().toISOString(),s.timezone),a.staffId).some(r=>r.policyId===p.id&&r.sources.length)).map(({versions,by,at,...p})=>p)
  result.sickuses=a.role==='owner'?s.sickuses:agent?[]:s.sickuses.filter(u=>u.staffId===a.staffId)
  if(a.role!=='owner'&&!earnSettings(s.earnings).estimates)result.sickuses=result.sickuses.map(({rateCents,costCents,...u}:any)=>u)
@@ -262,6 +270,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  if(!agent){const now=new Date().toISOString();result.shiftChanges=recentChanges(s,a,new Date(Date.parse(weekOf(s,now)+'T00:00:00Z')-7*86400000).toISOString().slice(0,10))}
  // TIME-009: managers see each waiting timesheet's approval review.
  if(manages)result.timesheets=result.timesheets.map((t:any)=>t.status==='submitted'?{...t,review:review(s,t)}:t)
+ if(a.role==='owner')result.timesheets=result.timesheets.map((t:any)=>({...t,photoReview:photosForTime(s,t)}))
  // TIME-007: each open punch past its point shows its provisional end; the person sees it as their reminder.
  {const now=new Date().toISOString();result.clocks=result.clocks.map((k:any)=>{const mark=provisional(s,k,now);return mark?{...k,provisional:mark}:k})}
  // FEEDBACK-001: each reader's own slice; an anonymous author is never named.

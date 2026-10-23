@@ -268,6 +268,7 @@
       }
       const capture = {name,input}
       try {
+        Object.assign(input, await window.LanyardPunchPhoto?.capture(clock,name) ?? {})
         await withState(actor, initial, async (state, save) => {
           if (state.events.some(item => item.status === 'rejected')) throw new Error('Resolve the saved rejected captures before recording more events.')
           apply(project(state), capture)
