@@ -50,6 +50,7 @@ export async function minorApi(h){
  const agent=await h.cmd('agent.create',{label:'Minor records test'}),context=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agent.token}`});assert.deepEqual(context.value.minors,[]);assert.ok(!JSON.stringify(context.value).includes('birthDate'))
  await h.cmd('minor.save',input,ben.cookie,403);await h.cmd('minor.save',input,morgan.cookie,403)
  await h.cmd('minor.save',{...input,...pin(minor)},h.owner,409)
+ await minorVariants()
 }
 export async function minorBrowser(){
  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
@@ -63,4 +64,51 @@ export async function minorBrowser(){
  const previous=page.getByRole('link',{name:'Previous week',exact:true});await previous.focus();await page.getByRole('tooltip',{name:'Previous week',exact:true}).waitFor({state:'visible'});await shot('minor-tooltip')
  await as(f.ben.cookie);await page.goto(h.origin+`/app/schedule?week=${f.week}`,{waitUntil:'networkidle'});assert.ok(!(await page.locator('body').innerText()).includes(f.input.birthDate));assert.equal(await page.locator('[name=birthDate]').count(),0);await shot('minor-coworker')
  }finally{await context.close();await h.close()}}}finally{await browser.close()}
+}
+
+// Retained actuals and planned shifts must describe each interval once, including
+// an approved correction and late work that crosses a calendar-day boundary.
+async function minorVariants(){
+ const h=await harness()
+ try{
+  const alex=await h.person('Alex'),morgan=await h.person('Morgan','manager')
+  const input={staffId:alex.id,birthDate:'2008-01-01',state:'CO',permit:'synthetic-lanyard-20',permitThrough:'2025-12-31',calendarFrom:'2025-01-01',calendarThrough:'2025-12-31',schoolDays:[],schoolStart:480,schoolEnd:900}
+  let record=await h.cmd('minor.save',input)
+  await h.cmd('availability.save',{staffId:alex.id,start:local('2025-01-01','00:00'),end:local('2026-01-01','00:00')})
+  const shift=(day,start,end)=>({staffId:alex.id,start:local(day,start),end:local(day,end),breakMinutes:0})
+  const worked=shift('2025-10-13','16:00','22:00'),draft=await h.cmd('roster.prepare',{week:'2025-10-13',shifts:[worked]})
+  assert.deepEqual(draft.conflicts,[]);await h.cmd('roster.publish',pin(draft))
+  const source=await h.cmd('time.prepare',{...worked,reason:'Recorded actual work'})
+  const approved=await h.cmd('time.approve',pin(source),morgan.cookie)
+  assert.ok(!approved.exceptions.some(x=>x.includes('limit')),'scheduled work represented by actual work is not counted twice')
+  const trial=await h.cmd('roster.prepare',{week:'2025-10-13',shifts:[worked,shift('2025-10-14','08:00','11:00')]})
+  assert.ok(trial.conflicts.some(x=>x.reason.includes('rolling 24-hour limit 480')),'six evening hours plus three next-morning hours breach the rolling bound')
+  await h.cmd('roster.publish',pin(trial),h.owner,409)
+  const correction=await h.cmd('time.prepare',{...worked,end:local('2025-10-13','20:00'),corrects:approved.id,reason:'Reviewed two-hour correction'})
+  const pending=await h.cmd('roster.prepare',{week:'2025-10-13',shifts:[shift('2025-10-14','08:00','11:00')]})
+  assert.ok(pending.conflicts.some(x=>x.reason.includes('rolling 24-hour')),'a pending reduction cannot remove approved work')
+  await h.cmd('time.approve',pin(correction),morgan.cookie)
+  const reduced=await h.cmd('roster.prepare',{week:'2025-10-13',shifts:[shift('2025-10-14','08:00','11:00')]})
+  assert.deepEqual(reduced.conflicts,[],'approved correction replaces superseded hours')
+  await h.cmd('roster.publish',pin(reduced))
+  const actual=await h.cmd('time.prepare',{...shift('2025-10-14','08:00','13:00'),reason:'Retain the full work actually performed'})
+  assert.ok(actual.exceptions.some(x=>x.includes('rolling 24-hour limit 480')),'manual submission warns before review')
+  const flagged=await h.cmd('time.approve',pin(actual),morgan.cookie)
+  assert.ok(flagged.exceptions.some(x=>x.includes('rolling 24-hour limit 480')),'unscheduled manual actuals are retained and flagged rather than discarded')
+  // California allows 00:00–00:30 on a non-school date, but not a minute more.
+  record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',schoolDays:['2025-10-20','2025-10-21']})
+  const overnight=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[{...shift('2025-10-24','20:00','23:00'),end:local('2025-10-25','00:30')}]})
+  assert.deepEqual(overnight.conflicts,[])
+  const over=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[{...shift('2025-10-24','20:00','23:00'),end:local('2025-10-25','00:31')}]})
+  assert.ok(over.conflicts.some(x=>x.reason.includes('outside permitted clock hours')))
+  const school=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[shift('2025-10-20','16:00','21:00')]})
+  assert.ok(school.conflicts.some(x=>x.reason.includes('school-day limit 240')))
+  // An expired reference is not a verified permit; show a specific warning.
+  record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',permitThrough:'2025-10-01'})
+  const permit=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[shift('2025-10-20','16:00','17:00')]})
+  assert.ok(permit.conflicts.some(x=>x.reason.includes('work permit has expired')))
+  const before=(await h.state()).clocks.length
+  await h.cmd('clock.in',{commandId:'synthetic-lanyard-21',capturedAt:local('2025-10-20','16:00')},alex.cookie,409)
+  assert.equal((await h.state()).clocks.length,before)
+ }finally{await h.close()}
 }

@@ -3,6 +3,7 @@
 import {type Context,type State,type Row,keys,text,need,integer,put,get,exact} from './model'
 import {date,dayAfter} from './aca'
 import {wall,localDate,instantAt} from './settings'
+import {minorWork,rollingWork} from './minor-work'
 const SOURCES:Record<string,string>={federal:'https://www.dol.gov/agencies/whd/fact-sheets/43-child-labor-non-agriculture',CA:'https://www.dir.ca.gov/dlse/MinorsSummaryChart.pdf',NY:'https://dol.ny.gov/hours-work-minors',IL:'https://labor.illinois.gov/laws-rules/fls/child-labor-law-compliance.html',WA:'https://www.lni.wa.gov/workers-rights/youth-employment/hours-of-work',OR:'https://www.oregon.gov/boli/employers/pages/minor-workers.aspx',CO:'https://cdle.colorado.gov/dlss/youth-law'}
 export const minorPresets=Object.entries(SOURCES).map(([id,source])=>({id,source,version:'2026-10-23',scope:'Non-agricultural core hour limits; no variance or hazardous-task clearance'}))
 export function minorCommand(c:Context,name:string,p:Record<string,any>){
@@ -33,7 +34,7 @@ export function minorIssues(s:State,staffId:string,w:any,other?:any[],skip:strin
  const r=s.minors.find(x=>x.staffId===staffId);if(!r)return []
  const warnings:string[]=[],add=(v:string)=>warnings.push(`Minor work rule ${r.state} (${r.presetVersion}): ${v}`)
  const mine=(other??s.shifts.filter(x=>x.status==='published')).filter(x=>x.staffId===staffId&&x.id!==w.id&&!skip.includes(x.id))
- const all=mine.flatMap(x=>pieces(s,x)),candidate=pieces(s,w)
+ const all=minorWork(s,staffId,w,mine),candidate=pieces(s,w)
  for(const p of candidate){
   const years=age(r.birthDate,p.date);if(years>=18)continue
   if(years<14){add('work under age 14 requires separate authorization');continue}
@@ -41,7 +42,7 @@ export function minorIssues(s:State,staffId:string,w:any,other?:any[],skip:strin
   const school=r.schoolDays.includes(p.date),schoolWeek=r.schoolDays.some((d:string)=>week(d)===week(p.date)),day=new Date(p.date+'T00:00:00Z').getUTCDay(),tomorrow=r.schoolDays.includes(dayAfter(p.date))
   const labor=dayAfter(p.date.slice(0,4)+'-09-01',(8-new Date(p.date.slice(0,4)+'-09-01T00:00:00Z').getUTCDay())%7),summer=p.date>=p.date.slice(0,4)+'-06-01'&&p.date<=labor
   let daily=years<16?(school?180:480):1440,weekly=years<16?(schoolWeek?1080:2400):10080,earliest=years<16?420:0,latest=years<16?(summer?1260:1140):1440,days=7
-  if(r.state==='CA'){days=6;if(years>=16){daily=school?240:480;weekly=2880;earliest=300;latest=tomorrow?1320:1470}}
+  if(r.state==='CA'){days=6;if(years>=16){daily=school&&tomorrow?240:480;weekly=2880;earliest=300;latest=tomorrow?1320:1440}}
   if(r.state==='NY'){days=6;if(years>=16){daily=school&&day>=1&&day<=4?240:480;weekly=schoolWeek?1680:2880;earliest=360;latest=schoolWeek?1320:1440}}
   if(r.state==='IL'&&years<16){days=6;if(school)daily=Math.min(daily,480-(r.schoolEnd-r.schoolStart))}
   if(r.state==='WA'){days=6;if(years<16)weekly=schoolWeek?960:2400;else{daily=schoolWeek&&day>=1&&day<=4?240:480;weekly=schoolWeek?1200:2880;earliest=schoolWeek?420:300;latest=schoolWeek&&day!==5&&day!==6&&tomorrow?1320:1440}}
@@ -49,13 +50,16 @@ export function minorIssues(s:State,staffId:string,w:any,other?:any[],skip:strin
   if(r.state==='CO'&&years>=16){daily=480;weekly=2400}
   const a=wall(p.start,s.timezone),b=wall(p.end,s.timezone),from=Number(a.time.slice(0,2))*60+Number(a.time.slice(3)),until=b.date===p.date?Number(b.time.slice(0,2))*60+Number(b.time.slice(3)):1440
   const label=(n:number)=>String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')
-  if(from<earliest||until>latest)add(`outside permitted clock hours (${label(earliest)}–${label(latest)} venue time)`)
+  const lateCalifornia=r.state==='CA'&&years>=16&&!school&&from<30&&until<=30
+  if((from<earliest&&!lateCalifornia)||until>latest)add(`outside permitted clock hours (${label(earliest)}–${label(latest)} venue time)`)
   if(school&&years<16&&from<r.schoolEnd&&until>r.schoolStart)add('work overlaps configured school hours')
   if(r.state==='WA'&&school&&years>=16&&from<r.schoolEnd&&until>r.schoolStart)add('work overlaps configured school hours; school release is not recorded')
-  const dayMinutes=all.filter(x=>x.date===p.date).reduce((n,x)=>n+x.minutes,0)+candidate.filter(x=>x.date===p.date).reduce((n,x)=>n+x.minutes,0)
+  if(r.permitThrough&&p.date>r.permitThrough)add('recorded work permit has expired; employer validation required')
+  const dayMinutes=all.filter(x=>x.date===p.date).reduce((n,x)=>n+x.minutes,0)
   if(dayMinutes>daily)add(`${school?'school-day':'daily'} limit ${daily} minutes exceeded`)
-  const weekParts=[...all,...candidate].filter(x=>week(x.date)===week(p.date))
+  const weekParts=all.filter(x=>week(x.date)===week(p.date))
   if(weekParts.reduce((n,x)=>n+x.minutes,0)>weekly)add(`${schoolWeek?'school-week':'non-school-week'} limit ${weekly} minutes exceeded`)
+  if(r.state==='CO'&&rollingWork(all,Date.parse(p.start),Date.parse(p.end))>480+1e-8)add('rolling 24-hour limit 480 minutes exceeded')
   if(new Set(weekParts.map(x=>x.date)).size>days)add(`maximum ${days} workdays per week exceeded`)
  }
  return [...new Set(warnings)]
@@ -66,4 +70,11 @@ export function checkMinorAssignments(s:State,before:State){
 export function minorClock(s:State,staffId:string,at:string,shiftId:string|null){
  const shift=s.shifts.find(x=>x.id===shiftId),w:any={...shift,start:at,end:shift?.end&&shift.end>at?shift.end:new Date(Date.parse(at)+60000).toISOString()};w.minutes=(Date.parse(w.end)-Date.parse(at))/60000-(shift?.breakMinutes??0)
  return minorIssues(s,staffId,w,undefined,shift?[shift.id]:[])
+}
+
+/** Worked facts are always retained: flag a violation for review, never erase it. */
+export function minorTime(s:State,t:Record<string,any>,shiftId?:string|null){
+ const clock=s.clocks.find(k=>k.id===t.clockId)
+ const source=t.edited||t.corrects?t:t.captured?{...t,...t.captured}:t
+ return minorIssues(s,t.staffId,source,undefined,[shiftId,clock?.shiftId,t.segmentPlan?.shiftId].filter(Boolean))
 }

@@ -1,4 +1,4 @@
-import {minorClock,minorIssues} from './minors'
+import {minorClock,minorTime} from './minors'
 import {differentialBasis,differentialRules} from './differentials'
 // Gauge time's submitted -> approved revision flow, adapted to hours only;
 // Glove field capture preserves device time and command identity on retries.
@@ -36,7 +36,8 @@ export function approve(c:Context,submitted:Row) {
  const rated:Row={...r,job,site,segmentPlan:plan,workSegments,rateBasis:workSegments.length?segmentBasis(r.staffId,workSegments):retained(rateBasis(c.s,r.staffId,{...r,job,site}),job)}
  rated.differentialContext=old?.differentialContext??{role:c.s.staff.find(x=>x.id===r.staffId)?.position??'',tag:(c.s.shifts.find(x=>x.id===rated.segmentPlan?.shiftId)??c.s.shifts.find(x=>x.staffId===r.staffId&&x.status==='published'&&x.start<r.end&&x.end>r.start))?.label??''}
  const rules=differentialRules(c.s,rated)
- const approved={...rated,differentialRules:rules,differentialBasis:differentialBasis(c.s,rated,rules),holidayBasis:holidayBasis(c.s,rated),status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now}
+ const minorFlags=minorTime(c.s,rated)
+ const approved={...rated,exceptions:[...new Set([...(rated.exceptions??[]).filter((x:string)=>!x.startsWith('Minor work rule ')),...minorFlags])],differentialRules:rules,differentialBasis:differentialBasis(c.s,rated,rules),holidayBasis:holidayBasis(c.s,rated),status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now}
  // A bulk caller may catch a refusal: finish every check and calculation before changing either revision.
  if(old)put(c,'timesheets',{...old,status:'superseded',supersededBy:r.id},old)
  return put(c,'timesheets',approved,r)
@@ -66,6 +67,7 @@ function closeClock(c:Context,open:Row,at:string,breakMinutes:number,meal:unknow
  // BREAK-002: a cafe's automatic meal deduction, confirmed, reported missed or left unconfirmed by the employee.
  const m=mealAtClockOut(c.s,open,at,timedMeal||breakMinutes,meal,c.now),flags=[...(open.exceptions??[]),...m.exceptions,...(extra.provisional?['provisional close']:[])]
  const w=work({start:open.start,end:at,breakMinutes:m.breakMinutes});clearOverlap(c,open.staffId,w)
+ flags.push(...minorTime(c.s,{...open,...w},open.shiftId))
  const check=checkBreaks(c.s,open.staffId,open.shiftId,w,timed,words.waive),out=breakOutcome(check,{exceptions:flags}),all:string[]=out.exceptions??flags
  const facts={...(timed.length?{breaks:timed}:{}),...(check?.waiver?{breakWaiver:{text:WAIVER,by:c.a.id,at:c.now}}:{}),...(words.note?{breakAttestation:{text:ATTEST_BREAKS,note:words.note,by:c.a.id,at:c.now}}:{}),...(out.premiums?.length?{premiums:out.premiums}:{})}
  const entry=put(c,'timesheets',{staffId:open.staffId,...w,...roundAtCapture(c.s,open,at,w.breakMinutes,w.minutes),segmentPlan:transferPlan(c.s,open,at)??segmentPlan(c.s,open.staffId,w,open.shiftId),status:'submitted',reason,corrects:null,rootId:'',submittedBy:c.a.id,submittedAt:c.now,clockId:open.id,...(all.length?{exceptions:all}:{}),...(m.deduction?{mealDeduction:m.deduction}:{}),...(open.network?{network:open.network}:{}),...facts,...extra});entry.rootId=entry.id
@@ -75,7 +77,7 @@ function closeClock(c:Context,open:Row,at:string,breakMinutes:number,meal:unknow
 /** BREAK-001: changed time re-checked with its timed breaks while its meal minutes still match them. */
 function recheck(c:Context,r:Row,w:{start:string;end:string;breakMinutes:number}) {
  const shiftId=r.clockId?c.s.clocks.find(k=>k.id===r.clockId)?.shiftId:null
- return breakOutcome(checkBreaks(c.s,r.staffId,shiftId,w,timedFor(r,w.breakMinutes),Boolean(r.breakWaiver)),r)
+ return breakOutcome(checkBreaks(c.s,r.staffId,shiftId,w,timedFor(r,w.breakMinutes),Boolean(r.breakWaiver)),{...r,exceptions:[...(r.exceptions??[]).filter((x:string)=>!x.startsWith('Minor work rule ')),...minorTime(c.s,{...r,...w,edited:true})]})
 }
 export function time(c:Context,name:string,p:Record<string,any>) {
  if(name==='clock.in'||name==='clock.out') {
@@ -100,8 +102,7 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   const net=checkNetwork(c.s,currentOf(c.s,open).site,c.net),network=net.network?{...open.network,out:net.network}:open.network
   // CLOCK-006: clock-out answers join the clock-in ones on the punch and its timesheet; their flags become exceptions.
   const asked=answer(c,staffId,open.shiftId,'out',p.answers),answers=[...(open.answers??[]),...asked.answers],flags=[...net.exceptions,...asked.flags].filter(e=>!open.exceptions?.includes(e))
-  const minorFlags=minorIssues(c.s,staffId,{start:open.start,end:at,minutes:(Date.parse(at)-Date.parse(open.start))/60000-Number(p.breakMinutes)},undefined,open.shiftId?[open.shiftId]:[])
-  const done=closeClock(c,{...open,exceptions:[...(open.exceptions??[]),...flags,...minorFlags],...(network?{network}:{})},at,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,'Phone clock',answers.length?{answers}:{},breakWords(c,staffId,p))
+  const done=closeClock(c,{...open,exceptions:[...(open.exceptions??[]),...flags],...(network?{network}:{})},at,integer(p.breakMinutes,'breakMinutes',0,1440),p.meal,'Phone clock',answers.length?{answers}:{},breakWords(c,staffId,p))
   attach(c,asked.injuries,open.id);c.entity=done.timesheet.id;return done
  }
  if(name==='time.confirm') {
@@ -119,7 +120,7 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   if(old){need(old.staffId===staffId,'Correction must keep the same staff');need(old.status==='approved','Correct the latest approved time',409);need(!c.s.timesheets.some(t=>t.corrects===old.id),'A correction already exists for this revision',409)}
   clearOverlap(c,staffId,w,old?.rootId)
   // BREAK-001: entered time is checked by its meal minutes; rest breaks are unknown without timed breaks.
-  const r=put(c,'timesheets',{job:p.job===undefined?old?.job??'':text(p.job,'job',80,true),site:p.site===undefined?old?.site??'':text(p.site,'site',80,true),staffId,...w,segmentPlan:old?.segmentPlan??segmentPlan(c.s,staffId,w),reason,corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,...breakOutcome(checkBreaks(c.s,staffId,null,w))});if(!old)r.rootId=r.id
+  const r=put(c,'timesheets',{job:p.job===undefined?old?.job??'':text(p.job,'job',80,true),site:p.site===undefined?old?.site??'':text(p.site,'site',80,true),staffId,...w,segmentPlan:old?.segmentPlan??segmentPlan(c.s,staffId,w),reason,corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,...breakOutcome(checkBreaks(c.s,staffId,null,w),{exceptions:minorTime(c.s,{staffId,...w,corrects:old?.id,rootId:old?.rootId})})});if(!old)r.rootId=r.id
   return {...r,approvalRequired:'time.approve',approval:{id:r.id,revision:r.revision}}
  }
  if(name==='time.edit') {
@@ -137,7 +138,7 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   const old=p.corrects?get(c.s,'timesheets',p.corrects):undefined
   if(old){need(old.staffId===staffId,'Only your own time',403);need(old.status==='approved','Correct the latest approved time',409);need(!c.s.timesheets.some(t=>t.corrects===old.id),'A correction already exists for this revision',409)}
   clearOverlap(c,staffId,w,old?.rootId)
-  const r=put(c,'timesheets',{staffId,...w,segmentPlan:old?.segmentPlan??segmentPlan(c.s,staffId,w),reason:text(p.reason,'reason',500),corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,requested:true,...breakOutcome(checkBreaks(c.s,staffId,null,w),{exceptions:[old?'employee correction':'missed punch']}),...attestation(c,staffId,p.attest,true)});if(!old)r.rootId=r.id
+  const r=put(c,'timesheets',{staffId,...w,segmentPlan:old?.segmentPlan??segmentPlan(c.s,staffId,w),reason:text(p.reason,'reason',500),corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,requested:true,...breakOutcome(checkBreaks(c.s,staffId,null,w),{exceptions:[old?'employee correction':'missed punch',...minorTime(c.s,{staffId,...w,corrects:old?.id,rootId:old?.rootId})]}),...attestation(c,staffId,p.attest,true)});if(!old)r.rootId=r.id
   return r
  }
  if(name==='time.acknowledge') {
