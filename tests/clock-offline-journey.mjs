@@ -10,8 +10,8 @@ export async function offlineJourney() {
   const alex=await h.person('Alex'),priya=await h.person('Priya','manager')
   for(const person of [alex,priya])await h.cmd('staff.save',{id:person.id,revision:person.revision,name:person.name,email:person.email,payrollId:person.payrollId,role:person.role,active:true,site:'Ocean Beach'})
   await h.cmd('photo.save',{site:'Ocean Beach',native:true,breaks:true,retentionDays:30,consent:true})
-  await h.cmd('roundrule.save',{site:'',from:'2026-10-01',method:'nearest',increment:15,apply:'capture'})
-  await h.cmd('roundrule.save',{site:'',from:'2026-10-13',method:'nearest',increment:5,apply:'capture'})
+  await h.cmd('roundrule.save',{site:'Ocean Beach',from:'2026-10-01',method:'nearest',increment:15,apply:'capture'})
+  await h.cmd('roundrule.save',{site:'Ocean Beach',from:'2026-10-13',method:'nearest',increment:5,apply:'capture'})
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
   const context=await browser.newContext({viewport:{width:390,height:1000},permissions:['camera']})
   context.setDefaultTimeout(20000)
@@ -98,7 +98,7 @@ export async function offlineJourney() {
   disconnected=true
   await capture('2026-10-13T14:00:00Z','Clock in')
   await page.waitForFunction(()=>document.querySelectorAll('[data-clock-events] li').length===1)
-  await h.cmd('staff.save',{id:alex.id,revision:2,name:alex.name,email:alex.email,payrollId:'ALEX',role:'staff',active:false})
+  await h.cmd('staff.save',{id:alex.id,revision:2,name:alex.name,email:alex.email,payrollId:'ALEX',role:'staff',active:false,site:'Ocean Beach'})
   disconnected=false
   // Access was revoked while the employee was offline: no employee retry precedes manager sign-in.
   await h.cmd('clock.in',{commandId:'revoked-direct',capturedAt:'2026-10-13T14:00:00Z'},alex.cookie,403)
@@ -124,7 +124,7 @@ export async function offlineJourney() {
   assert.equal(reports.length,2)
   assert.ok(reports.every(r=>!('photo' in r.capture.input)&&!('photoConsent' in r.capture.input)),'rejected and revoked capture reports contain punch facts, never image bytes or consent metadata')
   assert.ok(reports.some(r=>r.capture.input.capturedAt==='2026-10-13T14:00:00.000Z'&&r.status==='unresolved'))
-  await h.cmd('staff.save',{id:alex.id,revision:2,name:alex.name,email:alex.email,payrollId:'ALEX',role:'staff',active:true})
+  await h.cmd('staff.save',{id:alex.id,revision:3,name:alex.name,email:alex.email,payrollId:'ALEX',role:'staff',active:true,site:'Ocean Beach'})
   await context.addCookies([{name,value:value.join('='),url:h.origin}])
   await page.close();page=await context.newPage();await open()
   await page.waitForFunction(()=>document.querySelector('[data-clock-events]').textContent.includes('Unresolved'))
