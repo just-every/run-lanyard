@@ -1,5 +1,5 @@
 import {type State,type Context,type Row,keys,text,need,integer,put,get,exact,window,overlap,canonical,self} from './model'
-import {sickPresets} from './sick-presets'
+import {sickPreset} from './sick-presets'
 import {date,dayAfter} from './aca'
 import {localDate} from './settings'
 import {priced,rateAt} from './workforce'
@@ -37,10 +37,11 @@ function useAllowed(c:Context,u:any,minutes:number){
 export function sickCommand(c:Context,name:string,p:Record<string,any>){
  if(!name.startsWith('sick'))return
  if(name==='sickpolicy.save'){
-  need(c.a.role==='owner','Owner required',403);keys(p,['id','revision','site','from','preset','code','denominator','annualAccrual','bankCap','carry','annualUse','wait','increment','reasons'])
+  need(c.a.role==='owner','Owner required',403);keys(p,['id','revision','site','from','preset','code','denominator','annualAccrual','bankCap','carry','annualUse','wait','increment','reasons','normalDayMinutes'])
   const site=text(p.site,'cafe',80),old=c.s.sickpolicies.find(x=>x.site===site);if(old){need(p.id===old.id,'Reload the existing policy',409);exact(old,p)}
   const from=date(p.from,'effective date');need(!old||from>old.from,'New versions take effect after the prior version',409)
-  const preset=sickPresets.find(x=>x.id===p.preset)
+  const normalDayMinutes=integer(Number(p.normalDayMinutes??480),'longest normal workday minutes',1,1440)
+  const preset=sickPreset(p.preset,normalDayMinutes)
   need(preset||p.preset==='employer','Choose a listed preset or employer-configured')
   const cap=(v:any,label:string)=>v===''||v===null||v===undefined?null:integer(Number(v),label,0,60000)
   const custom=preset??{denominator:integer(Number(p.denominator),'worked minutes per leave minute',1,840),annualAccrual:cap(p.annualAccrual,'annual accrual cap'),bankCap:cap(p.bankCap,'bank cap'),carry:cap(p.carry,'carryover cap'),annualUse:cap(p.annualUse,'annual use cap'),wait:integer(Number(p.wait),'waiting days',0,365),increment:integer(Number(p.increment),'usage increment',1,480),reasons:['employer-approved'],source:'Employer configuration',version:'employer',label:'Employer-configured, unmaintained'}

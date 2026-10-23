@@ -5,13 +5,13 @@ import {chromium} from '@playwright/test'
 import {harness} from './harness.mjs'
 import {pin,local} from './workforce-journey.mjs'
 const add=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10)
-export async function sickFixture(h,preset='CA',count=2,workedHours=48){
+export async function sickFixture(h,preset='CA',count=2,workedHours=48,options={}){
  const alex=await h.person('Alex'),ben=await h.person('Ben'),morgan=await h.person('Morgan','manager')
  for(const p of [alex,ben,morgan])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site:'Ocean Beach',position:'Service',hourlyRate:'20.00',startDate:'2020-01-01'})
- const policy=await h.cmd('sickpolicy.save',{site:'Ocean Beach',from:'2025-01-01',preset,code:'SICK-'+preset})
+ const policy=await h.cmd('sickpolicy.save',{site:'Ocean Beach',from:'2025-01-01',preset,code:'SICK-'+preset,...(options.normalDayMinutes?{normalDayMinutes:options.normalDayMinutes}:{})})
  const entries=[]
  for(let i=0;i<count;i++){
-  const start=local(add('2025-01-01',i*7),'00:00'),end=new Date(Date.parse(start)+workedHours*3600000).toISOString()
+  const start=local(add('2025-01-01',i*(options.spacingDays??7)),'00:00'),end=new Date(Date.parse(start)+workedHours*3600000).toISOString()
   const t=await h.cmd('time.prepare',{staffId:alex.id,start,end,site:'Ocean Beach',breakMinutes:0,reason:'Synthetic approved work for annual accrual reconciliation'})
   entries.push(await h.cmd('time.approve',pin(t)))
  }
@@ -19,7 +19,7 @@ export async function sickFixture(h,preset='CA',count=2,workedHours=48){
  return {alex,ben,morgan,policy,entries,request:{policyId:policy.id,start:local('2026-01-09','09:00'),end:local('2026-01-09','11:00'),minutes:120,purpose:policy.reasons[0]}}
 }
 export async function sickApi(){
- const cases=[['CA',4800,4800],['CO',2880,2880],['IL',2400,2400],['NY',3360,3360],['OR',2400,2400],['WA',3744,2400],['NYC',3360,3360],['CHICAGO',2400,2400],['SEATTLE',4992,4320],['SF',4800,4800],['LA',4800,4800],['PHILADELPHIA',2400,2400]]
+ const cases=[['CA',4800,4800],['CO',2880,2880],['IL',2400,2400],['NY',3360,3360],['NY40',2400,2400],['OR',2400,2400],['WA',3744,2400],['NYC',3360,3360],['NYC40',2400,2400],['CHICAGO',2400,2400],['SEATTLE',4992,4320],['SEATTLE1',3744,2400],['SEATTLE2',3744,3360],['SF',4800,4800],['LA',4800,4800],['PHILADELPHIA',2400,2400]]
  for(const [preset,earned,carried]of cases){const h=await harness();try{
   const f=await sickFixture(h,preset,52),{alex,ben,morgan,policy,entries,request}=f
   const report=async on=>{const r=await h.send('/api/lanyard/sick-balances?asOf='+on,undefined,h.owner);assert.equal(r.status,200,r.text);return r.value.find(x=>x.staffId===alex.id&&x.policyId===policy.id)}
@@ -70,6 +70,7 @@ export async function sickApi(){
    await h.cmd('earnings.save',{estimates:false,statementUrl:'',payDays:''});const hidden=await h.state(alex.cookie);assert.ok(hidden.sickBalances.every(b=>b.sources.every(s=>s.rateCents===undefined&&s.costCents===undefined)));assert.ok(hidden.sickuses.every(u=>u.rateCents===undefined&&u.costCents===undefined))
   }
  }finally{await h.close()}}
+ await sickDayFloors()
 }
 export async function sickBrowser(){
  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
@@ -78,11 +79,38 @@ export async function sickBrowser(){
  await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
  const as=async cookie=>{const [name,...value]=cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])}
  const shot=async name=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.C35_SCREENS){await mkdir(process.env.C35_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C35_SCREENS,`${name}-${width}.png`)})}}
- await as(h.owner);await page.goto(h.origin+'/app/payroll',{waitUntil:'networkidle'});const card=page.locator('#sick-policies');await card.getByText('Add a leave policy',{exact:true}).click();const form=card.locator('form').filter({has:page.getByRole('button',{name:'Save leave policy',exact:true})}).last();await form.getByLabel('Cafe',{exact:true}).fill('Unlisted city');await form.getByLabel('Effective from',{exact:true}).fill('2025-01-01');await form.getByLabel('Jurisdiction preset').selectOption('employer');await form.getByLabel('Mapped leave payroll code').fill('CUSTOM');await Promise.all([page.waitForResponse(r=>r.url().includes('name=sickpolicy.save')),form.getByRole('button',{name:'Save leave policy',exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);await page.locator('#sick-policies').getByText('Unlisted city · employer · 2025-01-01',{exact:true}).click();assert.ok((await page.locator('#sick-policies').innerText()).includes('Employer-configured, unmaintained'));await page.locator('#sick-policies').scrollIntoViewIfNeeded();await shot('sick-policy')
+ await as(h.owner);await page.goto(h.origin+'/app/payroll',{waitUntil:'networkidle'});const card=page.locator('#sick-policies');await card.getByText('Add a leave policy',{exact:true}).click();const form=card.locator('form').filter({has:page.getByRole('button',{name:'Save leave policy',exact:true})}).last();await form.getByLabel('Cafe',{exact:true}).fill('Unlisted city');await form.getByLabel('Effective from',{exact:true}).fill('2025-01-01');await form.getByLabel('Jurisdiction preset').selectOption('employer');await form.getByLabel('Mapped leave payroll code').fill('CUSTOM');await form.getByLabel('Longest normal workday at this cafe (minutes)').fill('600');await Promise.all([page.waitForResponse(r=>r.url().includes('name=sickpolicy.save')),form.getByRole('button',{name:'Save leave policy',exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);await page.locator('#sick-policies').getByText('Unlisted city · employer · 2025-01-01',{exact:true}).click();assert.ok((await page.locator('#sick-policies').innerText()).includes('Employer-configured, unmaintained'));await page.locator('#sick-policies').scrollIntoViewIfNeeded();await shot('sick-policy')
  await as(f.alex.cookie);await page.goto(h.origin+'/app/time?week=2026-01-05',{waitUntil:'networkidle'});await page.locator('#sick-own').getByText('Request partial-day paid leave',{exact:true}).click();const request=page.locator('#sick-own form');await request.getByLabel('Absence begins').fill('2026-01-09T09:00');await request.getByLabel('Absence ends').fill('2026-01-09T11:00');await request.getByLabel('Paid minutes',{exact:true}).fill('120');await Promise.all([page.waitForResponse(r=>r.url().includes('name=sick.request')),request.getByRole('button',{name:'Request paid leave'}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);assert.ok((await page.locator('#sick-own').innerText()).includes('2.0 hrs pending'));await page.locator('#sick-own').scrollIntoViewIfNeeded();await shot('sick-own-request')
  await as(h.owner);await page.goto(h.origin+'/app/payroll',{waitUntil:'networkidle'});const approve=page.locator('#sick-policies form').filter({has:page.getByRole('button',{name:'Approve paid leave',exact:true})});await approve.getByLabel('Paid-service source reference').fill('synthetic-lanyard-7');await Promise.all([page.waitForResponse(r=>r.url().includes('name=sick.decide')),approve.getByRole('button',{name:'Approve paid leave',exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);await page.locator('#sick-policies').scrollIntoViewIfNeeded();await shot('sick-approved')
  const batch=await h.cmd('payroll.prepare',{});await h.cmd('payroll.export',pin(batch));await page.reload({waitUntil:'networkidle'});assert.ok((await page.locator('.batch').first().innerText()).includes('paid leave, not worked time'));await page.locator('.batch').first().scrollIntoViewIfNeeded();await shot('sick-export')
  const account=page.locator('summary[aria-label="Account"]');await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'});await shot('sick-tooltip')
  await as(f.alex.cookie);await page.goto(h.origin+'/app/time?week=2026-01-05',{waitUntil:'networkidle'});assert.ok((await page.locator('#earnings').innerText()).includes('Paid sick / safe leave (approved)'));assert.ok((await page.locator('#earnings').innerText()).includes('$40.00'));await page.locator('#earnings').scrollIntoViewIfNeeded();await shot('sick-earnings')
  }finally{await context.close();await h.close()}}}finally{await browser.close()}
+}
+
+async function sickDayFloors(){
+ const h=await harness()
+ try{
+  const {alex,policy}=await sickFixture(h,'CA',78,48,{normalDayMinutes:600,spacingDays:4})
+  assert.deepEqual([policy.annualUse,policy.bankCap,policy.carry],[3000,6000,6000],'five and ten ten-hour normal days exceed the hour floors')
+  const report=(await h.send('/api/lanyard/sick-balances?asOf=2026-01-01',undefined,h.owner)).value.find(r=>r.staffId===alex.id)
+  assert.equal(report.balanceMinutes,6000,'100-hour bank survives the year boundary')
+  for(let i=0;i<5;i++){
+   const day=add('2026-01-09',i),use=await h.cmd('sick.request',{policyId:policy.id,start:local(day,'08:00'),end:local(day,'18:00'),minutes:600,purpose:'illness'},alex.cookie)
+   await h.cmd('sick.decide',{...pin(use),decision:'approved',reference:'synthetic-lanyard-30-'+i})
+  }
+  const capped=await h.cmd('sick.request',{policyId:policy.id,start:local('2026-01-15','09:00'),end:local('2026-01-15','10:00'),minutes:60,purpose:'illness'},alex.cookie,409)
+  assert.match(capped.error,/Annual paid-leave use limit/)
+  const batch=await h.cmd('payroll.prepare',{}),leave=batch.lines.filter(l=>l.sickLine)
+  assert.equal(leave.reduce((n,l)=>n+l.minutes,0),3000)
+  for(const preset of ['SF','LA']){
+   const localPolicy=await h.cmd('sickpolicy.save',{site:preset,from:'2025-01-01',preset,normalDayMinutes:600,code:'SICK-'+preset})
+   assert.equal(localPolicy.bankCap,6000);assert.equal(localPolicy.carry,6000)
+   assert.equal(localPolicy.annualUse,preset==='SF'?null:3000)
+  }
+  const next=await h.cmd('sickpolicy.save',{...pin(policy),site:policy.site,from:'2026-02-01',preset:'CA',normalDayMinutes:480,code:'SICK-CA'})
+  assert.equal(next.versions[0].normalDayMinutes,600,'effective changes retain the old day floor')
+  const old=(await h.send('/api/lanyard/sick-balances?asOf=2026-01-14',undefined,h.owner)).value.find(r=>r.policyId===policy.id&&r.staffId===alex.id)
+  assert.equal(old.annualUsed,3000);assert.equal(old.balanceMinutes,3000)
+ }finally{await h.close()}
 }
