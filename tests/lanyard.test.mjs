@@ -181,6 +181,21 @@ test('managers see base wages only for staff at their own cafe', () => run(async
   assert.equal((await h.state()).staff.find(p => p.id === lee.id).hourlyRateCents, 3721)
 }))
 
+test('bulk approval uses the manager’s cafe when a foreign or omitted site filter is supplied', () => run(async h => {
+  const priya = await h.person('Priya', 'manager'), lee = await h.person('Lee')
+  const place = (p, site) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site })
+  await place(priya, 'Ocean Beach')
+  await place(lee, 'North Park')
+  const foreign = await h.cmd('time.prepare', { staffId: lee.id, start: '2026-10-12T14:00:00Z', end: '2026-10-12T22:00:00Z', breakMinutes: 30, reason: 'Missed clock-in' })
+  for (const filter of [{ site: 'North Park' }, {}]) {
+    const result = await h.cmd('time.approveMany', { ...filter, items: [{ id: foreign.id, revision: foreign.revision }] }, priya.cookie)
+    assert.deepEqual(result.approved, [])
+    assert.equal(result.skipped[0].reason, 'Outside your cafe')
+  }
+  const stored = (await h.state()).timesheets.find(t => t.id === foreign.id)
+  assert.deepEqual([stored.status, stored.revision], ['submitted', 1])
+}))
+
 test('TIME-008: a manager filters a 60-person week to clean timesheets and approves the shown revisions at once; changed, own, foreign-cafe and unfiltered items are skipped with reasons', () => run(async h => {
   const place = (p, site) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site })
   const clocked = async (p, d) => {
