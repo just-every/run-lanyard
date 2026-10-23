@@ -84,7 +84,7 @@ export async function photoApi(h){
  await h.restart();assert.equal((await h.state()).photoreceipts.filter(p=>p.erasedAt).length,4)
 }
 export async function photoBrowser(){
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic','--use-fake-device-for-media-stream']})
+ const browser=await chromium.launch({headless:true,channel:'chromium',args:['--use-mock-keychain','--password-store=basic','--use-fake-device-for-media-stream']})
  try{for(const width of [1440,390]){const h=await harness({secure:true}),context=await browser.newContext({viewport:{width,height:1000},ignoreHTTPSErrors:true})
  try{await context.addInitScript(()=>{window.photoStreams=[];const real=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);navigator.mediaDevices.getUserMedia=async p=>{const stream=await real(p);window.photoStreams.push(stream);return stream}});const f=await photoFixture(h),page=await context.newPage();await context.grantPermissions(['camera'],{origin:h.origin})
  await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
