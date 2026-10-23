@@ -43,11 +43,12 @@ export async function photoCommand(c:Context,name:string,p:any){
  if(!['photo.save','photo.hold','photo.erase'].includes(name))return
  need(c.a.role==='owner','Only the owner administers photo custody',403)
  if(name==='photo.save'){
-  keys(p,['site','native','breaks','retentionDays','consent','revision']);const site=text(p.site,'site',80),old=photoRule(c.s,site);if(old)need(Number(p.revision)===old.revision,'Photo policy changed; reload',409)
+  keys(p,['site','native','kiosk','breaks','retentionDays','consent','revision']);const site=text(p.site,'site',80),old=photoRule(c.s,site);if(old)need(Number(p.revision)===old.revision,'Photo policy changed; reload',409)
   need([true,false,'true','false'].includes(p.native)&&[true,false,'true','false'].includes(p.breaks),'Choose explicit native and break photo settings')
+  need(p.kiosk===undefined||[true,false,'true','false'].includes(p.kiosk),'Choose an explicit kiosk photo setting')
   need(p.consent===true||p.consent==='on','Explicit employer approval is required',403)
   const {versions,...prior}:any=old??{}
-  return put(c,'photopolicies',{site,native:p.native===true||p.native==='true',breaks:p.breaks===true||p.breaks==='true',retentionDays:integer(Number(p.retentionDays),'retention days',1,3650),by:c.a.id,at:c.now,versions:old?[...(versions??[]),prior]:[]},old)
+  return put(c,'photopolicies',{site,native:p.native===true||p.native==='true',kiosk:p.kiosk===true||p.kiosk==='true',breaks:p.breaks===true||p.breaks==='true',retentionDays:integer(Number(p.retentionDays),'retention days',1,3650),by:c.a.id,at:c.now,versions:old?[...(versions??[]),prior]:[]},old)
  }
  const staffId=text(p.staffId,'staff ID'),person=c.s.staff.find(p=>p.id===staffId);need(person,'Person not found',404)
  if(name==='photo.hold'){

@@ -67,12 +67,12 @@ export async function kioskResponse(request:Request,env:Bindings):Promise<Respon
   if(path==='/api/lanyard/kiosk/signout'&&request.method==='POST'){
    await env.DB.prepare('UPDATE l_kiosk_sessions SET revoked_at=? WHERE token_hash=?').bind(new Date().toISOString(),current.hash).run();const response=json({signedOut:true});response.headers.set('set-cookie',cookie(SESSION,'',0));return response
   }
-  const s=await load(env.DB),language=s.clocklanguages.find(x=>x.staffId===current.a.staffId)?.language??'en'
-  if(path==='/api/lanyard/kiosk/state'&&request.method==='GET')return json({actorId:current.a.id,staffId:current.a.staffId,deviceId:d.id,language,photoRequired:Boolean(d.photo),site:d.site,jobs:s.jobs.filter(j=>!s.workforce.find(w=>w.staffId===current.a.staffId)?.jobs.length||s.workforce.find(w=>w.staffId===current.a.staffId)?.jobs.includes(j.id)).map(j=>({id:j.id,name:j.name})),clocks:s.clocks.filter(k=>k.staffId===current.a.staffId),receipts:s.kioskreceipts.filter(k=>k.staffId===current.a.staffId)})
+  const s=await load(env.DB),photoRequired=Boolean(d.photo||s.photopolicies.find(p=>p.site===d.site)?.kiosk),language=s.clocklanguages.find(x=>x.staffId===current.a.staffId)?.language??'en'
+  if(path==='/api/lanyard/kiosk/state'&&request.method==='GET')return json({actorId:current.a.id,staffId:current.a.staffId,deviceId:d.id,language,photoRequired,site:d.site,jobs:s.jobs.filter(j=>!s.workforce.find(w=>w.staffId===current.a.staffId)?.jobs.length||s.workforce.find(w=>w.staffId===current.a.staffId)?.jobs.includes(j.id)).map(j=>({id:j.id,name:j.name})),clocks:s.clocks.filter(k=>k.staffId===current.a.staffId),receipts:s.kioskreceipts.filter(k=>k.staffId===current.a.staffId)})
   if(path==='/api/lanyard/kiosk/capture'&&request.method==='POST'){
    keys(p,['name','input','photo','photoConsent','photoFailure']);need(['clock.in','clock.out','clock.breakStart','clock.breakEnd','clock.transfer'].includes(p.name),'Kiosk may capture time only',403)
    need(!p.input?.site||p.input.site===d.site,'Device is not approved for this cafe',403)
-   const result=await command(env.DB,current.a,p.name,p.input,env.SESSION_SECRET,{...await networkOf(request,env),browsers:[{id:d.id,site:d.site}]},env.FILES,{deviceId:d.id,sessionHash:current.hash,site:d.site,language,photoRequired:Boolean(d.photo),photo:p.photo,photoFailure:p.photoFailure,photoConsent:p.photoConsent===true})
+   const result=await command(env.DB,current.a,p.name,p.input,env.SESSION_SECRET,{...await networkOf(request,env),browsers:[{id:d.id,site:d.site}]},env.FILES,{deviceId:d.id,sessionHash:current.hash,site:d.site,language,photoRequired,photo:p.photo,photoFailure:p.photoFailure,photoConsent:p.photoConsent===true})
    return json(result)
   }
   return json({error:'Not found'},404)

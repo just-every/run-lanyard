@@ -26,11 +26,11 @@ async function checkout(root) {
 }
 // Pacific Monday Oct 12, 2026, 7:00 am – 3:00 pm PDT; the 45-minute break is a later agreed correction.
 const work = staffId => ({ staffId, start: '2026-10-12T14:00:00Z', end: '2026-10-12T22:00:00Z', breakMinutes: 30 })
-test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRULE-003 and TRADEOFF-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
-  const temporary = await mkdtemp(join(tmpdir(),'lanyard-archive-')), source=join(temporary,'source'), restored=join(temporary,'restored'), erased=join(temporary,'erased')
+test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRULE-003, CLOCK-005 and TRADEOFF-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
+  const temporary = await mkdtemp(join(tmpdir(),'lanyard-archive-')), source=join(temporary,'source'), restored=join(temporary,'restored'), erased=join(temporary,'erased'),photoErased=join(temporary,'photo-erased')
   let h
   try {
-    for (const path of [source,restored,erased]) await checkout(path)
+    for (const path of [source,restored,erased,photoErased]) await checkout(path)
     await exec(process.execPath, [resolve('node_modules/wrangler/bin/wrangler.js'),'d1','migrations','apply','foundation','--local'], { cwd:source, env:{...process.env,CI:'true',WRANGLER_SEND_METRICS:'false'}, maxBuffer:2e6 })
     h=await harness({root:source})
     const p=await h.cmd('staff.save',{name:'Temporary joiner',email:'temporary@venue.example',payrollId:'TEMP',role:'staff',active:false})
@@ -79,6 +79,12 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     const login=await h.send('/api/lanyard/kiosk/signin',{email:kioskPerson.email,pin:'123456'},enrolled.cookie),kioskCookie=enrolled.cookie+'; '+login.cookie
     const punch=await h.send('/api/lanyard/kiosk/capture',{name:'clock.in',input:{commandId:crypto.randomUUID(),capturedAt:'2026-10-13T14:00:00Z'},photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true},kioskCookie)
     assert.equal(punch.status,200,punch.text);const photoId=punch.value.result.kioskReceipt.photoId
+    const kioskOut=await h.send('/api/lanyard/kiosk/capture',{name:'clock.out',input:{commandId:'synthetic-lanyard-50',capturedAt:'2026-10-13T15:00:00Z',breakMinutes:0},photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true},kioskCookie)
+    assert.equal(kioskOut.status,200,kioskOut.text)
+    const photoPolicy=await h.cmd('photo.save',{site:'Archive cafe',native:true,kiosk:true,breaks:true,retentionDays:1,consent:true})
+    const nativePhoto=await h.cmd('clock.in',{commandId:'synthetic-lanyard-51',capturedAt:'2026-10-14T14:00:00Z',photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true,photoNoticeSeen:true},kioskPerson.cookie)
+    const nativeOut=await h.cmd('clock.out',{commandId:'synthetic-lanyard-52',capturedAt:'2026-10-14T15:00:00Z',breakMinutes:0,photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true,photoNoticeSeen:true},kioskPerson.cookie)
+    const photoIds=[photoId,kioskOut.value.result.kioskReceipt.photoId,nativePhoto.photoReceipt.photoId,nativeOut.photoReceipt.photoId]
     const originalChat=(await h.send('/api/lanyard/chat',undefined,h.owner)).value,originalAccess=(await h.send('/api/lanyard/access',undefined,h.owner)).value
     const journal=await h.cmd('import.journal',{jobId:imported.job.id}),original=await h.state()
     const identity={auth:h.auth,owner:h.owner}
@@ -101,9 +107,10 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.equal((await h.send('/api/lanyard/kiosk/signin',{email:kioskPerson.email,pin:'123456'},enrolled.cookie)).status,403)
     assert.deepEqual((await h.send('/api/lanyard/chat',undefined,owner)).value,originalChat)
     assert.deepEqual((await h.send('/api/lanyard/access',undefined,owner)).value,originalAccess)
-    assert.deepEqual(back.kioskreceipts,original.kioskreceipts)
+    for(const kind of ['kioskreceipts','photoreceipts','photopolicies','photonotices'])assert.deepEqual(back[kind],original[kind],kind)
     const photo=await h.mf.dispatchFetch(h.origin+'/api/lanyard/kiosk-photos/'+photoId,{headers:{cookie:owner}})
     assert.equal(photo.status,200);assert.deepEqual([...new Uint8Array(await photo.arrayBuffer())],[255,216,255,217])
+    for(const id of photoIds){const r=await h.mf.dispatchFetch(h.origin+'/api/lanyard/kiosk-photos/'+id,{headers:{cookie:owner}});assert.equal(r.status,200);assert.deepEqual([...new Uint8Array(await r.arrayBuffer())],[255,216,255,217])}
     assert.equal((await h.send('/api/lanyard/agent/fairness/compare?week=2026-10-12&site=synthetic-scope-cafe',undefined,'',{authorization:`Bearer ${agentKey.token}`})).status,401)
     const freshKey=await h.cmd('agent.create',{label:'Restored preparation only'},owner);assert.deepEqual(freshKey.scopes,[]);assert.deepEqual(freshKey.cafes,[])
     assert.equal((await h.send('/api/lanyard/agent/fairness/compare?week=2026-10-12&site=synthetic-scope-cafe',undefined,'',{authorization:`Bearer ${freshKey.token}`})).status,404)
@@ -124,7 +131,27 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     h=await harness({root:source,...identity});const reopened=await h.signIn(h.auth.OWNER_EMAIL)
     // Activity survives a restart of the same installation.
     assert.deepEqual((await h.state(reopened)).events.map(e=>e.id),original.events.map(e=>e.id))
-    await h.cmd('staff.erase',{id:p.id,revision:1},reopened);await h.close();h=null
+    // Photo erasure alone fences older backups before any identity is erased.
+    await h.cmd('photo.hold',{staffId:kioskPerson.id,hold:true,reason:'Archive hold proof'},reopened)
+    await h.cmd('photo.erase',{staffId:kioskPerson.id,mode:'retention',consent:true,reason:'Expired photo archive proof'},reopened,409)
+    await h.cmd('photo.hold',{staffId:kioskPerson.id,hold:false,reason:'Employer released archive hold'},reopened)
+    const employee=(await h.state(reopened)).staff.find(x=>x.id===kioskPerson.id)
+    await h.cmd('staff.save',{id:employee.id,revision:employee.revision,name:employee.name,email:employee.email,payrollId:employee.payroll_id,role:employee.role,site:employee.site,active:false},reopened)
+    const erasure=await h.cmd('photo.erase',{staffId:kioskPerson.id,mode:'former',consent:true,reason:'Former employee expired photo bytes'},reopened)
+    assert.equal(erasure.erased,4)
+    const photoLater=join(temporary,'photo-later.rer')
+    await h.close();h=null
+    await command(source,['export','--output',photoLater,'--no-queue'])
+    await command(photoErased,['import','--input',old,'--journal',photoLater,'--yes','--no-queue'],4)
+    await command(photoErased,['import','--input',photoLater,'--yes','--no-queue'])
+    h=await harness({root:photoErased,...identity});const photoOwner=await h.signIn(h.auth.OWNER_EMAIL),photoBack=await h.state(photoOwner)
+    for(const id of photoIds)assert.equal((await h.send('/api/lanyard/kiosk-photos/'+id,undefined,photoOwner)).status,404)
+    assert.ok(photoBack.photoreceipts.every(r=>r.photoId===null&&r.erasedAt))
+    assert.ok(photoBack.kioskreceipts.every(r=>r.photoId===null&&r.erasedAt))
+    for(const id of [kioskOut.value.result.timesheet.id,nativeOut.timesheet.id]){const t=photoBack.timesheets.find(t=>t.id===id);assert.equal(t.minutes,60);assert.equal(t.photoReview.length,2);assert.ok(t.photoReview.every(p=>!p.photoId&&p.erasedAt))}
+    await h.close();h=null
+    h=await harness({root:source,...identity});const erasedOwner=await h.signIn(h.auth.OWNER_EMAIL)
+    await h.cmd('staff.erase',{id:p.id,revision:1},erasedOwner);await h.close();h=null
     await command(source,['export','--output',later,'--no-queue'])
     await command(erased,['import','--input',old,'--journal',later,'--yes','--no-queue'],4)
     await command(erased,['import','--input',later,'--yes','--no-queue'])

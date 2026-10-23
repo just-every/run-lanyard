@@ -6,6 +6,8 @@ export function clockLanguage(c:Context,name:string,p:Record<string,any>){if(nam
 /** This runs before saved-command lookup, so a revoked device cannot replay even an old result. */
 export async function kioskCheck(c:Context,name:string,p:Record<string,any>){
  const k=c.kiosk;if(!k)return
+ // Recheck site-wide employer policy inside the same state revision as capture.
+ k.photoRequired=Boolean(k.photoRequired||c.s.photopolicies.find(p=>p.site===k.site)?.kiosk)
  const current=await c.db.prepare(`SELECT 1 FROM l_kiosk_sessions k JOIN l_kiosk_devices d ON d.id=k.device_id JOIN l_staff s ON s.id=k.staff_id JOIN l_kiosk_pins p ON p.staff_id=s.id WHERE k.token_hash=? AND d.id=? AND k.revoked_at IS NULL AND k.expires_at>? AND d.revoked_at IS NULL AND d.locked=0 AND s.active=1 AND s.erased_at IS NULL AND s.version=k.staff_version AND p.version=k.pin_version AND s.site=d.site`).bind(k.sessionHash,k.deviceId,Date.now()).first()
  need(current,'Kiosk access was revoked',403)
  const open=c.s.clocks.find(x=>x.staffId===c.a.staffId&&x.status==='open'),shift=name==='clock.in'?c.s.shifts.find(x=>x.id===checkClockIn(c.s,c.a.staffId!,String(p.capturedAt)).shiftId):undefined
