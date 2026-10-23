@@ -26,11 +26,11 @@ async function checkout(root) {
 }
 // Pacific Monday Oct 12, 2026, 7:00 am – 3:00 pm PDT; the 45-minute break is a later agreed correction.
 const work = staffId => ({ staffId, start: '2026-10-12T14:00:00Z', end: '2026-10-12T22:00:00Z', breakMinutes: 30 })
-test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRULE-003, CLOCK-005 and TRADEOFF-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
-  const temporary = await mkdtemp(join(tmpdir(),'lanyard-archive-')), source=join(temporary,'source'), restored=join(temporary,'restored'), erased=join(temporary,'erased'),photoErased=join(temporary,'photo-erased')
+test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRULE-003, CLOCK-005, CLOCK-003 and TRADEOFF-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
+  const temporary = await mkdtemp(join(tmpdir(),'lanyard-archive-')), source=join(temporary,'source'), restored=join(temporary,'restored'), erased=join(temporary,'erased'),photoErased=join(temporary,'photo-erased'),locationErased=join(temporary,'location-erased')
   let h
   try {
-    for (const path of [source,restored,erased,photoErased]) await checkout(path)
+    for (const path of [source,restored,erased,photoErased,locationErased]) await checkout(path)
     await exec(process.execPath, [resolve('node_modules/wrangler/bin/wrangler.js'),'d1','migrations','apply','foundation','--local'], { cwd:source, env:{...process.env,CI:'true',WRANGLER_SEND_METRICS:'false'}, maxBuffer:2e6 })
     h=await harness({root:source})
     const p=await h.cmd('staff.save',{name:'Temporary joiner',email:'temporary@venue.example',payrollId:'TEMP',role:'staff',active:false})
@@ -82,8 +82,12 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     const kioskOut=await h.send('/api/lanyard/kiosk/capture',{name:'clock.out',input:{commandId:'synthetic-lanyard-50',capturedAt:'2026-10-13T15:00:00Z',breakMinutes:0},photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true},kioskCookie)
     assert.equal(kioskOut.status,200,kioskOut.text)
     const photoPolicy=await h.cmd('photo.save',{site:'Archive cafe',native:true,kiosk:true,breaks:true,retentionDays:1,consent:true})
-    const nativePhoto=await h.cmd('clock.in',{commandId:'synthetic-lanyard-51',capturedAt:'2026-10-14T14:00:00Z',photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true,photoNoticeSeen:true},kioskPerson.cookie)
-    const nativeOut=await h.cmd('clock.out',{commandId:'synthetic-lanyard-52',capturedAt:'2026-10-14T15:00:00Z',breakMinutes:0,photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true,photoNoticeSeen:true},kioskPerson.cookie)
+    await h.cmd('geofence.save',{site:'Archive cafe',latitude:37.76,longitude:-122.5,radiusMeters:200,maxAccuracyMeters:50,retentionDays:1,enabled:true,consent:true})
+    const locationDevice=await h.send('/api/lanyard/command',{name:'clockbrowser.enroll',input:{site:'Archive cafe',label:'Archive location phone',type:'phone'}},h.owner)
+    assert.equal(locationDevice.status,200,locationDevice.text)
+    const nativeCookie=kioskPerson.cookie+'; '+locationDevice.cookie,location=observedAt=>({latitude:37.76,longitude:-122.5,accuracyMeters:5,observedAt,consent:true,noticeSeen:true})
+    const nativePhoto=await h.cmd('clock.in',{commandId:'synthetic-lanyard-51',capturedAt:'2026-10-14T14:00:00Z',location:location('2026-10-14T14:00:00Z'),photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true,photoNoticeSeen:true},nativeCookie)
+    const nativeOut=await h.cmd('clock.out',{commandId:'synthetic-lanyard-52',capturedAt:'2026-10-14T15:00:00Z',location:location('2026-10-14T15:00:00Z'),breakMinutes:0,photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true,photoNoticeSeen:true},nativeCookie)
     const photoIds=[photoId,kioskOut.value.result.kioskReceipt.photoId,nativePhoto.photoReceipt.photoId,nativeOut.photoReceipt.photoId]
     const originalChat=(await h.send('/api/lanyard/chat',undefined,h.owner)).value,originalAccess=(await h.send('/api/lanyard/access',undefined,h.owner)).value
     const journal=await h.cmd('import.journal',{jobId:imported.job.id}),original=await h.state()
@@ -107,7 +111,7 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.equal((await h.send('/api/lanyard/kiosk/signin',{email:kioskPerson.email,pin:'123456'},enrolled.cookie)).status,403)
     assert.deepEqual((await h.send('/api/lanyard/chat',undefined,owner)).value,originalChat)
     assert.deepEqual((await h.send('/api/lanyard/access',undefined,owner)).value,originalAccess)
-    for(const kind of ['kioskreceipts','photoreceipts','photopolicies','photonotices'])assert.deepEqual(back[kind],original[kind],kind)
+    for(const kind of ['kioskreceipts','photoreceipts','photopolicies','photonotices','geofences','georeceipts'])assert.deepEqual(back[kind],original[kind],kind)
     const photo=await h.mf.dispatchFetch(h.origin+'/api/lanyard/kiosk-photos/'+photoId,{headers:{cookie:owner}})
     assert.equal(photo.status,200);assert.deepEqual([...new Uint8Array(await photo.arrayBuffer())],[255,216,255,217])
     for(const id of photoIds){const r=await h.mf.dispatchFetch(h.origin+'/api/lanyard/kiosk-photos/'+id,{headers:{cookie:owner}});assert.equal(r.status,200);assert.deepEqual([...new Uint8Array(await r.arrayBuffer())],[255,216,255,217])}
@@ -151,6 +155,18 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     for(const id of [kioskOut.value.result.timesheet.id,nativeOut.timesheet.id]){const t=photoBack.timesheets.find(t=>t.id===id);assert.equal(t.minutes,60);assert.equal(t.photoReview.length,2);assert.ok(t.photoReview.every(p=>!p.photoId&&p.erasedAt))}
     await h.close();h=null
     h=await harness({root:source,...identity});const erasedOwner=await h.signIn(h.auth.OWNER_EMAIL)
+    // Coordinate erasure independently fences an archive already stripped of photos.
+    for(const receipt of (await h.state(erasedOwner)).georeceipts)await h.cmd('location.erase',{id:receipt.id,revision:receipt.revision,reason:'Expired punch coordinates',consent:true},erasedOwner)
+    const locationLater=join(temporary,'location-later.rer')
+    await h.close();h=null
+    await command(source,['export','--output',locationLater,'--no-queue'])
+    await command(locationErased,['import','--input',photoLater,'--journal',locationLater,'--yes','--no-queue'],4)
+    await command(locationErased,['import','--input',locationLater,'--yes','--no-queue'])
+    h=await harness({root:locationErased,...identity});const locationOwner=await h.signIn(h.auth.OWNER_EMAIL),locationBack=await h.state(locationOwner)
+    assert.equal(locationBack.georeceipts.length,2);assert.ok(locationBack.georeceipts.every(r=>r.latitude===undefined&&r.longitude===undefined&&r.erasedAt))
+    const locatedTime=locationBack.timesheets.find(t=>t.id===nativeOut.timesheet.id);assert.equal(locatedTime.minutes,60);assert.equal(locatedTime.locationReview.length,2)
+    await h.close();h=null
+    h=await harness({root:source,...identity})
     await h.cmd('staff.erase',{id:p.id,revision:1},erasedOwner);await h.close();h=null
     await command(source,['export','--output',later,'--no-queue'])
     await command(erased,['import','--input',old,'--journal',later,'--yes','--no-queue'],4)

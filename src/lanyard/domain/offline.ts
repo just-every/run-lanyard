@@ -31,7 +31,7 @@ export async function offline(c:Context,name:string,p:Record<string,any>) {
 
 function report(c:Context,p:Record<string,any>,staffId:string,actorId:string) {
  const capture=object(p.capture);keys(capture,['name','input']);need(captureNames.includes(capture.name),'Only clock captures can be reported')
-  const input=object(capture.input);delete input.photo;delete input.photoConsent;delete input.photoNoticeSeen;delete input.photoFailure;keys(input,['commandId','capturedAt','kind','breakMinutes','meal','waiveMeal','breakNote','answers','job','site'])
+  const input=object(capture.input);delete input.location;delete input.photo;delete input.photoConsent;delete input.photoNoticeSeen;delete input.photoFailure;keys(input,['commandId','capturedAt','kind','breakMinutes','meal','waiveMeal','breakNote','answers','job','site'])
   text(input.commandId,'capture identity',120);instant(input.capturedAt,'original captured time');need(canonical(capture).length<=16000,'Capture is too large')
   const prior=c.s.clockissues.find(r=>r.staffId===staffId&&r.capture.input.commandId===input.commandId)
   if(prior){need(canonical(prior.capture)===canonical(capture),'Capture identity has different facts',409);return prior}

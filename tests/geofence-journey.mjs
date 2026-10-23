@@ -60,6 +60,9 @@ export async function geofenceApi(h){
  await capture('clock.in','2025-06-04T16:00:00Z',coords('2025-06-04T16:00:00Z'),403)
  const originalIn=receipts.find(r=>r.id===inside.locationReceiptId)
  await h.cmd('clock.in',{commandId:originalIn.commandId,capturedAt:originalIn.capturedAt,location:coords(originalIn.capturedAt)},cookie,403)
+ const rejected=await h.cmd('clock.report',{commandId:crypto.randomUUID(),capture:{name:'clock.in',input:{commandId:crypto.randomUUID(),capturedAt:'2025-06-04T16:00:00Z',location:coords('2025-06-04T16:00:00Z')}},error:'Device access revoked'},alex.cookie)
+ assert.equal(rejected.capture.input.location,undefined)
+ assert.ok(!JSON.stringify((await h.state(lead.cookie)).clockissues).includes('latitude'),'rejected-capture reports never expose coordinates to managers')
  assert.equal((await h.state()).georeceipts.length,6)
 }
 export async function geofenceBrowser(){
