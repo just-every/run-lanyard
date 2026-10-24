@@ -506,7 +506,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "8ea2656d91b417bf16c73c098fd2623c7a0330048efe92e60918641e18d588f5",
+      "sha256": "b0140d4ca2529c11d444eb6bd07222402148fbd7d43789ef7baa42246fbd87b9",
       "executable": false
     },
     "packaging.json": {
@@ -966,7 +966,7 @@
       "executable": false
     },
     "scripts/test-lanyard.mjs": {
-      "sha256": "d50470c217915028ca592cd884c813f75dd9b345a217ed7a7c6e675fbdafd7d7",
+      "sha256": "1173294da8c96d5931738ba591c5d990fe188cb37a856437911db69d1936acac",
       "executable": false
     },
     "scripts/verify-app.mjs": {
