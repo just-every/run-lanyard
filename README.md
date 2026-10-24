@@ -4,6 +4,22 @@
 
 The public site is at https://run-lanyard.com.
 
+## Listing intake
+
+| Field | Value | Source |
+| --- | --- | --- |
+| Listing id | `lanyard` | `seed.json` id |
+| Run URL | https://run-lanyard.com/run | This README at the release commit |
+| storesFiles | `true` | Attachments in D1 and the `FILES` R2 bucket (`lanyard-files`) |
+
+Logbook attachments use R2 (`src/lanyard/domain/logfiles.ts`); staff-note and
+shift-handover attachments use D1 (`src/lanyard/domain/journal.ts` and
+`src/lanyard/domain/shiftworkfiles.ts`). The archive policy includes the R2 objects
+and D1 file records. The source gallery capture is
+[the populated weekly schedule](.github/assets/release/lanyard-roster-1440.png),
+captured from `rer dev --demo` with the built-in Tres Hornos Bakery data.
+
+
 A full crew, paid right. Lanyard is a free, open source alternative to Deputy, When I Work and Homebase for US hourly teams; [CONTRACT.md](CONTRACT.md) is the product it is being built toward and records what ships today. Today it runs one location's weekly schedule, clocking in by phone, approved timesheets and payroll CSV exports. It exports hours to your existing payroll process; it never calculates or pays wages. MIT licensed. [First-release scope](ACCEPTANCE.md).
 
 ## Run from a fresh clone

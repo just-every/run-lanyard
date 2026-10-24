@@ -570,7 +570,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "47068d3da6995c9cb71d0df31deb5c045c99faefa43abcf8bf85422438245654",
+      "sha256": "c617572db55fda259c113d82b0d1196e1200add07b1c90a8adba229333257b63",
       "executable": false
     },
     "packaging.json": {
@@ -846,11 +846,11 @@
       "executable": false
     },
     "README.md": {
-      "sha256": "020a061d273776a8893ef9ab83e5cc527ab2be9d30e84f58e589f5ebda2a4b50",
+      "sha256": "99ea322fc7ca62b90cf09dcc1343b8a9a233c692075d46f179fc1d88fd0c720f",
       "executable": false
     },
     "RELEASE.json": {
-      "sha256": "379ba9b097628be04ad84aa333aa79925ba2a50977ae9034a5847ab9fb2e5c47",
+      "sha256": "ab3ddc266755a3784cada307dc573ab5acefa9fe90376b259b79a82423d89c08",
       "executable": false
     },
     "rer-project.json": {
@@ -1058,7 +1058,7 @@
       "executable": false
     },
     "seed.json": {
-      "sha256": "ece748d18d647293ec68e31876e9df7a0e2347fd9892f77880b849c038dbb59b",
+      "sha256": "a4e6daae682fe365875fd7caf05e1f0095423bf759e36f0f6bbd067c43d94445",
       "executable": false
     },
     "SHIFT-HANDOVER-API.md": {
