@@ -45,7 +45,7 @@
     {
       "name": "OWNER_EMAIL",
       "label": "Owner email",
-      "help": "Sign-in links for this address appear in the local development outbox; no email is sent.",
+      "help": "The first owner receives hosted sign-in links through the configured mail provider. Local development uses a private sign-in link and sends no email.",
       "kind": "email",
       "required": true,
       "prefill": "account-email",
@@ -54,6 +54,16 @@
     {
       "name": "SESSION_SECRET",
       "label": "Session secret",
+      "kind": "secret",
+      "required": true,
+      "ownerVisible": false,
+      "input": "managed",
+      "generate": "hex",
+      "group": "owner"
+    },
+    {
+      "name": "INSTALLATION_KEY",
+      "label": "Installation key",
       "kind": "secret",
       "required": true,
       "ownerVisible": false,
@@ -100,9 +110,14 @@
         {
           "value": "cloudflare",
           "label": "Cloudflare Email Sending"
+        },
+        {
+          "value": "development",
+          "label": "Local development only"
         }
       ],
-      "group": "mail"
+      "group": "mail",
+      "help": "Hosted installations require RER, Resend, SendGrid or Cloudflare. Development suppresses mail on this computer only."
     },
     {
       "name": "MAIL_FROM",

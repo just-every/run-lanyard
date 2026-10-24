@@ -26,7 +26,8 @@
     "migrations/core/0022_comparison_scope.sql",
     "migrations/core/0023_kiosk_authority.sql",
     "migrations/core/0024_clock_photo_device_type.sql",
-    "migrations/core/0025_kiosk_photo_consent.sql"
+    "migrations/core/0025_kiosk_photo_consent.sql",
+    "migrations/core/0026_dependency_keys_sealed.sql"
   ],
   "breaking": false,
   "agentUpdateInstructions": "Keep existing deployment identities and applied migration bytes. Configure the selected mail provider before inviting staff. Follow docs/BACKUP-RESTORE.md before moving an installation."

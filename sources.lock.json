@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "parent": null,
   "edition": "just-every/run-lanyard",
-  "manifest": "633238b26e3686d56efe815b5635c3c9ef21cab1fda13ad7a2aa56d0daf27bee",
+  "manifest": "d549b1e0d1d72ad5330a65570bd57135ae147413c5d23e482b184503c3bce839",
   "toolchain": {
     "id": "runeditrun/edition-authoring",
     "version": "1.1.0",
@@ -204,6 +204,52 @@
         "digest": "8ed666d28bd54ee931b44db93ba6671ea7b9d03f5a944085a536146935d593c0",
         "sha256": "47c1b84eaf9649325471a43858703d582e8d049e32b959e000afcc3b5bee3c1a"
       }
+    },
+    {
+      "id": "just-every/lanyard-runtime",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/auth.server.ts",
+          "src/mail.server.mjs",
+          "src/server.dev.ts",
+          "scripts/installer/local.mjs"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base.git",
+          "revision": "4280971d7c0295b8a88c3e1179048efcbbe14f30",
+          "path": ".",
+          "paths": [
+            "foundation/template/src/auth.server.ts",
+            "foundation/template/src/mail.server.mjs",
+            "foundation/template/src/server.dev.ts",
+            "foundation/template/scripts/installer/local.mjs"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "src/auth.server.ts",
+            "originPath": "foundation/template/src/auth.server.ts"
+          },
+          {
+            "path": "src/mail.server.mjs",
+            "originPath": "foundation/template/src/mail.server.mjs"
+          },
+          {
+            "path": "src/server.dev.ts",
+            "originPath": "foundation/template/src/server.dev.ts"
+          },
+          {
+            "path": "scripts/installer/local.mjs",
+            "originPath": "foundation/template/scripts/installer/local.mjs"
+          }
+        ]
+      },
+      "baseline": {
+        "key": "d4b69d279a38224ee0fca87e37802572b3f0a3eb7fe279b58aefcdecc23ee1d8",
+        "digest": "a078aa08544de5053ce30f80d913e9fa98a3da81de5eecea7f53c719e62f0920",
+        "sha256": "da7c3946ecf039985f74e34b95eabbdba5256bd8d2597f16ad083c4e739d1008"
+      }
     }
   ],
   "files": {
@@ -240,7 +286,7 @@
       "executable": false
     },
     "base-copies.json": {
-      "sha256": "3b66805a6e2f128e8a7ebb49e649f358d99f1b14eb78c550ebfcb7effe37d7af",
+      "sha256": "3113f752b606fc339eadb8a1e6f77da46b3d94a51f23c78776c7dd0e572cee70",
       "executable": false
     },
     "CHANGELOG.md": {
@@ -272,7 +318,7 @@
       "executable": false
     },
     "deploy.json": {
-      "sha256": "7e6b368939f3a7df9a6e21cee5ea0f795b12879d0e0c6a9ca7f6d74de47cb9df",
+      "sha256": "a64ec84e447e0b54d04cb0fb14c80d6b640a197720c098e6778ccdd8aa89f9a5",
       "executable": false
     },
     "docs/ACCESS-CHAT-KIOSK.md": {
@@ -328,7 +374,7 @@
       "executable": false
     },
     "edition.json": {
-      "sha256": "633238b26e3686d56efe815b5635c3c9ef21cab1fda13ad7a2aa56d0daf27bee",
+      "sha256": "d549b1e0d1d72ad5330a65570bd57135ae147413c5d23e482b184503c3bce839",
       "executable": false
     },
     "HOMEPAGE-VARIANTS.md": {
@@ -340,7 +386,7 @@
       "executable": false
     },
     "management/integration/deployment-spec.json": {
-      "sha256": "f7fa2ac1dc1c2d25e4bba3142db2801a6fa0b159ba58fe73bd34fa40b5ec5d02",
+      "sha256": "fd3d5f5b0c9431c376ba382e970bf1aafd0914cfbb7070931a1d41ba09b0835b",
       "executable": false
     },
     "migrations/core/0001_owner.sql": {
@@ -443,6 +489,10 @@
       "sha256": "c9cb66ff805838fc00d882f7502831a2943ddff38b0ad4d9954999e7cec89581",
       "executable": false
     },
+    "migrations/core/0026_dependency_keys_sealed.sql": {
+      "sha256": "9c8fa5f94c48a230f326cd4d666cbc2bd1e7d5a18327b89e65b339ac6a533d9a",
+      "executable": false
+    },
     "ONBOARDING.md": {
       "sha256": "5d20f1bd0c24def0cd6c1165d1a58d0472ad0f02f2b60047014bda962eaf4274",
       "executable": false
@@ -460,7 +510,7 @@
       "executable": false
     },
     "packaging.json": {
-      "sha256": "c0064407f18b8215aa2a741f71465d11e6647dab72de47cdcbde3c9a7a758689",
+      "sha256": "a28e776bcab80ed6c1133883c2e4c3ccb1055e92508ea3d42984639a409ab76d",
       "executable": false
     },
     "pnpm-lock.yaml": {
@@ -732,19 +782,19 @@
       "executable": false
     },
     "README.md": {
-      "sha256": "7c697aa84649ee0ec4ffe7dced754db519de1b1c41c8f742dea9bf43be0caf64",
+      "sha256": "0ec3f80f96e1b8dc119d984572980c6a751ca501394ae55616d9e92d756703b7",
       "executable": false
     },
     "RELEASE.json": {
-      "sha256": "5bb495bdf664bcb9dc4d4d17c16589ad69de9deebe47ef3678413b143c722f46",
+      "sha256": "379ba9b097628be04ad84aa333aa79925ba2a50977ae9034a5847ab9fb2e5c47",
       "executable": false
     },
     "rer-project.json": {
-      "sha256": "6104f0df700a6dcfd7211e526b87152a16e82aa9fb709b55d315a3e3120bbc41",
+      "sha256": "944ec4c03522a41bb951cbe4e4d351aea8d67bf3acbff54d71e3a2a302a20025",
       "executable": false
     },
     "rer-setup.json": {
-      "sha256": "3b77f5dd5ca0f0868ab4af595153aceb07414e467b1eae4576ec69e1a86be879",
+      "sha256": "448fcacddfb2bcf8014d69a67a1b49e07ac922e38251a036f5f23090a5204c2c",
       "executable": false
     },
     "RUN-LOCALLY.md": {
@@ -812,7 +862,7 @@
       "executable": false
     },
     "scripts/delivery/base/packaging.json": {
-      "sha256": "c0064407f18b8215aa2a741f71465d11e6647dab72de47cdcbde3c9a7a758689",
+      "sha256": "a28e776bcab80ed6c1133883c2e4c3ccb1055e92508ea3d42984639a409ab76d",
       "executable": false
     },
     "scripts/delivery/base/paths.mjs": {
@@ -896,7 +946,7 @@
       "executable": false
     },
     "scripts/installer/local.mjs": {
-      "sha256": "5f83077a23ee740bf61e0f81314a52a613bd7193b3bc666ccdbd981749e559f3",
+      "sha256": "d273703db246cd6f104281359085f496513e2bb9404a8542075dd43b293517b6",
       "executable": false
     },
     "scripts/installer/seed.mjs": {
@@ -936,7 +986,7 @@
       "executable": false
     },
     "src/auth.server.ts": {
-      "sha256": "77e788238f0cc583e07c7f49d351eec19ec41a7694efb805380dacdebcac4e5c",
+      "sha256": "8a010f53a7f160d95cec4ccda9dd18aad1770702b7cb0c67900645619d60709b",
       "executable": false
     },
     "src/base/contract-filter.ts": {
@@ -1072,7 +1122,7 @@
       "executable": false
     },
     "src/lanyard/archive-policy.mjs": {
-      "sha256": "e11f8c0b1ffbd0376df7306544d3520aa3ecd370e953947c18571b38cd31ac8b",
+      "sha256": "27ca0b61ec945bd422d617dc1ae5fafb8643b599d4f8f151e05adc7342cd9679",
       "executable": false
     },
     "src/lanyard/clockbrowsers.ts": {

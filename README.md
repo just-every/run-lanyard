@@ -57,7 +57,7 @@ Deactivate staff in **People** to revoke app access immediately. Revoke keys in 
 
 ## Deploy to your Cloudflare account
 
-A provider account and purchased domain are unnecessary locally. Worker, D1 and project identities are declared in `wrangler.jsonc` and `deploy.json`; keep them stable. Real deployment needs your Cloudflare account, a scoped Workers/D1 token, and a verified mail sender. `rer deploy --help` lists options. Set `MAIL_FROM` in `deploy.json` to your verified sender and supply private `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `OWNER_EMAIL`, `SESSION_SECRET`, `SETUP_TOKEN` and `MAIL_API_KEY` environment variables from your secret manager. The declaration uses Resend. Commit intended configuration changes; never commit secrets.
+A provider account and purchased domain are unnecessary locally. Worker, D1 and project identities are declared in `wrangler.jsonc` and `deploy.json`; keep them stable. Real deployment needs your Cloudflare account, a scoped Workers and D1 token, and a verified mail sender. `rer deploy --help` lists options. Set `MAIL_FROM` in `deploy.json` to your verified sender and supply private `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `OWNER_EMAIL`, `SESSION_SECRET`, `INSTALLATION_KEY`, `SETUP_TOKEN` and `MAIL_API_KEY` environment variables from your secret manager. The declaration uses Resend. Commit intended configuration changes; never commit secrets.
 
 ```sh
 rer deploy --dry-run
