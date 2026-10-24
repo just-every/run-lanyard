@@ -13,19 +13,23 @@
     {
       "id": "rosters",
       "clauses": [
-        "ACCEPTANCE"
+        "ROSTER-001",
+        "ROSTER-002",
+        "ROSTER-003"
       ]
     },
     {
       "id": "approved-hours",
       "clauses": [
-        "ACCEPTANCE"
+        "TIME-001",
+        "TIME-002",
+        "PAYROLL-001"
       ]
     },
     {
       "id": "staff-import",
       "clauses": [
-        "ACCEPTANCE"
+        "MOVE-001"
       ]
     }
   ],
@@ -92,5 +96,10 @@
       "owner-claim",
       "import-kit"
     ]
-  }
+  },
+  "replaces": [
+    "Deputy",
+    "When I Work",
+    "Homebase"
+  ]
 }

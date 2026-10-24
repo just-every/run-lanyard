@@ -63,3 +63,19 @@ instructions under `node_modules/@runeditrun/rer/modules/deploy-kit`; account sc
 resource ownership, migrations, receipt and health checks are defined there.
 Local validation does not prove hosted acceptance, provider delivery or remote
 health.
+
+## Hosted installation packaging
+
+`packaging.json` declares the hosted installation policy for Lanyard's existing
+DB and FILES bindings. After `pnpm run build`, run `pnpm delivery:spec` to write
+the import specification and `pnpm check:deployment-spec` to verify freshness.
+`node scripts/delivery/base/cli.mjs package --config packaging.json --output rer-package`
+produces the deployment artifact, digest-bound setup descriptor and dispatch-only
+Managed workflow. Generated package and artifact directories are disposable.
+
+Managed installations use RER mail with privately provisioned credentials.
+Assisted installations select RER, Resend, SendGrid or Cloudflare and provide
+the selected provider's sender and private API key; Cloudflare also needs its
+account ID. RER requires its assigned relay URL. A missing or refused provider
+stays unavailable. Local development keeps its suppressed development sender.
+This packaging check does not prove provider delivery or a hosted installation.
