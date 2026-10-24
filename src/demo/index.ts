@@ -1,6 +1,6 @@
 import type { Bindings } from '../auth.server'
 import { csv } from '../lanyard/domain/payroll'
-import { sha, type Kind, type Row, type State, type Staff } from '../lanyard/domain/model'
+import { kinds, sha, type Kind, type Row, type State, type Staff } from '../lanyard/domain/model'
 import { shortlist } from '../lanyard/domain/cover'
 import { addDays, dateKey, day, mondayOf } from '../lanyard/ui/format'
 import { team, forecast, email, OCEAN_BEACH, type Shift } from './team'
@@ -33,7 +33,7 @@ export async function seedDemo(env: Bindings, { ownerEmail, now }: { ownerEmail:
  const s = { version: 1, timezone: TZ, staff, claims: [] } as unknown as State
  const records: { kind: Kind; row: Row }[] = []
  const add = (kind: Kind, id: string, data: Record<string, unknown>, revision = 1): Row => { const row = { ...data, id, revision } as Row; records.push({ kind, row }); (s[kind] ??= []).push(row); return row }
- for (const k of ['availability', 'leave', 'rosters', 'shifts', 'clocks', 'timesheets', 'batches', 'forecasts', 'offers'] as Kind[]) s[k] = []
+ for (const k of kinds) s[k] = []
  const shiftOf = (monday: string, [d, a, b, meal, label, site]: Shift, memberSite: string | null) => {
   const date = addDays(monday, d), start = wall(date, a), end = wall(date, b)
   return { start, end, breakMinutes: meal, minutes: (Date.parse(end) - Date.parse(start)) / 60000 - meal, label, site: site ?? memberSite ?? '' }

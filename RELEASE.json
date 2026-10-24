@@ -1,6 +1,6 @@
 {
   "version": "0.1.1",
-  "publicReleaseNotes": "Publish a source-pinned capture of the populated weekly schedule, explicit listing and storage metadata, and release-tag checks for installation and archive portability.",
+  "publicReleaseNotes": "Restore demo startup with the complete workforce record collections. Publish a source-pinned capture of the populated weekly schedule, explicit listing and storage metadata, and release-tag checks for installation and archive portability.",
   "migrations": [],
   "breaking": false,
   "agentUpdateInstructions": "Keep existing deployment identities and applied migration bytes. Configure the selected mail provider before inviting staff. Follow docs/BACKUP-RESTORE.md before moving an installation.",
