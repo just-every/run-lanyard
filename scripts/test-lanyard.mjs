@@ -11,10 +11,10 @@ const filters={
 }
 if(!Object.hasOwn(filters,shard))throw new Error(`Unknown product test shard: ${shard}`)
 function run(args){
- const result=spawnSync(process.execPath,['--test','--test-concurrency=1',...args],{stdio:'inherit',env:process.env})
+ const result=spawnSync(process.execPath,args,{stdio:'inherit',env:process.env})
  if(result.error)throw result.error
  if(result.status!==0)process.exit(result.status??1)
 }
-run([...filters[shard],'tests/lanyard.test.mjs'])
+run(['--test','--test-concurrency=1',...filters[shard],'tests/lanyard.test.mjs'])
 // These separate files belong to core and must not inherit title filters.
-if(shard==='core')run(['tests/logbook.test.mjs','tests/coverage.test.mjs'])
+if(shard==='core')run(['--test','--test-concurrency=1','tests/logbook.test.mjs','tests/coverage.test.mjs'])
