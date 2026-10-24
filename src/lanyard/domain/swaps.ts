@@ -1,3 +1,4 @@
+import {minimumRestIssue} from './policy'
 // COVER-001: employee shift swaps. An employee offers one of their upcoming published shifts to
 // an eligible coworker, or proposes exchanging it for one of that coworker's; the coworker consents
 // and an owner, or a manager of the shifts' cafe, approves the exact exchange. Each step rechecks
@@ -20,6 +21,7 @@ export function coworker(s:State,meId:string,id:string) {
 }
 /** Whether the taker may work the shift once they give up `skip`: overlap, availability (AVAIL-001) and approved leave refuse; overtime is shown, never hidden. */
 function check(s:State,takerId:string,shift:Row,skip:string[]) {
+ const rest=minimumRestIssue(s,takerId,shift,skip);if(rest)return {block:rest,overtime:null}
  const f=fit(s,takerId,shift,skip)
  return {block:f.reason&&f.reason!=='overtime'?(f.minorRule??f.reason):null,overtime:f.reason==='overtime'?{staffId:takerId,after:f.after}:null}
 }

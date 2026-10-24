@@ -1,3 +1,4 @@
+import {policyWarnings} from './policy'
 import {minorIssues} from './minors'
 import {type Context,type Row,type State,keys,text,need,prepare,manager,self,staff,work,get,exact,put,overlap} from './model'
 import {qualification,rateBasis} from './workforce'
@@ -43,7 +44,7 @@ export function draftWeek(c:Context,weekInput:unknown,inputs:any,openInputs?:Rec
  const r=put(c,'rosters',{week,timezone:c.s.timezone,status:'draft',preparedBy:c.a.id,preparedAt:c.now},prior)
  const shifts=inputs.map((value:any)=>{need(value&&typeof value==='object'&&!Array.isArray(value),'Invalid shift');keys(value,['staffId','start','end','breakMinutes','label','site','job']);const w=work(value),date=localDate(w.start,c.s.timezone),person=staff(c,value.staffId);need(date>=week&&date<weekEnd,'Shift must start in the selected venue week');const job=text(value.job,'job',80,true),site=text(value.site,'site',80,true)||person.site||'';return put(c,'shifts',{rateBasis:rateBasis(c.s,person.id,{...w,job,site}),job,rosterId:r.id,staffId:person.id,...w,label:text(value.label,'label',120,true),site:text(value.site,'site',80,true)||person.site||'',status:'draft'})})
  const openShifts=openInputs.map(value=>{const date=localDate(value.start,c.s.timezone);need(date>=week&&date<weekEnd,'Shift must start in the selected venue week');return draftOpenShift(c,r.id,week,value as any)})
- c.entity=r.id;return {...r,shifts,openShifts,conflicts:conflicts(c,shifts,week),approvalRequired:'roster.publish',approval:{id:r.id,revision:r.revision}}
+ c.entity=r.id;return {...r,shifts,openShifts,conflicts:conflicts(c,shifts,week),policyWarnings:policyWarnings(c.s,shifts,week),approvalRequired:'roster.publish',approval:{id:r.id,revision:r.revision}}
 }
 export function roster(c:Context,name:string,p:Record<string,any>) {
  if(name==='roster.prepare') {

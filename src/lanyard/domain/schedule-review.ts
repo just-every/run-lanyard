@@ -1,3 +1,4 @@
+import {policyWarnings} from './policy'
 // SCHEDULE-001: current draft facts for publication review. This read never mutates
 // the draft, infers a changed-shift pairing, or turns an estimate into worked cost.
 import {type Actor,type Context,type Row,type State} from './model'
@@ -62,7 +63,7 @@ export function scheduleReview(s:State,week:string,reader?:Actor) {
  const dayOf=(x:Row)=>localDate(x.start,s.timezone)
  const days=dates.map(date=>({date,...totals(shifts.filter(x=>dayOf(x)===date)),gaps:gaps.filter(g=>g.date===date).length}))
  const cafes=[...new Set([...shifts.map(x=>siteOf(s,x)),...gaps.map(g=>g.site),...s.forecasts.filter(f=>f.week===week).map(f=>f.site??'')])].sort()
- const warnings:{kind:string;site:string;date?:string;message:string}[]=[]
+ const warnings:{kind:string;site:string;date?:string;message:string}[]=policyWarnings(s,shifts,week)
  const sites=cafes.map(site=>{
   const here=shifts.filter(x=>siteOf(s,x)===site),forecast=s.forecasts.find(f=>f.week===week&&(f.site??'')===site)
   const budgetPercent: number|null=forecast?.budgetPercent??null

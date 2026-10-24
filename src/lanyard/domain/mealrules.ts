@@ -1,3 +1,5 @@
+import {policyOn} from './policy'
+import {localDate} from './settings'
 // BREAK-002: an owner's automatic unpaid meal deduction per cafe. At clock-out with no meal
 // recorded on a shift longer than the threshold, the employee confirms the meal (deducted),
 // reports it missed or interrupted (full time, flagged for approval), or says nothing
@@ -14,7 +16,9 @@ export function mealRuleFor(s:State,clock:Record<string,any>) {
 }
 /** The break and flags a clock-out records; `entered` is the meal minutes the employee recorded. */
 export function mealAtClockOut(s:State,clock:Record<string,any>,end:string,entered:number,meal:unknown,now:string) {
- const rule=mealRuleFor(s,clock),span=Math.floor((Date.parse(end)-Date.parse(clock.start))/60000)
+ const rule=mealRuleFor(s,clock),site=s.shifts.find(x=>x.id===clock.shiftId)?.site||s.staff.find(x=>x.id===clock.staffId)?.site||''
+ if(policyOn(s,site,localDate(clock.start,s.timezone))?.preset==='CA')return {breakMinutes:entered,exceptions:[] as string[]}
+ const span=Math.floor((Date.parse(end)-Date.parse(clock.start))/60000)
  if(!rule||entered>0||span<=rule.afterMinutes)return {breakMinutes:entered,exceptions:[] as string[]}
  need(meal===undefined||MEALS.includes(meal as string),'Say whether you took your meal')
  const deduction={minutes:rule.deductMinutes,answer:(meal as string|undefined)??null,at:now,ruleId:rule.id}
@@ -28,6 +32,7 @@ export function mealRules(c:Context,name:string,p:Record<string,any>) {
  need(c.a.role==='owner','Owner required',403);keys(p,['site','afterMinutes','deductMinutes','enabled','revision'])
  const site=text(p.site,'site',80,true),old=c.s.mealrules.find(r=>r.site===site)
  if(old)need(integer(p.revision,'revision',1,Number.MAX_SAFE_INTEGER)===old.revision,'Meal deduction changed; reload before saving',409)
+ need(!(p.enabled===true||p.enabled==='true')||!c.s.policies.some(r=>r.site===site&&r.preset==='CA'),'California policy requires recorded meal periods; automatic meal deduction is refused',409)
  const afterMinutes=integer(num(p.afterMinutes),'shift length',60,1440),deductMinutes=integer(num(p.deductMinutes),'deduction',1,120)
  need(deductMinutes<afterMinutes,'The deduction must be shorter than the shift it applies to')
  return put(c,'mealrules',{site,afterMinutes,deductMinutes,enabled:p.enabled===true||p.enabled==='true',savedBy:c.a.id,savedAt:c.now},old)

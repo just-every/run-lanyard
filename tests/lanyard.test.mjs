@@ -1948,3 +1948,7 @@ test('CLOCK-005: photo policy, notice, consented camera capture and private appr
 
 test('CLOCK-003: event-only location consent, accuracy, private review, bulk refusal, retention and device revocation through native commands',()=>run(async h=>{const {geofenceApi}=await import('./geofence-journey.mjs');await geofenceApi(h)}))
 test('CLOCK-003: owner sees captured location and bulk exception at 1440 and 390',async()=>{const {geofenceBrowser}=await import('./geofence-journey.mjs');await geofenceBrowser()})
+
+test('POLICY-001: versioned cross-site actual overtime, daily and double time, seventh day, wage thresholds and weighted estimates',async()=>{const {policyClassifications}=await import('./policy-journey.mjs');await policyClassifications()})
+test('POLICY-001: reviewed policy settings, California deduction refusal, template warnings, swap rest and locked payroll fences',()=>run(async h=>{const {policyBoundaries}=await import('./policy-journey.mjs');await policyBoundaries(h)}))
+test('POLICY-001: policy warnings and keyboard tooltips in schedule review at 1440 and 390',async()=>{const {policyBrowser}=await import('./policy-journey.mjs');await policyBrowser()})
