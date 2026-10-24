@@ -69,7 +69,7 @@ export async function policyBoundaries(h){
  const give=spec(alex.id,days(week,1),4),prior={...spec(ben.id,week,4),start:week+'T20:00:00Z',end:days(week,1)+'T00:00:00Z'}
  const restDraft=await h.cmd('roster.prepare',{week,shifts:[{...give,staffId:ben.id},prior]});assert.ok(restDraft.policyWarnings.some(w=>w.message.includes('minimum rest')))
  draft=await h.cmd('roster.prepare',{week,shifts:[give,prior]});await h.cmd('roster.publish',pin(draft))
- const shift=(await h.state()).shifts.find(x=>x.rosterId===draft.id&&x.staffId===alex.id)
+ const shift=(await h.state()).shifts.find(x=>x.rosterId===draft.id&&x.staffId===alex.id&&x.status==='published')
  const denied=await h.cmd('swap.propose',{shiftId:shift.id,revision:shift.revision,to:ben.id},alex.cookie,409);assert.match(denied.error,/not eligible/)
  assert.equal((await h.state()).swaps.length,0)
  ca=await h.cmd('policy.save',{...pin(ca),site:'East',from:'2026-01-01',preset:'CA',minimumRestMinutes:0,reviewReason:'synthetic-lanyard-6 reviewed rest change'})
