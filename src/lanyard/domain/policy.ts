@@ -85,15 +85,16 @@ export function policyWarnings(s:State,shifts:Row[],week:string){
  const all=[...s.shifts.filter(x=>x.status==='published'&&s.rosters.find(r=>r.id===x.rosterId)?.week!==week),...shifts]
  const result:{kind:string;site:string;date?:string;message:string}[]=[]
  for(const x of shifts){const site=x.site??s.staff.find(p=>p.id===x.staffId)?.site??'',r=policyOn(s,site,localDate(x.start,s.timezone));if(!r)continue
+  const rest=minimumRestIssue(s,x.staffId,x,[],all);if(rest)result.push({kind:'policy',site,date:localDate(x.start,s.timezone),message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${rest}`})
   const report=policyClassification(s,x.staffId,workweek(s,x.staffId,localDate(x.start,s.timezone)),all),mine=report.parts.filter((p:any)=>p.timeId===x.id)
   const overtime=mine.reduce((n:number,p:any)=>n+p.overtimeMinutes,0),double=mine.reduce((n:number,p:any)=>n+p.doubleMinutes,0)
   if(overtime||double||r.preset==='custom')result.push({kind:'policy',site,date:localDate(x.start,s.timezone),message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${policyLabel(r)}: ${overtime} overtime minutes; ${double} double-time minutes. ${report.label}.`})
  }
  return result
 }
-export function minimumRestIssue(s:State,staffId:string,shift:Row,skip:string[]=[]){
+export function minimumRestIssue(s:State,staffId:string,shift:Row,skip:string[]=[],plans?:Row[]){
  const site=shift.site??s.staff.find(p=>p.id===staffId)?.site??'',r=policyOn(s,site,localDate(shift.start,s.timezone));if(!r?.minimumRestMinutes)return null
- const other=s.shifts.filter(x=>x.staffId===staffId&&x.status==='published'&&x.id!==shift.id&&!skip.includes(x.id))
+ const other=(plans??s.shifts.filter(x=>x.status==='published')).filter(x=>x.staffId===staffId&&x.id!==shift.id&&!skip.includes(x.id))
  const short=other.some(x=>{const gap=x.end<=shift.start?(Date.parse(shift.start)-Date.parse(x.end))/60000:x.start>=shift.end?(Date.parse(x.start)-Date.parse(shift.end))/60000:Infinity;return gap<r.minimumRestMinutes})
  return short?`${r.minimumRestLabel}: ${r.minimumRestMinutes} minutes required (${r.presetVersion})`:null
 }

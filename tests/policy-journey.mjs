@@ -53,6 +53,8 @@ export async function policyBoundaries(h){
  const meal={site:'East',afterMinutes:300,deductMinutes:30,enabled:true}
  await h.cmd('mealrule.save',meal,h.owner,409)
  await h.cmd('mealrule.save',{...meal,enabled:false})
+ await h.cmd('mealrule.save',{...meal,site:'Third'})
+ await h.cmd('policy.save',{site:'Third',from:'2026-01-01',preset:'CA'},h.owner,409)
  assert.deepEqual((await h.state(alex.cookie)).policies,[])
  assert.deepEqual((await h.state(manager.cookie)).policies,[])
  const custom=await save(h,'West','custom',{jurisdiction:'Unlisted city',dailyMinutes:480,doubleMinutes:720,weeklyMinutes:2400})
@@ -65,6 +67,7 @@ export async function policyBoundaries(h){
  assert.ok(draft.policyWarnings.some(w=>w.message.includes('120 overtime minutes')))
  ca=await h.cmd('policy.save',{...pin(ca),site:'East',from:'2026-01-01',preset:'CA',minimumRestMinutes:660,reviewReason:'synthetic-lanyard-5 employer rest requirement'})
  const give=spec(alex.id,days(week,1),4),prior={...spec(ben.id,week,4),start:week+'T20:00:00Z',end:days(week,1)+'T00:00:00Z'}
+ const restDraft=await h.cmd('roster.prepare',{week,shifts:[{...give,staffId:ben.id},prior]});assert.ok(restDraft.policyWarnings.some(w=>w.message.includes('minimum rest')))
  draft=await h.cmd('roster.prepare',{week,shifts:[give,prior]});await h.cmd('roster.publish',pin(draft))
  const shift=(await h.state()).shifts.find(x=>x.rosterId===draft.id&&x.staffId===alex.id)
  const denied=await h.cmd('swap.propose',{shiftId:shift.id,revision:shift.revision,to:ben.id},alex.cookie,409);assert.match(denied.error,/not eligible/)
