@@ -26,7 +26,7 @@ export async function policyClassifications(){
   assert.deepEqual([report.overtimeMinutes,report.doubleMinutes],[ot,dt],preset+' actual classification')
   assert.equal(report.regularMinutes+ot+dt,hours.reduce((a,b)=>a+b,0)*60)
   assert.ok(report.parts.every(p=>p.rules.every(r=>r.version===policies[0].presetVersion&&r.source.startsWith('https://')&&r.id&&r.revision===1)))
-  assert.equal(report.estimateCents,Math.round((hours.reduce((a,b)=>a+b,0)*60+ot*.5+dt)*Number(rate??'20.00')*100/60))
+  assert.equal(report.estimateCents,Math.round((hours.reduce((a,b)=>a+b,0)*60+ot*.5+dt)*Math.round(Number(rate??'20.00')*100)/60))
   if(shifts.length>1)assert.deepEqual([...new Set(report.parts.map(p=>p.site))].sort(),['East','West'])
   await h.cmd('policy.review',{staffId:alex.id,week:start},alex.cookie,403)
  }finally{await h.close()}}
@@ -67,11 +67,13 @@ export async function policyBoundaries(h){
  const give=spec(alex.id,days(week,1),4),prior={...spec(ben.id,week,4),start:week+'T20:00:00Z',end:days(week,1)+'T00:00:00Z'}
  draft=await h.cmd('roster.prepare',{week,shifts:[give,prior]});await h.cmd('roster.publish',pin(draft))
  const shift=(await h.state()).shifts.find(x=>x.rosterId===draft.id&&x.staffId===alex.id)
- const denied=await h.cmd('swap.propose',{shiftId:shift.id,revision:shift.revision,to:ben.id},alex.cookie,409);assert.match(denied.error,/minimum rest/)
+ const denied=await h.cmd('swap.propose',{shiftId:shift.id,revision:shift.revision,to:ben.id},alex.cookie,409);assert.match(denied.error,/not eligible/)
  assert.equal((await h.state()).swaps.length,0)
+ ca=await h.cmd('policy.save',{...pin(ca),site:'East',from:'2026-01-01',preset:'CA',minimumRestMinutes:0,reviewReason:'synthetic-lanyard-6 reviewed rest change'})
+ const allowed=await h.cmd('swap.propose',{shiftId:shift.id,revision:shift.revision,to:ben.id},alex.cookie);assert.equal(allowed.status,'proposed','the same proposal succeeds after the owner removes the rest requirement')
  let period=await h.cmd('period.save',{start:'2026-10-12',end:'2026-10-18'})
  // A closed record, even without policy-priced exports, cannot be silently repriced.
- period=await h.cmd('period.signoff',{...pin(period),role:'manager'});await h.cmd('period.lock',pin(period))
+ period=await h.cmd('period.signoff',pin(period));await h.cmd('period.lock',pin(period))
  await h.cmd('policy.save',{...pin(custom),site:'West',from:'2026-10-12',preset:'federal',reviewReason:'Attempt to change locked payroll'},h.owner,409)
  const state=await h.state();assert.ok(state.events.some(e=>e.action==='policy.save'));assert.equal(state.policies.find(p=>p.id===custom.id).revision,1)
  return {alex,week:days(week,7)}
