@@ -8,7 +8,7 @@ const add=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().s
 export async function minorFixture(h){
  const alex=await h.person('Alex'),ben=await h.person('Ben'),morgan=await h.person('Morgan','manager')
  for(const p of [alex,ben,morgan])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site:'Ocean Beach',position:'Service',hourlyRate:'20.00'})
- const today=new Date().toISOString().slice(0,10),future=add(today,10),week=add(future,-((new Date(future+'T00:00:00Z').getUTCDay()+6)%7)),last=add(week,6),past=add(today,-7),birthday=add(today,-10),birthDate=String(Number(birthday.slice(0,4))-15)+birthday.slice(4)
+ const today=new Date().toISOString().slice(0,10),future=add(today,10),week=add(future,-((new Date(future+'T00:00:00Z').getUTCDay()+6)%7)),last=add(week,6),past=add(today,-7-((new Date(today+'T00:00:00Z').getUTCDay()+6)%7)),birthday=add(today,-10),birthDate=String(Number(birthday.slice(0,4))-15)+birthday.slice(4)
  const schoolDays=Array.from({length:42},(_,n)=>add(past,n-7)).filter(d=>![0,6].includes(new Date(d+'T00:00:00Z').getUTCDay()))
  const input={staffId:alex.id,birthDate,state:'federal',permit:'synthetic-lanyard-1',permitThrough:last,calendarFrom:add(past,-7),calendarThrough:add(past,60),schoolDays,schoolStart:480,schoolEnd:900}
  const minor=await h.cmd('minor.save',input)
