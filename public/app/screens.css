@@ -97,3 +97,11 @@ html.rer-themed .lanyard-app dl.command-docs{display:block}
 .clock:has(>[data-punch-photo])>form{grid-column:2;grid-row:1}
 [data-punch-video]{max-width:100%}
 @media(max-width:700px){.clock:has(>[data-punch-photo])>form{grid-column:1;grid-row:3;justify-self:start}}
+
+.clock>[data-punch-location]{grid-column:1/-1;min-width:0;margin:0;padding:12px;border:1px solid var(--rule)}
+.clock:has(>[data-punch-location])>.clock-state{grid-column:1;grid-row:1;min-width:0}
+.clock:has(>[data-punch-location])>form{grid-column:2;grid-row:1}
+@media(max-width:700px){
+ .clock:has(>[data-punch-location])>form{grid-column:1;grid-row:3;justify-self:start}
+ .clock:has(>[data-punch-location]):has(>[data-punch-photo])>form{grid-row:4}
+}

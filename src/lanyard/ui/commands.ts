@@ -5,7 +5,7 @@ const preparation = [
  ['payroll.prepare','ids?: array of approved, unexported timesheet IDs'],
 ]
 const human = [
- ['geofence.save','Owner','site, latitude, longitude, radiusMeters, maxAccuracyMeters, retentionDays, enabled and consent: true; revision to edit. Native API foundation; no background tracking or browser permission capture.'],
+ ['geofence.save','Owner','site, latitude, longitude, radiusMeters, maxAccuracyMeters, retentionDays, enabled and consent: true; revision to edit. One consented browser position at each in or out punch; no background tracking.'],
  ['location.review / location.hold / location.erase','Owner','id and revision from private georeceipts; review adds reason, hold adds hold boolean and reason; erase adds reason and consent: true. Explicit erasure requires expired retention and no hold. Captured times and flags remain.'],
  ['photo.save','Owner','site, phone, browser, kiosk, breaks, retentionDays from captured time, consent: true; revision to edit. Legacy native sets both phone/browser settings. Device type uses owner-enrolled credentials; unknown requires either enabled setting. Site kiosks still require prior employer photo consent at enrollment. No automatic deletion.'],
  ['photo.hold / photo.erase','Owner','staffId; hold adds hold boolean and reason; erase adds mode (retention or former), reason and explicit consent. Holds block erasure and former requires deactivation; punch facts remain.'],
