@@ -317,6 +317,10 @@
     }
   ],
   "files": {
+    ".github/assets/release/lanyard-roster-1440.png": {
+      "sha256": "f5424048beee2de30be62e6bd2958f88e0f2379fadbb4b63be8b176e8be4a4d7",
+      "executable": false
+    },
     ".github/workflows/release.yml": {
       "sha256": "4fdcffdeeefa8dceb3e231a02d324930a30ea7d4c26d07f2591bb1b099023cb4",
       "executable": false
