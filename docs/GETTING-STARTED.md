@@ -4,14 +4,13 @@ Lanyard runs one location's weekly schedule today: people, availability and time
 
 ## Run Lanyard
 
-In a terminal, install rer, then start Lanyard. These are the same two lines as the site's [Run page](https://run-lanyard.com/run):
+In a terminal, run this line, the same as the site's [Run page](https://run-lanyard.com/run). It installs rer, then starts Lanyard:
 
 ```sh
-curl -fsSL https://runeditrun.com/install.sh | sh
-rer dev just-every/run-lanyard
+curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-lanyard
 ```
 
-The installer puts rer in your home folder, with its own Node if you have no Node 22 or later. If its last line puts rer on your PATH, run that line before the second command. Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-lanyard` does both steps in one line. To start it again later, run `cd run-lanyard && rer dev`. First launch installs pinned dependencies, prepares the local database and starts the app. It can take several minutes. If interrupted, run `rer dev` again; it resumes.
+Git is required; rer brings Node and pnpm. Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-lanyard` does the same. The installer puts rer in your home folder; if it prints a line that puts rer on your PATH, run that line too. To start it again later, run the same line from the same folder, or `cd run-lanyard && rer dev`. First launch installs pinned dependencies, prepares the local database and starts the app. It can take several minutes. If interrupted, run `rer dev` again; it resumes.
 
 Open the private `RER_OPEN` link printed in the terminal. Review the owner account on **Finish setup**, confirm it is ready, then select **Finish setup**. Keep that link private. `RER_READY` is the ordinary app address.
 

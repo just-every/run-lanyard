@@ -15,6 +15,11 @@ const review = `<div class="card import-card"><h3>Import review · from Deputy</
 const totals = `<div class="card side-card"><h3>Totals check</h3><p>Checked Mon Oct 12, 4:45 am</p><p>Last Deputy week · Mon Oct 5 – Sun Oct 11</p><p class="side-big">Deputy 2,201.5 hrs = Lanyard 2,201.5 hrs ${check('equal')}</p></div>`
 const gusto = `<div class="card side-card"><h3>Gusto match</h3><p>Gusto keeps hires and pay rates</p><p><strong>63</strong> of <strong>63</strong> matched by payroll ID ${check()}</p><p>Dev Shah · hired in Gusto Mon Oct 12, 9:15 am → Kim set Ocean Beach · barista · invited by text 9:40 am ${check()}</p><p class="side-count"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h16m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>64</p></div>`
 
-const terminal = '<div class="terminal" role="group" aria-label="Start Lanyard on your computer"><p class="terminal-line"><code><span>npx -y @runeditrun/rer dev</span> <span>just-every/run-lanyard</span></code></p><p class="terminal-comment"># clones, installs and starts Lanyard on your computer</p></div>'
+// The one start line every Run Edit Run page shows, and the alternative for people who already have Node; each word stays whole.
+const words = (line: string) => line.split(' ').map(word => `<span>${word}</span>`).join(' ')
+const terminal = '<div class="terminal" role="group" aria-label="Start Lanyard on your computer">'
+  + `<p class="terminal-line"><code>${words('curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-lanyard')}</code></p>`
+  + `<p class="terminal-comment"><code># ${words('installs rer, then gets and starts Lanyard on your computer')}</code></p>`
+  + `<p class="terminal-comment"><code># ${words('Already have Node 22 or later? npx -y @runeditrun/rer dev just-every/run-lanyard')}</code></p></div>`
 
 export const movein = () => section('movein', 'tint', `<div class="site-width movein-layout"><div class="movein-copy">${intro('movein', 'Move-in · Sat Oct 10 – Mon Oct 12', 'Moved off Deputy in a weekend.', 'People, cafes, availability, sick-leave balances, future shifts and three and a half years of timesheets, previewed and checked before anything changed.')}</div>${review}<div class="movein-side">${totals}${gusto}</div>${terminal}</div>`)
