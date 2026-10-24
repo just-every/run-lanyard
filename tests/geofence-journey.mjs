@@ -72,7 +72,7 @@ export async function geofenceApi(h){
 }
 export async function geofenceBrowser(){
  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
- try{for(const width of [1440,390]){const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
+ try{for(const width of [1440,390]){const h=await harness({secure:true}),context=await browser.newContext({viewport:{width,height:1000},ignoreHTTPSErrors:true})
  try{const f=await geofenceFixture(h),page=await context.newPage()
  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
  await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
@@ -86,5 +86,63 @@ export async function geofenceBrowser(){
  await page.getByText('Filter and approve many',{exact:true}).click();const bulk=page.getByRole('button',{name:'Approve 1 shown',exact:true});await bulk.scrollIntoViewIfNeeded();await bulk.click();await page.waitForLoadState('networkidle');assert.match(await page.getByRole('status').filter({hasText:'Approved 0 · skipped 1'}).innerText(),/Approved 0 · skipped 1/);assert.match(await page.getByRole('status').filter({hasText:'Approved 0 · skipped 1'}).innerText(),/out-of-zone punch/)
  if(process.env.C37_SCREENS)await page.screenshot({path:join(process.env.C37_SCREENS,`location-bulk-skip-${width}.png`)})
  await page.goto(h.origin+'/app/agent',{waitUntil:'networkidle'});await page.getByText('Human command reference',{exact:true}).click();const command=page.locator('dt').filter({hasText:'geofence.save'});await command.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.C37_SCREENS)await page.screenshot({path:join(process.env.C37_SCREENS,`location-command-reference-${width}.png`)})
+ await locationCaptureBrowser(h,context,page,f,width)
  }finally{await context.close();await h.close()}}}finally{await browser.close()}
+}
+
+async function locationCaptureBrowser(h,context,page,f,width){
+ const as=async cookie=>{const [name,...value]=cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])}
+ const shot=async name=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.C37_SCREENS)await page.screenshot({path:join(process.env.C37_SCREENS,`${name}-${width}.png`)})}
+ await context.addInitScript(()=>{
+  window.locationCalls={once:0,watch:0}
+  for(const [method,key]of [['getCurrentPosition','once'],['watchPosition','watch']]){
+   const real=navigator.geolocation[method].bind(navigator.geolocation)
+   navigator.geolocation[method]=(...args)=>{window.locationCalls[key]++;return real(...args)}
+  }
+ })
+ await context.setGeolocation({latitude:37.76,longitude:-122.5,accuracy:5})
+ await context.grantPermissions(['geolocation'],{origin:h.origin})
+ await as(f.device.cookie);await as(f.alex.cookie)
+ await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'})
+ assert.deepEqual(await page.evaluate(()=>window.locationCalls),{once:0,watch:0},'opening the clock never requests location')
+ await page.getByRole('button',{name:'Clock in',exact:true}).click()
+ await page.waitForFunction(()=>document.querySelector('[data-clock-status]').textContent.includes('Read and acknowledge the location notice'))
+ assert.deepEqual(await page.evaluate(()=>window.locationCalls),{once:0,watch:0},'notice acknowledgment precedes any permission request')
+ assert.equal((await h.state()).georeceipts.length,2,'unacknowledged notice sends no punch')
+ await page.getByLabel("I have read this site's location notice").check()
+ await page.getByLabel('I consent to location capture for this punch').check()
+ await page.locator('[data-punch-location]').scrollIntoViewIfNeeded();await shot('location-consent')
+ const capture=async name=>{
+  await page.getByLabel("I have read this site's location notice").check()
+  await page.getByLabel('I consent to location capture for this punch').check()
+  const command=name==='Clock in'?'clock.in':'clock.out'
+  const [response]=await Promise.all([page.waitForResponse(r=>r.url().endsWith('/api/lanyard/command')&&r.request().postDataJSON()?.name===command),page.waitForEvent('load'),page.getByRole('button',{name,exact:true}).click()])
+  assert.equal(response.status(),200);const request=response.request().postDataJSON()
+  await page.waitForLoadState('networkidle')
+  assert.deepEqual(await page.evaluate(()=>window.locationCalls),{once:0,watch:0},'reload never starts off-punch location collection')
+  return request.input.location
+ }
+ const inside=await capture('Clock in');assert.deepEqual([inside.latitude,inside.longitude,inside.accuracyMeters,inside.consent],[37.76,-122.5,5,true])
+ // Payable whole minutes require real elapsed time, as in the photo journey.
+ await page.waitForTimeout(61000)
+ await context.setGeolocation({latitude:37.76,longitude:-122.51,accuracy:5})
+ const outside=await capture('Clock out');assert.equal(outside.longitude,-122.51)
+ let receipts=(await h.state()).georeceipts.filter(r=>r.staffId===f.alex.id&&![f.inside.locationReceiptId,f.outside.locationReceiptId].includes(r.id))
+ assert.deepEqual(receipts.map(r=>r.status).sort(),['inside geofence','out-of-zone punch'].sort())
+ await context.setGeolocation({latitude:37.76,longitude:-122.5,accuracy:100})
+ assert.equal((await capture('Clock in')).accuracyMeters,100)
+ await page.waitForTimeout(61000)
+ await context.clearPermissions();const cdp=await context.newCDPSession(page),{targetInfo}=await cdp.send('Target.getTargetInfo')
+ await cdp.send('Browser.setPermission',{permission:{name:'geolocation'},setting:'denied',origin:h.origin,browserContextId:targetInfo.browserContextId})
+ const denied=await capture('Clock out');assert.deepEqual(denied,{noticeSeen:true,failure:'permission denied'})
+ const time=(await h.state()).timesheets.find(t=>t.staffId===f.alex.id&&t.exceptions?.includes('location permission denied'))
+ assert.ok(time);assert.ok(time.exceptions.includes('poor location accuracy'))
+ const bulk=await h.cmd('time.approveMany',{items:[pin(time)]});assert.equal(bulk.approved.length,0);assert.match(bulk.skipped[0].reason,/location permission denied/)
+ await as(h.owner);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'});await page.locator('#approve').getByText('location permission denied',{exact:false}).first().scrollIntoViewIfNeeded();await shot('location-permission-denied')
+ await as(f.ben.cookie);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'});await page.getByLabel("I have read this site's location notice").check()
+ const [declined]=await Promise.all([page.waitForResponse(r=>r.url().endsWith('/api/lanyard/command')&&r.request().postDataJSON()?.name==='clock.in'),page.waitForEvent('load'),page.getByRole('button',{name:'Clock in',exact:true}).click()])
+ assert.equal(declined.status(),200);assert.deepEqual(declined.request().postDataJSON().input.location,{noticeSeen:true,failure:'consent declined'})
+ await page.waitForLoadState('networkidle');assert.deepEqual(await page.evaluate(()=>window.locationCalls),{once:0,watch:0},'declining consent never requests a position')
+ receipts=(await h.state()).georeceipts.filter(r=>![f.inside.locationReceiptId,f.outside.locationReceiptId].includes(r.id));assert.equal(receipts.length,5)
+ assert.ok(receipts.filter(r=>!r.consent).every(r=>r.latitude===undefined&&r.longitude===undefined))
 }

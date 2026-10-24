@@ -146,7 +146,7 @@
     form.replaceChildren(fieldset, actions, submit)
     const events = document.createElement('ul'); events.className = 'note'; events.dataset.clockEvents = ''
     retry.after(events)
-    let phase = '', snapshot, syncing = false, ready = false, failed = false
+    let phase = '', snapshot, syncing = false, capturing = false, ready = false, failed = false
     const timezone = document.body.dataset.timezone
     const display = at => `${new Intl.DateTimeFormat('en-US', {timeZone:timezone,dateStyle:'medium',timeStyle:'short'}).format(new Date(at))} (${timezone})`
     function render(state) {
@@ -183,7 +183,7 @@
       }
       retry.hidden = !state.events.length; retry.disabled = syncing
       retry.textContent = 'Retry queued clock events'
-      form.querySelectorAll('button').forEach(button => { button.disabled = !ready || failed || state.events.some(item => item.status === 'rejected') })
+      form.querySelectorAll('button').forEach(button => { button.disabled = capturing || !ready || failed || state.events.some(item => item.status === 'rejected') })
       show(`${state.events.filter(item => item.status === 'pending').length} pending · ${state.events.filter(item => item.status === 'rejected').length} unresolved${syncing ? ' · Syncing…' : ''}`)
     }
     function failure(error) {
@@ -243,11 +243,11 @@
         })
       } catch (error) { syncError = `${error.message || 'Connection failed.'} Original captures remain on this device.` }
       finally { syncing = false; if (snapshot) { retry.disabled = false; show(`${snapshot.events.filter(item => item.status === 'pending').length} pending · ${snapshot.events.filter(item => item.status === 'rejected').length} unresolved${syncError ? ` · ${syncError}` : ''}`) } }
-      if (acceptedChange && !snapshot.events.length) window.location.reload()
+      if (acceptedChange && !snapshot.events.length && !capturing) window.location.reload()
     }
     form.addEventListener('submit', async event => {
       event.preventDefault()
-      if (!ready || failed) return
+      if (!ready || failed || capturing) return
       const name = event.submitter?.dataset.command || form.dataset.command
       const input = {commandId:crypto.randomUUID(),capturedAt:new Date().toISOString()}, data = new FormData(form)
       if (name === 'clock.in' || name === 'clock.out') {
@@ -267,15 +267,18 @@
         if (data.get('breakNote')) input.breakNote = data.get('breakNote')
       }
       const capture = {name,input}
+      capturing = true; if (snapshot) render(snapshot)
       try {
-        Object.assign(input, await window.LanyardPunchPhoto?.capture(clock,name) ?? {})
         await withState(actor, initial, async (state, save) => {
           if (state.events.some(item => item.status === 'rejected')) throw new Error('Resolve the saved rejected captures before recording more events.')
+          Object.assign(input, await window.LanyardPunchLocation?.capture(clock,name,input.capturedAt) ?? {})
+          Object.assign(input, await window.LanyardPunchPhoto?.capture(clock,name) ?? {})
           apply(project(state), capture)
           state.events.push({capture,status:'pending'}); await save(); render(state)
         })
         notify(actor); sync()
       } catch (error) { show(`${error.message} This new event was not queued or sent.`) }
+      finally { capturing = false; form.querySelectorAll('button').forEach(button => { button.disabled = !ready || failed || snapshot?.events.some(item => item.status === 'rejected') }) }
     })
     retry.addEventListener('click', sync)
     window.addEventListener('online', sync)
