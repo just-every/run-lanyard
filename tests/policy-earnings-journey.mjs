@@ -122,7 +122,7 @@ export async function policyEarningsBrowser(){
    const sitePolicy=(await h.state()).policies.find(p=>p.site==='East'),change={...pin(sitePolicy),site:'East',from:'2026-01-01',staffId:f.alex.id,...Object.fromEntries(['federalOvertime','stateWeekly','stateDaily','stateConsecutive','stateSeventh','meal','rest','weeklyRest'].map(k=>[k,'covered'])),federalOvertime:'reviewed-not-applicable',legalBasis:'Employer-recorded federal applicability decision; other cafe evidence remains unresolved',evidenceReference:'synthetic-lanyard-1 applicability evidence',reviewReason:'Review this employee at every worked cafe'}
    const preview=await h.cmd('policy.worker.preview',change);await h.cmd('policy.worker.save',{...change,reviewDigest:preview.digest})
    await page.reload({waitUntil:'networkidle'});const unresolved=(await own(h,f.alex)).ownEarnings;assert.equal(unresolved.policyReviewRequired,true);assert.equal(unresolved.estimateCents,null);assert.equal(await card.locator('.estimate').count(),0)
-   await card.scrollIntoViewIfNeeded();await shot('policy-earnings-review')
+   await card.getByText('Your employer needs to review policy inputs before a pay estimate can be shown.',{exact:true}).scrollIntoViewIfNeeded();await shot('policy-earnings-review')
    assert.deepEqual(errors,[])
   }finally{await context.close();await h.close()}
  }}finally{await browser.close()}
