@@ -56,7 +56,7 @@ export function earningsOf(staffId:string,week:string,tz:string,shifts:any[],tim
  return {
   requestedWeek:week,week:range.start,end:range.end,payDate:range.payDate,statementUrl:settings.statementUrl,
   scheduledMinutes:minutes(shifts.filter(t=>eligible(t)&&t.status==='published')),regularMinutes,overtimeMinutes,doubleMinutes,pendingMinutes:minutes(pending),
-  approvedIds:approved.map(t=>t.id),pendingIds:pending.map(t=>t.id),estimates:settings.estimates,rateCents:priced?rateCents:null,
+  policyReviewRequired:reports.some(r=>r.classificationIncomplete),approvedIds:approved.map(t=>t.id),pendingIds:pending.map(t=>t.id),estimates:settings.estimates,rateCents:priced?rateCents:null,
   regularCostCents,overtimeCostCents,doubleCostCents,paidLeave,differential,jurisdiction,holiday:premium,
   estimateCents:workedCostCents===null||premium.costCents===null||diff.costCents===null?null:workedCostCents+premium.costCents+extra.costCents+diff.costCents+paidLeave.costCents!,
  }

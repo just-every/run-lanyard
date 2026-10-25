@@ -2041,3 +2041,5 @@ test('POLICY-001: employer-reviewed applicability retains federal, state and cro
 
 test('POLICY-001: Alaska approved flex and Nevada mutual schedules require current evidence and reviewed adoption',async()=>{const {policyRegionalConfigurationApi}=await import('./policy-regional-journey.mjs');await policyRegionalConfigurationApi()})
 test('POLICY-001: regional alternate workweeks preserve enrollment, overtime and unresolved deviations across cafes',async()=>{const {policyRegionalClassificationApi}=await import('./policy-regional-journey.mjs');await policyRegionalClassificationApi()})
+
+test('POLICY-001: alternate schedule evidence, recalculation and application through Settings at 1440 and 390',async()=>{const {policyAlternateSettingsBrowser}=await import('./policy-alternate-settings-journey.mjs');await policyAlternateSettingsBrowser()})
