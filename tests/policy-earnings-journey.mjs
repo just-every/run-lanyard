@@ -55,7 +55,7 @@ export async function policyEarningsApi(){
   assert.equal(corrected.ownEarnings.estimateCents,revised.estimateCents+1200)
   const dana=await h.person('Dana');await approve(h,shift(dana.id,week,8,4))
   const unrated=(await own(h,dana)).ownEarnings;assert.equal(unrated.estimateCents,null);assert.equal(unrated.rateCents,null)
-  await h.cmd('earnings.save',{...pin(settings),estimates:false,statementUrl:settings.statementUrl,payDays:5})
+  await h.cmd('earnings.save',{revision:settings.revision,estimates:false,statementUrl:settings.statementUrl,payDays:5})
   const hidden=await own(h,alex),off=hidden.ownEarnings
   assert.equal(off.estimateCents,null);assert.equal(off.rateCents,null);assert.equal(hidden.staff[0].hourlyRateCents,undefined)
   for(const field of ['regularCostCents','overtimeCostCents','doubleCostCents'])assert.equal(off[field],null)
@@ -116,7 +116,7 @@ export async function policyEarningsBrowser(){
    const shot=async label=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.POLICY_EARNINGS_SCREENS){await mkdir(process.env.POLICY_EARNINGS_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.POLICY_EARNINGS_SCREENS,`${label}-${width}.png`)})}}
    await card.scrollIntoViewIfNeeded();await shot('policy-earnings')
    const account=page.locator('summary[aria-label="Account"]');await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'});await shot('policy-earnings-tooltip')
-   await h.cmd('earnings.save',{...pin(f.settings),estimates:false,statementUrl:f.settings.statementUrl,payDays:5});await page.reload({waitUntil:'networkidle'})
+   await h.cmd('earnings.save',{revision:f.settings.revision,estimates:false,statementUrl:f.settings.statementUrl,payDays:5});await page.reload({waitUntil:'networkidle'})
    assert.doesNotMatch(await card.innerText(),/\$/);assert.match(await card.innerText(),/turned off pay estimates/);await card.scrollIntoViewIfNeeded();await shot('policy-earnings-off')
    assert.deepEqual(errors,[])
   }finally{await context.close();await h.close()}

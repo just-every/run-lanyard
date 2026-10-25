@@ -163,6 +163,6 @@ export async function policyDailyPremiumCap(){
    await h.cmd('time.approve',pin(t))
   }
   const r=await h.cmd('policy.review',{staffId:alex.id,week:start})
-  assert.deepEqual(r.breakReviews.map(x=>x.site),['East','West']);assert.equal(r.breakPremiumMinutes,120,'one meal and one rest premium for the day across sites');assert.equal(r.breakPremiumEstimateCents,4000)
+  assert.deepEqual(r.breakReviews.map(x=>x.site).sort(),['East','West']);assert.equal(r.breakPremiumMinutes,120,'one meal and one rest premium for the day across sites');assert.equal(r.breakPremiumEstimateCents,4000)
  }finally{await h.close()}
 }

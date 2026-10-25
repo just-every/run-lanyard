@@ -3938,11 +3938,11 @@
       "executable": false
     },
     "tests/policy-earnings-journey.mjs": {
-      "sha256": "3dc308c4c8774e7d7e6e8996d8c9c8b224420cdff6a6318119705c9a7e8504a3",
+      "sha256": "fe7a2179f1ab685db5c1f30887540e26d626b183d979e852b975a224068fb928",
       "executable": false
     },
     "tests/policy-journey.mjs": {
-      "sha256": "e68d7283307218aa5ff9e7aff7503c68f324e37243e711e1b3271b309b4eefb9",
+      "sha256": "5a72711b7a0495416d9fec02fee6daa259adcee29c21ce9610e16c2dabc4f17d",
       "executable": false
     },
     "tests/policy-release-journey.mjs": {
