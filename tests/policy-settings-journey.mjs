@@ -52,6 +52,7 @@ export async function policySettingsBrowser(){
   const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
   try{
    const f=await fixture(h),page=await context.newPage()
+   const direct=await h.send('/app/settings');assert.equal(direct.status,200,direct.text)
    await browserAssets(context)
    const [name,...value]=h.owner.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
    const shot=async label=>{if(process.env.POLICY_SCREENS){await mkdir(process.env.POLICY_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.POLICY_SCREENS,`${label}-${width}.png`)})}}
@@ -59,7 +60,7 @@ export async function policySettingsBrowser(){
    const account=page.getByLabel('Account',{exact:true});await account.focus()
    await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'})
    await account.click();await page.getByRole('link',{name:'Settings',exact:true}).click();await page.waitForLoadState('networkidle')
-   const picker=page.locator('#policy-pick');await picker.getByLabel('Cafe',{exact:true}).selectOption(site)
+   await page.locator('#policy-pick').waitFor({state:'visible'});const picker=page.locator('#policy-pick');await picker.getByLabel('Cafe',{exact:true}).selectOption(site)
    await picker.getByRole('button',{name:'Open policy',exact:true}).click();await page.waitForLoadState('networkidle')
    const editor=page.locator('[data-policy-editor]')
    // Select shipped releases by the actual options, rather than pinning a catalog version.
@@ -114,6 +115,25 @@ export async function policySettingsBrowser(){
    }
    await page.locator('#policy-current').getByText('Policy revision history',{exact:true}).click()
    await shot('policy-settings-applied')
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+   // The same Settings door retains a person-specific applicability decision.
+   const worker=page.locator('#worker-policy')
+   await worker.getByLabel('Review a person',{exact:true}).selectOption(f.crew[0].id)
+   await worker.getByRole('button',{name:'Open applicability review',exact:true}).click();await page.waitForLoadState('networkidle')
+   const workerEditor=page.locator('[data-worker-editor]')
+   await workerEditor.getByLabel('State weekly overtime',{exact:true}).selectOption('reviewed-not-applicable')
+   await workerEditor.getByLabel('Legal basis for any rule not applied',{exact:true}).fill('Employer-reviewed state exception; federal weekly overtime remains covered')
+   await workerEditor.getByLabel('Employer evidence reference',{exact:true}).fill('synthetic-lanyard-1 retained employer applicability decision')
+   await workerEditor.getByLabel('Applicability review reason',{exact:true}).fill('Reviewed this person against each independent rule family')
+   await workerEditor.getByRole('button',{name:'Preview applicability',exact:true}).click();await page.waitForLoadState('networkidle')
+   assert.equal(await page.locator('.notice.error').count(),0)
+   await page.locator('[data-worker-apply] input[type=checkbox]').check()
+   await page.locator('[data-worker-apply]').getByRole('button',{name:'Apply reviewed applicability',exact:true}).click();await page.waitForLoadState('networkidle')
+   assert.equal(await page.locator('.notice.error').count(),0)
+   const covered=(await h.state()).policies.find(p=>p.id===f.old.id)
+   assert.equal(covered.coverage[0].stateWeekly,'reviewed-not-applicable');assert.equal(covered.coverage[0].federalOvertime,'covered')
+   applied.revision=covered.revision
+   await shot('policy-settings-worker')
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
    // Locked payroll is still a server-side fence through the native form door.
    const pending=state.timesheets.find(t=>t.status==='submitted');await h.cmd('time.approve',pin(pending))

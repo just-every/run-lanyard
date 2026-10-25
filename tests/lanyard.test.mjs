@@ -2033,3 +2033,8 @@ test('PAY-002: TSV and custom-delimited files retain configured column order, da
 test('POLICY-001: adjacent cafe captures retain one break obligation without changing historical releases',async()=>{const {policyAdjacentApi}=await import('./policy-adjacent-journey.mjs');await policyAdjacentApi()})
 
 test('POLICY-001: Settings release preview and reviewed application at 1440 and 390',async()=>{const {policySettingsBrowser}=await import('./policy-settings-journey.mjs');await policySettingsBrowser()})
+
+test('POLICY-001: elected alternative workweeks require current evidence and reviewed recalculation',async()=>{const {policyAlternateApi}=await import('./policy-alternate-journey.mjs');await policyAlternateApi()})
+test('POLICY-001: elected days, extra workdays and unknown shortening aggregate across cafes',async()=>{const {policyAlternateClassificationApi}=await import('./policy-alternate-journey.mjs');await policyAlternateClassificationApi()})
+
+test('POLICY-001: employer-reviewed applicability retains federal, state and cross-cafe obligations separately',async()=>{const {policyCoverageApi}=await import('./policy-coverage-journey.mjs');await policyCoverageApi()})

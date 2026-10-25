@@ -130,6 +130,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
   const env = runtimeBindings(original), isAgent = path.startsWith('/api/lanyard/agent/')
   let who: Actor | undefined
   let policyInput: Record<string, unknown> | undefined
+  let workerInput: Record<string, unknown> | undefined
   const back = returnTo(url.searchParams.get('returnTo'))
   try {
     if (url.origin !== env.AUTH_ORIGIN || (request.headers.has('host') && request.headers.get('host') !== url.host)) fail('Wrong application origin', 403)
@@ -230,11 +231,14 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/schedule/review') return json(await previewSchedule(env.DB, who, await inputBody(request)))
       if (path === '/app/action') {
         const input = await inputBody(request), name = url.searchParams.get('name') ?? ''
+        if (['policy.worker.preview','policy.worker.save'].includes(name) && new URL(back,url.origin).pathname === '/app/settings') workerInput = input
         if (['policy.preview','policy.save'].includes(name) && new URL(back,url.origin).pathname === '/app/settings') policyInput = input
         if (name === 'staff.save' && !('active' in input)) input.active = false
         const result = await execute(request, env, who, name, input), { token, ...shown } = result as Record<string, unknown>
         if(name==='kiosk.enroll'){const response=new Response(null,{status:303,headers:{...headers,location:'/app/kiosk'}});response.headers.append('set-cookie',String((result as any).cookie));return response}
         let displayed:any=name === 'import.preview' || name === 'sales.preview' ? { ...shown, csv: input.csv, mapping: input.mapping, site: input.site } : name.startsWith('clockbrowser.') ? shown : result
+        if(name==='policy.worker.save') displayed={workerInput:input}
+        if(name==='policy.worker.preview') displayed={workerInput:input,workerPreview:{review:result,input}}
         if(name==='policy.preview') displayed={policyInput:input,policyPreview:{review:result,input}}
         if(name.startsWith('fairness.')&&['owner','manager'].includes(who.role)) {
           const q=new URL(back,url.origin).searchParams
@@ -263,7 +267,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
   } catch (error) {
     const status = Number((error as any)?.status) || 500
     const message = status < 500 ? (error as Error).message : 'Could not save this change. Refresh and try again.'
-    if (path === '/app/action' && who) return renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message, ...(policyInput?{result:{policyInput}}:{}) })
+    if (path === '/app/action' && who) return renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message, ...((policyInput||workerInput)?{result:{policyInput,workerInput}}:{}) })
     if (pages.has(path) && status === 401) return new Response(null, { status: 303, headers: { ...headers, location: '/signin?returnTo=' + encodeURIComponent(path) } })
     return json({ error: message }, status)
   }

@@ -50,7 +50,7 @@ export function project(s:State,staffId:string,week:string,at:string,add:Row[]=[
  for(const p of report.parts)classifiedDays[p.date]=(classifiedDays[p.date]??0)+p.minutes
  const actualMinutes=report.parts.filter(p=>actualIds.has(p.timeId)).reduce((n,p)=>n+p.minutes,0)
  return {...base,actualMinutes,scheduledMinutes:report.minutes-actualMinutes,projectedMinutes:report.minutes,days:classifiedDays,overtimeMinutes:report.overtimeMinutes,doubleMinutes:report.doubleMinutes,
-  premiumCents:report.weightedRateCents===null?null:Math.round((report.overtimeMinutes*.5+report.doubleMinutes)*report.weightedRateCents/60),
+  premiumCents:report.classificationIncomplete||report.weightedRateCents===null?null:Math.round((report.overtimeMinutes*.5+report.doubleMinutes)*report.weightedRateCents/60),
   policy:{label:report.label,overtimeBasis:report.overtimeBasis,classificationIncomplete:report.classificationIncomplete,weightedRateCents:report.weightedRateCents,parts:report.parts}}
 }
 /** Existing cost readers receive the estimate and cited versions. Full actual

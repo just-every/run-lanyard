@@ -35,7 +35,7 @@ export function earningsOf(staffId:string,week:string,tz:string,shifts:any[],tim
  const parts=reports.flatMap(report=>report.parts.filter((p:any)=>approvedIds.has(p.timeId)&&(!group||inside(p.date))).map((p:any)=>({...p,weightedRateCents:report.weightedRateCents})))
  const total=(key:string)=>parts.reduce((n,p)=>n+p[key],0),regularMinutes=total('regularMinutes'),overtimeMinutes=total('overtimeMinutes'),doubleMinutes=total('doubleMinutes')
  const priced=settings.estimates&&typeof rateCents==='number'
- const known=parts.every(p=>p.cents!==null&&p.weightedRateCents!==null)
+ const known=reports.every(r=>!r.classificationIncomplete)&&parts.every(p=>p.cents!==null&&p.weightedRateCents!==null)
  // Retained straight-time earnings plus the weighted workweek premium. Work
  // outside a split pay period establishes overtime without being paid twice.
  const buckets=[['regularMinutes',0],['overtimeMinutes',.5],['doubleMinutes',1]] as const

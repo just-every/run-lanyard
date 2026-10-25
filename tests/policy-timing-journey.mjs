@@ -34,15 +34,15 @@ const cases=[
 // Real native sessions and timed captures reach the same policy review command
 // used for payroll estimates. Historical and current policies coexist at cafes.
 export async function policyTimingVariants(){
- const h=await harness()
+ let number=0
+ for(const sample of cases){const h=await harness()
  try{
   await h.cmd('settings.save',{timezone:'UTC'})
-  for(const preset of ['NY','CA','OR','NV','WA'])for(const legacy of [false,true])await h.cmd('policy.save',{
+  for(const preset of [sample.preset])for(const legacy of [false,true])await h.cmd('policy.save',{
    site:preset+(legacy?' Legacy':' Current'),preset,from:'2026-01-01',
    ...(legacy?{breakVersion:'2026-10-26'}:{}),reviewReason:'Reviewed recorded timing under selected maintained release',
   })
-  let number=0
-  for(const sample of cases)for(const legacy of sample.legacyIssues===undefined?[false]:[false,true]){
+  for(const legacy of sample.legacyIssues===undefined?[false]:[false,true]){
    const name='Timing'+String(++number),site=sample.industry?'Factory'+number:sample.preset+(legacy?' Legacy':' Current'),person=await h.person(name)
    if(sample.industry)await h.cmd('policy.save',{site,preset:sample.preset,from:'2026-01-01',industry:sample.industry,reviewReason:'Reviewed manufacturing establishment coverage against the source'})
    await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,active:true,role:'staff',site,hourlyRate:'20.00'})
@@ -62,4 +62,5 @@ export async function policyTimingVariants(){
    assert.equal((await h.state()).batches.length,0,'timing review does not create payroll')
   }
  }finally{await h.close()}
+ }
 }
