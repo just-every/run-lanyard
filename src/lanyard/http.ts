@@ -16,7 +16,7 @@ import { timezone as zone } from './domain/settings'
 
 const headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin' }
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers })
-const pages = new Set(['/app', '/app/schedule', '/app/time', '/app/payroll', '/app/people', '/app/import', '/app/agent', '/app/wall', '/app/access', '/app/chat'])
+const pages = new Set(['/app', '/app/schedule', '/app/time', '/app/payroll', '/app/people', '/app/settings', '/app/import', '/app/agent', '/app/wall', '/app/access', '/app/chat'])
 // The screen a form returns to, with its own query (week, cafe, day) but never another origin or path.
 function returnTo(value: string | null): string {
   if (!value?.startsWith('/app')) return '/app'
@@ -129,6 +129,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
   if (!path.startsWith('/api/lanyard/') && path !== '/app' && !path.startsWith('/app/')) return null
   const env = runtimeBindings(original), isAgent = path.startsWith('/api/lanyard/agent/')
   let who: Actor | undefined
+  let policyInput: Record<string, unknown> | undefined
   const back = returnTo(url.searchParams.get('returnTo'))
   try {
     if (url.origin !== env.AUTH_ORIGIN || (request.headers.has('host') && request.headers.get('host') !== url.host)) fail('Wrong application origin', 403)
@@ -229,10 +230,12 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/schedule/review') return json(await previewSchedule(env.DB, who, await inputBody(request)))
       if (path === '/app/action') {
         const input = await inputBody(request), name = url.searchParams.get('name') ?? ''
+        if (['policy.preview','policy.save'].includes(name) && new URL(back,url.origin).pathname === '/app/settings') policyInput = input
         if (name === 'staff.save' && !('active' in input)) input.active = false
         const result = await execute(request, env, who, name, input), { token, ...shown } = result as Record<string, unknown>
         if(name==='kiosk.enroll'){const response=new Response(null,{status:303,headers:{...headers,location:'/app/kiosk'}});response.headers.append('set-cookie',String((result as any).cookie));return response}
         let displayed:any=name === 'import.preview' || name === 'sales.preview' ? { ...shown, csv: input.csv, mapping: input.mapping, site: input.site } : name.startsWith('clockbrowser.') ? shown : result
+        if(name==='policy.preview') displayed={policyInput:input,policyPreview:{review:result,input}}
         if(name.startsWith('fairness.')&&['owner','manager'].includes(who.role)) {
           const q=new URL(back,url.origin).searchParams
           displayed={...displayed,fairness:await fairnessRead(env.DB,who,String(input.week??q.get('week')??''),String(input.site??q.get('site')??''),Number(input.weeks??q.get('fairWeeks')??8))}
@@ -242,7 +245,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
           displayed={demand,learning:await learnProposalRead(env.DB,who,demand.site,8)}
         }
         if(new URL(back,url.origin).pathname==='/app/access')displayed={access:await customAccessRead(env.DB,who)}
-        const response=withClockCookie(await renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { message: 'Saved.', result: displayed }), name.startsWith('clockbrowser.') ? result : null)
+        const response=withClockCookie(await renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { message: name==='policy.preview'?'Preview ready. Review the changes below before applying.':'Saved.', result: displayed }), name.startsWith('clockbrowser.') ? result : null)
         if(name==='kiosk.enroll')response.headers.append('set-cookie',String((result as any).cookie))
         return response
       }
@@ -260,7 +263,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
   } catch (error) {
     const status = Number((error as any)?.status) || 500
     const message = status < 500 ? (error as Error).message : 'Could not save this change. Refresh and try again.'
-    if (path === '/app/action' && who) return renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message })
+    if (path === '/app/action' && who) return renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message, ...(policyInput?{result:{policyInput}}:{}) })
     if (pages.has(path) && status === 401) return new Response(null, { status: 303, headers: { ...headers, location: '/signin?returnTo=' + encodeURIComponent(path) } })
     return json({ error: message }, status)
   }

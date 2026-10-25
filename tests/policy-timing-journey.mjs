@@ -4,6 +4,11 @@ import {pin} from './workforce-journey.mjs'
 
 const week='2026-10-12'
 const cases=[
+ {name:'Nevada six-hour fraction',preset:'NV',span:390,meals:[],rests:[[180,10]],issues:0,restIssues:0,legacyIssues:0,legacyRestIssues:1},
+ {name:'Nevada seven-hour boundary',preset:'NV',span:420,meals:[],rests:[[180,10]],issues:0,restIssues:1},
+ {name:'Washington rolling meal deadline',preset:'WA',span:700,meals:[[120,30],[500,30]],issues:1,legacyIssues:0},
+ {name:'Washington meal after prior meal',preset:'WA',span:720,meals:[[300,30],[620,30]],issues:0,legacyIssues:1},
+ {name:'California second worked-hour deadline',preset:'CA',span:750,meals:[[240,30],[615,30]],issues:0,legacyIssues:1},
  {name:'Noon at eleven',preset:'NY',span:480,meals:[[180,30]],issues:0,legacyIssues:1},
  {name:'Evening without noon',preset:'NY',span:720,meals:[[540,20]],issues:1,legacyIssues:2},
  {name:'Noon and evening',preset:'NY',span:720,meals:[[180,30],[540,20]],issues:0},
@@ -26,7 +31,7 @@ export async function policyTimingVariants(){
  const h=await harness()
  try{
   await h.cmd('settings.save',{timezone:'UTC'})
-  for(const preset of ['NY','CA','OR'])for(const legacy of [false,true])await h.cmd('policy.save',{
+  for(const preset of ['NY','CA','OR','NV','WA'])for(const legacy of [false,true])await h.cmd('policy.save',{
    site:preset+(legacy?' Legacy':' Current'),preset,from:'2026-01-01',
    ...(legacy?{breakVersion:'2026-10-26'}:{}),reviewReason:'Reviewed recorded timing under selected maintained release',
   })
@@ -45,7 +50,7 @@ export async function policyTimingVariants(){
    await h.cmd('time.approve',pin(capture.timesheet))
    const report=await h.cmd('policy.review',{staffId:person.id,week}),review=report.breakReviews[0]
    assert.equal(review.issues.filter(i=>i.kind==='meal').length,legacy?sample.legacyIssues:sample.issues,sample.name+(legacy?' historical':' current'))
-   if(sample.restIssues!==undefined)assert.equal(review.issues.filter(i=>i.kind==='rest').length,sample.restIssues,sample.name)
+   if(sample.restIssues!==undefined)assert.equal(review.issues.filter(i=>i.kind==='rest').length,legacy?(sample.legacyRestIssues??sample.restIssues):sample.restIssues,sample.name)
    assert.equal(report.minutes,sample.span-sample.meals.reduce((n,[,length])=>n+length,0),'paid rests remain worked time')
    assert.equal((await h.state()).batches.length,0,'timing review does not create payroll')
   }

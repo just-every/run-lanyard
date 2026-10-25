@@ -2029,3 +2029,7 @@ test('PAY-001: approved PTO, tip allocations and tip-credit make-up sources map 
 test('PAY-001: pinned work areas and clock-transfer jobs classify retained rates once with signed per-job corrections',async()=>{const {classifiedSegmentsApi}=await import('./paytemplates-journey.mjs');for(const transfer of [false,true])await run(h=>classifiedSegmentsApi(h,transfer))})
 test('PAY-002: XLSX downloads retain literal identifiers, exact approved numbers, binary hashes and immutable signed corrections',()=>run(async h=>{const {workbookApi}=await import('./paytemplates-journey.mjs');await workbookApi(h)}))
 test('PAY-002: TSV and custom-delimited files retain configured column order, dates, UTC times, payable precision and immutable downloads',async()=>{const {delimitedApi}=await import('./paytemplates-journey.mjs');for(const format of ['tsv','delimited'])await run(h=>delimitedApi(h,format))})
+
+test('POLICY-001: adjacent cafe captures retain one break obligation without changing historical releases',async()=>{const {policyAdjacentApi}=await import('./policy-adjacent-journey.mjs');await policyAdjacentApi()})
+
+test('POLICY-001: Settings release preview and reviewed application at 1440 and 390',async()=>{const {policySettingsBrowser}=await import('./policy-settings-journey.mjs');await policySettingsBrowser()})

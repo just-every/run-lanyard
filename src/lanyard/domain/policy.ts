@@ -5,7 +5,8 @@ import {dayAfter} from './aca'
 import {localDate} from './settings'
 import {priced} from './workforce'
 import {workweek} from './payschedules'
-import {breakSources,policyBreaks} from './policy-breaks'
+import {breakSources} from './policy-breaks'
+import {breakReviewsFor} from './policy-break-review'
 import {consecutiveWork} from './policy-consecutive'
 
 const version=(r:Row)=>{const {versions,...v}=r;return v}
@@ -43,7 +44,7 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
  const dailyOutput=classify(false),consecutiveOutput=classify(true)
  const premium=(list:any[])=>list.reduce((n,p)=>n+p.overtimeMinutes*.5+p.doubleMinutes,0)
  const consecutiveWins=premium(consecutiveOutput)>premium(dailyOutput),output=consecutiveWins?consecutiveOutput:dailyOutput
- const breakReviews=rows.filter(t=>t.staffId===staffId&&workweek(s,staffId,localDate(t.start,s.timezone))===week).flatMap(t=>{const site=t.site??s.staff.find(x=>x.id===staffId)?.site??'',r=policyOn(s,site,localDate(t.start,s.timezone)),clock=s.clocks.find(k=>k.id===t.clockId);const review=policyBreaks(r,{...t,site,...(clock?{breaks:t.breaks??[]}: {})},s.timezone,!!planned);return review?[review]:[]})
+ const breakReviews=breakReviewsFor(s,rows.filter(t=>t.staffId===staffId),week,!!planned,((site,on)=>policyOn(s,site,on)))
  // California pays at most one hour for each break kind per person and day,
  // even when several shifts or cafes have exceptions.
  const premiumDays=new Map<string,{meal:number;rest:number}>()
@@ -57,11 +58,12 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
 }
 export function policyWarnings(s:State,shifts:Row[],week:string){
  const all=[...s.shifts.filter(x=>x.status==='published'&&s.rosters.find(r=>r.id===x.rosterId)?.week!==week),...shifts]
- const result:{kind:string;site:string;date?:string;message:string}[]=[]
+ const result:{kind:string;site:string;date?:string;message:string}[]=[],seenBreaks=new Set<string>()
+ const breakChecks=[...new Set(shifts.map(x=>x.staffId))].flatMap(id=>breakReviewsFor(s,all.filter(x=>x.staffId===id),week,true,((site,on)=>policyOn(s,site,on))))
  for(const x of shifts){const site=x.site??s.staff.find(p=>p.id===x.staffId)?.site??'',r=policyOn(s,site,localDate(x.start,s.timezone));if(!r)continue
   const rest=minimumRestIssue(s,x.staffId,x,[],all);if(rest)result.push({kind:'policy',site,date:localDate(x.start,s.timezone),message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${rest}`})
-  const review=policyBreaks(r,{...x,site},s.timezone,true)
-  if(review?.issues.length)result.push({kind:'policy',site,date:review.date,message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${r.preset} break review (${review.version}): ${review.issues.map(i=>i.message).join('; ')}. ${review.sources.join(' ')}. ${review.label}.`})
+  const review=breakChecks.find(b=>b.timeIds.includes(x.id)),breakKey=review?.timeIds.join('|')??''
+  if(review?.issues.length&&!seenBreaks.has(breakKey)){seenBreaks.add(breakKey);result.push({kind:'policy',site,date:review.date,message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${r.preset} break review (${review.version}): ${review.issues.map(i=>i.message).join('; ')}. ${review.sources.join(' ')}. ${review.label}.`})}
   const report=policyClassification(s,x.staffId,workweek(s,x.staffId,localDate(x.start,s.timezone)),all),mine=report.parts.filter((p:any)=>p.timeId===x.id)
   const overtime=mine.reduce((n:number,p:any)=>n+p.overtimeMinutes,0),double=mine.reduce((n:number,p:any)=>n+p.doubleMinutes,0)
   if(overtime||double||r.preset==='custom')result.push({kind:'policy',site,date:localDate(x.start,s.timezone),message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${policyLabel(r)}: ${overtime} overtime minutes; ${double} double-time minutes. ${report.label}.`})
