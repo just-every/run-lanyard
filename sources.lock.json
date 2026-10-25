@@ -1922,7 +1922,7 @@
       "executable": false
     },
     "src/lanyard/ui/policy-review.ts": {
-      "sha256": "98477ec127f04196eabdba1f160092e6ed489e6a5ebc49dc518162d3f256d6fc",
+      "sha256": "7276ba71ec5f0dccda53033a368812a4611cf4c81671e1b300e8414ba286902d",
       "executable": false
     },
     "src/lanyard/ui/premiums.ts": {
