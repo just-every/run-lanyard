@@ -54,7 +54,7 @@ async function fixture(h,count=samples.length){
  return {maria,policy}
 }
 
-// One native owner/staff journey covers the worked-minute boundary, independent
+// One native owner and staff journey covers the worked-minute boundary, independent
 // meal spacing, exact review approval, retained sources and private evidence.
 export async function policyWashingtonApi(){
  const h=await harness()
