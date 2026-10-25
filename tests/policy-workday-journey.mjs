@@ -118,7 +118,7 @@ export async function policyWorkdayAllocationApi(){
 }
 
 export async function policyWorkdayDstApi(){
- const h=await harness()
+ const h=await harness({now:'2026-11-02T12:00:00Z'})
  try{
   await h.cmd('settings.save',{timezone:'America/Los_Angeles'})
   const p=await person(h,'WorkdayDst')

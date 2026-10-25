@@ -118,6 +118,11 @@ export async function policyEarningsBrowser(){
    const account=page.locator('summary[aria-label="Account"]');await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'});await shot('policy-earnings-tooltip')
    await h.cmd('earnings.save',{revision:f.settings.revision,estimates:false,statementUrl:f.settings.statementUrl,payDays:5});await page.reload({waitUntil:'networkidle'})
    assert.doesNotMatch(await card.innerText(),/\$/);assert.match(await card.innerText(),/turned off pay estimates/);await card.scrollIntoViewIfNeeded();await shot('policy-earnings-off')
+   const current=(await h.state()).earnings[0];await h.cmd('earnings.save',{revision:current.revision,estimates:true,statementUrl:f.settings.statementUrl,payDays:5})
+   const sitePolicy=(await h.state()).policies.find(p=>p.site==='East'),change={...pin(sitePolicy),site:'East',from:'2026-01-01',staffId:f.alex.id,...Object.fromEntries(['federalOvertime','stateWeekly','stateDaily','stateConsecutive','stateSeventh','meal','rest','weeklyRest'].map(k=>[k,'covered'])),federalOvertime:'reviewed-not-applicable',legalBasis:'Employer-recorded federal applicability decision; other cafe evidence remains unresolved',evidenceReference:'synthetic-lanyard-1 applicability evidence',reviewReason:'Review this employee at every worked cafe'}
+   const preview=await h.cmd('policy.worker.preview',change);await h.cmd('policy.worker.save',{...change,reviewDigest:preview.digest})
+   await page.reload({waitUntil:'networkidle'});const unresolved=(await own(h,f.alex)).ownEarnings;assert.equal(unresolved.policyReviewRequired,true);assert.equal(unresolved.estimateCents,null);assert.equal(await card.locator('.estimate').count(),0)
+   await card.scrollIntoViewIfNeeded();await shot('policy-earnings-review')
    assert.deepEqual(errors,[])
   }finally{await context.close();await h.close()}
  }}finally{await browser.close()}

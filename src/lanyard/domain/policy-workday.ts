@@ -18,7 +18,7 @@ export function workdayParts<T extends Part>(s:State,staffId:string,parts:T[],ru
   const rule=ruleOn(p.site,p.date),anchor=rule?.preset==='CA'?(rule.workdayStart??'00:00'):'00:00'
   if(anchor==='00:00')return [p]
   if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(anchor))throw new Error('California workday requires an HH:MM anchor')
-  // A retained part's start/end may cover the entire overnight area. Clip to
+  // A retained part's start and end may cover the entire overnight area. Clip to
   // its own venue date first, or both dates would allocate the same interval.
   const begin=Math.max(Date.parse(p.start),Date.parse(instantAt(p.date,'00:00',s.timezone)))
   const end=Math.min(Date.parse(p.end),Date.parse(instantAt(dayAfter(p.date),'00:00',s.timezone)))

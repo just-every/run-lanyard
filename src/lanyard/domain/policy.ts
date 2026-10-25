@@ -8,7 +8,7 @@ import {localDate} from './settings'
 import {priced} from './workforce'
 import {workweek} from './payschedules'
 import {breakSources} from './policy-breaks'
-import {breakReviewsFor} from './policy-break-review'
+import {workdayBreakReviews} from './policy-workday-breaks'
 import {alternateLimits} from './policy-alternate'
 import {covered,coverageReview} from './policy-coverage'
 import {consecutiveWork} from './policy-consecutive'
@@ -55,11 +55,11 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
  const dailyOutput=classify(false),consecutiveOutput=classify(true)
  const premium=(list:any[])=>list.reduce((n,p)=>n+p.overtimeMinutes*.5+p.doubleMinutes,0)
  const consecutiveWins=premium(consecutiveOutput)>premium(dailyOutput),output=consecutiveWins?consecutiveOutput:dailyOutput
- const breakReviews=breakReviewsFor(s,rows.filter(t=>t.staffId===staffId),week,!!planned,((site,on)=>policyOn(s,site,on)))
+ const breakReviews=workdayBreakReviews(s,staffId,allParts,rows.filter(t=>t.staffId===staffId),week,!!planned,((site,on)=>policyOn(s,site,on)))
  // California pays at most one hour for each break kind per person and day,
  // even when several shifts or cafes have exceptions.
  const premiumDays=new Map<string,{meal:number;rest:number}>()
- for(const r of breakReviews){const d=premiumDays.get(r.date)??{meal:0,rest:0};d.meal=Math.max(d.meal,r.mealPremiumMinutes);d.rest=Math.max(d.rest,r.restPremiumMinutes);premiumDays.set(r.date,d)}
+ for(const r of breakReviews){const day=r.workdayKey??r.date,d=premiumDays.get(day)??{meal:0,rest:0};d.meal=Math.max(d.meal,r.mealPremiumMinutes);d.rest=Math.max(d.rest,r.restPremiumMinutes);premiumDays.set(day,d)}
  const weeklyRestReviews=illinoisRest(s,rows.filter(t=>t.staffId===staffId),week)
  const alternateReviews=parts.flatMap((p:any)=>{const r=policyOn(s,p.site,p.date),review=r?alternative(r,p):null;return review?[{date:p.date,site:p.site,...review}]:[]})
  const coverage=coverageReview(s,staffId,parts,((site,on)=>policyOn(s,site,on)));coverage.issues.push(...workdayReviewIssues)
@@ -67,16 +67,16 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
  const total=(key:string)=>output.reduce((n:number,p:any)=>n+p[key],0),minutes=total('minutes'),known=output.every((p:any)=>p.cents!==null)
  const weightedRateCents=minutes&&known?output.reduce((n:number,p:any)=>n+p.minutes*p.cents,0)/minutes:null
  const overtimeMinutes=total('overtimeMinutes'),doubleMinutes=total('doubleMinutes'),classificationIncomplete=alternateReviews.some(r=>r.reviewRequired)||coverage.issues.length>0||output.some(p=>p.consecutiveEvidenceUnknown)
- return {staffId,week,overtimeBasis:consecutiveWins?'consecutive hours and weekly':'daily and weekly',coverage,alternateReviews,classificationIncomplete,weeklyRestReviews,breakReviews,breakPremiumMinutes,breakPremiumEstimateCents:weightedRateCents===null?null:Math.round(breakPremiumMinutes*weightedRateCents/60),end:dayAfter(week,6),minutes,regularMinutes:total('regularMinutes'),overtimeMinutes,doubleMinutes,weightedRateCents,estimateCents:classificationIncomplete||weightedRateCents===null?null:Math.round((minutes+overtimeMinutes*.5+doubleMinutes)*weightedRateCents/60),label:'Weighted-average estimate; provider regular-rate treatment is authoritative; meal and rest premiums excluded',parts:output}
+ return {staffId,week,overtimeBasis:consecutiveWins?'consecutive hours and weekly':'daily and weekly',coverage,alternateReviews,classificationIncomplete,weeklyRestReviews,breakReviews,breakPremiumMinutes,breakPremiumEstimateCents:weightedRateCents===null||breakReviews.some(r=>r.premiumDayUnknown)?null:Math.round(breakPremiumMinutes*weightedRateCents/60),end:dayAfter(week,6),minutes,regularMinutes:total('regularMinutes'),overtimeMinutes,doubleMinutes,weightedRateCents,estimateCents:classificationIncomplete||weightedRateCents===null?null:Math.round((minutes+overtimeMinutes*.5+doubleMinutes)*weightedRateCents/60),label:'Weighted-average estimate; provider regular-rate treatment is authoritative; meal and rest premiums excluded',parts:output}
 }
 export function policyWarnings(s:State,shifts:Row[],week:string){
  const all=[...s.shifts.filter(x=>x.status==='published'&&s.rosters.find(r=>r.id===x.rosterId)?.week!==week),...shifts]
  const result:{kind:string;site:string;date?:string;message:string}[]=[],seenBreaks=new Set<string>()
- const breakChecks=[...new Set(shifts.map(x=>x.staffId))].flatMap(id=>breakReviewsFor(s,all.filter(x=>x.staffId===id),week,true,((site,on)=>policyOn(s,site,on))))
+ const breakChecks=[...new Set(shifts.map(x=>x.staffId))].flatMap(id=>policyClassification(s,id,week,all).breakReviews)
  for(const x of shifts){const site=x.site??s.staff.find(p=>p.id===x.staffId)?.site??'',r=policyOn(s,site,localDate(x.start,s.timezone));if(!r)continue
   const rest=minimumRestIssue(s,x.staffId,x,[],all);if(rest)result.push({kind:'policy',site,date:localDate(x.start,s.timezone),message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${rest}`})
-  const review=breakChecks.find(b=>b.timeIds.includes(x.id)),breakKey=review?.timeIds.join('|')??''
-  if(review?.issues.length&&!seenBreaks.has(breakKey)){seenBreaks.add(breakKey);result.push({kind:'policy',site,date:review.date,message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${r.preset} break review (${review.version}): ${review.issues.map(i=>i.message).join('; ')}. ${review.sources.join(' ')}. ${review.label}.`})}
+  for(const review of breakChecks.filter(b=>b.timeIds.includes(x.id))){const breakKey=(review.workdayKey??'')+'|'+(review.scope??'period')+'|'+review.timeIds.join('|')
+  if(review.issues.length&&!seenBreaks.has(breakKey)){seenBreaks.add(breakKey);result.push({kind:'policy',site,date:review.date,message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${r.preset} break review (${review.version}): ${review.issues.map(i=>i.message).join('; ')}. ${review.sources.join(' ')}. ${review.label}.`})}}
   const report=policyClassification(s,x.staffId,workweek(s,x.staffId,localDate(x.start,s.timezone)),all),mine=report.parts.filter((p:any)=>p.timeId===x.id)
   const overtime=mine.reduce((n:number,p:any)=>n+p.overtimeMinutes,0),double=mine.reduce((n:number,p:any)=>n+p.doubleMinutes,0)
   if(overtime||double||r.preset==='custom')result.push({kind:'policy',site,date:localDate(x.start,s.timezone),message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${policyLabel(r)}: ${overtime} overtime minutes; ${double} double-time minutes. ${report.label}.`})
