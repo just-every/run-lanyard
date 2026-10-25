@@ -1,3 +1,4 @@
+import {regionalConfiguration} from './policy-alternate-regional'
 import {type Context,type Row,keys,text,need,integer,put,exact,canonical} from './model'
 import {date} from './aca'
 import {workweek} from './payschedules'
@@ -40,8 +41,8 @@ export async function policyCommand(c:Context,name:string,p:Record<string,any>){
  need(p.industry===undefined||preset==='NY','Establishment coverage applies only to New York')
  need(industry===null||['factory','nonfactory'].includes(industry),'Choose reviewed factory or nonfactory coverage')
  need(industry!=='factory'||breakVersion===BREAK_VERSION,'Factory coverage requires the current reviewed break release')
- const alternate=p.alternate===undefined?(old?.alternate??null):alternateConfiguration(c,p.alternate,preset,from)
- need(!alternate||preset==='CA','Remove the alternative workweek explicitly before changing jurisdiction')
+ const alternate=p.alternate===undefined?(old?.alternate??null):(['AK_FLEX_APPROVED','NV_4X10'].includes(p.alternate?.kind)?regionalConfiguration(c,p.alternate,preset,from):alternateConfiguration(c,p.alternate,preset,from))
+ need(!alternate||preset===(alternate.kind==='CA_WO5_GENERAL'?'CA':alternate.kind==='AK_FLEX_APPROVED'?'AK':'NV'),'Remove the alternative workweek explicitly before changing jurisdiction')
  need(!alternate||from>=alternate.effectiveFrom,'The policy cannot precede the alternative workweek implementation date')
  const candidate={industry,alternate,coverage:old?.coverage??[],site,from,preset,jurisdiction:custom?text(p.jurisdiction,'jurisdiction',120):preset,presetVersion,consecutiveMinutes:preset==='CO'&&presetVersion===VERSION?720:0,breakVersion,source:custom?'':sources[preset],dailyMinutes,doubleMinutes,weeklyMinutes:custom?limit(p.weeklyMinutes,'weekly threshold',2400):2400,minimumRestMinutes,minimumRestLabel:'Employer-configured, unmaintained minimum rest',reviewReason,by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),version(old)]:[]}
  const alternateChanged=canonical(old?.alternate??null)!==canonical(alternate)

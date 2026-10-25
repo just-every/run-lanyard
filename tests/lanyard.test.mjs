@@ -2038,3 +2038,6 @@ test('POLICY-001: elected alternative workweeks require current evidence and rev
 test('POLICY-001: elected days, extra workdays and unknown shortening aggregate across cafes',async()=>{const {policyAlternateClassificationApi}=await import('./policy-alternate-journey.mjs');await policyAlternateClassificationApi()})
 
 test('POLICY-001: employer-reviewed applicability retains federal, state and cross-cafe obligations separately',async()=>{const {policyCoverageApi}=await import('./policy-coverage-journey.mjs');await policyCoverageApi()})
+
+test('POLICY-001: Alaska approved flex and Nevada mutual schedules require current evidence and reviewed adoption',async()=>{const {policyRegionalConfigurationApi}=await import('./policy-regional-journey.mjs');await policyRegionalConfigurationApi()})
+test('POLICY-001: regional alternate workweeks preserve enrollment, overtime and unresolved deviations across cafes',async()=>{const {policyRegionalClassificationApi}=await import('./policy-regional-journey.mjs');await policyRegionalClassificationApi()})

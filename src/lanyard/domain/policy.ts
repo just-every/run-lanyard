@@ -1,3 +1,4 @@
+import {regionalLimits} from './policy-alternate-regional'
 // POLICY-001: versioned overtime core. Meal timing and statutory premium payroll
 // remain separate unfinished obligations; these estimates never submit wages.
 import {type State,type Row} from './model'
@@ -28,7 +29,7 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
  const consecutive=consecutiveWork(s,allParts,rows,((site,on)=>{const r=policyOn(s,site,on);return r&&!covered(r,staffId,'stateConsecutive')?{...r,consecutiveMinutes:0}:r}))
  const parts=allParts.filter((p:any)=>workweek(s,staffId,p.date)===week)
  const dayTotals=new Map<string,number>();for(const p of parts)dayTotals.set(p.date,(dayTotals.get(p.date)??0)+p.minutes)
- const alternative=(r:any,on:string)=>alternateLimits(r,staffId,on,dayTotals.get(on)??0)
+ const alternative=(r:any,on:string)=>alternateLimits(r,staffId,on,dayTotals.get(on)??0)??regionalLimits(r,staffId,on,dayTotals.get(on)??0,[...dayTotals].map(([date,minutes])=>({date,minutes})))
  const daily=new Map<string,number>(),rules=new Map<string,any>(),workedDays=new Set<string>(parts.map((p:any)=>p.date))
  for(const p of parts){const r=policyOn(s,p.site,p.date);if(r)rules.set(p.date+'|'+p.site,r)}
  const classify=(useConsecutive:boolean)=>{let regularWeek=0;daily.clear();return parts.map((p:any)=>{

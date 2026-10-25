@@ -1,3 +1,4 @@
+import {policyForm} from './policy-form'
 import {sickCsv,sickReports} from './domain/sick'
 import {localDate} from './domain/settings'
 import {kioskResponse,kioskAdmin,kioskPin} from './kiosk'
@@ -87,6 +88,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   }
   if (!request.headers.get('content-type')?.includes('application/x-www-form-urlencoded')) fail('Use JSON or a form', 415)
   const params = new URLSearchParams(raw), input: Record<string, unknown> = Object.fromEntries(params)
+  policyForm(input,params)
   if(params.has('draftStaff')){
     const row={staffId:String(input.draftStaff),start:String(input.draftStart),end:String(input.draftEnd),breakMinutes:Number(input.draftBreak),site:String(input.draftSite),job:String(input.draftJob??'')}
     if(params.has('existingShifts')){let rows;try{rows=JSON.parse(String(input.existingShifts))}catch{fail('Reload the draft before editing')};const index=Number(input.draftIndex);if(!Array.isArray(rows)||!Number.isInteger(index)||index<0||index>=rows.length)fail('Reload the draft before editing');rows[index]={...rows[index],...row};input.shifts=rows}else input.shifts=[row]

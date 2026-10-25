@@ -1,3 +1,5 @@
+import {alternatePolicySettings} from './policy-alternate'
+import {policyFields} from './policy-fields'
 import {workerPolicySettings} from './policy-coverage'
 import {policyWorkweeks} from './policy-review'
 import {BREAK_VERSION,BREAK_VERSIONS,breakSources} from '../domain/policy-breaks'
@@ -22,7 +24,7 @@ function edit(s:any,p:any,v:any,back:string){
 
 
 function preview(s:any,result:any,back:string){
- const {review,input}=result,fields=Object.entries(input).filter(([key])=>key!=='reviewDigest').map(([key,value])=>hidden(key,value)).join('')
+ const {review,input}=result,fields=policyFields(input)
  const periods=review.periods.length?`<ul>${review.periods.map((p:any)=>`<li>${h(p.start)}–${h(p.end)} · ${h(p.status)} · revision ${h(p.revision)}</li>`).join('')}</ul>`:'<p class="note">No payroll periods at or after this effective date.</p>'
 
  return card('Review policy release',`<p><strong>${h(label(review.preset))}</strong> · ${h(review.site||'Default cafe')} · effective ${h(review.from)}</p><p class="note">Overtime ${h(review.presetVersion)} · breaks ${h(review.breakVersion??'No maintained rules')}</p><p>${h(input.reviewReason)}</p>${policyWorkweeks(s,review)}${disclosure('Affected payroll periods',periods)}<p class="note">${h(review.label)}. Wage estimates exclude meal and rest premiums; break premiums are shown separately. Missing timing stays unknown.</p>${form('policy.save',back,fields+hidden('reviewDigest',review.digest)+`<label class="check"><input type="checkbox" required> I reviewed the before and after estimates and approve this exact policy change.</label>`,'Apply reviewed policy','data-policy-apply','primary')}`,'','policy-preview')
@@ -36,5 +38,5 @@ export function policiesPage(s:any,q:URLSearchParams,extras:any,now:number){
  const site=String(input?.site??q.get('site')??sites[0]),p=all.find(p=>p.site===site),preset=String(input?.preset??q.get('preset')??p?.preset??'federal')
  const same=p?.preset===preset,v={industry:same?p.industry??'nonfactory':'nonfactory',site,preset,from:p?.from??dateKey(now,venue(s)),presetVersion:same?p.presetVersion:VERSION,breakVersion:same?p.breakVersion:BREAK_VERSION,minimumRestMinutes:p?.minimumRestMinutes??0,jurisdiction:same?p.jurisdiction:'',dailyMinutes:same?p.dailyMinutes:480,doubleMinutes:same?p.doubleMinutes:720,weeklyMinutes:same?p.weeklyMinutes:2400,reviewReason:'',...input}
  const back='/app/settings?'+new URLSearchParams({site,preset}),pick=`<form method="get" action="/app/settings"><div class="fields">${select('site','Cafe',sites,site,v=>v||'Default cafe')}${select('preset','Policy preset',[...policyPresets.map(p=>p.id),'custom'],preset,label)}</div><button type="submit" class="secondary">Open policy</button></form>`
- return titleRow('Settings',s,now)+card('Overtime, meals and rest',pick,'','policy-pick')+(p?card('Current policy',record(s,p)+(p.versions?.length?disclosure('Policy revision history',p.versions.slice().reverse().map((v:any)=>`<article>${record(s,v)}</article>`).join('')):''),'','policy-current'):card('Current policy','<p>No policy is configured for this cafe.</p>'))+(review?preview(s,review,back):'')+edit(s,p,v,back)+workerPolicySettings(s,p,q,extras,back)
+ return titleRow('Settings',s,now)+card('Overtime, meals and rest',pick,'','policy-pick')+(p?card('Current policy',record(s,p)+(p.versions?.length?disclosure('Policy revision history',p.versions.slice().reverse().map((v:any)=>`<article>${record(s,v)}</article>`).join('')):''),'','policy-current'):card('Current policy','<p>No policy is configured for this cafe.</p>'))+(review?preview(s,review,back):'')+edit(s,p,v,back)+workerPolicySettings(s,p,q,extras,back)+alternatePolicySettings(s,p,back)
 }
