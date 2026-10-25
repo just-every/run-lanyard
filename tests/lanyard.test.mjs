@@ -1977,6 +1977,14 @@ test('PRIVACY-001: authorized former employee export, held history and explicit 
  const hold=await h.cmd('privacy.hold',{staffId:alex.id,type:'history',hold:true,...consent})
  await h.cmd('privacy.erase',{staffId:alex.id,type:'history',...consent},h.owner,409)
  assert.equal((await h.cmd('privacy.review',{staffId:alex.id})).holds[0].hold,true)
+ for(const cookie of [other.cookie,manager.cookie]){
+  const state=await h.state(cookie)
+  for(const kind of ['privacypolicies','privacyholds','privacyresults'])assert.deepEqual(state[kind],[])
+ }
+ const agentState=(await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${key.token}`})).value
+ for(const kind of ['privacypolicies','privacyholds','privacyresults'])assert.deepEqual(agentState[kind],[])
+ assert.ok((await h.state()).privacyresults.some(r=>r.id===exported.receiptId&&r.reason===consent.reason))
+
  await h.cmd('privacy.hold',{staffId:alex.id,type:'history',hold:false,revision:hold.revision,...consent})
  const retained=await h.cmd('privacy.erase',{staffId:alex.id,type:'history',...consent});assert.equal(retained.erased.length,0);assert.match(retained.retained[0].reason,/Necessary employment/)
  await h.cmd('privacy.retention',{type:'attachments',days:1,...consent})

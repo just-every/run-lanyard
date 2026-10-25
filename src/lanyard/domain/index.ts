@@ -188,6 +188,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  const staff=s.staff.filter(p=>manages||agent||p.id===a.staffId).map(p=>agent?{id:p.id,name:p.name,active:!!p.active,position:p.position,site:p.site}:{id:p.id,name:p.name,email:p.email,payrollId:p.payroll_id,role:p.role,active:!!p.active,revision:p.version,erasedAt:p.erased_at,position:p.position,site:p.site,...(mayReadPerson(s,a,p.id)||(p.id===a.staffId&&earnSettings(s.earnings).estimates)?{hourlyRateCents:p.rate_cents}:{})})
  const result:Record<string,any>={actor:{id:a.id,email:agent?undefined:a.email,name:agent?undefined:identity.name,role:a.role,staffId:a.staffId},version:s.version,settings:{timezone:s.timezone},staff}
  for(const k of kinds)result[k]=s[k]
+ for(const k of ['privacypolicies','privacyholds','privacyresults'] as const)result[k]=a.role==='owner'?s[k]:[]
  result.notices=noticesFor(s,a,new Date().toISOString())
  // DEMAND-001: assumptions and saved forecast versions are read with SALES-001's scope; staff and agents none.
  for(const k of ['forecasts','demandrules','demandforecasts','learnproposals'] as const)result[k]=manages?s[k].filter(r=>salesSite(s,a,r.site)):[]
