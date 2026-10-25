@@ -1,4 +1,4 @@
-import {type Context,type State,type Row,keys,text,need,exact,put,canonical} from './model'
+import {type Context,type State,type Row,keys,text,need,exact,put,canonical,integer} from './model'
 import {date} from './aca'
 import {releasePreview} from './policy-release'
 
@@ -13,16 +13,18 @@ export function covered(rule:Row|undefined,staffId:string,kind:CoverageKind){ret
 export async function policyWorkerCommand(c:Context,name:string,p:Record<string,any>){
  if(!['policy.worker.preview','policy.worker.save'].includes(name))return
  need(c.a.role==='owner','Only the owner maintains reviewed worker policy inputs',403)
- keys(p,['id','revision','site','from','staffId','legalBasis','evidenceReference','reviewReason','reviewDigest',...coverageKinds])
+ keys(p,['id','revision','site','from','staffId','legalBasis','evidenceReference','reviewReason','reviewDigest','normalWorkdayMinutes',...coverageKinds])
  const old=c.s.policies.find(r=>r.site===p.site);need(old,'Configure the cafe policy first',404)
  need(p.id===old.id,'Reload the cafe policy',409);exact(old,p)
  const from=date(p.from,'effective date');need(from>=old.from,'Worker policy review cannot precede the current site policy',409)
  need(!c.s.periods.some(r=>['locked','closed'].includes(r.status)&&r.end>=from),'Worker policy changes cannot reach locked or closed payroll',409)
  const staffId=text(p.staffId,'person'),person=c.s.staff.find(r=>r.id===staffId&&r.active&&!r.erased_at);need(person,'Active staff required',404)
  const status=Object.fromEntries(coverageKinds.map(k=>{need(['covered','reviewed-not-applicable'].includes(p[k]),'Review every rule family explicitly');return [k,p[k]]}))
+ const normalWorkdayMinutes=old.preset==='WA'?integer(Number(p.normalWorkdayMinutes??workerCoverage(old,staffId)?.normalWorkdayMinutes??0),'normal workday minutes',0,1440):0
+ need(p.normalWorkdayMinutes===undefined||old.preset==='WA','Reviewed normal workday applies only to Washington')
  const hasExemption=coverageKinds.some(k=>status[k]==='reviewed-not-applicable')
- const legalBasis=text(p.legalBasis,'applicability legal basis',500,!hasExemption),evidenceReference=text(p.evidenceReference,'employer evidence reference',300,!hasExemption),reviewReason=text(p.reviewReason,'review reason',500)
- const profile={staffId,preset:old.preset,...status,legalBasis,evidenceReference,reviewReason,by:c.a.id,staffRevision:person.version,label:'Employer-reviewed applicability; Lanyard does not determine legal exemption'}
+ const legalBasis=text(p.legalBasis,'applicability legal basis',500,!hasExemption&&!normalWorkdayMinutes),evidenceReference=text(p.evidenceReference,'employer evidence reference',300,!hasExemption&&!normalWorkdayMinutes),reviewReason=text(p.reviewReason,'review reason',500)
+ const profile={staffId,preset:old.preset,...status,...(old.preset==='WA'?{normalWorkdayMinutes}:{}),legalBasis,evidenceReference,reviewReason,by:c.a.id,staffRevision:person.version,label:'Employer-reviewed applicability; Lanyard does not determine legal exemption'}
  const {versions,...prior}=old
  const candidate={...prior,from,coverage:[...(old.coverage??[]).filter((r:any)=>r.staffId!==staffId),profile].sort((a,b)=>a.staffId.localeCompare(b.staffId)),reviewReason,by:c.a.id,at:c.now,versions:[...(versions??[]),prior]}
  const review=await releasePreview(c.s,candidate,old)

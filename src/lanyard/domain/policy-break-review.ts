@@ -28,8 +28,8 @@ export function breakReviewsFor(s:State,rows:Row[],week:string,planned:boolean,r
   const timed=group.every(e=>Array.isArray(e.row.breaks)),row:Row={...first.row,end:last.row.end,breakMinutes:group.reduce((n,e)=>n+(e.row.breakMinutes??0),0)+(first.rule?.preset==='NV'?gapMinutes:0)}
   if(timed)row.breaks=group.flatMap(e=>e.row.breaks)
   else delete row.breaks
-  const review=policyBreaks(first.rule,row,s.timezone,planned)
-  if(review){review.issues=review.issues.filter(i=>covered(first.rule,staffId,i.kind==='meal'?'meal':'rest'));if(!covered(first.rule,staffId,'meal'))review.mealPremiumMinutes=0;if(!covered(first.rule,staffId,'rest'))review.restPremiumMinutes=0}
+  const review=policyBreaks(first.rule?{...first.rule,normalWorkdayMinutes:workerCoverage(first.rule,staffId)?.normalWorkdayMinutes}:undefined,row,s.timezone,planned)
+  if(review){review.issues=review.issues.filter(i=>covered(first.rule,staffId,i.kind.startsWith('meal')?'meal':'rest'));if(!covered(first.rule,staffId,'meal'))review.mealPremiumMinutes=0;if(!covered(first.rule,staffId,'rest'))review.restPremiumMinutes=0}
   if(review&&gaps.length)review.issues.push({kind:'meal',state:'unknown',message:'Short intervals between source records do not reset this work period; off-duty and meal status require review'})
   return review?[{...review,coverage:workerCoverage(first.rule,staffId)??null,unrecordedIntervals:gaps,timeIds:group.map(e=>e.row.id),records:group.map(e=>({id:e.row.id,revision:e.row.revision,site:e.row.site,start:e.row.start,end:e.row.end,policyId:e.rule?.id,policyRevision:e.rule?.revision})),periodStart:first.row.start,periodEnd:last.row.end}]:[]
  })

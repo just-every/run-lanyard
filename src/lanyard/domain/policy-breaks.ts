@@ -3,6 +3,7 @@
 import {type Row,need} from './model'
 import {BREAK_VERSION as PREVIOUS_VERSION,policyBreaks as previousBreaks} from './policy-breaks-20261026'
 import {wall} from './settings'
+import {washingtonExtraMeal} from './policy-washington'
 import {newYorkMeals} from './policy-newyork'
 
 export const BREAK_VERSION='2026-10-26.2'
@@ -12,11 +13,11 @@ export const breakSources:Record<string,string[]>={
  CO:['https://cdle.colorado.gov/dlss-home-page/wage-and-hour-law/breaks-rest-meal-periods'],
  CA:['https://www.dir.ca.gov/dlse/FAQ_MealPeriods.htm','https://www.dir.ca.gov/dlse/FAQ_RestPeriods.htm'],
  OR:['https://secure.sos.state.or.us/oard/view.action?ruleNumber=839-020-0050','https://www.oregon.gov/boli/workers/Pages/meals-and-breaks.aspx'],
- WA:['https://www.lni.wa.gov/workers-rights/workplace-policies/rest-breaks-meal-periods-and-schedules'],
+ WA:['https://app.leg.wa.gov/wac/default.aspx?cite=296-126-092','https://www.lni.wa.gov/workers-rights/workplace-policies/rest-breaks-meal-periods-and-schedules'],
  NY:['https://www.nysenate.gov/legislation/laws/LAB/162','https://dol.ny.gov/day-rest-and-meal-periods'],
  IL:['https://labor.illinois.gov/laws-rules/fls/odrisa.html'],
 }
-type Issue={kind:'meal'|'rest'|'weekly rest';message:string;state:'exception'|'unknown'}
+type Issue={kind:'meal'|'rest'|'weekly rest'|'meal eligibility';message:string;state:'exception'|'unknown'}
 export function policyBreaks(rule:Row|undefined,row:Row,tz:string,planned=false){
  if(!rule?.breakVersion)return null
  if(rule.breakVersion===PREVIOUS_VERSION)return previousBreaks(rule,row,tz,planned)
@@ -74,6 +75,7 @@ export function policyBreaks(rule:Row|undefined,row:Row,tz:string,planned=false)
     cursor=offset(b)+duration(b);index++
    }
   }
+  if(current){const extra=washingtonExtraMeal(rule.normalWorkdayMinutes,net,timed,meals.filter((b:any)=>duration(b)>=30).length,issues);if(extra)issues.push(extra)}
   rest(Math.floor(net/240),10)
   // A full rest alone does not establish the no-more-than-three-hours rule.
   if(timed){const pauses=valid.filter((b:any)=>current?(b.kind==='meal'?duration(b)>=30:duration(b)>=10):b.kind==='meal'||duration(b)>=10).sort((a:any,b:any)=>a.start.localeCompare(b.start));let end=row.start

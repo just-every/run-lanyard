@@ -2053,3 +2053,6 @@ test('POLICY-001: California workday recuts retain approved rates and exact whol
 test('POLICY-001: California employer workday boundaries follow venue daylight-saving transitions',async()=>{const {policyWorkdayDstApi}=await import('./policy-workday-journey.mjs');await policyWorkdayDstApi()})
 
 test('POLICY-001: California workday rests combine split cafe service and retain unknown boundary timing',async()=>{const {policyRestDaysApi}=await import('./policy-rest-days-journey.mjs');await policyRestDaysApi()})
+
+test('POLICY-001: Washington reviewed normal workdays govern additional meals without changing historical rules',async()=>{const {policyWashingtonApi}=await import('./policy-washington-journey.mjs');await policyWashingtonApi()})
+test('POLICY-001: Washington normal workday review and application through Settings at 1440 and 390',async()=>{const {policyWashingtonBrowser}=await import('./policy-washington-journey.mjs');await policyWashingtonBrowser()})
