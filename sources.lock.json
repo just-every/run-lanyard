@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "b6b53b85906efc4a26ef404147550f748f1604e7162841a872b049836397cef6",
+      "sha256": "469367d106300f3c432f27d287e3d2bb0dd5e6b9fc69f9532b50437c98166582",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "36b36084afdf5a6bf5cf317941416d6e4df3f54a10d6b7f019ad13c2c6f582f5",
+      "sha256": "efece3fcc0aa978a0b6840b5c5af6c8b623ca4ad097cd5af9f7e0bf557598206",
       "executable": false
     },
     "DEMO.md": {
@@ -1506,7 +1506,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy-break-review.ts": {
-      "sha256": "beba1aa8a13b25becd706b30cfff077872f65e8acecc0a988329e46c47c222a7",
+      "sha256": "84eca9bd3446a1c06daa7be94aa371d32ce9cab89d3823d5d411498b24694511",
       "executable": false
     },
     "src/lanyard/domain/policy-breaks-20261026.ts": {
@@ -1514,7 +1514,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy-breaks.ts": {
-      "sha256": "fb52ae0ef68229ade963a55c102e199951de30f0923b22e72deed0843aff47aa",
+      "sha256": "6a122ffb703643013dbbd915c8023e9191ff06ca5f314e74c1f8c2fc45f62757",
       "executable": false
     },
     "src/lanyard/domain/policy-catalog.ts": {
@@ -1530,7 +1530,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy-coverage.ts": {
-      "sha256": "992f98be3d6779d0b37cffe77a3710d6712af844abd3bffd645dac11e9aa8f33",
+      "sha256": "68b11393fc639b4c8ff206aff5ae6e16359c51e27fa233b466087c78e8959aeb",
       "executable": false
     },
     "src/lanyard/domain/policy-newyork.ts": {
@@ -1543,6 +1543,10 @@
     },
     "src/lanyard/domain/policy-rest-days.ts": {
       "sha256": "9e695e29e99bb8923677526bb5661c2ff83e8e12e22f280169f12e28df2df721",
+      "executable": false
+    },
+    "src/lanyard/domain/policy-washington.ts": {
+      "sha256": "3acffa9e8934406033b28cec80bd298099fe645db0bc8f8fae5ae27ac2fb605f",
       "executable": false
     },
     "src/lanyard/domain/policy-workday-breaks.ts": {
@@ -1914,7 +1918,7 @@
       "executable": false
     },
     "src/lanyard/ui/policy-coverage.ts": {
-      "sha256": "d1534def894d0eadddc393186c41dac606401bd2e158ca793e8b6f3a065b1610",
+      "sha256": "48db34c1fb8f1df0206d6923267fbaa38ac137352f5d2b0b735c4cf9a6996c23",
       "executable": false
     },
     "src/lanyard/ui/policy-fields.ts": {
@@ -3938,7 +3942,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "321599a73dd8d33316f08edb90d26f1649b56b9314dff4a673e54eae2df5e991",
+      "sha256": "5994fac3584b110fc95d46c3257fd111e47334e028b163ce962424241bde8482",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -4047,6 +4051,10 @@
     },
     "tests/policy-timing-journey.mjs": {
       "sha256": "c9ed909cef488916d759a16902db4e82feb07f39b1773a4185e20935a739d56f",
+      "executable": false
+    },
+    "tests/policy-washington-journey.mjs": {
+      "sha256": "13fb8ac087d31e3b7eea57a290814917935bc765c7ec2601bbe76d41054dbb06",
       "executable": false
     },
     "tests/policy-workday-journey.mjs": {
