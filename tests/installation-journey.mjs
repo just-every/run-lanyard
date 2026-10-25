@@ -32,7 +32,7 @@ try{
  const context=await browser.newContext(),page=await context.newPage()
  await page.goto(server.open,{waitUntil:'networkidle'})
  await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Finish setup',exact:true}).click()
- await page.waitForURL('**/app/**')
+ await page.waitForURL(/\/app(?:\/|\?|$)/)
  const save=async(name,input)=>{const response=await page.request.post(server.origin+'/api/lanyard/command',{data:{name,input}});assert.equal(response.status(),200);return (await response.json()).result}
  const rosa=await save('staff.save',{name:'Rosa Martinez',email:'synthetic-lanyard-2@example.test',payrollId:'ROSA',active:true,role:'staff',hourlyRate:'22.00'})
  const week=new Date();week.setUTCDate(week.getUTCDate()+14-(week.getUTCDay()+6)%7);const monday=week.toISOString().slice(0,10)
@@ -66,6 +66,16 @@ try{
  browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  const back=await browser.newContext(),restoredPage=await back.newPage()
  await restoredPage.goto(server.open,{waitUntil:'networkidle'})
+ if(new URL(restoredPage.url()).pathname==='/setup'){
+  await restoredPage.getByRole('checkbox').check();await restoredPage.getByRole('button',{name:'Finish setup',exact:true}).click()
+ }
+ await restoredPage.goto(server.origin+'/app/schedule?week='+monday+'&view=draft',{waitUntil:'networkidle'})
+ for(const width of [1440,390]){
+  await restoredPage.setViewportSize({width,height:1000})
+  assert.ok((await restoredPage.locator('body').innerText()).includes('Rosa'))
+  assert.equal(await restoredPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+  if(process.env.INSTALLATION_SCREENS)await restoredPage.screenshot({path:join(process.env.INSTALLATION_SCREENS,`restored-${width}.png`)})
+ }
  const response=await restoredPage.request.get(server.origin+'/api/lanyard/state');assert.equal(response.status(),200)
  const after=await response.json()
  for(const key of ['staff','rosters','shifts'])assert.deepEqual(after[key],before[key],`${key} survives archive and another installation's reset`)

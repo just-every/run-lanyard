@@ -33,6 +33,7 @@ export function classifiedLines(c:Context,lines:any[],template:Row){
    need(!c.s.clocks.some(x=>x.staffId===t.staffId&&!x.end&&workweek(c.s,x.staffId,localDate(x.start,c.s.timezone))===week),'Workweek has an open punch',409)
    if(!weeks.has(wk))weeks.set(wk,policyClassification(c.s,t.staffId,week))
    const report=weeks.get(wk)!
+   need(!report.classificationIncomplete,'Consecutive-hours overtime needs qualifying recorded meal evidence before classified export',409)
    need(employee.workflow==='1099'||!(report.overtimeMinutes||report.doubleMinutes)||new Set(report.parts.map((x:any)=>x.cents)).size<=1,'Mixed-rate overtime needs provider-confirmed regular-rate treatment; use reviewed source inputs',409)
    need(!exported.some(b=>!b.classificationLines&&b.lines.some((l:any)=>l.overtimeKey&&l.staffId===t.staffId&&l.trace?.week===week)),'Legacy overtime premiums need reconciliation before classified payroll',409)
    for(const p of report.parts.filter((p:any)=>p.timeId===t.id&&p.date===on)){

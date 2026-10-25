@@ -34,6 +34,7 @@ export async function policyClassifications(){
  const {policyTimingVariants}=await import('./policy-timing-journey.mjs');await policyTimingVariants()
  await policyBreakClassifications()
  await policyDailyPremiumCap()
+ const {policyConsecutiveApi}=await import('./policy-consecutive-journey.mjs');await policyConsecutiveApi()
  // Two rates on the same date aggregate before the daily threshold is applied.
  const h=await harness();try{
   await h.cmd('settings.save',{timezone:'UTC'});const alex=await person(h),policy=await save(h,'East','CA');await save(h,'West','CA')

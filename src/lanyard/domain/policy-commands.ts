@@ -2,7 +2,7 @@ import {type Context,type Row,keys,text,need,integer,put,exact} from './model'
 import {date} from './aca'
 import {workweek} from './payschedules'
 import {BREAK_VERSION,BREAK_VERSIONS,breakSources} from './policy-breaks'
-import {VERSION,sources} from './policy-catalog'
+import {VERSION,POLICY_VERSIONS,sources} from './policy-catalog'
 import {policyClassification} from './policy'
 import {releasePreview} from './policy-release'
 const version=(r:Row)=>{const {versions,...v}=r;return v}
@@ -14,7 +14,7 @@ export async function policyCommand(c:Context,name:string,p:Record<string,any>){
   const week=date(p.week,'workweek');need(workweek(c.s,p.staffId,week)===week,'Use the employee workweek start')
   return policyClassification(c.s,p.staffId,week)
  }
- keys(p,['id','revision','site','from','preset','jurisdiction','dailyMinutes','doubleMinutes','weeklyMinutes','minimumRestMinutes','reviewReason','breakVersion','reviewDigest'])
+ keys(p,['id','revision','site','from','preset','jurisdiction','dailyMinutes','doubleMinutes','weeklyMinutes','minimumRestMinutes','reviewReason','breakVersion','reviewDigest','presetVersion'])
  const site=text(p.site,'site',80,true),old=c.s.policies.find(r=>r.site===site)
  if(old){need(p.id===old.id,'Reload the existing policy',409);exact(old,p)}else need(!p.id,'Policy not found',404)
  const from=date(p.from,'effective date'),preset=text(p.preset,'preset',20)
@@ -30,11 +30,13 @@ export async function policyCommand(c:Context,name:string,p:Record<string,any>){
  need(doubleMinutes>=dailyMinutes,'Double time cannot begin before overtime')
  const minimumRestMinutes=p.minimumRestMinutes===undefined?0:integer(Number(p.minimumRestMinutes),'employer minimum rest',0,1440)
  if(preset==='CA')need(!c.s.mealrules.some(r=>r.site===site&&r.enabled),'Disable automatic meal deduction before applying California policy',409)
+ const presetVersion=p.presetVersion??VERSION
+ need(POLICY_VERSIONS.includes(presetVersion),'Choose a supported overtime-rule version')
  const breakVersion=breakSources[preset]?(p.breakVersion??BREAK_VERSION):null
  need(p.breakVersion===undefined||breakVersion!==null,'This preset has no maintained break rules')
  need(breakVersion===null||BREAK_VERSIONS.includes(breakVersion),'Choose a supported break-rule version')
- const candidate={site,from,preset,jurisdiction:custom?text(p.jurisdiction,'jurisdiction',120):preset,presetVersion:VERSION,breakVersion,source:custom?'':sources[preset],dailyMinutes,doubleMinutes,weeklyMinutes:custom?limit(p.weeklyMinutes,'weekly threshold',2400):2400,minimumRestMinutes,minimumRestLabel:'Employer-configured, unmaintained minimum rest',reviewReason,by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),version(old)]:[]}
- const upgrade=!!old&&old.preset===preset&&(old.breakVersion!==breakVersion||old.presetVersion!==VERSION)
+ const candidate={site,from,preset,jurisdiction:custom?text(p.jurisdiction,'jurisdiction',120):preset,presetVersion,consecutiveMinutes:preset==='CO'&&presetVersion===VERSION?720:0,breakVersion,source:custom?'':sources[preset],dailyMinutes,doubleMinutes,weeklyMinutes:custom?limit(p.weeklyMinutes,'weekly threshold',2400):2400,minimumRestMinutes,minimumRestLabel:'Employer-configured, unmaintained minimum rest',reviewReason,by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),version(old)]:[]}
+ const upgrade=!!old&&old.preset===preset&&(old.breakVersion!==breakVersion||old.presetVersion!==presetVersion)
  const review=name==='policy.preview'||upgrade?await releasePreview(c.s,candidate,old):null
  if(name==='policy.preview')return review
  if(upgrade)need(p.reviewDigest===review!.digest,'Review the preset release and current open-period recalculation before applying it',409)

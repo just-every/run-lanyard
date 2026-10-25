@@ -6,6 +6,7 @@ import {localDate} from './settings'
 import {priced} from './workforce'
 import {workweek} from './payschedules'
 import {breakSources,policyBreaks} from './policy-breaks'
+import {consecutiveWork} from './policy-consecutive'
 
 const version=(r:Row)=>{const {versions,...v}=r;return v}
 export function policyOn(s:State,site:string,on:string){
@@ -17,27 +18,31 @@ export function policyLabel(r:any){return r.preset==='custom'?`${r.jurisdiction}
  * A date uses the strongest threshold of the sites actually worked that date. */
 export function policyClassification(s:State,staffId:string,week:string,planned?:Row[]){
  const rows=planned??s.timesheets.filter(t=>t.staffId===staffId&&t.status==='approved')
- const parts=rows.filter(t=>t.staffId===staffId).flatMap(t=>{
+ const allParts=rows.filter(t=>t.staffId===staffId).flatMap(t=>{
   const areas=t.workSegments?.length?t.workSegments:[t]
-  return areas.flatMap((area:any)=>{const basis=area.rateBasis??priced(s,staffId,{...t,...area});return basis.segments.map((p:any)=>({date:p.date,minutes:p.minutes,cents:p.cents,rateReference:{from:p.from,profileId:p.profileId,profileRevision:p.profileRevision,jobRevision:basis.jobRevision},site:basis.site??t.site??s.staff.find(x=>x.id===staffId)?.site??'',timeId:t.id,revision:t.revision,start:area.start??t.start,area:area.area??'',job:area.job??t.job??''}))})
- }).filter((p:any)=>workweek(s,staffId,p.date)===week).sort((a:any,b:any)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start)||a.timeId.localeCompare(b.timeId))
- let regularWeek=0
+  return areas.flatMap((area:any)=>{const basis=area.rateBasis??priced(s,staffId,{...t,...area});return basis.segments.map((p:any)=>({date:p.date,minutes:p.minutes,cents:p.cents,rateReference:{from:p.from,profileId:p.profileId,profileRevision:p.profileRevision,jobRevision:basis.jobRevision},site:basis.site??t.site??s.staff.find(x=>x.id===staffId)?.site??'',timeId:t.id,revision:t.revision,start:area.start??t.start,end:area.end??t.end,area:area.area??'',job:area.job??t.job??''}))})
+ }).sort((a:any,b:any)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start)||a.timeId.localeCompare(b.timeId))
+ const consecutive=consecutiveWork(s,allParts,rows,((site,on)=>policyOn(s,site,on)))
+ const parts=allParts.filter((p:any)=>workweek(s,staffId,p.date)===week)
  const daily=new Map<string,number>(),rules=new Map<string,any>(),workedDays=new Set<string>(parts.map((p:any)=>p.date))
  for(const p of parts){const r=policyOn(s,p.site,p.date);if(r)rules.set(p.date+'|'+p.site,r)}
- const output=parts.map((p:any)=>{
+ const classify=(useConsecutive:boolean)=>{let regularWeek=0;daily.clear();return parts.map((p:any)=>{
   const own=policyOn(s,p.site,p.date),dayRules=[...rules.entries()].filter(([key])=>key.startsWith(p.date+'|')).map(([,r])=>r)
   // Nevada's current general minimum wage is USD 12; daily overtime applies
   // below 1.5 times that amount. Missing wage evidence never waives the check.
-  const dailyLimit=(r:any)=>r.preset==='NV'&&p.cents!==null&&p.cents>=1800?1440:r.dailyMinutes
+  const dailyLimit=(r:any)=>useConsecutive&&r.preset==='CO'&&r.consecutiveMinutes?1440:r.preset==='NV'&&p.cents!==null&&p.cents>=1800?1440:r.dailyMinutes
   const ca=dayRules.some(r=>r.preset==='CA'),seventh=ca&&Array.from({length:7},(_,i)=>dayAfter(p.date,-i)).every(d=>d>=week&&workedDays.has(d))
   const dailyMax=Math.min(1440,...dayRules.map(dailyLimit)),doubleMax=Math.min(1440,...dayRules.map(r=>r.doubleMinutes)),weeklyMax=Math.min(2400,...dayRules.map(r=>r.weeklyMinutes))
   const before=daily.get(p.date)??0,after=before+p.minutes;daily.set(p.date,after)
   const over=(bound:number)=>Math.max(0,after-bound)-Math.max(0,before-bound)
-  const doubleMinutes=over(seventh?480:doubleMax),dailyOvertime=seventh?p.minutes-doubleMinutes:Math.max(0,over(dailyMax)-doubleMinutes)
+  const doubleMinutes=over(seventh?480:doubleMax),dailyOvertime=seventh?p.minutes-doubleMinutes:Math.max(useConsecutive?consecutive.get(p)?.minutes??0:0,Math.max(0,over(dailyMax)-doubleMinutes))
   const eligible=p.minutes-doubleMinutes-dailyOvertime,weeklyOvertime=Math.max(0,regularWeek+eligible-weeklyMax)-Math.max(0,regularWeek-weeklyMax);regularWeek+=eligible
   const overtimeMinutes=dailyOvertime+weeklyOvertime,regularMinutes=p.minutes-overtimeMinutes-doubleMinutes
-  return {...p,regularMinutes,overtimeMinutes,doubleMinutes,rules:dayRules.map(r=>({id:r.id,revision:r.revision,preset:r.preset,version:r.presetVersion,source:r.source,label:policyLabel(r)})),configured:!!own}
- })
+  return {...p,regularMinutes,overtimeMinutes,doubleMinutes,consecutiveOvertimeMinutes:consecutive.get(p)?.minutes??0,consecutiveEvidenceUnknown:consecutive.get(p)?.unknown??false,rules:dayRules.map(r=>({id:r.id,revision:r.revision,preset:r.preset,version:r.presetVersion,source:r.source,consecutiveMinutes:r.consecutiveMinutes??0,label:policyLabel(r)})),configured:!!own}
+ })}
+ const dailyOutput=classify(false),consecutiveOutput=classify(true)
+ const premium=(list:any[])=>list.reduce((n,p)=>n+p.overtimeMinutes*.5+p.doubleMinutes,0)
+ const consecutiveWins=premium(consecutiveOutput)>premium(dailyOutput),output=consecutiveWins?consecutiveOutput:dailyOutput
  const breakReviews=rows.filter(t=>t.staffId===staffId&&workweek(s,staffId,localDate(t.start,s.timezone))===week).flatMap(t=>{const site=t.site??s.staff.find(x=>x.id===staffId)?.site??'',r=policyOn(s,site,localDate(t.start,s.timezone)),clock=s.clocks.find(k=>k.id===t.clockId);const review=policyBreaks(r,{...t,site,...(clock?{breaks:t.breaks??[]}: {})},s.timezone,!!planned);return review?[review]:[]})
  // California pays at most one hour for each break kind per person and day,
  // even when several shifts or cafes have exceptions.
@@ -48,7 +53,7 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
  const total=(key:string)=>output.reduce((n:number,p:any)=>n+p[key],0),minutes=total('minutes'),known=output.every((p:any)=>p.cents!==null)
  const weightedRateCents=minutes&&known?output.reduce((n:number,p:any)=>n+p.minutes*p.cents,0)/minutes:null
  const overtimeMinutes=total('overtimeMinutes'),doubleMinutes=total('doubleMinutes')
- return {staffId,week,weeklyRestReviews,breakReviews,breakPremiumMinutes,breakPremiumEstimateCents:weightedRateCents===null?null:Math.round(breakPremiumMinutes*weightedRateCents/60),end:dayAfter(week,6),minutes,regularMinutes:total('regularMinutes'),overtimeMinutes,doubleMinutes,weightedRateCents,estimateCents:weightedRateCents===null?null:Math.round((minutes+overtimeMinutes*.5+doubleMinutes)*weightedRateCents/60),label:'Weighted-average estimate; provider regular-rate treatment is authoritative; meal and rest premiums excluded',parts:output}
+ return {staffId,week,overtimeBasis:consecutiveWins?'consecutive hours and weekly':'daily and weekly',classificationIncomplete:output.some(p=>p.consecutiveEvidenceUnknown),weeklyRestReviews,breakReviews,breakPremiumMinutes,breakPremiumEstimateCents:weightedRateCents===null?null:Math.round(breakPremiumMinutes*weightedRateCents/60),end:dayAfter(week,6),minutes,regularMinutes:total('regularMinutes'),overtimeMinutes,doubleMinutes,weightedRateCents,estimateCents:weightedRateCents===null?null:Math.round((minutes+overtimeMinutes*.5+doubleMinutes)*weightedRateCents/60),label:'Weighted-average estimate; provider regular-rate treatment is authoritative; meal and rest premiums excluded',parts:output}
 }
 export function policyWarnings(s:State,shifts:Row[],week:string){
  const all=[...s.shifts.filter(x=>x.status==='published'&&s.rosters.find(r=>r.id===x.rosterId)?.week!==week),...shifts]
