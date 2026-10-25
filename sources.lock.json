@@ -1497,12 +1497,16 @@
       "sha256": "3feef864ed2e5f34e2832800bf5f4f1df3ea47031066d47be3f17a3b6b27af56",
       "executable": false
     },
+    "src/lanyard/domain/policy-break-review.ts": {
+      "sha256": "80c2c796baeca6045fb66c9a624bc9119a1ad508124dbd78db810b6eb1f833ed",
+      "executable": false
+    },
     "src/lanyard/domain/policy-breaks-20261026.ts": {
       "sha256": "ad98656ae681001c1a81ac1e1277eadb14241b48583c36d427f6d551665f9f86",
       "executable": false
     },
     "src/lanyard/domain/policy-breaks.ts": {
-      "sha256": "721b23225680547d67f6dbce797f5d5e0b118cddde588b959d409158104f8266",
+      "sha256": "fb52ae0ef68229ade963a55c102e199951de30f0923b22e72deed0843aff47aa",
       "executable": false
     },
     "src/lanyard/domain/policy-catalog.ts": {
@@ -1510,7 +1514,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy-commands.ts": {
-      "sha256": "a3cb6c66d4902fdbd78e6bf975c963e819d9dbe7f6510a19f4df1e431afeb256",
+      "sha256": "5c3aad1f1babf655525835832cdc94039e2e2aa149a54537371c3e707b546e94",
       "executable": false
     },
     "src/lanyard/domain/policy-consecutive.ts": {
@@ -1867,6 +1871,10 @@
     },
     "src/lanyard/ui/planner.ts": {
       "sha256": "7732634d05cf8b33cf1edab3fb81b133da875f48d01d49cae92775bad3ee3063",
+      "executable": false
+    },
+    "src/lanyard/ui/policies.ts": {
+      "sha256": "61bac1b3bc0ef1e0363aabf15057df9bf4cca15ce15c495578e576ed49f30468",
       "executable": false
     },
     "src/lanyard/ui/premiums.ts": {
@@ -3941,6 +3949,10 @@
       "sha256": "a221301b6ef71b01e9ec0fd823b5cd69792f9dc443e299fcdbdad2e62eda010a",
       "executable": false
     },
+    "tests/policy-adjacent-journey.mjs": {
+      "sha256": "65492151d58a0b0d1bafc3644377ca1b7417d73a9086fcdb18b5eafd5c6146ca",
+      "executable": false
+    },
     "tests/policy-consecutive-journey.mjs": {
       "sha256": "904c3a678cd2c47a0b51abc6bd2bb220122d9587fd8abd459aaaa6f567764d07",
       "executable": false
@@ -3961,8 +3973,12 @@
       "sha256": "79e960462183b56a1a66e7994cdaf3ea7b5738540d7583f61ef5eef3411c1d8d",
       "executable": false
     },
+    "tests/policy-settings-journey.mjs": {
+      "sha256": "9e2e1fb7dbb4ca03817b0053fc17a588f589cb57425e23934ef788e4620971ee",
+      "executable": false
+    },
     "tests/policy-timing-journey.mjs": {
-      "sha256": "c51e85649023f9273816b2a72b4bc2b91285bbb51db7be1f0003dfea429d80c5",
+      "sha256": "e71ce9bba8058d2abd455283b1d6775a1676b7f7edb25575a1f0fa3ec8fea558",
       "executable": false
     },
     "tests/premiums-api.mjs": {

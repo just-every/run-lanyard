@@ -3,6 +3,7 @@
 import {type Row,need} from './model'
 import {BREAK_VERSION as PREVIOUS_VERSION,policyBreaks as previousBreaks} from './policy-breaks-20261026'
 import {wall} from './settings'
+import {newYorkMeals} from './policy-newyork'
 
 export const BREAK_VERSION='2026-10-26.2'
 export const BREAK_VERSIONS=[PREVIOUS_VERSION,'2026-10-26.1',BREAK_VERSION] as const
@@ -83,10 +84,10 @@ export function policyBreaks(rule:Row|undefined,row:Row,tz:string,planned=false)
   const first=minute(start.time),last=minute(end.time)+(end.date>start.date?1440:0)
   // Selected nonfactory treatment only. Obligations do not depend on how
   // many meals were recorded; an evening meal cannot satisfy the noon meal.
-  const required:{length:number;earliest:number;latest:number}[]=[],used=new Set<any>()
-  if(span>360&&first<660&&last>840)required.push({length:30,earliest:660-first,latest:810-first})
-  else if(span>360&&(first>=780||first<360))required.push({length:45,earliest:span/2-45,latest:span/2})
-  if(first<660&&last>1140)required.push({length:20,earliest:1020-first,latest:1120-first})
+  const required:{length:number;earliest:number;latest:number}[]=current?newYorkMeals(row,tz,rule.industry==='factory'):[],used=new Set<any>()
+  if(!current&&span>360&&first<660&&last>840)required.push({length:30,earliest:660-first,latest:810-first})
+  else if(!current&&span>360&&(first>=780||first<360))required.push({length:45,earliest:span/2-45,latest:span/2})
+  if(!current&&first<660&&last>1140)required.push({length:20,earliest:1020-first,latest:1120-first})
   const inWindow=(b:any,r:typeof required[number])=>offset(b)>=r.earliest&&offset(b)<=r.latest
   required.forEach((r,i)=>{
    const available=meals.filter((b:any)=>!used.has(b)),matching=available.filter((b:any)=>inWindow(b,r))
@@ -104,5 +105,5 @@ export function policyBreaks(rule:Row|undefined,row:Row,tz:string,planned=false)
  return {timeId:row.id,site:row.site,date:wall(row.start,tz).date,preset:rule.preset,policyId:rule.id,policyRevision:rule.revision,version:rule.breakVersion,sources:breakSources[rule.preset],issues,
   mealPremiumMinutes:rule.preset==='CA'&&issues.some(i=>i.kind==='meal'&&i.state==='exception')?60:0,
   restPremiumMinutes:rule.preset==='CA'&&issues.some(i=>i.kind==='rest'&&i.state==='exception')?60:0,
-  label:(rule.preset==='NY'?'Selected nonfactory meal treatment; factory coverage not classified. ':'')+'Review estimate; unknown timing requires review; exemptions and alternate workdays not classified; no automatic payroll change'}
+  label:(rule.preset==='NY'?(current?`${rule.industry==='factory'?'Factory':'Nonfactory'} coverage is employer-reviewed; midpoint placement requires review. `:'Selected nonfactory meal treatment; factory coverage not classified. '):'')+'Review estimate; unknown timing requires review; exemptions and alternate workdays not classified; no automatic payroll change'}
 }

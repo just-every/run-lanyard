@@ -14,7 +14,7 @@ export async function policyCommand(c:Context,name:string,p:Record<string,any>){
   const week=date(p.week,'workweek');need(workweek(c.s,p.staffId,week)===week,'Use the employee workweek start')
   return policyClassification(c.s,p.staffId,week)
  }
- keys(p,['id','revision','site','from','preset','jurisdiction','dailyMinutes','doubleMinutes','weeklyMinutes','minimumRestMinutes','reviewReason','breakVersion','reviewDigest','presetVersion'])
+ keys(p,['id','revision','site','from','preset','jurisdiction','dailyMinutes','doubleMinutes','weeklyMinutes','minimumRestMinutes','reviewReason','breakVersion','reviewDigest','presetVersion','industry'])
  const site=text(p.site,'site',80,true),old=c.s.policies.find(r=>r.site===site)
  if(old){need(p.id===old.id,'Reload the existing policy',409);exact(old,p)}else need(!p.id,'Policy not found',404)
  const from=date(p.from,'effective date'),preset=text(p.preset,'preset',20)
@@ -35,7 +35,11 @@ export async function policyCommand(c:Context,name:string,p:Record<string,any>){
  const breakVersion=breakSources[preset]?(p.breakVersion??BREAK_VERSION):null
  need(p.breakVersion===undefined||breakVersion!==null,'This preset has no maintained break rules')
  need(breakVersion===null||BREAK_VERSIONS.includes(breakVersion),'Choose a supported break-rule version')
- const candidate={site,from,preset,jurisdiction:custom?text(p.jurisdiction,'jurisdiction',120):preset,presetVersion,consecutiveMinutes:preset==='CO'&&presetVersion===VERSION?720:0,breakVersion,source:custom?'':sources[preset],dailyMinutes,doubleMinutes,weeklyMinutes:custom?limit(p.weeklyMinutes,'weekly threshold',2400):2400,minimumRestMinutes,minimumRestLabel:'Employer-configured, unmaintained minimum rest',reviewReason,by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),version(old)]:[]}
+ const industry=preset==='NY'?text(p.industry??(old?.preset==='NY'?old.industry??'nonfactory':'nonfactory'),'New York establishment coverage',20):null
+ need(p.industry===undefined||preset==='NY','Establishment coverage applies only to New York')
+ need(industry===null||['factory','nonfactory'].includes(industry),'Choose reviewed factory or nonfactory coverage')
+ need(industry!=='factory'||breakVersion===BREAK_VERSION,'Factory coverage requires the current reviewed break release')
+ const candidate={industry,site,from,preset,jurisdiction:custom?text(p.jurisdiction,'jurisdiction',120):preset,presetVersion,consecutiveMinutes:preset==='CO'&&presetVersion===VERSION?720:0,breakVersion,source:custom?'':sources[preset],dailyMinutes,doubleMinutes,weeklyMinutes:custom?limit(p.weeklyMinutes,'weekly threshold',2400):2400,minimumRestMinutes,minimumRestLabel:'Employer-configured, unmaintained minimum rest',reviewReason,by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),version(old)]:[]}
  const upgrade=!!old&&old.preset===preset&&(old.breakVersion!==breakVersion||old.presetVersion!==presetVersion)
  const review=name==='policy.preview'||upgrade?await releasePreview(c.s,candidate,old):null
  if(name==='policy.preview')return review

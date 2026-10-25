@@ -4,6 +4,12 @@ import {pin} from './workforce-journey.mjs'
 
 const week='2026-10-12'
 const cases=[
+ {name:'Factory short daytime shift',preset:'NY',span:360,startHour:10,industry:'factory',meals:[[120,60]],issues:0},
+ {name:'Factory requires a full noon hour',preset:'NY',span:360,startHour:10,industry:'factory',meals:[[120,30]],issues:1},
+ {name:'Factory overnight midpoint',preset:'NY',span:540,startHour:23,industry:'factory',meals:[[240,60]],issues:0},
+ {name:'Overnight crosses following noon',preset:'NY',span:960,startHour:23,meals:[[450,45],[720,30]],issues:0},
+ {name:'Overnight missing following noon',preset:'NY',span:960,startHour:23,meals:[[450,45]],issues:1},
+ {name:'Shift begins at noon window',preset:'NY',span:480,startHour:11,meals:[],issues:1},
  {name:'Nevada six-hour fraction',preset:'NV',span:390,meals:[],rests:[[180,10]],issues:0,restIssues:0,legacyIssues:0,legacyRestIssues:1},
  {name:'Nevada seven-hour boundary',preset:'NV',span:420,meals:[],rests:[[180,10]],issues:0,restIssues:1},
  {name:'Washington rolling meal deadline',preset:'WA',span:700,meals:[[120,30],[500,30]],issues:1,legacyIssues:0},
@@ -37,9 +43,10 @@ export async function policyTimingVariants(){
   })
   let number=0
   for(const sample of cases)for(const legacy of sample.legacyIssues===undefined?[false]:[false,true]){
-   const name='Timing'+String(++number),site=sample.preset+(legacy?' Legacy':' Current'),person=await h.person(name)
+   const name='Timing'+String(++number),site=sample.industry?'Factory'+number:sample.preset+(legacy?' Legacy':' Current'),person=await h.person(name)
+   if(sample.industry)await h.cmd('policy.save',{site,preset:sample.preset,from:'2026-01-01',industry:sample.industry,reviewReason:'Reviewed manufacturing establishment coverage against the source'})
    await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,active:true,role:'staff',site,hourlyRate:'20.00'})
-   const at=minute=>new Date(Date.parse(week+'T08:00:00Z')+minute*60000).toISOString()
+   const at=minute=>new Date(Date.parse(week+'T'+String(sample.startHour??8).padStart(2,'0')+':00:00Z')+minute*60000).toISOString()
    await h.cmd('clock.in',{commandId:'timing-in-'+number,capturedAt:at(0)},person.cookie)
    const captures=[...sample.meals.map(([start,length])=>({kind:'meal',start,length})),...(sample.rests??[]).map(([start,length])=>({kind:'rest',start,length}))].sort((a,b)=>a.start-b.start)
    for(const [i,b]of captures.entries()){
