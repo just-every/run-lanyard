@@ -5,6 +5,7 @@ import {date,dayAfter} from './aca'
 import {localDate} from './settings'
 import {priced} from './workforce'
 import {workweek} from './payschedules'
+import {BREAK_VERSION,breakSources,policyBreaks} from './policy-breaks'
 
 const VERSION='2026-10-24'
 const sources:Record<string,string>={
@@ -18,7 +19,7 @@ const sources:Record<string,string>={
  NY:'https://dol.ny.gov/overtime-pay',
  IL:'https://labor.illinois.gov/faqs/overtime-faq.html',
 }
-export const policyPresets=Object.entries(sources).map(([id,source])=>({id,source,version:VERSION,effectiveFrom:'2026-10-24',scope:'Nonexempt overtime core only; meal timing, rest periods, exemptions and premium payroll are not implemented'}))
+export const policyPresets=Object.entries(sources).map(([id,source])=>({id,source,version:VERSION,effectiveFrom:'2026-10-24',breakVersion:breakSources[id]?BREAK_VERSION:null,breakSources:breakSources[id]??[],scope:'Nonexempt overtime core; selected break review estimates; exemptions, alternate workdays and premium payroll incomplete'}))
 const version=(r:Row)=>{const {versions,...v}=r;return v}
 export function policyOn(s:State,site:string,on:string){
  return s.policies.filter(r=>r.site===site).flatMap(r=>[...(r.versions??[]),version(r)]).filter(r=>r.from<=on).sort((a,b)=>a.from.localeCompare(b.from)||a.revision-b.revision).at(-1)
@@ -39,7 +40,7 @@ export function policyCommand(c:Context,name:string,p:Record<string,any>){
  need(preset==='custom'||Object.hasOwn(sources,preset),'Choose a shipped preset or custom')
  if(old)need(from>=old.from,'A policy revision cannot precede its previous effective date',409)
  need(!c.s.periods.some(r=>['locked','closed'].includes(r.status)&&r.end>=from),'Policy changes cannot reach locked or closed payroll; choose a later effective date',409)
- const reviewReason=old?text(p.reviewReason,'reviewed recalculation reason',500):text(p.reviewReason,'review reason',500,true)
+ const reviewReason=text(p.reviewReason,old?'reviewed recalculation reason':'review reason',500)
  const custom=preset==='custom'
  if(!custom)need(['jurisdiction','dailyMinutes','doubleMinutes','weeklyMinutes'].every(k=>p[k]===undefined),'Maintained overtime thresholds cannot be overridden; use custom')
  const limit=(v:any,label:string,fallback:number)=>v===undefined?fallback:integer(Number(v),label,1,10080)
@@ -48,7 +49,7 @@ export function policyCommand(c:Context,name:string,p:Record<string,any>){
  need(doubleMinutes>=dailyMinutes,'Double time cannot begin before overtime')
  const minimumRestMinutes=p.minimumRestMinutes===undefined?0:integer(Number(p.minimumRestMinutes),'employer minimum rest',0,1440)
  if(preset==='CA')need(!c.s.mealrules.some(r=>r.site===site&&r.enabled),'Disable automatic meal deduction before applying California policy',409)
- return put(c,'policies',{site,from,preset,jurisdiction:custom?text(p.jurisdiction,'jurisdiction',120):preset,presetVersion:VERSION,source:custom?'':sources[preset],dailyMinutes,doubleMinutes,weeklyMinutes:custom?limit(p.weeklyMinutes,'weekly threshold',2400):2400,minimumRestMinutes,minimumRestLabel:'Employer-configured, unmaintained minimum rest',reviewReason,by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),version(old)]:[]},old)
+ return put(c,'policies',{site,from,preset,jurisdiction:custom?text(p.jurisdiction,'jurisdiction',120):preset,presetVersion:VERSION,breakVersion:breakSources[preset]?BREAK_VERSION:null,source:custom?'':sources[preset],dailyMinutes,doubleMinutes,weeklyMinutes:custom?limit(p.weeklyMinutes,'weekly threshold',2400):2400,minimumRestMinutes,minimumRestLabel:'Employer-configured, unmaintained minimum rest',reviewReason,by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),version(old)]:[]},old)
 }
 /** Actuals use approved retained rate allocations; all sites and jobs share the
  * employee workweek. Daily premiums never count twice toward weekly overtime.
@@ -76,21 +77,44 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
   const overtimeMinutes=dailyOvertime+weeklyOvertime,regularMinutes=p.minutes-overtimeMinutes-doubleMinutes
   return {...p,regularMinutes,overtimeMinutes,doubleMinutes,rules:dayRules.map(r=>({id:r.id,revision:r.revision,preset:r.preset,version:r.presetVersion,source:r.source,label:policyLabel(r)})),configured:!!own}
  })
+ const breakReviews=rows.filter(t=>t.staffId===staffId&&workweek(s,staffId,localDate(t.start,s.timezone))===week).flatMap(t=>{const site=t.site??s.staff.find(x=>x.id===staffId)?.site??'',r=policyOn(s,site,localDate(t.start,s.timezone)),clock=s.clocks.find(k=>k.id===t.clockId);const review=policyBreaks(r,{...t,site,...(clock?{breaks:t.breaks??[]}: {})},s.timezone,!!planned);return review?[review]:[]})
+ // California pays at most one hour for each break kind per person and day,
+ // even when several shifts or cafes have exceptions.
+ const premiumDays=new Map<string,{meal:number;rest:number}>()
+ for(const r of breakReviews){const d=premiumDays.get(r.date)??{meal:0,rest:0};d.meal=Math.max(d.meal,r.mealPremiumMinutes);d.rest=Math.max(d.rest,r.restPremiumMinutes);premiumDays.set(r.date,d)}
+ const weeklyRestReviews=illinoisRest(s,rows.filter(t=>t.staffId===staffId),week)
+ const breakPremiumMinutes=[...premiumDays.values()].reduce((n,d)=>n+d.meal+d.rest,0)
  const total=(key:string)=>output.reduce((n:number,p:any)=>n+p[key],0),minutes=total('minutes'),known=output.every((p:any)=>p.cents!==null)
  const weightedRateCents=minutes&&known?output.reduce((n:number,p:any)=>n+p.minutes*p.cents,0)/minutes:null
  const overtimeMinutes=total('overtimeMinutes'),doubleMinutes=total('doubleMinutes')
- return {staffId,week,end:dayAfter(week,6),minutes,regularMinutes:total('regularMinutes'),overtimeMinutes,doubleMinutes,weightedRateCents,estimateCents:weightedRateCents===null?null:Math.round((minutes+overtimeMinutes*.5+doubleMinutes)*weightedRateCents/60),label:'Weighted-average estimate; provider regular-rate treatment is authoritative; meal and rest premiums excluded',parts:output}
+ return {staffId,week,weeklyRestReviews,breakReviews,breakPremiumMinutes,breakPremiumEstimateCents:weightedRateCents===null?null:Math.round(breakPremiumMinutes*weightedRateCents/60),end:dayAfter(week,6),minutes,regularMinutes:total('regularMinutes'),overtimeMinutes,doubleMinutes,weightedRateCents,estimateCents:weightedRateCents===null?null:Math.round((minutes+overtimeMinutes*.5+doubleMinutes)*weightedRateCents/60),label:'Weighted-average estimate; provider regular-rate treatment is authoritative; meal and rest premiums excluded',parts:output}
 }
 export function policyWarnings(s:State,shifts:Row[],week:string){
  const all=[...s.shifts.filter(x=>x.status==='published'&&s.rosters.find(r=>r.id===x.rosterId)?.week!==week),...shifts]
  const result:{kind:string;site:string;date?:string;message:string}[]=[]
  for(const x of shifts){const site=x.site??s.staff.find(p=>p.id===x.staffId)?.site??'',r=policyOn(s,site,localDate(x.start,s.timezone));if(!r)continue
   const rest=minimumRestIssue(s,x.staffId,x,[],all);if(rest)result.push({kind:'policy',site,date:localDate(x.start,s.timezone),message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${rest}`})
+  const review=policyBreaks(r,{...x,site},s.timezone,true)
+  if(review?.issues.length)result.push({kind:'policy',site,date:review.date,message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${r.preset} break review (${review.version}): ${review.issues.map(i=>i.message).join('; ')}. ${review.sources.join(' ')}. ${review.label}.`})
   const report=policyClassification(s,x.staffId,workweek(s,x.staffId,localDate(x.start,s.timezone)),all),mine=report.parts.filter((p:any)=>p.timeId===x.id)
   const overtime=mine.reduce((n:number,p:any)=>n+p.overtimeMinutes,0),double=mine.reduce((n:number,p:any)=>n+p.doubleMinutes,0)
   if(overtime||double||r.preset==='custom')result.push({kind:'policy',site,date:localDate(x.start,s.timezone),message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${policyLabel(r)}: ${overtime} overtime minutes; ${double} double-time minutes. ${report.label}.`})
  }
+ for(const staffId of new Set(shifts.map(x=>x.staffId)))for(const r of illinoisRest(s,all.filter(x=>x.staffId===staffId),week))result.push({kind:'policy',site:r.site,date:r.date,message:`${s.staff.find(p=>p.id===staffId)?.name}: ${r.message} (${r.version}). ${r.source}. Exemptions and permits require review.`})
  return result
+}
+/** Illinois rest review includes the six preceding venue dates across week
+ * boundaries and cafes. A full 24-hour gap avoids a seventh-day exception. */
+function illinoisRest(s:State,rows:Row[],week:string){
+ return rows.filter(t=>localDate(t.start,s.timezone)>=week&&localDate(t.start,s.timezone)<=dayAfter(week,6)).flatMap(t=>{
+  const date=localDate(t.start,s.timezone),site=t.site??s.staff.find(p=>p.id===t.staffId)?.site??'',r=policyOn(s,site,date)
+  if(r?.preset!=='IL'||!r.breakVersion)return []
+  const days=Array.from({length:7},(_,i)=>dayAfter(date,-i)),prior=rows.filter(x=>days.includes(localDate(x.start,s.timezone))).sort((a,b)=>a.start.localeCompare(b.start))
+  if(!days.every(d=>prior.some(x=>localDate(x.start,s.timezone)===d)))return []
+  let end=prior[0].end
+  for(const x of prior.slice(1)){if(Date.parse(x.start)-Date.parse(end)>=86400000)return [];if(x.end>end)end=x.end}
+  return [{timeId:t.id,site,date,policyId:r.id,policyRevision:r.revision,version:r.breakVersion,source:breakSources.IL[0],message:'Seventh consecutive workday without 24 consecutive hours of rest',state:'exception'}]
+ })
 }
 export function minimumRestIssue(s:State,staffId:string,shift:Row,skip:string[]=[],plans?:Row[]){
  const site=shift.site??s.staff.find(p=>p.id===staffId)?.site??'',r=policyOn(s,site,localDate(shift.start,s.timezone));if(!r?.minimumRestMinutes)return null

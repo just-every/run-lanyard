@@ -11,7 +11,7 @@ async function person(h,name='Alex',rate='20.00'){
  await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,active:true,role:'staff',site:'East',position:'Service',hourlyRate:rate})
  return p
 }
-const save=(h,site,preset,extra={})=>h.cmd('policy.save',{site,preset,from:'2026-01-01',...extra})
+const save=(h,site,preset,extra={})=>h.cmd('policy.save',{site,preset,from:'2026-01-01',reviewReason:'synthetic-lanyard-1 reviewed preset',...extra})
 export async function policyClassifications(){
  const cases=[['federal',[7,7,7,7,7,7],120,0],['CA',[10],120,0],['CA',[13],240,60],['CA',[1,1,1,1,1,1,10],480,120],['AK',[9],60,0],['NV',[9],60,0,'17.99'],['NV',[9],0,0,'18.00'],['CO',[13],60,0],...['OR','WA','NY','IL'].map(p=>[p,[7,7,7,7,7,7],120,0])]
  for(const [preset,hours,ot,dt,rate]of cases){const h=await harness();try{
@@ -26,10 +26,13 @@ export async function policyClassifications(){
   assert.deepEqual([report.overtimeMinutes,report.doubleMinutes],[ot,dt],preset+' actual classification')
   assert.equal(report.regularMinutes+ot+dt,hours.reduce((a,b)=>a+b,0)*60)
   assert.ok(report.parts.every(p=>p.rules.every(r=>r.version===policies[0].presetVersion&&r.source.startsWith('https://')&&r.id&&r.revision===1)))
+  if(preset==='IL'){assert.equal(report.weeklyRestReviews.length,1);assert.ok(draft.policyWarnings.some(w=>w.message.includes('Seventh consecutive workday')))}
   assert.equal(report.estimateCents,Math.round((hours.reduce((a,b)=>a+b,0)*60+ot*.5+dt)*Math.round(Number(rate??'20.00')*100)/60))
   if(shifts.length>1)assert.deepEqual([...new Set(report.parts.map(p=>p.site))].sort(),['East','West'])
   await h.cmd('policy.review',{staffId:alex.id,week:start},alex.cookie,403)
  }finally{await h.close()}}
+ await policyBreakClassifications()
+ await policyDailyPremiumCap()
  // Two rates on the same date aggregate before the daily threshold is applied.
  const h=await harness();try{
   await h.cmd('settings.save',{timezone:'UTC'});const alex=await person(h),policy=await save(h,'East','CA');await save(h,'West','CA')
@@ -54,7 +57,7 @@ export async function policyBoundaries(h){
  await h.cmd('mealrule.save',meal,h.owner,409)
  await h.cmd('mealrule.save',{...meal,enabled:false})
  await h.cmd('mealrule.save',{...meal,site:'Third'})
- await h.cmd('policy.save',{site:'Third',from:'2026-01-01',preset:'CA'},h.owner,409)
+ await h.cmd('policy.save',{site:'Third',from:'2026-01-01',preset:'CA',reviewReason:'synthetic-lanyard-7 deduction refusal'},h.owner,409)
  assert.deepEqual((await h.state(alex.cookie)).policies,[])
  assert.deepEqual((await h.state(manager.cookie)).policies,[])
  const custom=await save(h,'West','custom',{jurisdiction:'Unlisted city',dailyMinutes:480,doubleMinutes:720,weeklyMinutes:2400})
@@ -90,10 +93,75 @@ export async function policyBrowser(){
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
   await context.route('**/*',async route=>{const p=new URL(route.request().url()).pathname;if(p.startsWith('/fonts/')||p.startsWith('/brand/')||/\.(css|js)$/.test(p))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',p.slice(1))),contentType:p.endsWith('.css')?'text/css':p.endsWith('.js')?'application/javascript':p.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
   const [name,...value]=h.owner.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}]);await page.goto(h.origin+`/app/schedule?week=${week}&view=draft`,{waitUntil:'networkidle'})
-  const review=page.locator('[data-saved-review]');await review.scrollIntoViewIfNeeded();assert.match(await review.innerText(),/240 overtime minutes; 60 double-time minutes/);assert.match(await review.innerText(),/meal and rest compliance incomplete/)
+  const review=page.locator('[data-saved-review]');await review.scrollIntoViewIfNeeded();assert.match(await review.innerText(),/240 overtime minutes; 60 double-time minutes/);assert.match(await review.innerText(),/meal and rest compliance incomplete/);assert.match(await review.innerText(),/CA break review/);assert.match(await review.innerText(),/Meal 2: 30 minutes required/);assert.match(await review.innerText(),/paid 10-minute rest/)
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
   const shot=async label=>{if(process.env.POLICY_SCREENS){await mkdir(process.env.POLICY_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.POLICY_SCREENS,`${label}-${width}.png`)})}}
   await shot('policy-warning')
   const previous=page.getByRole('link',{name:'Previous week',exact:true});await previous.focus();await page.getByRole('tooltip',{name:'Previous week',exact:true}).waitFor({state:'visible'});await shot('policy-tooltip')
  }finally{await context.close();await h.close()}}}finally{await browser.close()}
+}
+
+// Timed employee captures, reviewed through the same native command as overtime.
+async function policyBreakClassifications(){
+ const cases=[
+  {preset:'CA',hours:8,breaks:[['meal',240,20],['rest',120,5],['rest',360,10]],meal:true,rest:true,premium:120},
+  {preset:'CA',hours:8,breaks:[['meal',301,30]],meal:true,rest:true,premium:120},
+  {preset:'CA',hours:8,breaks:[['rest',120,10],['meal',240,30],['rest',360,10]],meal:false,rest:false,premium:0},
+  {preset:'CA',hours:13,breaks:[['meal',240,30]],meal:true,rest:true,premium:120},
+  {preset:'NV',hours:8,breaks:[],meal:true,rest:true,premium:0},
+  {preset:'CO',hours:8,breaks:[],meal:true,rest:true,premium:0},
+  {preset:'OR',hours:8,breaks:[],meal:true,rest:true,premium:0},
+  {preset:'OR',hours:8,breaks:[['rest',120,10],['meal',240,30],['rest',360,10]],meal:false,rest:false,premium:0},
+  {preset:'WA',hours:8,breaks:[],meal:true,rest:true,premium:0},
+  {preset:'WA',hours:8,breaks:[['rest',120,10],['meal',240,30],['rest',360,10]],meal:false,rest:false,premium:0},
+  {preset:'NY',hours:8,breaks:[['meal',390,30]],meal:true,rest:false,premium:0},
+  {preset:'NY',hours:8,breaks:[['meal',240,30]],meal:false,rest:false,premium:0},
+  {preset:'IL',hours:7.5,breaks:[],meal:true,rest:false,premium:0},
+  {preset:'IL',hours:7.5,breaks:[['meal',300,20]],meal:false,rest:false,premium:0},
+ ]
+ for(const sample of cases){const h=await harness();try{
+  await h.cmd('settings.save',{timezone:'UTC'});const alex=await person(h),policy=await save(h,'East',sample.preset)
+  const shift=spec(alex.id,start,sample.hours),at=m=>new Date(Date.parse(shift.start)+m*60000).toISOString()
+  const draft=await h.cmd('roster.prepare',{week:start,shifts:[shift]})
+  assert.ok(draft.policyWarnings.some(w=>w.message.includes(sample.preset+' break review')),sample.preset+' warns before publication')
+  await h.cmd('clock.in',{commandId:'synthetic-lanyard-in',capturedAt:shift.start},alex.cookie)
+  for(const [i,[kind,minute,length]]of [...sample.breaks].sort((a,b)=>a[1]-b[1]).entries()){
+   await h.cmd('clock.breakStart',{commandId:'synthetic-lanyard-break-'+i,capturedAt:at(minute),kind},alex.cookie)
+   await h.cmd('clock.breakEnd',{commandId:'synthetic-lanyard-end-'+i,capturedAt:at(minute+length)},alex.cookie)
+  }
+  const captured=await h.cmd('clock.out',{commandId:'synthetic-lanyard-out',capturedAt:shift.end,breakMinutes:0},alex.cookie)
+  await h.cmd('time.approve',pin(captured.timesheet))
+  const report=await h.cmd('policy.review',{staffId:alex.id,week:start}),review=report.breakReviews[0]
+  assert.equal(review.issues.some(i=>i.kind==='meal'),sample.meal,JSON.stringify(sample))
+  assert.equal(review.issues.some(i=>i.kind==='rest'),sample.rest,JSON.stringify(sample))
+  assert.equal(report.breakPremiumMinutes,sample.premium);assert.equal(report.breakPremiumEstimateCents,sample.premium*2000/60)
+  assert.equal(review.policyId,policy.id);assert.equal(review.policyRevision,policy.revision);assert.equal(review.version,policy.breakVersion);assert.ok(review.sources.every(s=>s.startsWith('https://')))
+  assert.equal((await h.state()).batches.length,0,'review never creates payroll')
+ }finally{await h.close()}}
+ // Manual meal totals cannot prove timing or paid rests; a known missed meal
+ // still yields a meal estimate without inventing a missed rest.
+ const h=await harness();try{
+  await h.cmd('settings.save',{timezone:'UTC'});const alex=await person(h);await save(h,'East','CA')
+  const t=await h.cmd('time.prepare',{...spec(alex.id,start,8),breakMinutes:30,reason:'synthetic-lanyard-8 untimed work'});await h.cmd('time.approve',pin(t))
+  const review=await h.cmd('policy.review',{staffId:alex.id,week:start})
+  assert.ok(review.breakReviews[0].issues.every(i=>i.state==='unknown'));assert.equal(review.breakPremiumMinutes,0)
+  await h.cmd('policy.save',{site:'Third',preset:'CA',from:'2026-01-01'},h.owner,400)
+ }finally{await h.close()}
+}
+
+export async function policyDailyPremiumCap(){
+ const h=await harness();try{
+  await h.cmd('settings.save',{timezone:'UTC'});const alex=await person(h)
+  for(const site of ['East','West'])await save(h,site,'CA')
+  for(const [i,site]of ['East','West'].entries()){
+   const p=(await h.state()).staff.find(x=>x.id===alex.id)
+   await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,active:true,role:'staff',site,hourlyRate:'20.00'})
+   const at=hour=>start+'T'+String(hour).padStart(2,'0')+':00:00Z'
+   await h.cmd('clock.in',{commandId:'synthetic-lanyard-cap-in-'+i,capturedAt:at(i*6)},alex.cookie)
+   const t=(await h.cmd('clock.out',{commandId:'synthetic-lanyard-cap-out-'+i,capturedAt:at((i+1)*6),breakMinutes:0},alex.cookie)).timesheet
+   await h.cmd('time.approve',pin(t))
+  }
+  const r=await h.cmd('policy.review',{staffId:alex.id,week:start})
+  assert.deepEqual(r.breakReviews.map(x=>x.site),['East','West']);assert.equal(r.breakPremiumMinutes,120,'one meal and one rest premium for the day across sites');assert.equal(r.breakPremiumEstimateCents,4000)
+ }finally{await h.close()}
 }
