@@ -8,7 +8,7 @@ export function chatMayRead(s:State,a:Actor,t:Row){
  if(a.role!=='owner'&&(!me||me.site!==t.site))return false
  if(t.kind==='site'||t.kind==='announcement')return manager||Boolean(me)
  if(t.kind==='shift'){const x=s.shifts.find(x=>x.id===t.shiftId);return Boolean(x&&['published','superseded'].includes(x.status)&&(manager||x.staffId===a.staffId))}
- return Boolean(me&&t.members.includes(me.id))
+ return Boolean(me&&me.site===t.site&&t.members.includes(me.id))
 }
 const safeMessage=(m:Row)=>({...m,attachments:m.attachments.map(({data,...f}:any)=>f)})
 export function chatRead(s:State,a:Actor,q='',threadId=''){

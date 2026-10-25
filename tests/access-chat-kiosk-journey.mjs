@@ -120,6 +120,23 @@ export async function chatApi(h){
  await h.cmd('staff.save',{...pin(away),name:away.name,email:away.email,payrollId:away.payrollId,role:away.role,active:true,site:'Ocean Beach'})
  assert.ok((await read(ben.cookie,'?threadId='+direct.id)).value.messages.some(m=>m.text==='Please request the swap through Schedule.'))
  assert.equal((await h.send(attachment,undefined,ben.cookie)).text,'synthetic-lanyard-2')
+ const ownerPerson=await h.cmd('staff.save',{name:'Linked owner',email:'owner@venue.example',payrollId:'synthetic-lanyard-30',role:'staff',active:true,site:'Ocean Beach'})
+ const ownerThread=await h.cmd('chat.create',{kind:'direct',site:'Ocean Beach',title:'Linked owner handover',members:[alex.id]})
+ const ownerGroup=await h.cmd('chat.create',{kind:'group',site:'Ocean Beach',title:'Linked owner group',members:[alex.id,ben.id]})
+ const ownerThreads=[],fileType=message.attachments[0].type
+ for(const thread of [ownerThread,ownerGroup]){
+  const message=await h.cmd('chat.send',{threadId:thread.id,text:'synthetic-lanyard-31 linked owner',attachment:{name:'owner.txt',type:fileType,data:btoa('synthetic-lanyard-32')}})
+  const file=`/api/lanyard/chat/messages/${message.id}/files/${message.attachments[0].id}`
+  assert.equal((await h.send(file,undefined,h.owner)).status,200);ownerThreads.push({thread,message,file})
+ }
+ await h.cmd('staff.save',{...pin(ownerPerson),name:ownerPerson.name,email:ownerPerson.email,payrollId:ownerPerson.payrollId,role:'staff',active:true,site:'Mission'})
+ for(const {thread,message,file} of ownerThreads){
+  assert.ok(!(await read(h.owner)).value.threads.some(t=>t.id===thread.id))
+  assert.ok(!(await read(h.owner,'?q=synthetic-lanyard-31')).value.messages.some(m=>m.id===message.id))
+  await noWrites('/api/lanyard/chat?threadId='+thread.id,undefined,h.owner,404)
+  await noWrites(file,undefined,h.owner,404)
+  for(const [name,input] of [['chat.send',{threadId:thread.id,text:'Transferred owner attempt'}],['chat.acknowledge',pin(message)]])await noWrites('/api/lanyard/command',{name,input},h.owner,404)
+ }
  const changed=(await h.state()).staff.find(x=>x.id===ben.id);await h.cmd('staff.save',{...pin(changed),name:changed.name,email:changed.email,payrollId:changed.payrollId,role:changed.role,active:false,site:'Mission'})
  assert.equal((await read(ben.cookie)).status,403);assert.deepEqual((await h.state()).chatmessages,[])
  return f
@@ -150,6 +167,8 @@ export async function kioskApi(h){
  await post('signout',{},cookie);assert.equal((await post('state',undefined,cookie)).status,401)
  const second=await post('signin',{email:ben.email,pin:'234567'});cookie=device+'; '+second.cookie;assert.equal((await post('state',undefined,cookie)).value.language,'en');assert.equal((await post('state',undefined,cookie)).value.clocks.length,0)
  const bin=await post('capture',{...capture('clock.in',190),photo:undefined,photoConsent:false,photoFailure:'camera denied'},cookie);assert.equal(bin.status,200,bin.text);const bout=await post('capture',capture('clock.out',210,{breakMinutes:0}),cookie);assert.equal(bout.status,200,bout.text);assert.equal(bout.value.result.timesheet.staffId,ben.id);assert.equal(bout.value.result.kioskReceipt.language,'en');assert.ok(bout.value.result.timesheet.exceptions.includes('punch photo unavailable: camera denied'));const bulk=await h.cmd('time.approveMany',{items:[pin(bout.value.result.timesheet)]});assert.equal(bulk.approved.length,0);assert.ok(bulk.skipped[0].reason.includes('punch photo unavailable'))
+ assert.equal(bin.value.result.kioskReceipt.photoConsent,false)
+ const notices=(await h.state()).photonotices.filter(n=>n.staffId===ben.id);assert.equal(notices.length,1);assert.equal(notices[0].acknowledgmentOnly,true);assert.match(notices[0].text,/does not record consent/);assert.ok(!notices[0].text.includes('I consent'))
  assert.equal((await post('capture',capture('roster.publish',190,{}),cookie)).status,403)
  assert.equal((await post('capture',capture('clock.transfer',190,{site:'Mission',job:'synthetic-lanyard-1'}),cookie)).status,403)
  await h.cmd('kiosk.revoke',{id:enrolled.value.id});assert.equal((await post('capture',capture('clock.in',200),cookie)).status,403);assert.equal((await post('state',undefined,cookie)).status,403)

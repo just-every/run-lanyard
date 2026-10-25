@@ -8,8 +8,9 @@ const mapping=(v:unknown,label:string)=>Object.fromEntries(Object.entries(object
 export function templateCommand(c:Context,name:string,p:Record<string,any>){
  if(name!=='payroll.template.save')return
  need(c.a.role==='owner','Only the payroll administrator (the owner) maintains export templates',403)
- keys(p,['id','revision','name','delimiter','header','columns','groupBy','dateFormat','decimals','employees','codes','jobs','locations','classification','format','timeFormat'])
+ keys(p,['id','revision','name','delimiter','header','columns','groupBy','dateFormat','decimals','employees','codes','jobs','locations','classification','format','timeFormat','approved'])
  const old=p.id?get(c.s,'paytemplates',p.id):undefined;if(old)exact(old,p)
+ const approved=p.approved??false;need(typeof approved==='boolean','Choose explicit template approval')
  const classification=p.classification??'source';need(['source','policy'].includes(classification),'Choose source or policy classification')
  const format=p.format??'csv';need(['csv','tsv','delimited','xlsx'].includes(format),'Choose CSV, TSV, delimited text or XLSX')
  const timeFormat=p.timeFormat??'iso';need(['iso','utc-minute','utc-time'].includes(timeFormat),'Choose ISO UTC, UTC date and minute, or UTC time')
@@ -21,13 +22,13 @@ export function templateCommand(c:Context,name:string,p:Record<string,any>){
  need(Array.isArray(p.groupBy)&&p.groupBy.every((k:any)=>['date','job','location'].includes(k))&&new Set(p.groupBy).size===p.groupBy.length,'Choose date, job or location grouping')
  const dateFormat=p.dateFormat??'iso';need(['iso','us','eu'].includes(dateFormat),'Unsupported date format')
  const decimals=p.decimals??4;need(Number.isInteger(decimals)&&decimals>=0&&decimals<=6,'Choose 0–6 decimal places')
- const employees=Object.fromEntries(Object.entries(object(p.employees)).map(([id,v])=>{const x=object(v);keys(x,['id','workflow']);need(c.s.staff.some(s=>s.id===id),'Employee not found',404);need(['W-2','1099'].includes(x.workflow),'Choose an explicit W-2 or 1099 workflow');return [id,{id:text(x.id,'provider employee ID',120),workflow:x.workflow}]}))
+ const employees=Object.fromEntries(Object.entries(object(p.employees)).map(([id,v])=>{const x=object(v);keys(x,['id','workflow']);need(c.s.staff.some(s=>s.id===id),'Employee not found',404);need(['W-2','1099','unclassified'].includes(x.workflow),'Choose W-2, 1099 or unclassified; classification requires owner review');return [id,{id:text(x.id,'provider employee ID',120),workflow:x.workflow}]}))
  need(new Set(Object.values(employees).map((e:any)=>e.id)).size===Object.keys(employees).length,'Provider employee IDs must be unique')
- return put(c,'paytemplates',{name:text(p.name,'template name',80),classification,format,timeFormat,delimiter,header:p.header,columns,groupBy:p.groupBy,dateFormat,decimals,employees,codes:mapping(p.codes,'earning code'),jobs:mapping(p.jobs,'job code'),locations:mapping(p.locations,'location code'),by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),{...old,versions:undefined}]:[]},old)
+ return put(c,'paytemplates',{name:text(p.name,'template name',80),approved,classification,format,timeFormat,delimiter,header:p.header,columns,groupBy:p.groupBy,dateFormat,decimals,employees,codes:mapping(p.codes,'earning code'),jobs:mapping(p.jobs,'job code'),locations:mapping(p.locations,'location code'),by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),{...old,versions:undefined}]:[]},old)
 }
 export function templateSnapshot(c:Context,id:unknown){
  need(c.a.role==='owner','Only the payroll administrator (the owner) prepares mapped payroll',403)
- const {versions,...t}=get(c.s,'paytemplates',id);return t
+ const {versions,...t}=get(c.s,'paytemplates',id);need(t.approved===true,'Template is not owner-approved; review and approve this revision before output',409);return t
 }
 function escaped(v:any,delimiter:string,numeric=false){
  let value=String(v??'');if(!numeric&&/^[\s]*[=+\-@\t\r]/.test(value))value="'"+value
@@ -39,6 +40,7 @@ function mappedTable(c:Context,lines:any[],t:Row){
  const groups=new Map<string,any>()
  for(const l of lines){
   const employee=own(t.employees,l.staffId);need(employee,'Unmapped employee; update the template',409)
+  need(['W-2','1099'].includes(employee.workflow),'Worker classification is unclassified; owner review is required before output',409)
   const sourceCode=l.earningCode??l.payCode??'regular',code=own(t.codes,sourceCode);need(code,`Unmapped earning code: ${sourceCode}`,409)
   need(employee.workflow!=='1099'||sourceCode==='regular','Contractor workflow supports regular worked time only; review other earnings separately',409)
   const job=l.job??l.rateBasis?.job??'',location=l.site??l.rateBasis?.site??''

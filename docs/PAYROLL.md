@@ -103,6 +103,7 @@ Pass these fields in the command's `input` object:
 ```json
 {
   "name": "Reviewed payroll layout",
+  "approved": true,
   "classification": "policy",
   "format": "csv",
   "delimiter": ",",
@@ -176,3 +177,20 @@ CLOCK-006 declaration basis; that reconciliation remains with TIPS-001.
 Single-site TIPS-002 make-up inputs retain their workweek and source digest;
 multi-site make-up requires an employer-reviewed allocation and is refused.
 The new source and workflow defaults remain under PAY-001's partial status.
+
+
+Every template revision requires the owner's explicit `approved: true`. Omitted
+approval creates an unapproved revision; earlier templates must be reviewed and
+saved with explicit approval before mapped output. In Payroll, select the
+versioned export template before preparing the file. Unapproved templates and
+`unclassified` worker mappings show a denial reason. Keep a legacy worker's
+workflow as `unclassified` until the owner reviews it; a payroll ID or previous
+provider file never determines W-2 or 1099 treatment. Classification does not
+authorize conversion of earlier hours-only exports: those still require
+reconciliation. Contractor rows containing an employee overtime input are
+refused; supported 1099 output is regular worked time only. Later template
+changes leave closed periods, retained batches and downloaded bytes unchanged.
+
+Contractor classification review and conversion, other 1099 forms and state
+treatments remain open under PAY-001. The file path does not claim Gusto,
+Rippling or QuickBooks Payroll approval, legal classification or tax filing.

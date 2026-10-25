@@ -10,17 +10,22 @@ export async function templateFixture(h){
  const enter=async(p,day,minutes=480,extra={})=>{const start=`2026-10-${day}T15:00:00Z`,end=new Date(Date.parse(start)+minutes*60000).toISOString();return h.cmd('time.approve',pin(await h.cmd('time.prepare',{staffId:p.id,start,end,breakMinutes:0,reason:'Reviewed source time',...extra})))}
  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
  const times=[await enter(alex,12),await enter(alex,13),await enter(cy,12)]
- const spec={name:'Mapped employee earnings',delimiter:',',header:true,columns:[{field:'employee',header:'Worker'},{field:'workflow',header:'Treatment'},{field:'code',header:'Earning'},{field:'hours',header:'Quantity'}],groupBy:[],dateFormat:'iso',decimals:4,employees:{[alex.id]:{id:'=synthetic-lanyard-1',workflow:'W-2'},[cy.id]:{id:'synthetic-lanyard-2',workflow:'1099'}},codes:{regular:'REG'},jobs:{},locations:{}}
+ const spec={approved:true,name:'Mapped employee earnings',delimiter:',',header:true,columns:[{field:'employee',header:'Worker'},{field:'workflow',header:'Treatment'},{field:'code',header:'Earning'},{field:'hours',header:'Quantity'}],groupBy:[],dateFormat:'iso',decimals:4,employees:{[alex.id]:{id:'=synthetic-lanyard-1',workflow:'W-2'},[cy.id]:{id:'synthetic-lanyard-2',workflow:'1099'}},codes:{regular:'REG'},jobs:{},locations:{}}
  return {alex,cy,manager,times,spec,enter}
 }
 export async function templatesApi(h){
  const f=await templateFixture(h),{alex,cy,manager,times,spec,enter}=f
  await h.cmd('payroll.template.save',spec,alex.cookie,403)
  await h.cmd('payroll.template.save',spec,manager.cookie,403)
+ const unapproved=await h.cmd('payroll.template.save',{...spec,approved:undefined})
+ const refusal=await h.cmd('payroll.prepare',{templateId:unapproved.id},h.owner,409);assert.match(JSON.stringify(refusal),/not owner-approved/)
  let t=await h.cmd('payroll.template.save',{...spec,codes:{}})
  await h.cmd('payroll.prepare',{templateId:t.id},h.owner,409)
  assert.equal((await h.state()).batches.length,0,'mapping refusal creates no batch or claim')
  t=await h.cmd('payroll.template.save',{...spec,...pin(t)})
+ const unknown=await h.cmd('payroll.template.save',{...spec,employees:{...spec.employees,[cy.id]:{id:'synthetic-lanyard-2',workflow:'unclassified'}}})
+ const unclassified=await h.cmd('payroll.prepare',{templateId:unknown.id},h.owner,409);assert.match(JSON.stringify(unclassified),/unclassified/);assert.equal((await h.state()).paytemplates.find(x=>x.id===unknown.id).employees[cy.id].workflow,'unclassified')
+ const classified=await h.cmd('payroll.template.save',{...spec,...pin(unknown)});assert.ok((await h.cmd('payroll.prepare',{templateId:classified.id})).csvPreview.includes('1099'))
  const draft=await h.cmd('payroll.prepare',{templateId:t.id}),competing=await h.cmd('payroll.prepare',{templateId:t.id})
  assert.equal(draft.csvPreview,"Worker,Treatment,Earning,Quantity\r\n'=synthetic-lanyard-1,W-2,REG,16.0000\r\nsynthetic-lanyard-2,1099,REG,8.0000\r\n")
  assert.equal(draft.lines.reduce((n,l)=>n+l.minutes,0),1440)
@@ -60,9 +65,12 @@ export async function templatesApi(h){
  assert.ok(rule.id)
  const prem=await enter(cy,15,480)
  const contractor=await h.cmd('payroll.template.save',{...spec,codes:{regular:'REG','meal premium':'MEAL','rest premium':'REST'}})
- await h.cmd('payroll.prepare',{ids:[prem.id],templateId:contractor.id},h.owner,409)
+ const denied=await h.cmd('payroll.prepare',{ids:[prem.id],templateId:contractor.id},h.owner,409);assert.match(JSON.stringify(denied),/Contractor workflow supports regular worked time only/)
+ for(const journey of [contractorOvertime,legacyClassification]){const edge=await harness();try{await journey(edge)}finally{await edge.close()}}
 }
+
 export async function templatesBrowser(){
+ if(process.env.PAY_SCREENS)await mkdir(process.env.PAY_SCREENS,{recursive:true})
  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  try{for(const width of [1440,390])for(const format of ['csv','xlsx']){
   const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
@@ -72,10 +80,15 @@ export async function templatesBrowser(){
    await f.enter(f.alex,14,780)
    await h.cmd('payroll.input.save',{staffId:f.alex.id,date:'2026-10-12',kind:'PTO',minutes:120,amountCents:4000,reference:'synthetic-lanyard-9',reason:'Approved paid non-work input'})
    await h.cmd('payroll.input.save',{staffId:f.alex.id,date:'2026-10-12',kind:'tips',minutes:0,amountCents:3000,reference:'synthetic-lanyard-10',reason:'Approved tip allocation'})
-   const spec={...f.spec,classification:'policy',format,codes:{regular:'REG',overtime:'OT','double time':'DT',PTO:'VAC',tips:'TIP'}},template=await h.cmd('payroll.template.save',spec),draft=await h.cmd('payroll.prepare',{templateId:template.id})
+   const spec={...f.spec,classification:'policy',format,codes:{regular:'REG',overtime:'OT','double time':'DT',PTO:'VAC',tips:'TIP'}},template=await h.cmd('payroll.template.save',spec)
+   const unapproved=await h.cmd('payroll.template.save',{...spec,name:'Pending owner approval',approved:false})
+   const unknown=await h.cmd('payroll.template.save',{...spec,name:'Legacy classification review',employees:{...spec.employees,[f.cy.id]:{id:'synthetic-lanyard-2',workflow:'unclassified'}}})
    await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
    const [name,...value]=h.owner.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
    const page=await context.newPage();await page.goto(h.origin+'/app/payroll',{waitUntil:'networkidle'})
+   for(const [id,reason] of [[unapproved.id,'not owner-approved'],[unknown.id,'unclassified']]){await page.getByLabel('Export template',{exact:true}).selectOption(id);await page.getByRole('button',{name:'Prepare batch',exact:true}).click();await page.waitForLoadState('networkidle');assert.ok((await page.locator('.notice.error').innerText()).includes(reason));if(process.env.PAY_SCREENS)await page.screenshot({path:join(process.env.PAY_SCREENS,`refused-${id===unapproved.id?'approval':'classification'}-${format}-${width}.png`),fullPage:true})}
+   await page.getByLabel('Export template',{exact:true}).selectOption(template.id);await page.getByRole('button',{name:'Prepare batch',exact:true}).click();await page.waitForLoadState('networkidle')
+   const draft=(await h.state()).batches.find(b=>b.exportTemplate?.id===template.id);assert.ok(draft)
    const card=page.locator('.batch').filter({hasText:draft.id.slice(0,8)})
    assert.equal(await card.locator('pre.csv').innerText(),draft.csvPreview.replaceAll('\r\n','\n'))
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
@@ -96,7 +109,10 @@ export async function classificationApi(h){
  await h.cmd('policy.save',{site:'',from:'2026-10-01',preset:'CA',reviewReason:'Employer reviewed maintained overtime core'})
  const enter=async(p,minutes,extra={})=>{const start='2026-10-12T15:00:00Z';return h.cmd('time.approve',pin(await h.cmd('time.prepare',{staffId:p.id,start,end:new Date(Date.parse(start)+minutes*60000).toISOString(),breakMinutes:0,reason:'Employer approved captured time',...extra})))}
  const a=await enter(alex,780),b=await enter(cy,780)
- const spec={name:'Policy-classified earnings',classification:'policy',delimiter:',',header:true,columns:[{field:'employee',header:'Worker'},{field:'workflow',header:'Treatment'},{field:'code',header:'Earning'},{field:'minutes',header:'Minutes'},{field:'amount',header:'USD'}],groupBy:[],dateFormat:'iso',decimals:4,employees:{[alex.id]:{id:'synthetic-lanyard-1',workflow:'W-2'},[cy.id]:{id:'synthetic-lanyard-2',workflow:'1099'}},codes:{regular:'REG',overtime:'OT','double time':'DT',PTO:'VAC',tips:'TIP'},jobs:{},locations:{}}
+ let period=await h.cmd('period.save',{start:'2026-10-12',end:'2026-10-18'})
+ for(const cookie of [alex.cookie,cy.cookie,h.owner])period=await h.cmd('period.signoff',pin(period),cookie)
+ period=await h.cmd('period.lock',pin(period))
+ const spec={approved:true,name:'Policy-classified earnings',classification:'policy',delimiter:',',header:true,columns:[{field:'employee',header:'Worker'},{field:'workflow',header:'Treatment'},{field:'code',header:'Earning'},{field:'minutes',header:'Minutes'},{field:'amount',header:'USD'}],groupBy:[],dateFormat:'iso',decimals:4,employees:{[alex.id]:{id:'synthetic-lanyard-1',workflow:'W-2'},[cy.id]:{id:'synthetic-lanyard-2',workflow:'1099'}},codes:{regular:'REG',overtime:'OT','double time':'DT',PTO:'VAC',tips:'TIP'},jobs:{},locations:{}}
  let template=await h.cmd('payroll.template.save',{...spec,codes:{regular:'REG',overtime:'OT'}})
  await h.cmd('payroll.prepare',{templateId:template.id},h.owner,409)
  template=await h.cmd('payroll.template.save',{...spec,...pin(template)})
@@ -108,6 +124,14 @@ export async function classificationApi(h){
  assert.deepEqual(lines.filter(l=>l.classifiedWorked&&l.staffId===cy.id).map(l=>[l.earningCode,l.minutes,l.costCents]),[['regular',780,26000]],'contractor workflow does not inherit employee overtime or tax calculations')
  assert.ok(lines.filter(l=>l.classifiedWorked).every(l=>l.policyRefs[0].preset==='CA'&&l.rateCents===2000&&l.date==='2026-10-12'))
  const sent=await h.cmd('payroll.export',pin(batch));assert.equal(sent.csv,batch.csvPreview)
+ assert.ok(sent.csv.split('\r\n').includes('synthetic-lanyard-2,1099,REG,780,260.00'))
+ period=await h.cmd('period.close',{...pin(period),reference:'synthetic-lanyard-11 owner-recorded provider reference'})
+ const closed=structuredClone(period),beforeChange=(await h.state()).batches.find(x=>x.id===sent.id)
+ template=await h.cmd('payroll.template.save',{...spec,...pin(template),name:'Later reviewed template',codes:{...spec.codes,regular:'BASE'}})
+ assert.deepEqual((await h.state()).batches.find(x=>x.id===sent.id),beforeChange)
+ assert.deepEqual((await h.state()).periods.find(x=>x.id===closed.id),closed)
+ assert.equal(beforeChange.exportTemplate.revision,template.revision-1)
+ assert.equal((await h.send(`/api/lanyard/batches/${sent.id}.csv`,undefined,h.owner)).text,sent.csv)
  assert.equal((await h.db.prepare('SELECT count(*) AS n FROM l_payroll_claims').first()).n,2)
  const corrected=await enter(alex,720,{corrects:a.id,reason:'Employer approved late one-hour correction'})
  await h.cmd('payroll.prepare',{ids:[corrected.id]},h.owner,409)
@@ -127,7 +151,7 @@ export async function classificationApi(h){
 export async function earningInputsApi(h){
  const {tipFixture}=await import('./tipcredit-journey.mjs'),f=await tipFixture(h),{riley,morgan,server,prep,first,second}=f
  await h.cmd('tipcredit.save',{site:'Austin',state:'TX',minimumWage:'7.25',from:'2020-01-01',tippedJobs:[server.id]})
- const spec={name:'Approved non-work inputs',classification:'policy',delimiter:';',header:true,columns:[{field:'employee',header:'Employee'},{field:'code',header:'Code'},{field:'minutes',header:'Minutes'},{field:'amount',header:'USD'}],groupBy:[],dateFormat:'iso',decimals:4,employees:{[riley.id]:{id:'synthetic-lanyard-1',workflow:'W-2'}},codes:{regular:'REG',overtime:'OT','double time':'DT',PTO:'VAC',tips:'TIP','tip make-up':'MAKEUP'},jobs:{[server.id]:'SERVE',[prep.id]:'PREP'},locations:{Austin:'AUSTIN'}}
+ const spec={approved:true,name:'Approved non-work inputs',classification:'policy',delimiter:';',header:true,columns:[{field:'employee',header:'Employee'},{field:'code',header:'Code'},{field:'minutes',header:'Minutes'},{field:'amount',header:'USD'}],groupBy:[],dateFormat:'iso',decimals:4,employees:{[riley.id]:{id:'synthetic-lanyard-1',workflow:'W-2'}},codes:{regular:'REG',overtime:'OT','double time':'DT',PTO:'VAC',tips:'TIP','tip make-up':'MAKEUP'},jobs:{[server.id]:'SERVE',[prep.id]:'PREP'},locations:{Austin:'AUSTIN'}}
  const input={staffId:riley.id,date:first,kind:'PTO',minutes:120,amountCents:2000,reference:'synthetic-lanyard-5',reason:'Employer approved PTO from its external bank'}
  await h.cmd('payroll.input.save',input,morgan.cookie,403)
  let pto=await h.cmd('payroll.input.save',input)
@@ -164,7 +188,7 @@ export async function classifiedSegmentsApi(h,transfer=false){
  let time
  if(transfer){await h.cmd('clock.in',{commandId:crypto.randomUUID(),capturedAt:f.start},f.alex.cookie);await h.cmd('clock.transfer',{commandId:crypto.randomUUID(),capturedAt:new Date(Date.parse(f.start)+240*60000).toISOString(),job:f.kitchen.id},f.alex.cookie);time=(await h.cmd('clock.out',{commandId:crypto.randomUUID(),capturedAt:f.end,breakMinutes:0},f.alex.cookie)).timesheet}else time=(await captureWork(h,f)).time
  const approved=await h.cmd('time.approve',pin(time),f.manager.cookie)
- const spec={name:'Classified area sources',classification:'policy',delimiter:',',header:true,columns:[{field:'employee',header:'Employee'},{field:'code',header:'Code'},{field:'job',header:'Job'},{field:'location',header:'Cafe'},{field:'minutes',header:'Minutes'},{field:'amount',header:'USD'}],groupBy:['job','location'],dateFormat:'iso',decimals:4,employees:{[f.alex.id]:{id:'synthetic-lanyard-1',workflow:'W-2'}},codes:{regular:'REG'},jobs:{[f.counter.id]:'COUNT',[f.kitchen.id]:'COOK'},locations:{'Ocean Beach':'OB'}}
+ const spec={approved:true,name:'Classified area sources',classification:'policy',delimiter:',',header:true,columns:[{field:'employee',header:'Employee'},{field:'code',header:'Code'},{field:'job',header:'Job'},{field:'location',header:'Cafe'},{field:'minutes',header:'Minutes'},{field:'amount',header:'USD'}],groupBy:['job','location'],dateFormat:'iso',decimals:4,employees:{[f.alex.id]:{id:'synthetic-lanyard-1',workflow:'W-2'}},codes:{regular:'REG'},jobs:{[f.counter.id]:'COUNT',[f.kitchen.id]:'COOK'},locations:{'Ocean Beach':'OB'}}
  let template=await h.cmd('payroll.template.save',{...spec,jobs:{[f.counter.id]:'COUNT'}})
  await h.cmd('payroll.prepare',{ids:[approved.id],templateId:template.id},h.owner,409)
  template=await h.cmd('payroll.template.save',{...spec,...pin(template)})
@@ -207,4 +231,29 @@ export async function delimitedApi(h,format){
  const path=`/api/lanyard/batches/${sent.id}.${extension}`,a=await h.send(path,undefined,h.owner),b=await h.send(path,undefined,h.owner)
  assert.equal(a.status,200);assert.equal(a.text,b.text);assert.equal(a.text,batch.csvPreview);assert.equal(createHash('sha256').update(a.text).digest('hex'),sent.sha256)
  assert.match(a.headers.get('content-type'),format==='tsv'?/tab-separated-values/:/text\/plain/)
+}
+
+async function contractorOvertime(h){
+ const {payFixture}=await import('./payschedules-journey.mjs'),f=await payFixture(h)
+ await f.enter(f.alex,16,5)
+ await f.signLock(f.first,f.alex);await f.signLock(f.second,f.alex)
+ const spec={approved:true,name:'Owner-reviewed contractor source',classification:'source',header:true,columns:[{field:'employee',header:'Employee'},{field:'code',header:'Earning'},{field:'minutes',header:'Minutes'}],groupBy:[],employees:{[f.alex.id]:{id:'synthetic-lanyard-20',workflow:'1099'}},codes:{regular:'REG','weekly overtime premium':'OT'},jobs:{},locations:{}}
+ const contractor=await h.cmd('payroll.template.save',spec),before=(await h.state()).batches
+ const denied=await h.cmd('payroll.prepare',{templateId:contractor.id},h.owner,409)
+ assert.match(JSON.stringify(denied),/Contractor workflow supports regular worked time only/)
+ assert.deepEqual((await h.state()).batches,before)
+ const employee=await h.cmd('payroll.template.save',{...spec,employees:{[f.alex.id]:{id:'synthetic-lanyard-20',workflow:'W-2'}}})
+ const approved=await h.cmd('payroll.prepare',{templateId:employee.id});assert.ok(approved.lines.some(l=>l.payCode==='weekly overtime premium'&&l.minutes===300))
+}
+
+async function legacyClassification(h){
+ const f=await templateFixture(h),original=await h.cmd('payroll.export',pin(await h.cmd('payroll.prepare',{})))
+ const correction=await f.enter(f.alex,12,420,{corrects:f.times[0].id,reason:'Owner-reviewed legacy hours correction'})
+ const spec={...f.spec,classification:'policy',employees:{...f.spec.employees,[f.alex.id]:{id:'synthetic-lanyard-40',workflow:'unclassified'}}}
+ let t=await h.cmd('payroll.template.save',spec)
+ const unknown=await h.cmd('payroll.prepare',{ids:[correction.id],templateId:t.id},h.owner,409);assert.match(JSON.stringify(unknown),/unclassified/)
+ assert.equal((await h.state()).paytemplates.find(x=>x.id===t.id).employees[f.alex.id].workflow,'unclassified')
+ t=await h.cmd('payroll.template.save',{...spec,...pin(t),employees:f.spec.employees})
+ const conversion=await h.cmd('payroll.prepare',{ids:[correction.id],templateId:t.id},h.owner,409);assert.match(JSON.stringify(conversion),/Previously exported hours need reconciliation/)
+ assert.equal((await h.send(`/api/lanyard/batches/${original.id}.csv`,undefined,h.owner)).text,original.csv)
 }

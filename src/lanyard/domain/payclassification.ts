@@ -9,6 +9,7 @@ import {dayAfter} from './aca'
 const key=(r:any)=>canonical([r.rootId,r.job,r.area,r.site,r.date,r.earningCode,r.rateCents,r.workflow])
 export function classifiedLines(c:Context,lines:any[],template:Row){
  const selected=lines.filter(l=>!l.payCode&&!l.overtimeKey),people=new Set(selected.map(l=>l.staffId))
+ for(const l of selected)need(['W-2','1099'].includes(template.employees[l.staffId]?.workflow),'Worker classification is unclassified; owner review is required before output',409)
  const exported=c.s.batches.filter(b=>['exported','acknowledged'].includes(b.status))
  const roots=new Set(selected.map(l=>l.rootId))
  for(const b of exported)for(const l of b.classificationLines??[])if(l.classifiedWorked&&people.has(l.staffId))roots.add(l.rootId)
@@ -19,6 +20,7 @@ export function classifiedLines(c:Context,lines:any[],template:Row){
  const weeks=new Map<string,ReturnType<typeof policyClassification>>()
  for(const t of current){
   const employee=template.employees[t.staffId];need(employee,'Unmapped employee; update the template',409)
+  need(['W-2','1099'].includes(employee.workflow),'Worker classification is unclassified; owner review is required before output',409)
   need(!heldByPeriod(c.s,t),'Classified source period must be locked',409)
   const oldWorkflows=new Set(exported.flatMap(b=>b.classificationLines??[]).filter(l=>l.classifiedWorked&&l.rootId===t.rootId).map(l=>l.workflow))
   need(!oldWorkflows.size||oldWorkflows.has(employee.workflow),'Exported employment workflow cannot be changed implicitly',409)

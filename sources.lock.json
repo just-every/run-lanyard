@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "adab098818f66ddbd7c52f9c9cba46beae67d2c18fe66380a07cf3f4a61eca28",
+      "sha256": "a28e9b3958021b38182a4c3fd4c3a332e211f0ace8e12d9df90cf6066ddcfc89",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "519714cd69236ff7e3d7e61d5a8c720e18681b9dffe5995cc704a3de7a2779b8",
+      "sha256": "f6835147a523aa11c43fc2329eb94107c8552ed6ce93ac6c23663dad84d70717",
       "executable": false
     },
     "DEMO.md": {
@@ -418,7 +418,7 @@
       "executable": false
     },
     "docs/PAYROLL.md": {
-      "sha256": "941884bdf215205139198337d500a83d326befd06d718f666f1052e0ee727c75",
+      "sha256": "601507de5f0ab02305bc5107668e819cec00200f438b58bd43e57eb06d4af6cd",
       "executable": false
     },
     "docs/PRIVACY.md": {
@@ -1278,7 +1278,7 @@
       "executable": false
     },
     "src/lanyard/domain/chat.ts": {
-      "sha256": "cc8bee443fde309b744e884d2e2bb5c6cf401b76b049ebd80636abd4b2746084",
+      "sha256": "28752dc1ab869b47c1c5ffb8f31bffef956688916bad6828c0757465deb2c340",
       "executable": false
     },
     "src/lanyard/domain/clocknets.ts": {
@@ -1386,7 +1386,7 @@
       "executable": false
     },
     "src/lanyard/domain/kiosk.ts": {
-      "sha256": "281fc6ad443630269669c2fd1216ece1df283ee4c9d34a090a3e795c767635b4",
+      "sha256": "67e597cccb2ab6c44ff898c4c46f163f94ad51cb497642ed4eb8fbb533293a19",
       "executable": false
     },
     "src/lanyard/domain/learn-propose.ts": {
@@ -1458,7 +1458,7 @@
       "executable": false
     },
     "src/lanyard/domain/payclassification.ts": {
-      "sha256": "febeff8bb87c5f6a3a68a61297dae39f5c2d5a1326dcab888961ecd3c76cdb5a",
+      "sha256": "a20a462f9acd9d235b41d3db2124dcab7dbbbd58d5ff722cdd1a07afff866645",
       "executable": false
     },
     "src/lanyard/domain/payinputs.ts": {
@@ -1474,7 +1474,7 @@
       "executable": false
     },
     "src/lanyard/domain/paytemplates.ts": {
-      "sha256": "f566434553a3db42e016b0e9093e2268041c15e16294b8d64478dcbf49a33249",
+      "sha256": "57f46647363ac23ac7a4b711f7a02d0814f5b54829d42df783f56231093a4649",
       "executable": false
     },
     "src/lanyard/domain/payxlsx.ts": {
@@ -1514,7 +1514,7 @@
       "executable": false
     },
     "src/lanyard/domain/privacy.ts": {
-      "sha256": "811273d9f20d78001bfc1ac73516e1d5d51e85238d723c277e9c985ae14643aa",
+      "sha256": "3d9773be10d78f0755b8b8b23caff598c499e5731e7633de44de5f62fe11b72d",
       "executable": false
     },
     "src/lanyard/domain/questions.ts": {
@@ -1822,7 +1822,7 @@
       "executable": false
     },
     "src/lanyard/ui/payroll.ts": {
-      "sha256": "bd25f44b93171f4714f6b90743d3391979c1de4e49dc2ec83535c6fd0c434ccd",
+      "sha256": "0777fe0c3c672ac9932238404411b2dcfe82ef5708598fef0a3773827f02186c",
       "executable": false
     },
     "src/lanyard/ui/payschedules.ts": {
@@ -3766,11 +3766,11 @@
       "executable": false
     },
     "tests/access-chat-kiosk-journey.mjs": {
-      "sha256": "878136d6852b0e2e509fb0b8f8d59b55c966cb58518161605e39ef3601cc5c00",
+      "sha256": "f89dc43ce6cdb34a1dc1cd0c07f0f95d40b69b3576fa886cd85e5eb6ec1d8628",
       "executable": false
     },
     "tests/archive.test.mjs": {
-      "sha256": "eb34ed37399c2d5d5d76d6ef5e99abda3cc363eec9deb822961e449a53699534",
+      "sha256": "06eec886a9c2d835885e05e71bc6759a670e7177fd9f95f3f9aa299565fb8e8e",
       "executable": false
     },
     "tests/autorules-workweek-journey.mjs": {
@@ -3850,7 +3850,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "100d3d473fac023bf11a77aa5fcb6b63fd4c0442db746392581227823a4d1f24",
+      "sha256": "86a06c0a5133ba2ceea7cdb09e8d37cb1fb4f7c847462386d3740269cdcfd493",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -3898,7 +3898,7 @@
       "executable": false
     },
     "tests/paytemplates-journey.mjs": {
-      "sha256": "aeea506d583fbdf9d9c55958beab8f43853bc29f09d508bf54dcd80f82558fb9",
+      "sha256": "4c30e3a307dff7b1ddc7470fb4050605f360f23ecafe774069b18ddfe1c40bb1",
       "executable": false
     },
     "tests/photos-journey.mjs": {

@@ -9,7 +9,7 @@ export function privacyHeld(s:State,staffId:string,type:string){return s.privacy
 function schedule(s:State,type:string){return s.privacypolicies.find(r=>r.type===type)}
 export function privacyExpired(s:State,type:string,at:string,now:string){const rule=schedule(s,type);return !rule||Date.parse(at)<=Date.parse(now)-rule.days*86400000}
 function person(c:Context,id:unknown){const p=c.s.staff.find(p=>p.id===text(id,'staff ID')&&!p.erased_at);need(p,'Person not found',404);return p}
-function approved(p:any){need(p.consent===true,'Explicit reviewed consent is required',403);return text(p.reason,'request authorization or reason',500)}
+function approved(p:any){need(p.consent===true,'Explicit reviewed owner authorization is required',403);return text(p.reason,'request authorization or reason',500)}
 function eligible(c:Context,type:string,at:string){const rule=schedule(c.s,type);return Boolean(rule&&Number.isFinite(Date.parse(at))&&Date.parse(at)<=Date.parse(c.now)-rule.days*86400000)}
 export async function privacyCommand(c:Context,name:string,p:Record<string,any>){
  if(!name.startsWith('privacy.'))return undefined
