@@ -27,7 +27,7 @@ function attachment(v:unknown):Attachment|null {
 export async function journal(c:Context,name:string,p:Record<string,any>) {
  if(name!=='note.save')return undefined
  manager(c.a);keys(p,['id','revision','staffId','date','category','visibility','text','attachment'])
- const old=p.id?get(c.s,'notes',p.id):undefined;if(old)exact(old,p)
+ const old=p.id?get(c.s,'notes',p.id):undefined;if(old){exact(old,p);need(!old.erasedAt,'Erased notes cannot be restored',409)}
  const staffId=old?.staffId??text(p.staffId,'staffId');need(c.s.staff.some(v=>v.id===staffId&&!v.erased_at),'Staff not found',404)
  need(inScope(c.s,c.a,staffId),'Only the owner and the managers of this employee’s cafe keep their notes',403)
  const date=text(p.date,'date',10);need(DATE.test(date)&&new Date(date+'T00:00:00Z').toISOString().slice(0,10)===date,'Invalid date')

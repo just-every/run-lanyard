@@ -26,11 +26,11 @@ async function checkout(root) {
 }
 // Pacific Monday Oct 12, 2026, 7:00 am – 3:00 pm PDT; the 45-minute break is a later agreed correction.
 const work = staffId => ({ staffId, start: '2026-10-12T14:00:00Z', end: '2026-10-12T22:00:00Z', breakMinutes: 30 })
-test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRULE-003, CLOCK-005, CLOCK-003 and TRADEOFF-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
-  const temporary = await mkdtemp(join(tmpdir(),'lanyard-archive-')), source=join(temporary,'source'), restored=join(temporary,'restored'), erased=join(temporary,'erased'),photoErased=join(temporary,'photo-erased'),locationErased=join(temporary,'location-erased')
+test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRULE-003, CLOCK-005, CLOCK-003, PRIVACY-001 and TRADEOFF-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
+  const temporary = await mkdtemp(join(tmpdir(),'lanyard-archive-')), source=join(temporary,'source'), restored=join(temporary,'restored'), erased=join(temporary,'erased'),photoErased=join(temporary,'photo-erased'),locationErased=join(temporary,'location-erased'),noteErased=join(temporary,'note-erased')
   let h
   try {
-    for (const path of [source,restored,erased,photoErased,locationErased]) await checkout(path)
+    for (const path of [source,restored,erased,photoErased,locationErased,noteErased]) await checkout(path)
     await exec(process.execPath, [resolve('node_modules/wrangler/bin/wrangler.js'),'d1','migrations','apply','foundation','--local'], { cwd:source, env:{...process.env,CI:'true',WRANGLER_SEND_METRICS:'false'}, maxBuffer:2e6 })
     h=await harness({root:source})
     const p=await h.cmd('staff.save',{name:'Temporary joiner',email:'temporary@venue.example',payrollId:'TEMP',role:'staff',active:false})
@@ -57,6 +57,12 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     const delta=await h.cmd('payroll.prepare',{});await h.cmd('payroll.export',{id:delta.id,revision:1})
     const files=Object.fromEntries(await Promise.all([batch.id,delta.id].map(async id=>[id,(await h.send(`/api/lanyard/batches/${id}.csv`,undefined,h.owner)).text])))
     assert.match(files[batch.id],/450,7\.5000/);assert.match(files[delta.id],/-15,-0\.2500/)
+    const privacyConsent={consent:true,reason:'synthetic-lanyard-60 employee privacy request'}
+    const noteDate=new Date(Date.now()-30*86400000).toISOString().slice(0,10)
+    const privacyNote=await h.cmd('note.save',{staffId:alex.id,date:noteDate,category:'other',visibility:'employee',text:'synthetic-lanyard-61 erasure candidate',attachment:{name:'privacy.txt',type:'text/plain',data:btoa('synthetic-lanyard-62')}})
+    await h.cmd('privacy.retention',{type:'history',days:3650,...privacyConsent})
+    const historyHold=await h.cmd('privacy.hold',{staffId:alex.id,type:'history',hold:true,...privacyConsent})
+    for(const type of ['notes','attachments'])await h.cmd('privacy.retention',{type,days:1,...privacyConsent})
     const csv=await readFile('tests/fixtures/staff.csv','utf8'),imported=await h.cmd('import.apply',{csv,fingerprint:(await h.cmd('import.preview',{csv})).fingerprint})
     const logged=await h.cmd('log.save',{site:'',date:'2026-10-12',category:'incident',text:'Dish pit floor',attachments:[{name:'floor.txt',type:'text/plain',data:Buffer.from('floor inspection').toString('base64')},{name:'report.txt',type:'text/plain',data:Buffer.from('incident report').toString('base64')}]})
     // PAY-009: schedules and generated period dates survive the public CLI door.
@@ -167,7 +173,26 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     const locatedTime=locationBack.timesheets.find(t=>t.id===nativeOut.timesheet.id);assert.equal(locatedTime.minutes,60);assert.equal(locatedTime.locationReview.length,2)
     await h.close();h=null
     h=await harness({root:source,...identity});const finalOwner=await h.signIn(h.auth.OWNER_EMAIL)
-    await h.cmd('staff.erase',{id:p.id,revision:1},finalOwner);await h.close();h=null
+    const former=(await h.state(finalOwner)).staff.find(x=>x.id===alex.id)
+    await h.cmd('staff.save',{id:former.id,revision:former.revision,name:former.name,email:former.email,payrollId:former.payrollId,role:former.role,active:false},finalOwner)
+    await h.cmd('privacy.erase',{staffId:alex.id,type:'history',...privacyConsent},finalOwner,409)
+    const noteResult=await h.cmd('privacy.erase',{staffId:alex.id,type:'notes',...privacyConsent},finalOwner)
+    assert.ok(noteResult.erased.includes(privacyNote.id))
+    await h.close();h=null
+    const noteLater=join(temporary,'note-later.rer')
+    await command(source,['export','--output',noteLater,'--no-queue'])
+    await command(noteErased,['import','--input',locationLater,'--journal',noteLater,'--yes','--no-queue'],4)
+    await command(noteErased,['import','--input',noteLater,'--yes','--no-queue'])
+    h=await harness({root:noteErased,...identity});const noteOwner=await h.signIn(h.auth.OWNER_EMAIL)
+    const employeeExport=await h.cmd('privacy.export',{staffId:alex.id,...privacyConsent},noteOwner)
+    assert.ok(!JSON.stringify(employeeExport).includes('synthetic-lanyard-61'))
+    assert.equal((await h.send(`/api/lanyard/notes/${privacyNote.id}/files/${privacyNote.attachment.id}`,undefined,noteOwner)).status,404)
+    assert.ok(employeeExport.timesheets.some(t=>t.id===first.id))
+    assert.equal((await h.cmd('privacy.review',{staffId:alex.id},noteOwner)).holds.find(x=>x.id===historyHold.id).hold,true)
+    await h.cmd('privacy.erase',{staffId:alex.id,type:'history',...privacyConsent},noteOwner,409)
+    await h.close();h=null
+    h=await harness({root:source,...identity});const finalAgain=await h.signIn(h.auth.OWNER_EMAIL)
+    await h.cmd('staff.erase',{id:p.id,revision:1},finalAgain);await h.close();h=null
     await command(source,['export','--output',later,'--no-queue'])
     await command(erased,['import','--input',old,'--journal',later,'--yes','--no-queue'],4)
     await command(erased,['import','--input',later,'--yes','--no-queue'])

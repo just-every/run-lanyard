@@ -73,6 +73,13 @@ export async function photoApi(h){
  assert.ok(!(await h.send('/app/time',undefined,ben.cookie)).text.includes('data-punch-photo'),'clock-in renders the upcoming work-site policy rather than the home cafe policy')
  const at=Date.now();await h.cmd('clock.in',{commandId:'synthetic-lanyard-65',capturedAt:new Date(at-60000).toISOString()},ben.cookie)
  await h.cmd('clock.out',{commandId:'synthetic-lanyard-66',capturedAt:new Date(at).toISOString(),breakMinutes:0},ben.cookie)
+ const privacyConsent={consent:true,reason:'synthetic-lanyard-70 reviewed retention'}
+ const privacyHold=await h.cmd('privacy.hold',{staffId:ben.id,type:'photos',hold:true,...privacyConsent})
+ await h.cmd('photo.erase',{staffId:ben.id,mode:'retention',consent:true,reason:'Held by employee privacy review'},h.owner,409)
+ await h.cmd('privacy.hold',{staffId:ben.id,type:'photos',hold:false,revision:privacyHold.revision,...privacyConsent})
+ const longRetention=await h.cmd('privacy.retention',{type:'photos',days:36500,...privacyConsent})
+ assert.equal((await h.cmd('photo.erase',{staffId:ben.id,mode:'retention',consent:true,reason:'Retention review not yet due'})).erased,0)
+ await h.cmd('privacy.retention',{type:'photos',days:1,revision:longRetention.revision,...privacyConsent})
  await h.cmd('photo.hold',{staffId:ben.id,hold:true,reason:'Employer legal hold'})
  await h.cmd('photo.erase',{staffId:ben.id,mode:'retention',consent:true,reason:'Expired photo review'},h.owner,409)
  const person=(await h.state()).staff.find(p=>p.id===ben.id);await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:person.role,active:false,site:person.site,hourlyRate:'20.00'})

@@ -1,3 +1,4 @@
+import {privacyHeld,privacyExpired} from './privacy'
 // CLOCK-005: consented stills only; existing employee/owner custody is preserved.
 // @ts-ignore Pinned portability module has no declarations.
 import {createPortability} from '@runeditrun/rer/modules/portability'
@@ -60,10 +61,11 @@ export async function photoCommand(c:Context,name:string,p:any){
   return put(c,'photoholds',{staffId,hold:p.hold===true||p.hold==='true',reason:text(p.reason,'hold reason',500),by:c.a.id,at:c.now,changes:[...(old?.changes??[]),{by:c.a.id,at:c.now,hold:old?.hold??false,reason:old?.reason??''}]},old)
  }
  keys(p,['staffId','mode','reason','consent']);need(p.consent===true||p.consent==='on','Explicit reviewed erasure consent is required',403);need(['retention','former'].includes(p.mode),'Choose expired retention or former employee')
+ need(!privacyHeld(c.s,staffId,'photos'),'A legal hold prevents photo erasure',409)
  need(!c.s.photoholds.some(h=>h.staffId===staffId&&h.hold),'A photo hold prevents erasure',409);if(p.mode==='former')need(!person.active,'Deactivate the former employee first',409)
  const reason=text(p.reason,'erasure reason',500),erased:string[]=[]
  for(const kind of ['kioskreceipts','photoreceipts'] as const)for(const r of c.s[kind].filter(r=>r.staffId===staffId&&r.photoId)){
-  const policy=photoRule(c.s,r.site);if(!policy||Date.parse(r.capturedAt)>Date.parse(c.now)-policy.retentionDays*86400000)continue
+  const policy=photoRule(c.s,r.site);if(!privacyExpired(c.s,'photos',r.capturedAt,c.now)||!policy||Date.parse(r.capturedAt)>Date.parse(c.now)-policy.retentionDays*86400000)continue
   erased.push(r.photoId);c.sql.push(c.db.prepare('DELETE FROM l_kiosk_photos WHERE id=? AND staff_id=?').bind(r.photoId,staffId));put(c,kind,{...r,photoId:null,erasedAt:c.now,erasedBy:c.a.id,erasureReason:reason},r)
  }
  if(erased.length){const portability=await createPortability({db:c.db,buckets:{FILES:c.files!},policy:archivePolicy});c.sql.push(...await portability.redactionStatements(),...await portability.invalidateTransfersStatements())}

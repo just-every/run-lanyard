@@ -1,3 +1,4 @@
+import {privacyHeld,privacyExpired} from './privacy'
 // CLOCK-003: native event-only evidence; no background location collection.
 // @ts-ignore Pinned portability module has no declarations.
 import {createPortability} from '@runeditrun/rer/modules/portability'
@@ -71,7 +72,8 @@ export async function geofenceCommand(c:Context,name:string,p:any){
   keys(p,['id','revision','hold','reason']);need(typeof p.hold==='boolean','Choose hold or release');const held=put(c,'georeceipts',{...r,hold:p.hold,holds:[...(r.holds??[]),{hold:p.hold,reason:text(p.reason,'hold reason',500),by:c.a.id,at:c.now}]},r)
   return {id:held.id,revision:held.revision,hold:held.hold}
  }
- keys(p,['id','revision','reason','consent']);need(p.consent===true,'Explicit reviewed erasure consent is required',403);need(!r.hold,'Location hold prevents erasure',409)
+ keys(p,['id','revision','reason','consent']);need(p.consent===true,'Explicit reviewed erasure consent is required',403);need(!privacyHeld(c.s,r.staffId,'location'),'A legal hold prevents location erasure',409);need(!r.hold,'Location hold prevents erasure',409)
+ need(privacyExpired(c.s,'location',r.capturedAt,c.now),'Location retention review period has not expired',409)
  need(Date.parse(r.capturedAt)<=Date.parse(c.now)-r.retentionDays*86400000,'Location retention has not expired',409)
  need(!r.erasedAt,'Location coordinates already erased',409)
  const {latitude,longitude,accuracyMeters,observedAt,distanceMeters,...facts}=r

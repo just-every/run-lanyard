@@ -53,6 +53,13 @@ export async function geofenceApi(h){
  await h.cmd('location.erase',{...pin(inReceipt),reason:'Too early',consent:true},h.owner,409,{'x-test-now':String(Date.parse('2025-06-02T16:00:00Z'))})
  await h.cmd('geofence.save',{...f.policy,revision:rule.revision,longitude:-122.51})
  assert.deepEqual((await h.state()).georeceipts.find(r=>r.id===inside.locationReceiptId).geofence,{latitude:37.76,longitude:-122.5,radiusMeters:200,maxAccuracyMeters:50})
+ const privacyConsent={consent:true,reason:'synthetic-lanyard-71 reviewed retention'}
+ const privacyHold=await h.cmd('privacy.hold',{staffId:alex.id,type:'location',hold:true,...privacyConsent})
+ await h.cmd('location.erase',{...pin(reviewed),reason:'Held by employee privacy review',consent:true},h.owner,409)
+ await h.cmd('privacy.hold',{staffId:alex.id,type:'location',hold:false,revision:privacyHold.revision,...privacyConsent})
+ const longRetention=await h.cmd('privacy.retention',{type:'location',days:36500,...privacyConsent})
+ await h.cmd('location.erase',{...pin(reviewed),reason:'Retention review not yet due',consent:true},h.owner,409)
+ await h.cmd('privacy.retention',{type:'location',days:1,revision:longRetention.revision,...privacyConsent})
  const held=await h.cmd('location.hold',{...pin(reviewed),hold:true,reason:'Employer dispute hold'})
  await h.cmd('location.erase',{...pin(held),reason:'Expired coordinates',consent:true},h.owner,409)
  const released=await h.cmd('location.hold',{...pin(held),hold:false,reason:'Review completed'})
