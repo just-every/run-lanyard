@@ -1,0 +1,8 @@
+{
+  "version": "0.1.2",
+  "publicReleaseNotes": "Keep the exact rer 0.2.80 pin and refreshed Base delivery metadata. Correct PUBLIC-001 evidence to use the installed site lifecycle source so Managed installations pass the first-party contract check.",
+  "migrations": [],
+  "breaking": false,
+  "agentUpdateInstructions": "Keep existing deployment identities and applied migration bytes. Configure the selected mail provider before inviting staff. Follow docs/BACKUP-RESTORE.md before moving an installation.",
+  "previousVersion": "0.1.1"
+}
