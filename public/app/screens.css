@@ -105,3 +105,7 @@ html.rer-themed .lanyard-app dl.command-docs{display:block}
  .clock:has(>[data-punch-location])>form{grid-column:1;grid-row:3;justify-self:start}
  .clock:has(>[data-punch-location]):has(>[data-punch-photo])>form{grid-row:4}
 }
+
+/* Reviewed policy sources stay readable inside the Settings column. */
+main[data-page="settings"] pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;font-size:13px}
+main[data-page="settings"] fieldset{min-inline-size:0}

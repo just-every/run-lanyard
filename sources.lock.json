@@ -602,7 +602,7 @@
       "executable": false
     },
     "public/app/screens.css": {
-      "sha256": "9ec7c33a18b4c8540678f2211b5ceacec914fc61346b8a9135aa9618ae4067a9",
+      "sha256": "1dd68efaa0d618fea636779219562b165f616244ec9683bf7cbc08ad7df2c9bf",
       "executable": false
     },
     "public/app/shell.css": {
@@ -1654,7 +1654,7 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "0f0f5db243b896d25552ddf0b32bccd2ef2ba16b5f13da15d1c00270150a4408",
+      "sha256": "dc934d362d4683af9fc0d2ae3e4783e7a6ccd3fd28249031b712ac3b37031c5f",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
@@ -1894,7 +1894,7 @@
       "executable": false
     },
     "src/lanyard/ui/policies.ts": {
-      "sha256": "71c2ef94cce635228d2372f3c88df80eaa580bc755340dd3da15f0ee9e1102ea",
+      "sha256": "64c6c774f4157eada60048a96158b2cee62af8c6528f692f3d73de5bcc693ba5",
       "executable": false
     },
     "src/lanyard/ui/policy-alternate.ts": {
@@ -1902,7 +1902,7 @@
       "executable": false
     },
     "src/lanyard/ui/policy-coverage.ts": {
-      "sha256": "06779fbde7e8fd2b32fb8abf66c7f7a0783f01582eb685f20bc2e66b65892b60",
+      "sha256": "3d560d853f47c0236e52a5a3d579f1ca75281560b57d7978a704949777907e09",
       "executable": false
     },
     "src/lanyard/ui/policy-fields.ts": {
@@ -3986,11 +3986,15 @@
       "executable": false
     },
     "tests/policy-adjacent-journey.mjs": {
-      "sha256": "65492151d58a0b0d1bafc3644377ca1b7417d73a9086fcdb18b5eafd5c6146ca",
+      "sha256": "60198cecaa8396ddedf8dd5b942bd9b5e2c097cd8ef12a480e7710fe25fd564d",
       "executable": false
     },
     "tests/policy-alternate-journey.mjs": {
       "sha256": "f5da50bc51defa0ff6bdee46f2dec2b3c619d5bcaf68715a1179e4cfebeeb99c",
+      "executable": false
+    },
+    "tests/policy-alternate-settings-journey.mjs": {
+      "sha256": "15823e55f0166dbe3aee57a213f6a0ec751ffe7b3e949d73008860415b75c914",
       "executable": false
     },
     "tests/policy-consecutive-journey.mjs": {
@@ -4022,7 +4026,7 @@
       "executable": false
     },
     "tests/policy-settings-journey.mjs": {
-      "sha256": "2bf39518db29d124cbde7e88ba36e34f1788ecbd5c631b0658207a285cb09a61",
+      "sha256": "7725ca9b746899f780adc378cca82b4102dc9ede22ca637074b6874d67ad8133",
       "executable": false
     },
     "tests/policy-timing-journey.mjs": {

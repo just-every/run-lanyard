@@ -240,8 +240,8 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         if(name==='kiosk.enroll'){const response=new Response(null,{status:303,headers:{...headers,location:'/app/kiosk'}});response.headers.append('set-cookie',String((result as any).cookie));return response}
         let displayed:any=name === 'import.preview' || name === 'sales.preview' ? { ...shown, csv: input.csv, mapping: input.mapping, site: input.site } : name.startsWith('clockbrowser.') ? shown : result
         if(name==='policy.worker.save') displayed={workerInput:input}
-        if(name==='policy.worker.preview') displayed={workerInput:input,workerPreview:{review:result,input}}
-        if(name==='policy.preview') displayed={policyInput:input,policyPreview:{review:result,input}}
+        if(name==='policy.worker.preview') displayed={workerInput:input,workerPreview:{review:(result as any).result??result,input}}
+        if(name==='policy.preview') displayed={policyInput:input,policyPreview:{review:(result as any).result??result,input}}
         if(name.startsWith('fairness.')&&['owner','manager'].includes(who.role)) {
           const q=new URL(back,url.origin).searchParams
           displayed={...displayed,fairness:await fairnessRead(env.DB,who,String(input.week??q.get('week')??''),String(input.site??q.get('site')??''),Number(input.weeks??q.get('fairWeeks')??8))}

@@ -32,4 +32,22 @@ export async function policyAdjacentApi(){
    assert.equal((await h.state()).batches.length,0,'review alone never creates payroll')
   }
  }finally{await h.close()}
+ await shortGapPeriods()
+}
+
+async function shortGapPeriods(){
+ for(const [preset,gap,hours,groups]of [['NV',20,4,1],['NV',30,4,2],['OR',60,3,1],['OR',61,3,2]]){
+  const h=await harness(),week='2026-10-12'
+  try{
+   await h.cmd('settings.save',{timezone:'UTC'});const p=await h.person('GapWorker')
+   for(const site of ['East','West'])await h.cmd('policy.save',{site,preset,from:'2026-01-01',reviewReason:'Reviewed statutory work-period continuity'})
+   const at=m=>new Date(Date.parse(week+'T08:00:00Z')+m*60000).toISOString(),shifts=[]
+   for(let i=0;i<2;i++){const shift={staffId:p.id,site:i?'West':'East',start:at(i*(hours*60+gap)),end:at(i*(hours*60+gap)+hours*60),breakMinutes:0};shifts.push(shift);const t=await h.cmd('time.prepare',{...shift,reason:'Source gap is retained without inventing a meal'});await h.cmd('time.approve',pin(t))}
+   const report=await h.cmd('policy.review',{staffId:p.id,week})
+   assert.equal(report.minutes,hours*120,'a continuity rule never converts an unpaid gap into payable time')
+   assert.equal(report.breakReviews.length,groups,preset+' statutory continuity boundary')
+   if(groups===1){assert.equal(report.breakReviews[0].records.length,2);assert.equal(report.breakReviews[0].unrecordedIntervals.length,1);assert.ok(report.breakReviews[0].issues.some(i=>i.kind==='meal'&&i.state==='exception'));const draft=await h.cmd('roster.prepare',{week,shifts});assert.ok(draft.policyWarnings.some(w=>w.message.includes('Meal 1:')))}
+   else assert.ok(report.breakReviews.every(r=>!r.issues.some(i=>i.kind==='meal')))
+  }finally{await h.close()}
+ }
 }

@@ -60,7 +60,7 @@ export async function policySettingsBrowser(){
    const account=page.getByLabel('Account',{exact:true});await account.focus()
    await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'})
    await account.click();await page.getByRole('link',{name:'Settings',exact:true}).click();await page.waitForLoadState('networkidle')
-   await page.locator('#policy-pick').waitFor({state:'visible'});const picker=page.locator('#policy-pick');if(!await picker.getByLabel('Cafe',{exact:true}).count())throw Error('Settings cafe label: '+await picker.innerHTML());await picker.getByLabel('Cafe',{exact:true}).selectOption(site)
+   await page.locator('#policy-pick').waitFor({state:'visible'});const picker=page.locator('#policy-pick');await picker.getByLabel('Cafe',{exact:true}).selectOption(site)
    await picker.getByRole('button',{name:'Open policy',exact:true}).click();await page.waitForLoadState('networkidle')
    const editor=page.locator('[data-policy-editor]')
    // Select shipped releases by the actual options, rather than pinning a catalog version.
@@ -86,6 +86,9 @@ export async function policySettingsBrowser(){
    }
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
    await page.locator('#policy-preview').scrollIntoViewIfNeeded();await shot('policy-settings-preview')
+   await page.locator('#policy-preview').getByText('Calculation inputs and retained sources',{exact:true}).first().click()
+   await shot('policy-settings-sources')
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
    // A source arriving after review invalidates this exact browser approval.
    await h.cmd('time.prepare',{staffId:f.crew[0].id,site,start:'2026-10-13T08:00:00Z',end:'2026-10-13T10:00:00Z',breakMinutes:0,reason:'Later cafe source awaiting approval'})
    await page.locator('[data-policy-apply] input[type=checkbox]').check()

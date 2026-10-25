@@ -9,7 +9,7 @@ import {dateKey,money} from './format'
 
 const names:Record<string,string>={federal:'Federal',CA:'California',AK:'Alaska',NV:'Nevada',CO:'Colorado',OR:'Oregon',WA:'Washington',NY:'New York',IL:'Illinois',custom:'Custom · unmaintained'}
 const label=(preset:string)=>names[preset]??preset
-const select=(name:string,title:string,values:readonly string[],value:string,labels:(v:string)=>string=v=>v)=>`<label>${h(title)}<select name="${h(name)}"${name==='site'?'':' required'}>${values.map(v=>`<option value="${h(v)}"${v===value?' selected':''}>${h(labels(v))}</option>`).join('')}</select></label>`
+const select=(name:string,title:string,values:readonly string[],value:string,labels:(v:string)=>string=v=>v)=>`<label>${h(title)}<select aria-label="${h(title)}" name="${h(name)}"${name==='site'?'':' required'}>${values.map(v=>`<option value="${h(v)}"${v===value?' selected':''}>${h(labels(v))}</option>`).join('')}</select></label>`
 const sources=(preset:string)=>{const p=policyPresets.find(p=>p.id===preset);return p?`<ul>${[p.source,...p.breakSources].map((url,i)=>`<li><a class="text-link" href="${h(url)}" target="_blank" rel="noreferrer">${i?'Meal and rest source '+i:'Overtime source'} ↗</a></li>`).join('')}</ul>`:'<p class="note">Employer-configured thresholds are unmaintained. Review them against your applicable requirements.</p>'}
 
 function record(s:any,p:any){
