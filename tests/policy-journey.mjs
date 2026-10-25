@@ -13,7 +13,7 @@ async function person(h,name='Alex',rate='20.00'){
 }
 const save=(h,site,preset,extra={})=>h.cmd('policy.save',{site,preset,from:'2026-01-01',reviewReason:'synthetic-lanyard-1 reviewed preset',...extra})
 export async function policyClassifications(){
- const cases=[['federal',[7,7,7,7,7,7],120,0],['CA',[10],120,0],['CA',[13],240,60],['CA',[1,1,1,1,1,1,10],480,120],['AK',[9],60,0],['NV',[9],60,0,'17.99'],['NV',[9],0,0,'18.00'],['CO',[13],60,0],...['OR','WA','NY','IL'].map(p=>[p,[7,7,7,7,7,7],120,0])]
+ const cases=[['federal',[7,7,7,7,7,7],120,0],['CA',[10],120,0],['CA',[13],240,60],['CA',[1,1,1,1,1,1,10],480,120],['AK',[9],60,0],['NV',[9],60,0,'17.99'],['NV',[9],0,0,'18.00'],['CO',[13],60,0],['IL',[7,7,7,7,7,7,7],540,0],...['OR','WA','NY'].map(p=>[p,[7,7,7,7,7,7],120,0])]
  for(const [preset,hours,ot,dt,rate]of cases){const h=await harness();try{
   await h.cmd('settings.save',{timezone:'UTC'});const alex=await person(h,'Alex',rate),policies=[]
   for(const site of ['East','West'])policies.push(await save(h,site,preset))

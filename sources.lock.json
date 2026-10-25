@@ -3914,7 +3914,7 @@
       "executable": false
     },
     "tests/policy-journey.mjs": {
-      "sha256": "ba89e5e6a669bcfbaff71a463f1d75bc25de2a79d5e2216acdf11c2dbc3e4af2",
+      "sha256": "dbf49b3743c741e837fd65fc07e441261df0f098dbf830ff6a4b017f86c6f9da",
       "executable": false
     },
     "tests/premiums-api.mjs": {
