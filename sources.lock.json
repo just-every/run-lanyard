@@ -3902,7 +3902,7 @@
       "executable": false
     },
     "tests/runtime.mjs": {
-      "sha256": "4572fe9a06bab6e983a02fec4f579a85ba4b4b3a203d9d0374862881ace07157",
+      "sha256": "b0447ad2ef131407f36f4e9a482f417bb4fa08477a88fd0eb63caf52deb85cc8",
       "executable": false
     },
     "tests/schedule-history-journey.mjs": {
@@ -3930,7 +3930,7 @@
       "executable": false
     },
     "tests/site/site.test.mjs": {
-      "sha256": "5af195ebf2c133de6023f748204bfe45dfbfdddbe48821462172d302bd8ff1b3",
+      "sha256": "42ecd99f0a190f930802c847ca9325223a46507f94e6cbbfee7509fb904071a6",
       "executable": false
     },
     "tests/tipcredit-journey.mjs": {
