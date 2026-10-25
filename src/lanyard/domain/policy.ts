@@ -1,56 +1,17 @@
 // POLICY-001: versioned overtime core. Meal timing and statutory premium payroll
 // remain separate unfinished obligations; these estimates never submit wages.
-import {type Context,type State,type Row,keys,text,need,integer,put,exact} from './model'
-import {date,dayAfter} from './aca'
+import {type State,type Row} from './model'
+import {dayAfter} from './aca'
 import {localDate} from './settings'
 import {priced} from './workforce'
 import {workweek} from './payschedules'
-import {BREAK_VERSION,breakSources,policyBreaks} from './policy-breaks'
+import {breakSources,policyBreaks} from './policy-breaks'
 
-const VERSION='2026-10-24'
-const sources:Record<string,string>={
- federal:'https://www.dol.gov/agencies/whd/overtime',
- CA:'https://www.dir.ca.gov/dlse/faq_overtime.htm',
- AK:'https://labor.alaska.gov/lss/whact.htm',
- NV:'https://labor.nv.gov/Employer/Employer_Information/',
- CO:'https://cdle.colorado.gov/dlss/home-page/wage-and-hour-law/overtime',
- OR:'https://www.oregon.gov/boli/employers/pages/overtime.aspx',
- WA:'https://www.lni.wa.gov/workers-rights/wages/overtime/',
- NY:'https://dol.ny.gov/overtime-pay',
- IL:'https://labor.illinois.gov/faqs/overtime-faq.html',
-}
-export const policyPresets=Object.entries(sources).map(([id,source])=>({id,source,version:VERSION,effectiveFrom:'2026-10-24',breakVersion:breakSources[id]?BREAK_VERSION:null,breakSources:breakSources[id]??[],scope:'Nonexempt overtime core; selected break review estimates; exemptions, alternate workdays and premium payroll incomplete'}))
 const version=(r:Row)=>{const {versions,...v}=r;return v}
 export function policyOn(s:State,site:string,on:string){
  return s.policies.filter(r=>r.site===site).flatMap(r=>[...(r.versions??[]),version(r)]).filter(r=>r.from<=on).sort((a,b)=>a.from.localeCompare(b.from)||a.revision-b.revision).at(-1)
 }
 export function policyLabel(r:any){return r.preset==='custom'?`${r.jurisdiction}: employer-configured, unmaintained`:`${r.preset} overtime core (${r.presetVersion}); meal and rest compliance incomplete`}
-export function policyCommand(c:Context,name:string,p:Record<string,any>){
- if(!['policy.save','policy.review'].includes(name))return
- need(c.a.role==='owner','Only the owner maintains or reviews policy calculations',403)
- if(name==='policy.review'){
-  keys(p,['staffId','week']);need(c.s.staff.some(x=>x.id===p.staffId),'Person not found',404)
-  const week=date(p.week,'workweek');need(workweek(c.s,p.staffId,week)===week,'Use the employee workweek start')
-  return policyClassification(c.s,p.staffId,week)
- }
- keys(p,['id','revision','site','from','preset','jurisdiction','dailyMinutes','doubleMinutes','weeklyMinutes','minimumRestMinutes','reviewReason'])
- const site=text(p.site,'site',80,true),old=c.s.policies.find(r=>r.site===site)
- if(old){need(p.id===old.id,'Reload the existing policy',409);exact(old,p)}else need(!p.id,'Policy not found',404)
- const from=date(p.from,'effective date'),preset=text(p.preset,'preset',20)
- need(preset==='custom'||Object.hasOwn(sources,preset),'Choose a shipped preset or custom')
- if(old)need(from>=old.from,'A policy revision cannot precede its previous effective date',409)
- need(!c.s.periods.some(r=>['locked','closed'].includes(r.status)&&r.end>=from),'Policy changes cannot reach locked or closed payroll; choose a later effective date',409)
- const reviewReason=text(p.reviewReason,old?'reviewed recalculation reason':'review reason',500)
- const custom=preset==='custom'
- if(!custom)need(['jurisdiction','dailyMinutes','doubleMinutes','weeklyMinutes'].every(k=>p[k]===undefined),'Maintained overtime thresholds cannot be overridden; use custom')
- const limit=(v:any,label:string,fallback:number)=>v===undefined?fallback:integer(Number(v),label,1,10080)
- const dailyMinutes=custom?limit(p.dailyMinutes,'daily threshold',1440):['CA','AK','NV'].includes(preset)?480:preset==='CO'?720:1440
- const doubleMinutes=custom?limit(p.doubleMinutes,'double-time threshold',1440):preset==='CA'?720:1440
- need(doubleMinutes>=dailyMinutes,'Double time cannot begin before overtime')
- const minimumRestMinutes=p.minimumRestMinutes===undefined?0:integer(Number(p.minimumRestMinutes),'employer minimum rest',0,1440)
- if(preset==='CA')need(!c.s.mealrules.some(r=>r.site===site&&r.enabled),'Disable automatic meal deduction before applying California policy',409)
- return put(c,'policies',{site,from,preset,jurisdiction:custom?text(p.jurisdiction,'jurisdiction',120):preset,presetVersion:VERSION,breakVersion:breakSources[preset]?BREAK_VERSION:null,source:custom?'':sources[preset],dailyMinutes,doubleMinutes,weeklyMinutes:custom?limit(p.weeklyMinutes,'weekly threshold',2400):2400,minimumRestMinutes,minimumRestLabel:'Employer-configured, unmaintained minimum rest',reviewReason,by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),version(old)]:[]},old)
-}
 /** Actuals use approved retained rate allocations; all sites and jobs share the
  * employee workweek. Daily premiums never count twice toward weekly overtime.
  * A date uses the strongest threshold of the sites actually worked that date. */

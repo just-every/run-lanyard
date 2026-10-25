@@ -31,6 +31,8 @@ export async function policyClassifications(){
   if(shifts.length>1)assert.deepEqual([...new Set(report.parts.map(p=>p.site))].sort(),['East','West'])
   await h.cmd('policy.review',{staffId:alex.id,week:start},alex.cookie,403)
  }finally{await h.close()}}
+ const {policyTimingVariants}=await import('./policy-timing-journey.mjs');await policyTimingVariants()
+ const {policyReleaseReview}=await import('./policy-release-journey.mjs');await policyReleaseReview()
  await policyBreakClassifications()
  await policyDailyPremiumCap()
  // Two rates on the same date aggregate before the daily threshold is applied.
