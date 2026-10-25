@@ -1,7 +1,7 @@
 import {type State,type Row,canonical,sha} from './model'
-import {localDate} from './settings'
 import {workweek} from './payschedules'
 import {policyClassification} from './policy'
+import {priced} from './workforce'
 
 /** A release approval binds the proposed catalog and the open source facts.
  * Nothing is changed by preview; applying the reviewed version is explicit. */
@@ -10,9 +10,15 @@ export async function releasePreview(s:State,candidate:Record<string,any>,old?:R
  const next={...s,policies:[...s.policies.filter(r=>r.id!==old?.id),proposed]}
  const affected=new Map<string,{staffId:string;week:string}>()
  for(const t of s.timesheets){
-  const date=localDate(t.start,s.timezone),site=t.site??s.staff.find(p=>p.id===t.staffId)?.site??''
-  if(site!==candidate.site||date<candidate.from||t.status==='superseded'||t.status==='rejected')continue
-  const week=workweek(s,t.staffId,date);affected.set(t.staffId+'|'+week,{staffId:t.staffId,week})
+  if(t.status==='superseded'||t.status==='rejected')continue
+  for(const area of t.workSegments?.length?t.workSegments:[t]){
+   const basis=area.rateBasis??priced(s,t.staffId,{...t,...area}),site=basis.site??t.site??s.staff.find(p=>p.id===t.staffId)?.site??''
+   if(site!==candidate.site)continue
+   for(const part of basis.segments){
+    if(part.date<candidate.from)continue
+    const week=workweek(s,t.staffId,part.date);affected.set(t.staffId+'|'+week,{staffId:t.staffId,week})
+   }
+  }
  }
  const periods=s.periods.filter(p=>p.end>=candidate.from).map(p=>({id:p.id,revision:p.revision,start:p.start,end:p.end,status:p.status})).sort((a,b)=>a.id.localeCompare(b.id))
  const calculations=[...affected.values()].sort((a,b)=>a.staffId.localeCompare(b.staffId)||a.week.localeCompare(b.week)).map(({staffId,week})=>({staffId,week,before:policyClassification(s,staffId,week),after:policyClassification(next,staffId,week)}))
