@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "b42edc2997750de0b0fa827a6907f7e3a10a02fb83c12daa914391ddbda8655e",
+      "sha256": "b6b53b85906efc4a26ef404147550f748f1604e7162841a872b049836397cef6",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "6918444c73849285377f8852bfb4028ffa00c77d32cc43a090bfa9c543d0070f",
+      "sha256": "36b36084afdf5a6bf5cf317941416d6e4df3f54a10d6b7f019ad13c2c6f582f5",
       "executable": false
     },
     "DEMO.md": {
@@ -1541,8 +1541,20 @@
       "sha256": "b03154a6d0c0af0b88a2c1080a9bee04c030b46766495ed849263fdbaa0e6ba1",
       "executable": false
     },
+    "src/lanyard/domain/policy-rest-days.ts": {
+      "sha256": "9e695e29e99bb8923677526bb5661c2ff83e8e12e22f280169f12e28df2df721",
+      "executable": false
+    },
+    "src/lanyard/domain/policy-workday-breaks.ts": {
+      "sha256": "c12e503af96b3e04e0bf359da87339c02d74c70bcfb67d4c2a878e4b18259de6",
+      "executable": false
+    },
+    "src/lanyard/domain/policy-workday.ts": {
+      "sha256": "0d456df9210c31cf7af504029f82939b6efecbb01638d47cf7c7dd38ca645fbd",
+      "executable": false
+    },
     "src/lanyard/domain/policy.ts": {
-      "sha256": "eab0564990a6049ea945871e686e79a5abd1b07edadf31055b51ba61ab512fe2",
+      "sha256": "2fc98600dc9d440cdb3ba75095a2e1a86e23da81d3f8f58558a856c8b76281fa",
       "executable": false
     },
     "src/lanyard/domain/postings.ts": {
@@ -3902,7 +3914,7 @@
       "executable": false
     },
     "tests/harness.mjs": {
-      "sha256": "b169a066cceb23288beded7e68492e4dc3a3c0bc693fb9567bf3dec7ba6501be",
+      "sha256": "9d9da91466525962b922b89e06a1a6f7ca24b41885b82be9dcec6dd3690c5831",
       "executable": false
     },
     "tests/holidays-api.mjs": {
@@ -3926,7 +3938,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "56f1ea47822b6f153569b6999076ecc630fc3b79598c5806d28e24eb2b13e69b",
+      "sha256": "321599a73dd8d33316f08edb90d26f1649b56b9314dff4a673e54eae2df5e991",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -4010,7 +4022,7 @@
       "executable": false
     },
     "tests/policy-earnings-journey.mjs": {
-      "sha256": "fe7a2179f1ab685db5c1f30887540e26d626b183d979e852b975a224068fb928",
+      "sha256": "e36d8880a978e3c558344b9c39890f2cb66f18e967e46a490b849d8719684295",
       "executable": false
     },
     "tests/policy-journey.mjs": {
@@ -4025,12 +4037,20 @@
       "sha256": "79e960462183b56a1a66e7994cdaf3ea7b5738540d7583f61ef5eef3411c1d8d",
       "executable": false
     },
+    "tests/policy-rest-days-journey.mjs": {
+      "sha256": "e47ee18a240237a89d0f22cd0c645562be148c46bc1197d9ea986665ae4b86d7",
+      "executable": false
+    },
     "tests/policy-settings-journey.mjs": {
       "sha256": "72ed660b631fe35f1c09c74bf1e4b57024e3ead458ac20ff4454995cfee6e378",
       "executable": false
     },
     "tests/policy-timing-journey.mjs": {
       "sha256": "c9ed909cef488916d759a16902db4e82feb07f39b1773a4185e20935a739d56f",
+      "executable": false
+    },
+    "tests/policy-workday-journey.mjs": {
+      "sha256": "f49e6884da0f4dbd34de6ac205aeba6126d0494d170582bccc3c019ad1eb15c1",
       "executable": false
     },
     "tests/premiums-api.mjs": {
