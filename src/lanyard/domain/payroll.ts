@@ -1,3 +1,7 @@
+import {unbase64} from './payxlsx'
+import {payrollInputCommand,payrollInputLines,makeUpLines} from './payinputs'
+import {classifiedLines} from './payclassification'
+import {templateCommand,templateSnapshot,mappedFile,mappedWorkbook,reviewedFile} from './paytemplates'
 import {sickLines} from './sick'
 import {differentialLines} from './differentials'
 // Willow payroll's reviewed file + immutable SHA + unique source claims.
@@ -29,21 +33,26 @@ function breakPremiumLines(c:Context,t:Row,base:Record<string,any>) {
  return codes.map(code=>({...base,payCode:code,minutes:(t.premiums??[]).filter((p:any)=>p.code===code).reduce((n:number,p:any)=>n+p.minutes,0)-exportedPremium(c,t.rootId,code)})).filter(l=>l.minutes!==0)
 }
 export async function payroll(c:Context,name:string,p:Record<string,any>) {
+ const inputResult=payrollInputCommand(c,name,p);if(inputResult!==undefined)return inputResult
+ const templateResult=templateCommand(c,name,p);if(templateResult!==undefined)return templateResult
  if(name==='payroll.prepare') {
-  prepare(c.a);keys(p,['ids']);need(p.ids===undefined||(Array.isArray(p.ids)&&p.ids.length>0&&p.ids.length<=500),'Provide 1–500 timesheet IDs')
+  prepare(c.a);keys(p,['ids','templateId']);need(p.ids===undefined||(Array.isArray(p.ids)&&p.ids.length>0&&p.ids.length<=500),'Provide 1–500 timesheet IDs')
+  const exportTemplate=p.templateId?templateSnapshot(c,p.templateId):undefined
   const ids=p.ids?.map((v:unknown)=>text(v,'time ID'));if(ids)need(new Set(ids).size===ids.length,'Duplicate timesheet IDs')
   // TIME-004: time in an open defined pay period waits for the period's lock.
   const unclaimed=c.s.timesheets.filter(t=>t.status==='approved'&&!c.s.claims.some(cl=>cl.time_id===t.id&&cl.time_revision===t.revision)),available=unclaimed.filter(t=>!heldByPeriod(c.s,t))
   const selected=ids?ids.map((id:string)=>{const t=available.find(r=>r.id===id);need(t,unclaimed.some(r=>r.id===id)?'Selected time is in an open pay period; lock the period first':'Selected time is not approved or is already exported',409);return t}):available
   // TIME-007: a provisionally closed punch is never exported; it is listed as held until confirmed or corrected and approved.
   const held=[...c.s.clocks.filter(k=>provisional(c.s,k,c.now)).map(k=>({clockId:k.id,staffId:k.staffId,start:k.start,reason:'provisional close'})),...unclaimed.filter(t=>heldByPeriod(c.s,t)).map(t=>({timeId:t.id,staffId:t.staffId,start:t.start,reason:'pay period open'}))]
-  const nonwork=[...(c.a.role==='owner'?sickLines(c):[]),...nonWorkLines(c),...arrivalLines(c)],adjustments=await overtimeInputs(c)
+  const nonwork=[...(c.a.role==='owner'?sickLines(c):[]),...nonWorkLines(c),...arrivalLines(c),...(exportTemplate?[...payrollInputLines(c),...makeUpLines(c)]:[])],adjustments=await overtimeInputs(c)
   for(const l of adjustments)need(staff(c,l.staffId).payroll_id,'Set the staff payroll ID first',409)
   need((selected.length>0||adjustments.length>0||nonwork.length>0)&&selected.length<=500,`No approved unexported time, or too many entries${held.length?`; ${held.length} provisionally closed punch${held.length===1?'':'es'} held until confirmed`:''}`,409)
   const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).flatMap((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);const base={timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,sourceStart:t.start,sourceEnd:t.end,corrects:t.corrects,rootId:t.rootId,rateBasis:priced(c.s,t.staffId,t)};return [...regularLines(c,t,base),...breakPremiumLines(c,t,base),...holidayLines(c,t,base),...premiumLines(c,t,base),...differentialLines(c,t,base)]})
   for(const l of nonwork)need(l.payrollId,'Set the staff payroll ID first',409)
   lines.push(...adjustments,...nonwork)
-  const r=put(c,'batches',{status:'draft',lines,held,csvPreview:csv(lines),preparedBy:c.a.id,preparedAt:c.now})
+  const classificationLines=exportTemplate?.classification==='policy'?classifiedLines(c,lines,exportTemplate):undefined
+  if(!classificationLines)need(!lines.some((l:any)=>!l.payCode&&c.s.batches.some(b=>['exported','acknowledged'].includes(b.status)&&(b.classificationLines??[]).some((x:any)=>x.classifiedWorked&&x.rootId===l.rootId))),'Use a policy-classified template for corrections to classified payroll',409)
+  const r=put(c,'batches',{status:'draft',lines,held,...(exportTemplate?{exportTemplate}:{}),...(classificationLines?{classificationLines}:{}),...(exportTemplate?.format==='xlsx'?{fileBase64:mappedWorkbook(c,classificationLines??lines,exportTemplate)}:{}),csvPreview:exportTemplate?mappedFile(c,classificationLines??lines,exportTemplate):csv(lines),preparedBy:c.a.id,preparedAt:c.now})
   return {...r,approvalRequired:'payroll.export',approval:{id:r.id,revision:r.revision}}
  }
  if(name==='payroll.export') {
@@ -51,6 +60,8 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
   need(c.a.role==='owner'||!b.lines.some((l:any)=>l.sickLine),'Only the owner exports private paid-leave payroll',403)
   const checked=new Set<string>(),adjustments=await overtimeInputs(c)
   for(const line of b.lines) {
+   if(line.payInputId){need(c.a.role==='owner'&&payrollInputLines(c).some(l=>canonical(l)===canonical(line)),'Employer-approved payroll input changed; prepare again',409);continue}
+   if(line.makeupKey){need(c.a.role==='owner'&&makeUpLines(c).some(l=>canonical(l)===canonical(line)),'Tip make-up sources changed; prepare again',409);continue}
    if(line.sickUseId){need(sickLines(c).some(l=>canonical(l)===canonical(line)),'Paid-leave sources changed; prepare again',409);continue}
    if(line.arrivalPremiumId){need(arrivalLines(c).some(l=>l.arrivalPremiumId===line.arrivalPremiumId&&canonical(l)===canonical(line)),'Arrival premium sources changed; prepare again',409);continue}
    if(line.holidayPayId){const current=nonWorkLines(c).find(l=>l.holidayPayId===line.holidayPayId);need(current&&canonical(current)===canonical(line),'Holiday pay sources, period or payroll identity changed; prepare again',409);const r=get(c.s,'holidaypay',line.holidayPayId);put(c,'holidaypay',{...r,batchId:b.id},r);continue}
@@ -73,11 +84,13 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
    need(b.lines.filter((l:any)=>l.timeId===t.id&&!l.payCode).reduce((n:number,l:any)=>n+l.minutes,0)===t.minutes-prior&&JSON.stringify(b.lines.filter((l:any)=>l.timeId===t.id&&!l.payCode).map((l:any)=>[l.job,l.area,l.site,l.minutes]))===JSON.stringify(regularLines(c,t,line).map(l=>[l.job,l.area,l.site,l.minutes])),'Correction delta changed; prepare a new batch',409)
    c.sql.push(c.db.prepare('INSERT INTO l_payroll_claims(time_id,time_revision,batch_id,root_id,minutes) VALUES(?,?,?,?,?)').bind(t.id,t.revision,b.id,t.rootId,t.minutes-prior))
   }
-  need(csv(b.lines)===b.csvPreview,'Reviewed file changed',409)
-  return put(c,'batches',{...b,status:'exported',csv:b.csvPreview,sha256:await sha(b.csvPreview),exportedBy:c.a.id,exportedAt:c.now},b)
+  if(b.classificationLines)need(canonical(classifiedLines(c,b.lines,b.exportTemplate))===canonical(b.classificationLines),'Classified policy or source revisions changed; prepare again',409)
+  need((reviewedFile(c,b)??csv(b.lines))===b.csvPreview,'Reviewed file changed',409)
+  if(b.fileBase64)need(mappedWorkbook(c,b.classificationLines??b.lines,b.exportTemplate)===b.fileBase64,'Reviewed workbook changed',409)
+  return put(c,'batches',{...b,status:'exported',csv:b.csvPreview,sha256:await sha(b.fileBase64?unbase64(b.fileBase64):b.csvPreview),exportedBy:c.a.id,exportedAt:c.now},b)
  }
  if(name==='payroll.acknowledge') {
-  manager(c.a);keys(p,['id','revision','reference']);const b=get(c.s,'batches',p.id);exact(b,p);need(c.a.role==='owner'||!b.lines.some((l:any)=>l.sickLine),'Only the owner acknowledges private paid-leave payroll',403);need(b.status==='exported','Only exported payroll can be acknowledged',409)
+  manager(c.a);keys(p,['id','revision','reference']);const b=get(c.s,'batches',p.id);exact(b,p);need(c.a.role==='owner'||!b.exportTemplate&&!b.lines.some((l:any)=>l.sickLine),'Only the owner acknowledges mapped or private paid-leave payroll',403);need(b.status==='exported','Only exported payroll can be acknowledged',409)
   return put(c,'batches',{...b,status:'acknowledged',reference:text(p.reference,'reference',120),acknowledgedBy:c.a.id,acknowledgedAt:c.now},b)
  }
  return undefined

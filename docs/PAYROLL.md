@@ -47,7 +47,7 @@ Payroll sibling: [Envelope](https://github.com/just-every/run-envelope).
 
 Where a cafe pays tipped employees a cash wage below the minimum wage and takes a tip credit, the owner sets it up in **Payroll → Tip credit**: the cafe, its state, the minimum wage that applies there and the jobs whose work produces tips, effective from a date. You enter the minimum wage; Lanyard keeps no state or local minimum wage rates. A later minimum wage is saved from its own date and earlier weeks keep theirs. California, Washington, Oregon, Nevada, Minnesota, Alaska and Montana bar a tip credit, so a setup there is refused.
 
-Each employee's configured workweek (Monday to Sunday for people without a pay group) Lanyard checks every person with approved time in a tipped job at such a cafe: their tipped minutes at the cafe's minimum wage against the same minutes at their own job rate plus the cash tips they declared at clock-out. A shortfall is a make-up pay input for that person and week. Download a week's inputs and add them in your payroll provider; Lanyard does not pay them or add them to a payroll batch. Time in the cafe's other jobs, such as side work recorded with **Change job** on the phone clock, is listed as non-tipped duty time so you can apply your own reviewed dual-jobs treatment. The owner reads every check; a manager reads the people of their own cafe.
+Each employee's configured workweek (Monday to Sunday for people without a pay group) Lanyard checks every person with approved time in a tipped job at such a cafe: their tipped minutes at the cafe's minimum wage against the same minutes at their own job rate plus the cash tips they declared at clock-out. A shortfall is a make-up pay input for that person and week. Download a week's inputs and add them in your payroll provider; Lanyard does not pay them. Owner-selected mapped templates include eligible single-site make-up inputs under their own earning code; the ordinary hours-only file keeps the separate download workflow. Time in the cafe's other jobs, such as side work recorded with **Change job** on the phone clock, is listed as non-tipped duty time so you can apply your own reviewed dual-jobs treatment. The owner reads every check; a manager reads the people of their own cafe.
 
 ## ACA hours for the filer
 
@@ -88,3 +88,91 @@ Under **Paid sick and safe leave**, choose a listed paid jurisdiction/employer t
 Approve worked time first. Current approved hours accrue at the actual work location, including cross-site segments. January 1 resets annual counters and applies carryover. Staff request a permitted category and partial-day paid minutes in **Time → My paid leave** without medical details. The owner alone reviews private purposes and balances, approves use with a unique paid-service reference, and downloads the balance/source file. California/local categories include preventive care, jury duty and court witness service. These authority defaults await policy confirmation.
 
 Approved use is paid non-work service, not worked time or another accrual source. Its reference deduplicates ACA credits. Payroll exports it once under the mapped code; a reasoned exact-revision correction exports only the signed difference and preserves prior files. Turning earnings estimates off removes current and historical leave wage amounts from employee reads.
+
+
+## Mapped and classified files
+
+The owner maintains templates through the authenticated `payroll.template.save`
+command at `/api/lanyard/command`. This advanced command uses the existing native
+owner session and records the actor and revision. Managers, staff and agents do
+not read mapped templates, approved manual inputs or their batches. There is no
+provider connection, wage payment or tax calculation.
+
+Pass these fields in the command's `input` object:
+
+```json
+{
+  "name": "Reviewed payroll layout",
+  "classification": "policy",
+  "format": "csv",
+  "delimiter": ",",
+  "header": true,
+  "columns": [
+    {"field": "employee", "header": "Employee number"},
+    {"field": "workflow", "header": "Employment workflow"},
+    {"field": "code", "header": "Earning code"},
+    {"field": "hours", "header": "Approved hours"},
+    {"field": "amount", "header": "Approved USD"}
+  ],
+  "groupBy": [],
+  "dateFormat": "iso",
+  "timeFormat": "iso",
+  "decimals": 4,
+  "employees": {"STAFF_ID": {"id": "PROVIDER_EMPLOYEE_ID", "workflow": "W-2"}},
+  "codes": {"regular": "REG", "overtime": "OT", "double time": "DT", "PTO": "VAC", "tips": "TIP", "tip make-up": "MAKEUP"},
+  "jobs": {},
+  "locations": {}
+}
+```
+
+Replace the employee placeholders with the native staff identity and its provider
+identifier. Map every encountered job and location too. Include `id` and
+`revision` when editing an existing template. Codes are the exact earning labels
+on the approved source, including sick leave, holidays, differentials and
+premiums. A missing mapping refuses preparation, and any template change requires
+a newly prepared batch and fresh review.
+
+`format` accepts `csv`, `tsv`, `delimited` or `xlsx`. TSV uses tabs; delimited text
+uses the selected single-character delimiter. `header` controls the first row,
+and the `columns` array controls its names and order. Supported column fields are
+`employee`, `workflow`, `code`, `date`, `start`, `end`, `minutes`, `hours`, `amount`,
+`job`, `location`, `timeId`, `revision`, `periodId`, `week`, `rateCents` and
+`multiplier`. Dates accept `iso`, `us` or `eu`; captured UTC times accept `iso`,
+`utc-minute` or `utc-time`. Hours accept zero to six decimal places; insufficient
+precision is refused. Amounts retain USD cents and display two decimals.
+
+Grouping starts with employee, employment workflow and earning code. Add `date`,
+`job` or `location` to `groupBy` for separate rows at those levels. Selected
+identifier columns also remain distinct, so an original timestamp or retained
+rate is never discarded to merge rows. CSV text cells are formula-safe; XLSX
+uses literal text cells and numeric amount cells, never executable formulas.
+
+Use `payroll.prepare` with `templateId` and optional selected timesheet `ids`.
+Open **Payroll**, inspect the classified ledger and exact text or worksheet
+preview, and approve that batch revision. Download keeps the chosen extension
+and checks the SHA-256 of the actual bytes. Repeated downloads return identical
+bytes; corrections export signed differences and never alter earlier files.
+
+`classification: "source"` maps existing approved source lines without applying
+new overtime classification. `classification: "policy"` uses the retained
+overtime-core policy after a complete, approved workweek closes. It preserves
+work-area and clock-transfer job rates, source revisions, period identity and
+policy references. Single-rate employee time splits into regular, overtime and
+double time. Supported `1099` output contains regular worked time only, with no
+employee overtime or tax treatment. Mixed-rate overtime and conversion of prior
+hours-only exports or legacy overtime premiums are refused; their applied
+provider treatment must be reconciled first. Corrections to classified work
+must continue through a policy-classified template.
+
+The owner can record an employer-approved non-work source with
+`payroll.input.save`: `staffId`, `date`, `kind` (`PTO` or `tips`), `minutes`,
+`amountCents`, unique `reference` and approval `reason`. Tips always have zero
+worked minutes. Correct the exact `id` and `revision` to retain its history;
+subsequent mapped exports carry only the signed difference. These are manually
+approved inputs, not provider-verified records or leave-bank changes. Existing
+sick, holiday, premium and differential sources keep their own approval doors.
+Manual tip inputs do not create a TIPS-001 pool or change TIPS-002's current
+CLOCK-006 declaration basis; that reconciliation remains with TIPS-001.
+Single-site TIPS-002 make-up inputs retain their workweek and source digest;
+multi-site make-up requires an employer-reviewed allocation and is refused.
+The new source and workflow defaults remain under PAY-001's partial status.

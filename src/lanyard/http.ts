@@ -5,7 +5,7 @@ import {chatRead,chatFile} from './domain/chat'
 import {load} from './domain/storage'
 import {customAccessRead} from './domain'
 import { runtimeBindings, type Bindings } from '../auth.server'
-import { learningRead, fairnessCompare, fairnessRead, shiftAttachment, tipCreditRead, acaRead, previewSchedule, coverageRead, attendanceBoard, batchCsv, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, demandRead, learnProposalRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
+import { learningRead, fairnessCompare, fairnessRead, shiftAttachment, tipCreditRead, acaRead, previewSchedule, coverageRead, attendanceBoard, batchFile, autoRulePreview, command, contactRead, dashboardRead, intervalsRead, demandRead, learnProposalRead, salesRead, logbookRead, noteAttachment, overtimeAlerts, scheduleHistory, schedulePdf, snapshot, type Actor } from './domain'
 import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
@@ -190,8 +190,8 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       // TIPS-002: a workweek's tip-credit checks, and its make-up pay inputs as a CSV.
       if (path === '/api/lanyard/tipcredit') return json(await tipCreditRead(env.DB, who, url.searchParams.get('week') ?? '', 'json'))
       if (path === '/api/lanyard/tipcredit.csv') { const week = url.searchParams.get('week') ?? ''; return new Response(await tipCreditRead(env.DB, who, week, 'csv') as string, { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-tip-credit-${week}.csv"` } }) }
-      const file = path.match(/^\/api\/lanyard\/batches\/([\w-]+)\.csv$/)
-      if (file) return new Response(await batchCsv(env.DB, who, file[1]), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-${file[1]}.csv"` } })
+      const file = path.match(/^\/api\/lanyard\/batches\/([\w-]+)\.(csv|tsv|txt|xlsx)$/)
+      if (file) {const download=await batchFile(env.DB,who,file[1],file[2]);return new Response(download.body,{headers:{...headers,'content-type':download.contentType,'content-disposition':`attachment; filename="lanyard-${file[1]}.${download.extension}"`}})}
       if (path === '/api/lanyard/intervals' || path === '/app/intervals') {
         const report = await intervalsRead(env.DB, who, url.searchParams.get('site') ?? '', url.searchParams.get('date') ?? '', Number(url.searchParams.get('size') ?? 60))
         return path === '/app/intervals' ? renderApp(await state(request,env,who), path + url.search, { result: { report } }) : json(report)

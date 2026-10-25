@@ -1,3 +1,5 @@
+import {unbase64} from './payxlsx'
+import {fileExtension} from './paytemplates'
 import {privacyCommand} from './privacy'
 import {policyCommand} from './policy'
 import {geofenceCommand,locationBefore,locationReceipt,locationReplay,locationsForTime} from './geofence'
@@ -78,7 +80,7 @@ import {holidayPay} from './holiday-pay'
 import {holidayReviews} from './holidays'
 export {actor}
 export type {Actor} from './model'
-const commands=['privacy.review','privacy.retention','privacy.hold','privacy.export','privacy.erase','policy.save','policy.review','geofence.save','location.review','location.hold','location.erase','photo.save','photo.hold','photo.erase','sickpolicy.save','sick.request','sick.decide','sick.correct','minor.save','differential.save','clocklanguage.save','chat.create','chat.send','chat.acknowledge','access.level.save','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
+const commands=['payroll.input.save','payroll.template.save','privacy.review','privacy.retention','privacy.hold','privacy.export','privacy.erase','policy.save','policy.review','geofence.save','location.review','location.hold','location.erase','photo.save','photo.hold','photo.erase','sickpolicy.save','sick.request','sick.decide','sick.correct','minor.save','differential.save','clocklanguage.save','chat.create','chat.send','chat.acknowledge','access.level.save','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -188,6 +190,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  const staff=s.staff.filter(p=>manages||agent||p.id===a.staffId).map(p=>agent?{id:p.id,name:p.name,active:!!p.active,position:p.position,site:p.site}:{id:p.id,name:p.name,email:p.email,payrollId:p.payroll_id,role:p.role,active:!!p.active,revision:p.version,erasedAt:p.erased_at,position:p.position,site:p.site,...(mayReadPerson(s,a,p.id)||(p.id===a.staffId&&earnSettings(s.earnings).estimates)?{hourlyRateCents:p.rate_cents}:{})})
  const result:Record<string,any>={actor:{id:a.id,email:agent?undefined:a.email,name:agent?undefined:identity.name,role:a.role,staffId:a.staffId},version:s.version,settings:{timezone:s.timezone},staff}
  for(const k of kinds)result[k]=s[k]
+ result.paytemplates=a.role==='owner'?s.paytemplates:[]
+ result.payinputs=a.role==='owner'?s.payinputs:[]
  for(const k of ['privacypolicies','privacyholds','privacyresults'] as const)result[k]=a.role==='owner'?s[k]:[]
  result.notices=noticesFor(s,a,new Date().toISOString())
  // DEMAND-001: assumptions and saved forecast versions are read with SALES-001's scope; staff and agents none.
@@ -217,7 +221,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  if(a.role!=='owner'&&!earnSettings(s.earnings).estimates)result.sickuses=result.sickuses.map(wageRedact)
  result.sickBalances=a.role==='owner'?sickReports(s,localDate(new Date().toISOString(),s.timezone)):agent?[]:sickReports(s,localDate(new Date().toISOString(),s.timezone),a.staffId)
  if(a.role!=='owner'&&!earnSettings(s.earnings).estimates)result.sickBalances=result.sickBalances.map(wageRedact)
- if(a.role!=='owner')result.batches=result.batches.filter((b:any)=>!b.lines.some((l:any)=>l.sickLine))
+ if(a.role!=='owner')result.batches=result.batches.filter((b:any)=>!b.exportTemplate&&!b.lines.some((l:any)=>l.sickLine))
  result.minors=a.role==='owner'?s.minors:[]
  result.differentials=manages?s.differentials.filter(r=>a.role==='owner'||!r.site||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??'')):[]
  result.holidays=agent?[]:s.holidays.filter(r=>a.role==='owner'||r.site===(s.staff.find(p=>p.id===a.staffId)?.site??''))
@@ -244,7 +248,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  if(agent) {
   result.clocks=[];result.teamviews=[];result.leave=s.leave.filter(r=>r.status==='approved').map(r=>({id:r.id,staffId:r.staffId,start:r.start,end:r.end,status:r.status,revision:r.revision}))
   result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,network,answers,...r})=>r)
-  result.batches=s.batches.filter(b=>!b.lines.some((l:any)=>l.sickLine)).map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,rateBasis,...l}:any)=>withoutRates(l))}))
+  result.batches=s.batches.filter(b=>!b.exportTemplate&&!b.lines.some((l:any)=>l.sickLine)).map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,rateBasis,...l}:any)=>withoutRates(l))}))
  }
  // COVER-001: managers read every swap; a person reads the swaps they are in, with both names, and their own swap choices.
  const named=(w:any)=>({...w,fromName:s.staff.find(p=>p.id===w.fromId)?.name??'Former staff',toName:s.staff.find(p=>p.id===w.toId)?.name??'Former staff'})
@@ -316,10 +320,12 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string):Prom
  result.access=agent?null:accessView(s,native)
  return result
 }
-export async function batchCsv(db:D1Database,identity:Actor,id:string):Promise<string> {
- const a=await live(db,identity);manager(a);const s=await load(db);manager(fresh(a,s));const b=get(s,'batches',id);need(a.role==='owner'||!b.lines.some((l:any)=>l.sickLine),'Only the owner reads private paid-leave payroll',403);need(['exported','acknowledged'].includes(b.status),'Batch has not been exported',409);need(typeof b.csv==='string'&&await sha(b.csv)===b.sha256,'Stored payroll file integrity check failed',409)
+export async function batchFile(db:D1Database,identity:Actor,id:string,requestedExtension?:string):Promise<{body:string|Uint8Array<ArrayBuffer>;extension:string;contentType:string}> {
+ const a=await live(db,identity);manager(a);const s=await load(db);manager(fresh(a,s));const b=get(s,'batches',id);need(a.role==='owner'||!b.exportTemplate&&!b.lines.some((l:any)=>l.sickLine),'Only the owner reads mapped or private paid-leave payroll',403);need(['exported','acknowledged'].includes(b.status),'Batch has not been exported',409);need(typeof b.csv==='string'&&await sha(b.fileBase64?unbase64(b.fileBase64):b.csv)===b.sha256,'Stored payroll file integrity check failed',409)
+ if(requestedExtension)need(requestedExtension===fileExtension(b.exportTemplate),'Use the original exported file type',409)
  await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,a.role,'payroll.download',b.id,new Date().toISOString()).run()
- return b.csv
+ const extension=fileExtension(b.exportTemplate)
+ return {body:b.fileBase64?Uint8Array.from(unbase64(b.fileBase64)):b.csv,extension,contentType:extension==='xlsx'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':extension==='tsv'?'text/tab-separated-values; charset=utf-8':extension==='txt'?'text/plain; charset=utf-8':'text/csv; charset=utf-8'}
 }
 /** SCHEDULE-005: the PDF of one posting, rebuilt from the rows it recorded, for owners and managers. */
 export async function schedulePdf(db:D1Database,identity:Actor,id:string):Promise<{bytes:Uint8Array<ArrayBuffer>;name:string}> {

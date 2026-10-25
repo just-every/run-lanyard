@@ -57,7 +57,7 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
  const rows=planned??s.timesheets.filter(t=>t.staffId===staffId&&t.status==='approved')
  const parts=rows.filter(t=>t.staffId===staffId).flatMap(t=>{
   const areas=t.workSegments?.length?t.workSegments:[t]
-  return areas.flatMap((area:any)=>{const basis=area.rateBasis??priced(s,staffId,{...t,...area});return basis.segments.map((p:any)=>({date:p.date,minutes:p.minutes,cents:p.cents,site:basis.site??t.site??s.staff.find(x=>x.id===staffId)?.site??'',timeId:t.id,revision:t.revision,start:area.start??t.start,job:area.job??t.job??''}))})
+  return areas.flatMap((area:any)=>{const basis=area.rateBasis??priced(s,staffId,{...t,...area});return basis.segments.map((p:any)=>({date:p.date,minutes:p.minutes,cents:p.cents,rateReference:{from:p.from,profileId:p.profileId,profileRevision:p.profileRevision,jobRevision:basis.jobRevision},site:basis.site??t.site??s.staff.find(x=>x.id===staffId)?.site??'',timeId:t.id,revision:t.revision,start:area.start??t.start,area:area.area??'',job:area.job??t.job??''}))})
  }).filter((p:any)=>workweek(s,staffId,p.date)===week).sort((a:any,b:any)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start)||a.timeId.localeCompare(b.timeId))
  let regularWeek=0
  const daily=new Map<string,number>(),rules=new Map<string,any>(),workedDays=new Set<string>(parts.map((p:any)=>p.date))
