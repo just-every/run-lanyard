@@ -4054,7 +4054,7 @@
       "executable": false
     },
     "tests/policy-washington-journey.mjs": {
-      "sha256": "13fb8ac087d31e3b7eea57a290814917935bc765c7ec2601bbe76d41054dbb06",
+      "sha256": "b75b4fb67a1b940394a6cc86ce0f6d9516903f9f3d0effb81c695e608c876aa7",
       "executable": false
     },
     "tests/policy-workday-journey.mjs": {
