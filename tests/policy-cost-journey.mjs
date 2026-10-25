@@ -123,7 +123,7 @@ export async function policyCostBrowser(){
    await context.route('**/*',async route=>{const p=new URL(route.request().url()).pathname;if(p.startsWith('/fonts/')||p.startsWith('/brand/')||/\.(css|js)$/.test(p))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',p.slice(1))),contentType:p.endsWith('.css')?'text/css':p.endsWith('.js')?'application/javascript':p.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
    const [name,...value]=f.manager.cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
    const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message))
-   const shot=async label=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.POLICY_COST_SCREENS){await mkdir(process.env.POLICY_COST_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.POLICY_COST_SCREENS,`${label}-${width}.png`),fullPage:true})}}
+   const shot=async label=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.POLICY_COST_SCREENS){await mkdir(process.env.POLICY_COST_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.POLICY_COST_SCREENS,`${label}-${width}.png`)})}}
    await page.goto(h.origin+`/app/schedule?week=${f.week}`,{waitUntil:'networkidle'})
    const card=page.locator('#overtime');assert.match(await card.innerText(),/13\.0 hrs projected \(4\.0 recorded \+ 9\.0 scheduled\).*4\.0 hr overtime.*1\.0 hr double time.*\$80\.77/s)
    assert.doesNotMatch(await card.innerText(),/projected over 40|against a 40-hour/)

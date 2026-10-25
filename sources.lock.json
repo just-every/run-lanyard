@@ -3946,7 +3946,7 @@
       "executable": false
     },
     "tests/policy-cost-journey.mjs": {
-      "sha256": "c3137e12f9fc2cd2171d3e621d4e0bd9e4a31c013ad9037c7ada68a4f88b99ea",
+      "sha256": "ac7818056ad0ec7a576d70b618d7fd9da5fba8ad6d48ae63092b185c57103d9d",
       "executable": false
     },
     "tests/policy-earnings-journey.mjs": {
