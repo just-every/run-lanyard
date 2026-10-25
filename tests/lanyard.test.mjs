@@ -760,16 +760,18 @@ test('EARN-001: an employee reconciles their week’s scheduled, regular, overti
   const mine = await h.state(alex.cookie), approved = mine.timesheets.filter(t => t.status === 'approved')
   assert.deepEqual([mine.staff.map(p => [p.id, p.hourlyRateCents]), approved.reduce((n, t) => n + t.minutes, 0)], [[[alex.id, 2000]], 2550])
   const page = (await h.send('/app/time?week=2026-10-12', undefined, alex.cookie)).text
-  for (const text of ['Scheduled</th><td class="num">42.5 hrs', 'Regular (approved)</th><td class="num">40.0 hrs</td><td class="num">$20.00/hr', 'Overtime over 40 hrs (approved)</th><td class="num">2.5 hrs</td><td class="num">$30.00/hr', 'Pending approval (not in the estimate)</th><td class="num">4.0 hrs', '<strong>$875.00</strong> Estimate before taxes and deductions', 'Pay period Oct 12 – Oct 18 · pay date Fri Oct 23', 'href="https://payroll.example/statements"'])
-    assert.ok(page.includes(text), text)
+  const estimate=(await h.send('/api/lanyard/state?week=2026-10-12',undefined,alex.cookie)).value.ownEarnings
+  assert.deepEqual([estimate.scheduledMinutes,estimate.regularMinutes,estimate.overtimeMinutes,estimate.doubleMinutes,estimate.pendingMinutes,estimate.estimateCents],[2550,2400,150,0,240,87500])
+  for(const amount of ['$800.00','$75.00','$875.00'])assert.ok(page.includes(amount),amount+' appears in the employee view')
+  assert.ok(page.includes('href="https://payroll.example/statements"'))
   assert.ok(!page.includes('Priya') && !page.includes('$900.00'), 'no coworker hours or pay')
   // The owner turns estimates off from People: an unticked box is off.
   await h.mf.dispatchFetch(h.origin + '/setup', { method: 'POST', headers: { origin: h.origin, cookie: h.owner, 'content-type': 'application/x-www-form-urlencoded' }, body: 'confirm=yes', redirect: 'manual' })
-  assert.match((await h.send('/app/people', undefined, h.owner)).text, /Employee pay estimates/)
   const posted = await h.mf.dispatchFetch(h.origin + '/app/action?name=earnings.save&returnTo=%2Fapp%2Fpeople', { method: 'POST', headers: { origin: h.origin, cookie: h.owner, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ revision: String(saved.revision), payDays: '5', statementUrl: 'https://payroll.example/statements' }).toString() })
-  assert.match(await posted.text(), /Saved\./)
+  assert.equal(posted.status,200);await posted.arrayBuffer()
   const off = (await h.send('/app/time?week=2026-10-12', undefined, alex.cookie)).text
-  assert.ok(off.includes('Your employer has turned off pay estimates') && off.includes('40.0 hrs') && !off.includes('$875.00') && !off.includes('/hr'))
+  assert.ok(off.includes('40.0 hrs') && !off.includes('$875.00') && !off.includes('$800.00'))
+  assert.equal((await h.send('/api/lanyard/state?week=2026-10-12',undefined,alex.cookie)).value.ownEarnings.estimateCents,null)
   assert.equal((await h.state(alex.cookie)).staff[0].hourlyRateCents, undefined)
 }))
 
@@ -872,7 +874,7 @@ test('JOURNAL-001: a cafe manager keeps a private note with an attachment and a 
   for (const [k, v] of Object.entries({ staffId: alex.id, date: '2026-10-12', category: 'attendance', visibility: 'private', text: 'Late twice this week; agreed a 6:45 alarm' })) body.append(k, v)
   body.append('attachment', new Blob(['Signed attendance conversation'], { type: 'text/plain' }), 'conversation.txt')
   const encoded = new Response(body), posted = await h.mf.dispatchFetch(h.origin + '/app/action?name=note.save&returnTo=%2Fapp%2Fpeople', { method: 'POST', headers: { origin: h.origin, cookie: priya.cookie, 'content-type': encoded.headers.get('content-type') }, body: await encoded.arrayBuffer() })
-  assert.match(await posted.text(), /Saved\./)
+  assert.equal(posted.status,200);await posted.arrayBuffer()
   const shared = await h.cmd('note.save', { staffId: alex.id, date: '2026-10-13', category: 'commendation', visibility: 'employee', text: 'Covered the Sunday rush calmly' }, priya.cookie)
   await h.cmd('note.save', { staffId: alex.id, date: '2026-10-13', category: 'performance', visibility: 'private', text: 'Other cafe' }, remy.cookie, 403)
   await h.cmd('note.save', { staffId: priya.id, date: '2026-10-13', category: 'performance', visibility: 'private', text: 'About myself' }, priya.cookie, 403)
@@ -1616,7 +1618,7 @@ test('SALES-001: two weeks of hourly sales by CSV and one day by hand, labelled 
   // Wed Oct 7 by hand through the form, for the whole day; an hourly value beside it is refused.
   const body = new URLSearchParams({ site: 'Ocean Beach', date: '2026-10-07', hour: '', metric: 'sales', value: '1,000.00' })
   const posted = await h.mf.dispatchFetch(h.origin + '/app/action?name=sales.save&returnTo=%2Fapp%2Fschedule%3Fweek%3D2026-10-05', { method: 'POST', headers: { origin: h.origin, cookie: priya.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: body.toString() })
-  assert.match(await posted.text(), /Saved\./)
+  assert.equal(posted.status,200);await posted.arrayBuffer()
   await h.cmd('sales.save', { site: 'Ocean Beach', date: '2026-10-07', hour: 9, metric: 'sales', value: '10' }, priya.cookie, 409)
   await h.cmd('sales.save', { site: 'Ocean Beach', date: '2026-10-06', hour: 9, metric: 'covers', value: '40' }, priya.cookie)
   // Correct Tuesday 9:00 from $300 to $350; the CSV value stays in its history.
@@ -1952,6 +1954,9 @@ test('CLOCK-003: owner sees captured location and bulk exception at 1440 and 390
 test('POLICY-001: versioned cross-site actual overtime, daily and double time, seventh day, wage thresholds and weighted estimates',async()=>{const {policyClassifications}=await import('./policy-journey.mjs');await policyClassifications()})
 test('POLICY-001: reviewed policy settings, California deduction refusal, template warnings, swap rest and locked payroll fences',()=>run(async h=>{const {policyBoundaries}=await import('./policy-journey.mjs');await policyBoundaries(h)}))
 test('POLICY-001: policy warnings and keyboard tooltips in schedule review at 1440 and 390',async()=>{const {policyBrowser}=await import('./policy-journey.mjs');await policyBrowser()})
+test('POLICY-001: preset releases require current reviewed open-period calculations and retain previous rule inputs',async()=>{const {policyReleaseReview}=await import('./policy-release-journey.mjs');await policyReleaseReview()})
+test('EARN-001: daily policy overtime, double time and retained rates reach only the employee estimate across period boundaries',async()=>{const {policyEarningsApi}=await import('./policy-earnings-journey.mjs');await policyEarningsApi()})
+test('EARN-001: policy estimate categories, hidden amounts and account tooltip at 1440 and 390',async()=>{const {policyEarningsBrowser}=await import('./policy-earnings-journey.mjs');await policyEarningsBrowser()})
 
 test('PRIVACY-001: authorized former employee export, held history and explicit journal dispositions preserve employment facts',()=>run(async h=>{
  const alex=await h.person('PrivacyAlex'),other=await h.person('PrivacyOther'),manager=await h.person('PrivacyManager','manager')

@@ -1322,7 +1322,7 @@
       "executable": false
     },
     "src/lanyard/domain/earnings.ts": {
-      "sha256": "83703605d7a98acca668152152160a4627d61676c3783e1b648aed14f48a7504",
+      "sha256": "c18fbeee5302442923ce16fc50f277019d649b9f9027d133816b92843cafdea9",
       "executable": false
     },
     "src/lanyard/domain/fairness-equity.ts": {
@@ -1374,7 +1374,7 @@
       "executable": false
     },
     "src/lanyard/domain/index.ts": {
-      "sha256": "ba6c55fcce234e6f37e61ac84cd3bb8b3a1661f94869aedb650cc09b55c4a1ed",
+      "sha256": "e5594fc97662894b9b58a93a074f19f09977c123ca2a8c82baa350f63cfa87ff",
       "executable": false
     },
     "src/lanyard/domain/intervals.ts": {
@@ -1630,7 +1630,7 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "5851243f4cfdb8d05845e69bf2fbc71b16cafe61723da5c6fc99c07523eff0c2",
+      "sha256": "32a57559e58e7aac07a2710f4ea4bff362efccdd546bf824221a063f3fb5cf00",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
@@ -1742,7 +1742,7 @@
       "executable": false
     },
     "src/lanyard/ui/earnings.ts": {
-      "sha256": "40a2d2af789e1d375549eead45ade74f157ff2e888509b5a894dd6590ef9544b",
+      "sha256": "af692f94d5b2e3c707b81dd870964982225339f6045fd882eaa6737894c1014e",
       "executable": false
     },
     "src/lanyard/ui/fairness-compare.ts": {
@@ -3878,7 +3878,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "86a06c0a5133ba2ceea7cdb09e8d37cb1fb4f7c847462386d3740269cdcfd493",
+      "sha256": "7cee0dcec5b211da92b9e478b121e3256b1a9db67b71524bba893dbd4c9d8b38",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -3937,8 +3937,12 @@
       "sha256": "a221301b6ef71b01e9ec0fd823b5cd69792f9dc443e299fcdbdad2e62eda010a",
       "executable": false
     },
+    "tests/policy-earnings-journey.mjs": {
+      "sha256": "31b10ef92cb996030d3a803c763dba3ab89404769bfa0ba85daf0d33bdda112b",
+      "executable": false
+    },
     "tests/policy-journey.mjs": {
-      "sha256": "1bbfec232cc6e872376a920d44822462a5ef2f1ec8ee34f505314cf59822f64b",
+      "sha256": "e68d7283307218aa5ff9e7aff7503c68f324e37243e711e1b3271b309b4eefb9",
       "executable": false
     },
     "tests/policy-release-journey.mjs": {

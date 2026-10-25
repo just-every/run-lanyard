@@ -45,7 +45,7 @@ import {templates} from './templates'
 import {patterns} from './patterns'
 import {postingPdf} from '../print'
 import {type Event,readable} from './activity'
-import {earnings,earnSettings} from './earnings'
+import {earnings,earnSettings,earningsOf} from './earnings'
 import {rounding} from './rounding'
 import {feedback,feedbackFor} from './feedback'
 import {journal,notesFor,noteFile} from './journal'
@@ -184,11 +184,15 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
   throw error
  }
 }
-export async function snapshot(db:D1Database,identity:Actor,secret?:string):Promise<object> {
+export async function snapshot(db:D1Database,identity:Actor,secret?:string,earningsWeek?:string):Promise<object> {
  const a0=await live(db,identity),events=a0.role==='agent'?null:db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at FROM l_events ORDER BY at DESC,id DESC').all<Event>()
  const s=await load(db),native=fresh(a0,s),a=restricted(s,native)?{...native,role:'staff' as const}:native,manages=['owner','manager'].includes(a.role),agent=a.role==='agent'
  const staff=s.staff.filter(p=>manages||agent||p.id===a.staffId).map(p=>agent?{id:p.id,name:p.name,active:!!p.active,position:p.position,site:p.site}:{id:p.id,name:p.name,email:p.email,payrollId:p.payroll_id,role:p.role,active:!!p.active,revision:p.version,erasedAt:p.erased_at,position:p.position,site:p.site,...(mayReadPerson(s,a,p.id)||(p.id===a.staffId&&earnSettings(s.earnings).estimates)?{hourlyRateCents:p.rate_cents}:{})})
+ const requested=earningsWeek&&/^\d{4}-\d{2}-\d{2}$/.test(earningsWeek)&&new Date(earningsWeek+'T00:00:00Z').getUTCDay()===1&&new Date(earningsWeek+'T00:00:00Z').toISOString().slice(0,10)===earningsWeek?earningsWeek:undefined
+ const today=localDate(new Date().toISOString(),s.timezone),offset=(new Date(today+'T00:00:00Z').getUTCDay()+6)%7
+ const shown=requested??new Date(Date.parse(today+'T00:00:00Z')-offset*86400000).toISOString().slice(0,10)
  const result:Record<string,any>={actor:{id:a.id,email:agent?undefined:a.email,name:agent?undefined:identity.name,role:a.role,staffId:a.staffId},version:s.version,settings:{timezone:s.timezone},staff}
+ result.ownEarnings=!agent&&a.staffId?{...earningsOf(a.staffId,shown,s.timezone,s.shifts,s.timesheets,s.staff.find(p=>p.id===a.staffId)?.rate_cents??null,earnSettings(s.earnings),s),requestedWeek:shown}:null
  for(const k of kinds)result[k]=s[k]
  result.paytemplates=a.role==='owner'?s.paytemplates:[]
  result.payinputs=a.role==='owner'?s.payinputs:[]
