@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "9bf2a4311b0587c39833cd2d9b1295ba94af29376f48880cb6f05e2216ca9fbe",
+      "sha256": "b42edc2997750de0b0fa827a6907f7e3a10a02fb83c12daa914391ddbda8655e",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "892b53c19299bb1d64ddfd341d8bd30556330590227289a306b5db00f6b077f0",
+      "sha256": "6918444c73849285377f8852bfb4028ffa00c77d32cc43a090bfa9c543d0070f",
       "executable": false
     },
     "DEMO.md": {
@@ -3874,7 +3874,7 @@
       "executable": false
     },
     "tests/installation-journey.mjs": {
-      "sha256": "5af0b1d4371b0c2fa502febdd4500158ffc3f77d5ea8699449bad40dcea7aba6",
+      "sha256": "f523e28bdb8c0fc215028ce9886c67c340d2796f1b817b0dbc22e6508d389b35",
       "executable": false
     },
     "tests/installation-process.mjs": {

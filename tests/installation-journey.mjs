@@ -33,7 +33,7 @@ try{
  await page.goto(server.open,{waitUntil:'networkidle'})
  await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Finish setup',exact:true}).click()
  await page.waitForURL(/\/app(?:\/|\?|$)/)
- const save=async(name,input)=>{const response=await page.request.post(server.origin+'/api/lanyard/command',{data:{name,input}});assert.equal(response.status(),200);return (await response.json()).result}
+ const save=async(name,input)=>{const response=await page.request.post(server.origin+'/api/lanyard/command',{headers:{origin:server.origin},data:{name,input}});const body=await response.json();assert.equal(response.status(),200,body.error);return body.result}
  const rosa=await save('staff.save',{name:'Rosa Martinez',email:'synthetic-lanyard-2@example.test',payrollId:'ROSA',active:true,role:'staff',hourlyRate:'22.00'})
  const week=new Date();week.setUTCDate(week.getUTCDate()+14-(week.getUTCDay()+6)%7);const monday=week.toISOString().slice(0,10)
  await save('roster.prepare',{week:monday,shifts:[{staffId:rosa.id,start:monday+'T14:00:00Z',end:monday+'T22:00:00Z',breakMinutes:30,label:'Counter opening'}]})
