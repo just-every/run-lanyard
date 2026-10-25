@@ -55,6 +55,10 @@ rer setup --owner-email you@example.com
 rer dev
 ```
 
+Update the installed launcher with `rer update --version 0.2.80`. This keeps the
+launcher aligned with this edition's package pin. Then run `rer install` in the
+checkout. Backup and restore commands below preserve the original owner.
+
 Commands that run project work select the exact Node version declared by the
 project. They use an exact matching installed runtime or a checksum-verified
 copy cached at `~/.rer/node/node-vVERSION-PLATFORM-ARCH/`; when needed on

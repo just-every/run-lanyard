@@ -27,7 +27,7 @@ async function fixture(h){
  await wage(alex,'30.00')
  const draft=await cmd('roster.prepare',{week,shifts:[shift(alex,week,8,4),shift(alex,week,13,4),shift(alex,week,17,5,'West')]})
  await cmd('roster.publish',pin(draft))
- const alerts=async(cookie=manager.cookie,asOf=now)=> (await read(`/api/lanyard/overtime?week=${week}&asOf=${asOf}`,cookie)).alerts
+ const alerts=async(cookie=h.owner,asOf=now)=> (await read(`/api/lanyard/overtime?week=${week}&asOf=${asOf}`,cookie)).alerts
  return {week,now,head,cmd,read,state,wage,shift,alerts,alex,ben,casey,jordan,manager,foreign,west,policies,approved}
 }
 
