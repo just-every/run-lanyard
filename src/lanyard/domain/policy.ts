@@ -1,3 +1,4 @@
+import {workdayParts} from './policy-workday'
 import {regionalLimits} from './policy-alternate-regional'
 // POLICY-001: versioned overtime core. Meal timing and statutory premium payroll
 // remain separate unfinished obligations; these estimates never submit wages.
@@ -22,29 +23,34 @@ export function policyLabel(r:any){return r.preset==='custom'?`${r.jurisdiction}
  * A date uses the strongest threshold of the sites actually worked that date. */
 export function policyClassification(s:State,staffId:string,week:string,planned?:Row[]){
  const rows=planned??s.timesheets.filter(t=>t.staffId===staffId&&t.status==='approved')
- const allParts=rows.filter(t=>t.staffId===staffId).flatMap(t=>{
+ const retainedParts=rows.filter(t=>t.staffId===staffId).flatMap(t=>{
   const areas=t.workSegments?.length?t.workSegments:[t]
   return areas.flatMap((area:any)=>{const basis=area.rateBasis??priced(s,staffId,{...t,...area});return basis.segments.map((p:any)=>({date:p.date,minutes:p.minutes,cents:p.cents,rateReference:{from:p.from,profileId:p.profileId,profileRevision:p.profileRevision,jobRevision:basis.jobRevision},site:basis.site??t.site??s.staff.find(x=>x.id===staffId)?.site??'',timeId:t.id,revision:t.revision,start:area.start??t.start,end:area.end??t.end,area:area.area??'',job:area.job??t.job??''}))})
  }).sort((a:any,b:any)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start)||a.timeId.localeCompare(b.timeId))
+ const key=(p:any)=>p.workdayKey??staffId+'|'+p.date+'|00:00',on=(p:any)=>p.workdayDate??p.date
+ const allParts=workdayParts(s,staffId,retainedParts,((site,on)=>policyOn(s,site,on))).sort((a,b)=>a.date.localeCompare(b.date)||(a.intervalStart??a.start).localeCompare(b.intervalStart??b.start)||a.timeId.localeCompare(b.timeId))
  const consecutive=consecutiveWork(s,allParts,rows,((site,on)=>{const r=policyOn(s,site,on);return r&&!covered(r,staffId,'stateConsecutive')?{...r,consecutiveMinutes:0}:r}))
  const parts=allParts.filter((p:any)=>workweek(s,staffId,p.date)===week)
- const dayTotals=new Map<string,number>();for(const p of parts)dayTotals.set(p.date,(dayTotals.get(p.date)??0)+p.minutes)
- const alternative=(r:any,on:string)=>alternateLimits(r,staffId,on,dayTotals.get(on)??0)??regionalLimits(r,staffId,on,dayTotals.get(on)??0,[...dayTotals].map(([date,minutes])=>({date,minutes})))
- const daily=new Map<string,number>(),rules=new Map<string,any>(),workedDays=new Set<string>(parts.map((p:any)=>p.date))
- for(const p of parts){const r=policyOn(s,p.site,p.date);if(r)rules.set(p.date+'|'+p.site,r)}
- const classify=(useConsecutive:boolean)=>{let regularWeek=0;daily.clear();return parts.map((p:any)=>{
-  const own=policyOn(s,p.site,p.date),dayRules=[...rules.entries()].filter(([key])=>key.startsWith(p.date+'|')).map(([,r])=>r)
+ const selectedDays=new Set(parts.map(key)),context=allParts.filter(p=>selectedDays.has(key(p))),prior=context.filter(p=>workweek(s,staffId,p.date)<week)
+ const dayTotals=new Map<string,number>();for(const p of context)dayTotals.set(key(p),(dayTotals.get(key(p))??0)+p.minutes)
+ const alternative=(r:any,p:any)=>alternateLimits(r,staffId,on(p),dayTotals.get(key(p))??0)??regionalLimits(r,staffId,p.date,dayTotals.get(key(p))??0,[...dayTotals].map(([k,minutes])=>({date:k.split('|')[1],minutes})))
+ const daily=new Map<string,number>(),rules=new Map<string,any>(),workedDays=new Set<string>(parts.filter(p=>p.minutes>0).map(on))
+ for(const p of context){const r=policyOn(s,p.site,p.date);if(r)rules.set(key(p)+'|'+p.site+'|'+r.revision,r)}
+ const anchors=new Set(context.map(p=>{const r=policyOn(s,p.site,p.date);return r?.preset==='CA'?r.workdayStart??'00:00':'00:00'}))
+ const workdayReviewIssues=anchors.size>1?['Employer workday anchors differ across the workweek; review all affected sites and effective dates']:[]
+ const classify=(useConsecutive:boolean)=>{let regularWeek=0;daily.clear();for(const q of prior)daily.set(key(q),(daily.get(key(q))??0)+q.minutes);return parts.map((p:any)=>{
+  const own=policyOn(s,p.site,p.date),dayRules=[...rules.entries()].filter(([key])=>key.startsWith((p.workdayKey??staffId+'|'+p.date+'|00:00')+'|')).map(([,r])=>r)
   // Nevada's current general minimum wage is USD 12; daily overtime applies
   // below 1.5 times that amount. Missing wage evidence never waives the check.
-  const dailyLimit=(r:any)=>!covered(r,staffId,'stateDaily')?1440:useConsecutive&&r.preset==='CO'&&r.consecutiveMinutes?1440:r.preset==='NV'&&p.cents!==null&&p.cents>=1800?1440:alternative(r,p.date)?.dailyMinutes??r.dailyMinutes
-  const ca=dayRules.some(r=>r.preset==='CA'&&covered(r,staffId,'stateSeventh')),seventh=ca&&Array.from({length:7},(_,i)=>dayAfter(p.date,-i)).every(d=>d>=week&&workedDays.has(d))
-  const dailyMax=Math.min(1440,...dayRules.map(dailyLimit)),doubleMax=Math.min(1440,...dayRules.map(r=>covered(r,staffId,'stateDaily')?(alternative(r,p.date)?.doubleMinutes??r.doubleMinutes):1440)),weeklyMax=Math.min(parts.some((q:any)=>covered(policyOn(s,q.site,q.date),staffId,'federalOvertime'))?2400:10080,...parts.map((q:any)=>{const rule=policyOn(s,q.site,q.date);return rule&&covered(rule,staffId,'stateWeekly')?rule.weeklyMinutes:10080}))
-  const before=daily.get(p.date)??0,after=before+p.minutes;daily.set(p.date,after)
+  const dailyLimit=(r:any)=>!covered(r,staffId,'stateDaily')?1440:useConsecutive&&r.preset==='CO'&&r.consecutiveMinutes?1440:r.preset==='NV'&&p.cents!==null&&p.cents>=1800?1440:alternative(r,p)?.dailyMinutes??r.dailyMinutes
+  const ca=dayRules.some(r=>r.preset==='CA'&&covered(r,staffId,'stateSeventh')),seventh=ca&&Array.from({length:7},(_,i)=>dayAfter(on(p),-i)).every(d=>d>=week&&workedDays.has(d))
+  const dailyMax=Math.min(1440,...dayRules.map(dailyLimit)),doubleMax=Math.min(1440,...dayRules.map(r=>covered(r,staffId,'stateDaily')?(alternative(r,p)?.doubleMinutes??r.doubleMinutes):1440)),weeklyMax=Math.min(parts.some((q:any)=>covered(policyOn(s,q.site,q.date),staffId,'federalOvertime'))?2400:10080,...parts.map((q:any)=>{const rule=policyOn(s,q.site,q.date);return rule&&covered(rule,staffId,'stateWeekly')?rule.weeklyMinutes:10080}))
+  const before=daily.get(key(p))??0,after=before+p.minutes;daily.set(key(p),after)
   const over=(bound:number)=>Math.max(0,after-bound)-Math.max(0,before-bound)
   const doubleMinutes=over(seventh?480:doubleMax),dailyOvertime=seventh?p.minutes-doubleMinutes:Math.max(useConsecutive?consecutive.get(p)?.minutes??0:0,Math.max(0,over(dailyMax)-doubleMinutes))
   const eligible=p.minutes-doubleMinutes-dailyOvertime,weeklyOvertime=Math.max(0,regularWeek+eligible-weeklyMax)-Math.max(0,regularWeek-weeklyMax);regularWeek+=eligible
   const overtimeMinutes=dailyOvertime+weeklyOvertime,regularMinutes=p.minutes-overtimeMinutes-doubleMinutes
-  return {...p,regularMinutes,overtimeMinutes,doubleMinutes,consecutiveOvertimeMinutes:consecutive.get(p)?.minutes??0,consecutiveEvidenceUnknown:consecutive.get(p)?.unknown??false,rules:dayRules.map(r=>({id:r.id,revision:r.revision,preset:r.preset,version:r.presetVersion,source:r.source,consecutiveMinutes:r.consecutiveMinutes??0,alternate:alternative(r,p.date),label:policyLabel(r)})),configured:!!own}
+  return {...p,regularMinutes,overtimeMinutes,doubleMinutes,consecutiveOvertimeMinutes:consecutive.get(p)?.minutes??0,consecutiveEvidenceUnknown:consecutive.get(p)?.unknown??false,rules:dayRules.map(r=>({id:r.id,revision:r.revision,preset:r.preset,version:r.presetVersion,source:r.source,consecutiveMinutes:r.consecutiveMinutes??0,alternate:alternative(r,p),label:policyLabel(r)})),configured:!!own}
  })}
  const dailyOutput=classify(false),consecutiveOutput=classify(true)
  const premium=(list:any[])=>list.reduce((n,p)=>n+p.overtimeMinutes*.5+p.doubleMinutes,0)
@@ -55,8 +61,8 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
  const premiumDays=new Map<string,{meal:number;rest:number}>()
  for(const r of breakReviews){const d=premiumDays.get(r.date)??{meal:0,rest:0};d.meal=Math.max(d.meal,r.mealPremiumMinutes);d.rest=Math.max(d.rest,r.restPremiumMinutes);premiumDays.set(r.date,d)}
  const weeklyRestReviews=illinoisRest(s,rows.filter(t=>t.staffId===staffId),week)
- const alternateReviews=parts.flatMap((p:any)=>{const r=policyOn(s,p.site,p.date),review=r?alternative(r,p.date):null;return review?[{date:p.date,site:p.site,...review}]:[]})
- const coverage=coverageReview(s,staffId,parts,((site,on)=>policyOn(s,site,on)))
+ const alternateReviews=parts.flatMap((p:any)=>{const r=policyOn(s,p.site,p.date),review=r?alternative(r,p):null;return review?[{date:p.date,site:p.site,...review}]:[]})
+ const coverage=coverageReview(s,staffId,parts,((site,on)=>policyOn(s,site,on)));coverage.issues.push(...workdayReviewIssues)
  const breakPremiumMinutes=[...premiumDays.values()].reduce((n,d)=>n+d.meal+d.rest,0)
  const total=(key:string)=>output.reduce((n:number,p:any)=>n+p[key],0),minutes=total('minutes'),known=output.every((p:any)=>p.cents!==null)
  const weightedRateCents=minutes&&known?output.reduce((n:number,p:any)=>n+p.minutes*p.cents,0)/minutes:null

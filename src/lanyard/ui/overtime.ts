@@ -14,7 +14,7 @@ function policyTrace(c:any) {
 }
 /** One pending move's projection, including daily and double time before approval. */
 export function costNote(s:any,list:any[]|undefined) {
- return (list??[]).filter((c:any)=>c.overtimeMinutes>0||c.doubleMinutes>0).map((c:any)=>`<p class="note">Projected overtime: ${h(person(s,c.staffId))} would reach ${h(hours(c.projectedMinutes))} hrs this workweek · ${h(premiumHours(c))}${c.premiumCents===null?(c.policy?.classificationIncomplete?' · policy inputs need review before a premium estimate':' · no hourly rate on file for an estimate'):` · est. premium ${h(money(c.premiumCents))}`}</p>${policyTrace(c)}`).join('')
+ return (list??[]).filter((c:any)=>c.overtimeMinutes>0||c.doubleMinutes>0||c.policy?.classificationIncomplete).map((c:any)=>`<p class="note">Projected overtime: ${h(person(s,c.staffId))} would reach ${h(hours(c.projectedMinutes))} hrs this workweek · ${h(premiumHours(c))}${c.premiumCents===null?(c.policy?.classificationIncomplete?' · policy inputs need review before a premium estimate':' · no hourly rate on file for an estimate'):` · est. premium ${h(money(c.premiumCents))}`}</p>${policyTrace(c)}`).join('')
 }
 export function overtimeCard(s:any,week:string,tz:string,back:string) {
  const list=rows(s,'overtime').filter(a=>a.week===week);if(!list.length)return ''

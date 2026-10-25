@@ -16,7 +16,7 @@ export async function policyCommand(c:Context,name:string,p:Record<string,any>){
   const week=date(p.week,'workweek');need(workweek(c.s,p.staffId,week)===week,'Use the employee workweek start')
   return policyClassification(c.s,p.staffId,week)
  }
- keys(p,['id','revision','site','from','preset','jurisdiction','dailyMinutes','doubleMinutes','weeklyMinutes','minimumRestMinutes','reviewReason','breakVersion','reviewDigest','presetVersion','industry','alternate'])
+ keys(p,['id','revision','site','from','preset','jurisdiction','dailyMinutes','doubleMinutes','weeklyMinutes','minimumRestMinutes','reviewReason','breakVersion','reviewDigest','presetVersion','industry','alternate','workdayStart'])
  const site=text(p.site,'site',80,true),old=c.s.policies.find(r=>r.site===site)
  if(old){need(p.id===old.id,'Reload the existing policy',409);exact(old,p)}else need(!p.id,'Policy not found',404)
  const from=date(p.from,'effective date'),preset=text(p.preset,'preset',20)
@@ -44,9 +44,13 @@ export async function policyCommand(c:Context,name:string,p:Record<string,any>){
  const alternate=p.alternate===undefined?(old?.alternate??null):(['AK_FLEX_APPROVED','NV_4X10'].includes(p.alternate?.kind)?regionalConfiguration(c,p.alternate,preset,from):alternateConfiguration(c,p.alternate,preset,from))
  need(!alternate||preset===(alternate.kind==='CA_WO5_GENERAL'?'CA':alternate.kind==='AK_FLEX_APPROVED'?'AK':'NV'),'Remove the alternative workweek explicitly before changing jurisdiction')
  need(!alternate||from>=alternate.effectiveFrom,'The policy cannot precede the alternative workweek implementation date')
- const candidate={industry,alternate,coverage:old?.coverage??[],site,from,preset,jurisdiction:custom?text(p.jurisdiction,'jurisdiction',120):preset,presetVersion,consecutiveMinutes:preset==='CO'&&presetVersion===VERSION?720:0,breakVersion,source:custom?'':sources[preset],dailyMinutes,doubleMinutes,weeklyMinutes:custom?limit(p.weeklyMinutes,'weekly threshold',2400):2400,minimumRestMinutes,minimumRestLabel:'Employer-configured, unmaintained minimum rest',reviewReason,by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),version(old)]:[]}
+ const workdayStart=preset==='CA'?text(p.workdayStart??(old?.preset==='CA'?old.workdayStart??'00:00':'00:00'),'employer workday start',5):'00:00'
+ need(/^([01]\d|2[0-3]):[0-5]\d$/.test(workdayStart),'Use an HH:MM employer workday start')
+ need(p.workdayStart===undefined||preset==='CA','A fixed workday anchor is currently supported for California only')
+ const candidate={workdayStart,industry,alternate,coverage:old?.coverage??[],site,from,preset,jurisdiction:custom?text(p.jurisdiction,'jurisdiction',120):preset,presetVersion,consecutiveMinutes:preset==='CO'&&presetVersion===VERSION?720:0,breakVersion,source:custom?'':sources[preset],dailyMinutes,doubleMinutes,weeklyMinutes:custom?limit(p.weeklyMinutes,'weekly threshold',2400):2400,minimumRestMinutes,minimumRestLabel:'Employer-configured, unmaintained minimum rest',reviewReason,by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),version(old)]:[]}
  const alternateChanged=canonical(old?.alternate??null)!==canonical(alternate)
- const upgrade=alternateChanged||!!old&&old.preset===preset&&(old.breakVersion!==breakVersion||old.presetVersion!==presetVersion)
+ const workdayChanged=!!old&&old.preset==='CA'&&preset==='CA'&&(old.workdayStart??'00:00')!==workdayStart
+ const upgrade=workdayChanged||alternateChanged||!!old&&old.preset===preset&&(old.breakVersion!==breakVersion||old.presetVersion!==presetVersion)
  const review=name==='policy.preview'||upgrade?await releasePreview(c.s,candidate,old):null
  if(name==='policy.preview')return review
  if(upgrade)need(p.reviewDigest===review!.digest,'Review the preset release and current open-period recalculation before applying it',409)

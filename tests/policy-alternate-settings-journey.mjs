@@ -55,6 +55,15 @@ export async function policyAlternateSettingsBrowser(){
    assert.equal((await h.cmd('policy.review',{staffId:p.id,week:'2026-10-12'})).overtimeMinutes,0)
    await page.locator('#policy-alternate').scrollIntoViewIfNeeded();await shot('policy-alternate-applied')
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+   if(preset==='CA'){
+    const daily=page.locator('[data-policy-editor]');await daily.getByLabel('Employer workday begins',{exact:true}).fill('04:00');await daily.getByLabel('Review reason',{exact:true}).fill('Reviewed the fixed 04:00 employer workday against the elected schedule')
+    await daily.scrollIntoViewIfNeeded();await shot('policy-workday-config')
+    await daily.getByRole('button',{name:'Preview policy changes',exact:true}).click();await page.waitForLoadState('networkidle')
+    assert.equal(await page.locator('.notice.error').count(),0);await page.locator('#policy-preview').scrollIntoViewIfNeeded();await shot('policy-workday-preview')
+    await page.locator('[data-policy-apply] input[type=checkbox]').check();await page.locator('[data-policy-apply]').getByRole('button',{name:'Apply reviewed policy',exact:true}).click();await page.waitForLoadState('networkidle')
+    assert.equal(await page.locator('.notice.error').count(),0);assert.equal((await h.state()).policies.find(r=>r.id===original.id).workdayStart,'04:00')
+    await daily.scrollIntoViewIfNeeded();await shot('policy-workday-applied');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+   }
   }finally{await context.close();await h.close()}
  }}finally{await browser.close()}
 }

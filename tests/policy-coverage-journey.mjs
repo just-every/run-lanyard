@@ -43,6 +43,15 @@ export async function policyCoverageApi(){
   assert.equal(own.status,200)
   assert.equal(own.value.ownEarnings.estimateCents,null,'unresolved applicability does not become an employee earnings amount')
   assert.deepEqual(own.value.policies,[])
+  const bob=await h.person('CoverageBob'),sam=await h.person('CoverageSam')
+  for(const person of [bob,sam]){await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:'staff',active:true,site:'East',hourlyRate:'20.00'});await h.cmd('availability.save',{staffId:person.id,start:week+'T00:00:00Z',end:'2026-10-19T00:00:00Z'})}
+  for(const [i,site]of ['East','West'].entries()){const on=days(week,i),t=await h.cmd('time.prepare',{staffId:bob.id,site,start:on+'T08:00:00Z',end:on+'T09:00:00Z',breakMinutes:0,reason:'Reviewed two-cafe applicability inputs'});await h.cmd('time.approve',pin(t))}
+  policy=(await h.state()).policies.find(r=>r.site==='East');change={...change,...pin(policy),staffId:bob.id};review=await h.cmd('policy.worker.preview',change);await h.cmd('policy.worker.save',{...change,reviewDigest:review.digest})
+  const roster=await h.cmd('roster.prepare',{week,shifts:[{staffId:sam.id,site:'East',start:'2026-10-14T08:00:00Z',end:'2026-10-14T21:00:00Z',breakMinutes:0}]});await h.cmd('roster.publish',pin(roster))
+  const risks=await h.send('/api/lanyard/overtime?week='+week+'&asOf=2026-10-14T00:00:00Z',undefined,h.owner)
+  assert.equal(risks.status,200);const list=risks.value.alerts
+  const unknown=list.find(r=>r.staffId===bob.id);assert.ok(unknown,'incomplete policy inputs remain actionable even below an overtime threshold');assert.equal(unknown.overtimeMinutes,0);assert.equal(unknown.premiumCents,null)
+  assert.ok(!list.find(r=>r.staffId===sam.id).remaining[0].substitutes.some(r=>r.staffId===bob.id),'an unresolved classification cannot certify a non-overtime substitute')
   assert.equal((await h.state()).batches.length,0,'applicability review creates no payroll')
  }finally{await h.close()}
 }

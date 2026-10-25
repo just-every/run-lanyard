@@ -71,13 +71,13 @@ export function substitutes(s:State,shift:Row,at:string) {
   if(minimumRestIssue(s,p.id,shift))return []
   const candidate=classificationRow(s,p.id,shift)
   if(candidate.workSegments?.some((area:any)=>qualification(s,p.id,{...candidate,...area})))return []
-  const after=project(s,p.id,week,at,[shift]);return !after.overtimeMinutes&&(!('doubleMinutes' in after)||!after.doubleMinutes)?[{staffId:p.id,name:p.name,projectedMinutes:after.projectedMinutes}]:[]
+  const after=project(s,p.id,week,at,[shift]);return !('policy' in after&&after.policy.classificationIncomplete)&&!after.overtimeMinutes&&(!('doubleMinutes' in after)||!after.doubleMinutes)?[{staffId:p.id,name:p.name,projectedMinutes:after.projectedMinutes}]:[]
  }).sort((a,b)=>a.projectedMinutes-b.projectedMinutes||a.name.localeCompare(b.name))
 }
 /** Everyone projected into overtime or double time, with remaining shifts' substitutes. */
 export function alerts(s:State,week:string,at:string) {
  const ids=new Set([...s.shifts.filter(x=>x.status==='published'),...s.timesheets,...s.clocks.filter(k=>k.status==='open')].map(x=>x.staffId))
- return [...ids].map(id=>project(s,id,week,at)).filter(p=>p.overtimeMinutes>0||('doubleMinutes' in p&&p.doubleMinutes>0)).map(p=>{const person=s.staff.find(v=>v.id===p.staffId)
+ return [...ids].map(id=>project(s,id,week,at)).filter(p=>p.overtimeMinutes>0||('doubleMinutes' in p&&p.doubleMinutes>0)||('policy' in p&&p.policy.classificationIncomplete)).map(p=>{const person=s.staff.find(v=>v.id===p.staffId)
   return {...p,name:person?.name??'Former staff',site:person?.site??'',remaining:p.remaining.map(x=>({shiftId:x.id,revision:x.revision,start:x.start,end:x.end,minutes:x.minutes,site:siteOf(s,x),substitutes:substitutes(s,x,at)}))}})
 }
 /** Until TEAM-001 brings site scopes, a manager reads alerts for people whose home cafe or remaining shifts are at the manager's home cafe; the owner reads every alert. */
