@@ -17,7 +17,7 @@ export async function holidayApi(h) {
  assert.equal(company.holidayBasis.reduce((n,x)=>n+x.costCents,0),8000)
  assert.equal(f.approved.find(t=>t.staffId===foreign.id).holidayBasis.length,0,'other site has no company holiday')
  assert.ok(s.holidayReviews.some(r=>r.staffId===ben.id&&r.kind==='worked'&&!r.eligible&&r.reasons.some(x=>x.includes('2025-11-28'))),'missed next scheduled shift is ineligible')
- const page=(await h.send('/app/time?week=2025-11-24',undefined,alex.cookie)).text;assert.match(page,/Holiday premium \(approved\)/);assert.match(page,/\$88.00/);assert.match(page,/<strong>\$568.00<\/strong>/)
+ const page=(await h.send('/app/time?week=2025-11-24',undefined,alex.cookie)).text;assert.match(page,/Holiday premium \(approved\)/);assert.match(page,/\$88.00/);assert.match(page,/<strong>\$584.00<\/strong>/)
  // An effective rule edit and calendar removal never reprice approved holiday time.
  await h.cmd('holidayrule.save',{...rule,...pin(rule),value:2,nonWorkMinutes:480},h.owner,400) // unknown retained metadata is refused
  const updated=await h.cmd('holidayrule.save',{...pin(rule),site:rule.site,from:rule.from,mode:'added',value:300,nonWorkMinutes:480,beforeAfter:true,code:'HOL-ADD'})

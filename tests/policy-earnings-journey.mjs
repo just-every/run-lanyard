@@ -13,16 +13,16 @@ async function wage(h,p,rate){
 }
 async function approve(h,spec){const t=await h.cmd('time.prepare',{...spec,reason:'Recorded service hours reviewed against the signed timesheet'});return h.cmd('time.approve',pin(t))}
 async function own(h,person,on=week){const r=await h.send(`/api/lanyard/state?week=${on}`,undefined,person.cookie);assert.equal(r.status,200,r.text);return r.value}
-async function fixture(h){
+async function fixture(h,rates=['20.00','30.00']){
  await h.cmd('settings.save',{timezone:'UTC'})
  const alex=await h.person('Alex'),ben=await h.person('Ben')
- await wage(h,alex,'20.00');await wage(h,ben,'80.00')
+ await wage(h,alex,rates[0]);await wage(h,ben,'80.00')
  for(const site of ['East','West'])await h.cmd('policy.save',{site,preset:'CA',from:'2026-01-01',reviewReason:'Reviewed California daily and workweek overtime for both service sites'})
  await h.cmd('differential.save',{name:'Monday service',from:'2026-01-01',through:'',site:'',role:'',tag:'',startMinute:0,endMinute:1440,days:[1],mode:'added',value:100,order:0,code:'SERVICE'})
  const first=shift(alex.id,week,8,5),second=shift(alex.id,week,13,8,'West')
  await h.cmd('availability.save',{staffId:alex.id,start:week+'T00:00:00Z',end:days(week,7)+'T00:00:00Z'})
  const roster=await h.cmd('roster.prepare',{week,shifts:[first,second]});await h.cmd('roster.publish',pin(roster))
- const approved=await approve(h,first);await wage(h,alex,'30.00');await approve(h,second)
+ const approved=await approve(h,first);await wage(h,alex,rates[1]);await approve(h,second)
  await approve(h,shift(ben.id,week,8,13))
  await h.cmd('clock.in',{commandId:'policy-earnings-pending-in',capturedAt:days(week,1)+'T08:00:00Z'},alex.cookie)
  await h.cmd('clock.out',{commandId:'policy-earnings-pending-out',capturedAt:days(week,1)+'T10:00:00Z',breakMinutes:0},alex.cookie)
@@ -65,7 +65,17 @@ export async function policyEarningsApi(){
   const context=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agent.token}`})
   assert.equal(context.value.ownEarnings,null,'preparation agent receives no employee earnings')
  }finally{await h.close()}
+ await earningsRounding()
  await splitPeriod()
+}
+
+async function earningsRounding(){
+ const h=await harness()
+ try{
+  const {alex}=await fixture(h,['20.03','30.02']),e=(await own(h,alex)).ownEarnings
+  assert.equal(e.estimateCents,43184,'retained earnings round once to cents')
+  assert.equal(e.regularCostCents+e.overtimeCostCents+e.doubleCostCents+e.differential.costCents,e.estimateCents,'visible categories allocate the rounding cent without losing pay')
+ }finally{await h.close()}
 }
 
 async function splitPeriod(){

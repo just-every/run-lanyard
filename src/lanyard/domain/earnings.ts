@@ -38,15 +38,14 @@ export function earningsOf(staffId:string,week:string,tz:string,shifts:any[],tim
  const known=parts.every(p=>p.cents!==null&&p.weightedRateCents!==null)
  // Retained straight-time earnings plus the weighted workweek premium. Work
  // outside a split pay period establishes overtime without being paid twice.
- const category=(key:string,premium:number)=>priced&&known?Math.round(parts.reduce((n,p)=>n+p[key]*(p.cents+premium*p.weightedRateCents),0)/60):null
- const regularCostCents=category('regularMinutes',0)
- let overtimeCostCents=category('overtimeMinutes',.5),doubleCostCents=category('doubleMinutes',1)
- const workedCostCents=priced&&known?Math.round(parts.reduce((n,p)=>n+(p.minutes*p.cents+(p.overtimeMinutes*.5+p.doubleMinutes)*p.weightedRateCents),0)/60):null
- // Keep the displayed category amounts equal to the once-rounded worked total.
- if(workedCostCents!==null){
-  if(doubleMinutes)doubleCostCents=workedCostCents-regularCostCents!-overtimeCostCents!
-  else if(overtimeMinutes)overtimeCostCents=workedCostCents-regularCostCents!
+ const buckets=[['regularMinutes',0],['overtimeMinutes',.5],['doubleMinutes',1]] as const
+ const raw=buckets.map(([key,premium])=>parts.reduce((n,p)=>n+p[key]*(p.cents+premium*p.weightedRateCents),0)/60)
+ const workedCostCents=priced&&known?Math.round(raw.reduce((n,v)=>n+v,0)):null
+ const rounded=raw.map(Math.floor)
+ if(workedCostCents!==null){let left=workedCostCents-rounded.reduce((n,v)=>n+v,0)
+  for(const i of [0,1,2].sort((a,b)=>(raw[b]-rounded[b])-(raw[a]-rounded[a])||a-b))if(left-->0)rounded[i]++
  }
+ const [regularCostCents,overtimeCostCents,doubleCostCents]=rounded.map(v=>workedCostCents===null?null:v)
  const uses=state.sickuses.filter(u=>u.staffId===staffId&&u.status==='approved'&&inside(u.date)),diff=differentialEstimate(state,staffId,range.start,range.end),holiday=holidayEstimate(state,staffId,range.start,range.end,new Date().toISOString()),extra=premiumEstimate(state,staffId,range.start,range.end)
  // Only totals cross the employee boundary: no rule records, source facts,
  // retained rate references, policy revisions or another person's records.

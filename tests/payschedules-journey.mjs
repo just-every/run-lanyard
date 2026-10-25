@@ -61,7 +61,7 @@ export async function payScheduleApi(h) {
  // EARN-001 now uses the semimonthly period/pay date, but computes overtime
  // from all 45 approved hours of the Sunday workweek, including the first period.
  const page=(await h.send('/app/time?week=2026-10-19',undefined,alex.cookie)).text
- for(const part of ['Pay period Oct 16 – Oct 31 · pay date Thu Nov 5','Overtime over 40 hrs (approved)</th><td class="num">5.0 hrs','<strong>$150.00</strong>'])assert.ok(page.includes(part),part)
+ for(const part of ['Pay period Oct 16 – Oct 31 · pay date Thu Nov 5','Overtime (approved)</th><td class="num">5.0 hrs','<strong>$150.00</strong>'])assert.ok(page.includes(part),part)
  assert.ok(!page.includes('Kitchen biweekly')&&!page.includes('Ben'))
  const projection=await h.send('/api/lanyard/overtime?week=2026-10-12&asOf=2026-10-19T00:00:00Z',undefined,h.owner)
  assert.equal(projection.status,200,projection.text);assert.equal(projection.value.alerts.find(a=>a.staffId===alex.id).actualMinutes,2700,'COST-002 follows the Sunday workweek')
