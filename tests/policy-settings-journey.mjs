@@ -52,7 +52,7 @@ export async function policySettingsBrowser(){
   const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
   try{
    const f=await fixture(h),page=await context.newPage()
-   const direct=await h.send('/app/settings');assert.equal(direct.status,200,direct.text)
+   const direct=await h.send('/app/settings',undefined,h.owner);assert.equal(direct.status,200,direct.text)
    await browserAssets(context)
    const [name,...value]=h.owner.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
    const shot=async label=>{if(process.env.POLICY_SCREENS){await mkdir(process.env.POLICY_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.POLICY_SCREENS,`${label}-${width}.png`)})}}
