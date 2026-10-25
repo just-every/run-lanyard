@@ -18,7 +18,7 @@ export function californiaRestDays(s:State,staffId:string,parts:Part[],rows:Row[
  const selected=new Set(parts.filter(p=>workweek(s,staffId,p.date)===week&&current(p)).map(key))
  const days=new Map<string,Part[]>()
  for(const p of parts)if(selected.has(key(p))){const day=days.get(key(p))??[];day.push(p);days.set(key(p),day)}
- const sourceRows=new Map(rows.filter(r=>r.staffId===staffId).map(r=>[r.id,r]))
+ const sourceRows=new Map(rows.filter(r=>r.staffId===staffId).map(r=>[r.id,Array.isArray(r.breaks)||s.clocks.some(k=>k.id===r.clockId)?{...r,breaks:r.breaks??[]}:r]))
  return [...days].map(([workdayKey,day])=>{
   const first=day.find(current)!,workdayDate=first.workdayDate??first.date,anchor=first.workdayStart??'00:00'
   const begin=Date.parse(instantAt(workdayDate,anchor,s.timezone)),end=Date.parse(instantAt(dayAfter(workdayDate),anchor,s.timezone))
