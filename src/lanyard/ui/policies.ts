@@ -1,10 +1,11 @@
+import {policyTextarea as textarea} from './policy-fields'
 import {alternatePolicySettings} from './policy-alternate'
 import {policyFields} from './policy-fields'
 import {workerPolicySettings} from './policy-coverage'
 import {policyWorkweeks} from './policy-review'
 import {BREAK_VERSION,BREAK_VERSIONS,breakSources} from '../domain/policy-breaks'
 import {VERSION,POLICY_VERSIONS,policyPresets} from '../domain/policy-catalog'
-import {h,rows,card,form,field,hidden,textarea,exact,disclosure,person,titleRow,moment,venue} from './shared'
+import {h,rows,card,form,field,hidden,exact,disclosure,person,titleRow,moment,venue} from './shared'
 import {dateKey,money} from './format'
 
 const names:Record<string,string>={federal:'Federal',CA:'California',AK:'Alaska',NV:'Nevada',CO:'Colorado',OR:'Oregon',WA:'Washington',NY:'New York',IL:'Illinois',custom:'Custom · unmaintained'}

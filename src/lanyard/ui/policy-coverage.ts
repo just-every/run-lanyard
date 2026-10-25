@@ -1,5 +1,6 @@
+import {policyTextarea as textarea} from './policy-fields'
 import {coverageKinds,coverageLabels} from '../domain/policy-coverage'
-import {h,card,form,field,hidden,textarea,exact,disclosure,staffSelect,person} from './shared'
+import {h,card,form,field,hidden,exact,disclosure,staffSelect,person} from './shared'
 import {policyWorkweeks} from './policy-review'
 
 export function workerPolicySettings(s:any,p:any,q:URLSearchParams,extras:any,back:string){

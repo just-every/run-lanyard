@@ -57,7 +57,7 @@ export function project(s:State,staffId:string,week:string,at:string,add:Row[]=[
  * classification details remain on the owner-only policy review door. */
 function summary(policy:any){
  const {parts,...rest}=policy
- const sources=[...new Map(parts.flatMap((p:any)=>p.rules).map((r:any)=>[r.id+':'+r.revision,r])).values()]
+ const sources=[...new Map(parts.flatMap((p:any)=>p.rules).map((r:any)=>[r.id+':'+r.revision,{id:r.id,revision:r.revision,preset:r.preset,version:r.version,source:r.source,consecutiveMinutes:r.consecutiveMinutes,label:r.label}])).values()]
  return {...rest,sources}
 }
 /** The projection's figures alone, for a pending pickup or swap. */

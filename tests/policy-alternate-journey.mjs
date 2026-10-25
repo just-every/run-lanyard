@@ -105,6 +105,10 @@ export async function policyAlternateClassificationApi(){
   assert.deepEqual(totals('2026-10-16'),[0,480,60],'an additional day pays overtime from the first minute and double time after eight hours')
   const standard=await h.cmd('policy.review',{staffId:ben.id,week})
   assert.deepEqual([standard.regularMinutes,standard.overtimeMinutes,standard.doubleMinutes],[480,120,0],'a cafe policy never enrolls a coworker implicitly')
+  const manager=await h.person('ScheduleReviewer','manager');await h.cmd('staff.save',{...pin(manager),name:manager.name,email:manager.email,payrollId:manager.payrollId,role:'manager',active:true,site:'East'})
+  const response=await h.send('/api/lanyard/overtime?week='+week+'&asOf=2026-10-19T00:00:00Z',undefined,manager.cookie)
+  assert.equal(response.status,200);assert.ok(!response.text.includes(alternate.electionEvidence),'aggregate cost readers never receive private election evidence')
+  assert.ok(!response.text.includes(alternate.implementationEvidence),'private employee inclusion evidence stays on owner review')
   const retained=(await h.state()).policies
   assert.ok(retained.filter(p=>['East','West'].includes(p.site)).every(p=>p.alternate.enrollment.some(e=>e.staffId===alex.id)),'each worked cafe retains its own explicit enrollment evidence')
  }finally{await h.close()}
