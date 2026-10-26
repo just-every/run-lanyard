@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "65b3b86325b38d6d448e5ef167a6537d8d974ab7f2c0e1a1c77f30be1a78c496",
+      "sha256": "767c91795134a4e4d1edb0d30f9f6a1d7d7a2ce89dfdfbd708c3807aec2f83c3",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "005b01e12d722831c88d8cc7dbde7e111703d9c5a17b2c05b8d53a54f8cb8f28",
+      "sha256": "e1809fe2399e44ac7af0b1cd511a995f7a65a5faa3967adfc79226f7e1158c8c",
       "executable": false
     },
     "DEMO.md": {
@@ -1538,7 +1538,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy-break-review.ts": {
-      "sha256": "84eca9bd3446a1c06daa7be94aa371d32ce9cab89d3823d5d411498b24694511",
+      "sha256": "6130264adf14a9097b40e626ff2b8b1b64caf78651dc112dfce98bfebb127539",
       "executable": false
     },
     "src/lanyard/domain/policy-breaks-20261026.ts": {
@@ -1546,7 +1546,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy-breaks.ts": {
-      "sha256": "6a122ffb703643013dbbd915c8023e9191ff06ca5f314e74c1f8c2fc45f62757",
+      "sha256": "d88a7828aaccc49ab80d6543044ee99f75aa6e046192504ec125a2d9b3f09e6b",
       "executable": false
     },
     "src/lanyard/domain/policy-catalog.ts": {
@@ -1554,7 +1554,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy-commands.ts": {
-      "sha256": "6ddbc02d1dd0b9a59bad1d665c3757d560d282200f323e4376dc0597ad6f3165",
+      "sha256": "7b9dba911e4c2d82ede2188477ac5d608320da540a9cd997b2440bc6c7ee9bee",
       "executable": false
     },
     "src/lanyard/domain/policy-consecutive.ts": {
@@ -1574,7 +1574,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy-rest-days.ts": {
-      "sha256": "9e695e29e99bb8923677526bb5661c2ff83e8e12e22f280169f12e28df2df721",
+      "sha256": "d1f8113cf31860979c4647adc2dd56a2123ce33ab3cd1dc9be2d54cbf25fc685",
       "executable": false
     },
     "src/lanyard/domain/policy-washington.ts": {
@@ -1582,7 +1582,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy-workday-breaks.ts": {
-      "sha256": "c12e503af96b3e04e0bf359da87339c02d74c70bcfb67d4c2a878e4b18259de6",
+      "sha256": "322b8e7cbfc4d928ec5586deab2f2b28ec7ea1f9087290a7ff746c38db3d079a",
       "executable": false
     },
     "src/lanyard/domain/policy-workday.ts": {
@@ -4014,7 +4014,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "dc3a0be5973c5eca3c77ee4ecd757574a1289cf947d73e4dbe24723f9aa43075",
+      "sha256": "73688ecb222d48f5802be2895d2597beced8a05e19b37850ce003efb0812dafa",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -4118,7 +4118,7 @@
       "executable": false
     },
     "tests/policy-rest-days-journey.mjs": {
-      "sha256": "773a32aac470c31fb98fb63bdb74c3e11cda701b716035dc27dbbeec838ea1cd",
+      "sha256": "9affa570645a295a268eab68aff5103e77f05372fa390f3d536b533b0431f5b9",
       "executable": false
     },
     "tests/policy-settings-journey.mjs": {

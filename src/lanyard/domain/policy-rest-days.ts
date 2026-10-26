@@ -2,7 +2,7 @@ import {type State,type Row} from './model'
 import {dayAfter} from './aca'
 import {instantAt} from './settings'
 import {workweek} from './payschedules'
-import {BREAK_VERSION,breakSources} from './policy-breaks'
+import {WORKDAY_BREAK_VERSIONS,breakSources} from './policy-breaks'
 import {covered} from './policy-coverage'
 
 type Part={date:string;minutes:number;site:string;timeId:string;start:string;end:string;workdayDate?:string;workdayKey?:string;workdayStart?:string}
@@ -14,7 +14,7 @@ type Issue={kind:'rest';state:'unknown'|'exception';message:string}
  * supply hours worked; a gap never supplies a break or changes those minutes. */
 export function californiaRestDays(s:State,staffId:string,parts:Part[],rows:Row[],week:string,ruleOn:RuleOn,planned:boolean){
  const key=(p:Part)=>p.workdayKey??`${staffId}|${p.date}|00:00`
- const current=(p:Part)=>{const r=ruleOn(p.site,p.date);return r?.preset==='CA'&&r.breakVersion===BREAK_VERSION&&covered(r,staffId,'rest')}
+ const current=(p:Part)=>{const r=ruleOn(p.site,p.date);return r?.preset==='CA'&&(WORKDAY_BREAK_VERSIONS as readonly string[]).includes(r.breakVersion)&&covered(r,staffId,'rest')}
  const selected=new Set(parts.filter(p=>workweek(s,staffId,p.date)===week&&current(p)).map(key))
  const days=new Map<string,Part[]>()
  for(const p of parts)if(selected.has(key(p))){const day=days.get(key(p))??[];day.push(p);days.set(key(p),day)}
@@ -54,7 +54,7 @@ export function californiaRestDays(s:State,staffId:string,parts:Part[],rows:Row[
    const row=sourceRows.get(p.timeId),rule=ruleOn(p.site,p.date)
    return [`${p.timeId}|${p.site}|${rule?.id}|${rule?.revision}`,{id:p.timeId,revision:row?.revision,site:p.site,start:row?.start??p.start,end:row?.end??p.end,policyId:rule?.id,policyRevision:rule?.revision}] as const
   })).values()]
-  return {scope:'California workday rest',timeId:timeIds[0],timeIds,records,site:first.site,date:workdayDate,workdayDate,workdayKey,preset:'CA',version:BREAK_VERSION,sources:breakSources.CA,issues,mealPremiumMinutes:0,
+  return {scope:'California workday rest',timeId:timeIds[0],timeIds,records,site:first.site,date:workdayDate,workdayDate,workdayKey,preset:'CA',version:ruleOn(first.site,first.date)!.breakVersion,sources:breakSources.CA,issues,mealPremiumMinutes:0,
    restPremiumMinutes:issues.some(i=>i.state==='exception')?60:0,workedMinutes,requiredRests,recordedRests,
    label:'Review estimate; practical placement near the middle of each work period still requires review; employer-reviewed applicability retained; no automatic payroll change'}
  })

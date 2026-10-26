@@ -94,3 +94,118 @@ export async function policyRestDaysApi(){
   assert.equal((await h.state()).batches.length,0,'rest review never creates payroll')
  }finally{await h.close()}
 }
+
+// Captures remain native across both cafe transfers and the workweek boundary.
+export async function mealBoundaryFixture(h){
+ await h.cmd('settings.save',{timezone:'UTC'})
+ for(const site of ['East','West'])await h.cmd('policy.save',{site,preset:'CA',from:'2026-01-01',workdayStart:'04:00',breakVersion:'2026-10-26.2',reviewReason:'Retained reviewed employer day before cross-week meal context release'})
+ const missed=await h.person('BoundaryMealMissing'),taken=await h.person('BoundaryMealTaken')
+ for(const p of [missed,taken])for(const [site,start,end,breaks]of [
+  ['East','2026-10-11T22:00:00Z','2026-10-12T02:00:00Z',p.id===taken.id?[['rest','2026-10-11T23:50:00Z','2026-10-12T00:00:00Z']]:[]],
+  ['West','2026-10-12T02:00:00Z','2026-10-12T06:00:00Z',p.id===taken.id?[['meal','2026-10-12T02:00:00Z','2026-10-12T02:30:00Z'],['rest','2026-10-12T04:50:00Z','2026-10-12T05:00:00Z']]:[]],
+ ]){
+  await cafe(h,p,site)
+  await h.cmd('clock.in',{commandId:crypto.randomUUID(),capturedAt:start},p.cookie)
+  for(const [kind,begin,finish]of breaks){
+   await h.cmd('clock.breakStart',{commandId:crypto.randomUUID(),capturedAt:begin,kind},p.cookie)
+   await h.cmd('clock.breakEnd',{commandId:crypto.randomUUID(),capturedAt:finish},p.cookie)
+  }
+  const out=await h.cmd('clock.out',{commandId:crypto.randomUUID(),capturedAt:end,breakMinutes:0},p.cookie)
+  await h.cmd('time.approve',pin(out.timesheet))
+ }
+ return {missed,taken}
+}
+
+export async function policyMealBoundaryApi(){
+ const h=await harness({now:'2026-10-26T12:00:00Z'})
+ try{
+  const {missed,taken}=await mealBoundaryFixture(h),retained=await h.state()
+  const changes=retained.policies.map(p=>({...pin(p),site:p.site,preset:'CA',from:p.from,workdayStart:'04:00',reviewReason:'Reviewed cross-week meal context and unchanged captured service'}))
+  for(const change of changes){
+   const preview=await h.cmd('policy.preview',change)
+   await h.cmd('policy.save',{...change,reviewDigest:preview.digest})
+   assert.equal((await review(h,missed)).breakPremiumEstimateCents,null,'a cafe still on the prior release cannot reset the continuous meal obligation')
+  }
+  for(const on of ['2026-10-05',week]){
+   const report=await review(h,missed,on),meal=report.breakReviews.find(r=>r.premiumDayUnknown)
+   assert.ok(meal,'a cross-day meal violation remains visible in every affected workweek')
+   assert.equal(report.breakPremiumEstimateCents,null,'unresolved employer-day allocation cannot become a known zero or a priced premium')
+   assert.deepEqual(new Set(meal.records.map(r=>r.site)),new Set(['East','West']))
+   assert.equal(meal.issues.filter(i=>i.message.includes('meal premium allocation')).length,1)
+   const compliant=await review(h,taken,on)
+   assert.ok(!compliant.breakReviews.some(r=>r.premiumDayUnknown),'a compliant recorded meal needs no violation allocation')
+   assert.equal(compliant.breakPremiumMinutes,0)
+   assert.equal(compliant.breakPremiumEstimateCents,0)
+  }
+  const previous=await review(h,missed,'2026-10-05'),current=await review(h,missed)
+  assert.deepEqual([previous.minutes,current.minutes],[120,360],'context does not replay prior-week paid time')
+  const state=await h.state()
+  assert.deepEqual(state.timesheets,retained.timesheets,'release adoption never changes approved source minutes or rates')
+  assert.deepEqual(state.clocks,retained.clocks)
+  assert.equal(state.batches.length,0)
+  assert.ok(state.policies.every(p=>p.versions.some(v=>v.breakVersion==='2026-10-26.2')))
+  await h.restart()
+  assert.equal((await review(h,missed)).breakPremiumEstimateCents,null,'restart preserves unresolved allocation')
+  // A later effective adoption leaves the earlier reviewed release intact.
+  const legacy=await harness({now:'2026-10-26T12:00:00Z'})
+  try{
+   const people=await mealBoundaryFixture(legacy)
+   const before=await review(legacy,people.missed)
+   for(const p of (await legacy.state()).policies){
+    const change={...pin(p),site:p.site,preset:'CA',from:'2026-10-19',workdayStart:'04:00',reviewReason:'Future adoption retains historical meal review'}
+    const preview=await legacy.cmd('policy.preview',change)
+    await legacy.cmd('policy.save',{...change,reviewDigest:preview.digest})
+   }
+   assert.deepEqual(await review(legacy,people.missed),before,'historical rule calculations remain reproducible')
+  }finally{await legacy.close()}
+ }finally{await h.close()}
+}
+
+export async function policyMealBoundaryBrowser(){
+ const {chromium}=await import('@playwright/test'),{browserAssets}=await import('./policy-settings-journey.mjs')
+ const {mkdir}=await import('node:fs/promises'),{join}=await import('node:path')
+ const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ try{for(const width of [1440,390]){
+  const h=await harness({now:'2026-10-26T12:00:00Z'}),context=await browser.newContext({viewport:{width,height:1000}})
+  try{
+   const {missed,taken}=await mealBoundaryFixture(h)
+   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+   await browserAssets(context)
+   const [name,...value]=h.owner.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
+   const page=await context.newPage()
+   await page.goto(h.origin+'/app/settings?site=East&preset=CA',{waitUntil:'networkidle'})
+   const account=page.getByLabel('Account',{exact:true})
+   await account.hover()
+   await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'})
+   await page.mouse.move(0,0);await account.focus()
+   await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'})
+   const editor=page.locator('[data-policy-editor]')
+   await editor.getByLabel('Meal and rest rule version',{exact:true}).selectOption(await editor.locator('[name=breakVersion] option').last().getAttribute('value'))
+   await editor.getByLabel('Review reason',{exact:true}).fill('Reviewed overnight meal context across both cafes and employer days')
+   await editor.getByRole('button',{name:'Preview policy changes',exact:true}).click();await page.waitForLoadState('networkidle')
+   assert.equal(await page.locator('.notice.error').count(),0)
+   const current=page.locator('[data-policy-workweek]').filter({has:page.getByRole('heading',{name:missed.name+' · workweek '+week,exact:true})})
+   const after=current.locator('[data-label="After applying"]')
+   assert.match(await after.innerText(),/break premium estimate Unknown/)
+   assert.match(await after.innerText(),/meal premium allocation requires review/)
+   const compliant=page.locator('[data-policy-workweek]').filter({has:page.getByRole('heading',{name:taken.name+' · workweek '+week,exact:true})}).locator('[data-label="After applying"]')
+   assert.match(await compliant.innerText(),/break premium estimate \$0\.00/)
+   assert.doesNotMatch(await compliant.innerText(),/meal premium allocation requires review/)
+   const shot=async(label,element)=>{
+    await element.scrollIntoViewIfNeeded()
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    if(process.env.POLICY_SCREENS){await mkdir(process.env.POLICY_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.POLICY_SCREENS,`${label}-${width}.png`)})}
+   }
+   await shot('meal-boundary-unresolved',after)
+   await shot('meal-boundary-compliant',compliant)
+   await page.locator('[data-policy-apply] input[type=checkbox]').check()
+   await page.locator('[data-policy-apply]').getByRole('button',{name:'Apply reviewed policy',exact:true}).click();await page.waitForLoadState('networkidle')
+   assert.equal(await page.locator('.notice.error').count(),0)
+   assert.equal((await review(h,missed)).breakPremiumEstimateCents,null)
+   const retained=page.locator('#policy-current')
+   await retained.getByText('Reviewed recalculation',{exact:true}).click()
+   await shot('meal-boundary-retained-review',retained)
+   assert.equal((await h.state()).batches.length,0,'the browser review creates no payroll batch')
+  }finally{await context.close();await h.close()}
+ }}finally{await browser.close()}
+}

@@ -6,8 +6,9 @@ import {wall} from './settings'
 import {washingtonExtraMeal} from './policy-washington'
 import {newYorkMeals} from './policy-newyork'
 
-export const BREAK_VERSION='2026-10-26.2'
-export const BREAK_VERSIONS=[PREVIOUS_VERSION,'2026-10-26.1',BREAK_VERSION] as const
+export const BREAK_VERSION='2026-10-26.3'
+export const WORKDAY_BREAK_VERSIONS=['2026-10-26.2',BREAK_VERSION] as const
+export const BREAK_VERSIONS=[PREVIOUS_VERSION,'2026-10-26.1',...WORKDAY_BREAK_VERSIONS] as const
 export const breakSources:Record<string,string[]>={
  NV:['https://www.leg.state.nv.us/NRS/NRS-608.html#NRS608Sec019','https://www.leg.state.nv.us/NAC/NAC-608.html#NAC608Sec145'],
  CO:['https://cdle.colorado.gov/dlss-home-page/wage-and-hour-law/breaks-rest-meal-periods'],
@@ -23,7 +24,7 @@ export function policyBreaks(rule:Row|undefined,row:Row,tz:string,planned=false)
  if(rule.breakVersion===PREVIOUS_VERSION)return previousBreaks(rule,row,tz,planned)
  need((BREAK_VERSIONS as readonly string[]).includes(rule.breakVersion),'Unsupported break-rule version; review the policy release before classification',409)
  if(!breakSources[rule.preset])return null
- const current=rule.breakVersion===BREAK_VERSION
+ const current=(WORKDAY_BREAK_VERSIONS as readonly string[]).includes(rule.breakVersion)
  const span=Math.floor((Date.parse(row.end)-Date.parse(row.start))/60000),net=span-(row.breakMinutes??0)
  const timed=Array.isArray(row.breaks),valid=(row.breaks??[]).filter((b:any)=>b.end&&b.start>=row.start&&b.end<=row.end&&b.end>b.start)
  const duration=(b:any)=>(Date.parse(b.end)-Date.parse(b.start))/60000,offset=(b:any)=>(Date.parse(b.start)-Date.parse(row.start))/60000

@@ -2069,3 +2069,6 @@ test('COST-001: managers inspect worked costs and template warnings and owners c
 test('AI-001: consented extraction resolves ambiguous names and repeated local times before exact native draft publication',async()=>{const {aiScheduleApi}=await import('./ai-schedule-journey.mjs');await aiScheduleApi()})
 test('AI-001: owner-scoped sources and model sends refuse other roles and erasure purges local material through restart',async()=>{const {aiScheduleScopeApi}=await import('./ai-schedule-journey.mjs');await aiScheduleScopeApi()})
 test('AI-001: owner corrects extracted fields inspects sources and approves a draft at 1440 and 390',async()=>{const {aiScheduleBrowser}=await import('./ai-schedule-journey.mjs');await aiScheduleBrowser()})
+
+test('POLICY-001: California cross-week meal allocation stays unresolved while compliant boundary meals retain zero premiums',async()=>{const {policyMealBoundaryApi}=await import('./policy-rest-days-journey.mjs');await policyMealBoundaryApi()})
+test('POLICY-001: overnight meal premium unknowns and compliant zero amounts through reviewed Settings at 1440 and 390',async()=>{const {policyMealBoundaryBrowser}=await import('./policy-rest-days-journey.mjs');await policyMealBoundaryBrowser()})

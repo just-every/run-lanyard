@@ -2,7 +2,7 @@ import {regionalConfiguration} from './policy-alternate-regional'
 import {type Context,type Row,keys,text,need,integer,put,exact,canonical} from './model'
 import {date} from './aca'
 import {workweek} from './payschedules'
-import {BREAK_VERSION,BREAK_VERSIONS,breakSources} from './policy-breaks'
+import {BREAK_VERSION,BREAK_VERSIONS,WORKDAY_BREAK_VERSIONS,breakSources} from './policy-breaks'
 import {VERSION,POLICY_VERSIONS,sources} from './policy-catalog'
 import {policyClassification} from './policy'
 import {releasePreview} from './policy-release'
@@ -40,7 +40,7 @@ export async function policyCommand(c:Context,name:string,p:Record<string,any>){
  const industry=preset==='NY'?text(p.industry??(old?.preset==='NY'?old.industry??'nonfactory':'nonfactory'),'New York establishment coverage',20):null
  need(p.industry===undefined||preset==='NY','Establishment coverage applies only to New York')
  need(industry===null||['factory','nonfactory'].includes(industry),'Choose reviewed factory or nonfactory coverage')
- need(industry!=='factory'||breakVersion===BREAK_VERSION,'Factory coverage requires the current reviewed break release')
+ need(industry!=='factory'||(WORKDAY_BREAK_VERSIONS as readonly string[]).includes(breakVersion),'Factory coverage requires the current reviewed break release')
  const alternate=p.alternate===undefined?(old?.alternate??null):(['AK_FLEX_APPROVED','NV_4X10'].includes(p.alternate?.kind)?regionalConfiguration(c,p.alternate,preset,from):alternateConfiguration(c,p.alternate,preset,from))
  need(!alternate||preset===(alternate.kind==='CA_WO5_GENERAL'?'CA':alternate.kind==='AK_FLEX_APPROVED'?'AK':'NV'),'Remove the alternative workweek explicitly before changing jurisdiction')
  need(!alternate||from>=alternate.effectiveFrom,'The policy cannot precede the alternative workweek implementation date')
