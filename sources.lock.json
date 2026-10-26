@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "0e85ef68d8ad9e39c2b5d4b250f01d21e0521bd073aab3e59291f8c62192330a",
+      "sha256": "1d3536b1d5cf923fb384992b4e297a2f6f18e20e1e117b8e3798fdd89ff257e6",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "a7b01458c8d8665069ed596f7fe6c6f634f9d1b7711da42281768f7f77f010ae",
+      "sha256": "ebcd413299c938f224b17e90c22c79a0b4ff7e9d98d8dccad1f1f6393dbcf420",
       "executable": false
     },
     "DEMO.md": {
@@ -1278,7 +1278,7 @@
       "executable": false
     },
     "src/lanyard/domain/chat.ts": {
-      "sha256": "1ea13dab935e3fcf285bf3ead4ab0b540d2d546b0da7033cbafb3bf43fa1f5b3",
+      "sha256": "e07bd2f00231ee7e879f1094e370ba800f8c38ed0c4c968dbe5efdd06c158ab6",
       "executable": false
     },
     "src/lanyard/domain/clocknets.ts": {
@@ -1374,7 +1374,7 @@
       "executable": false
     },
     "src/lanyard/domain/index.ts": {
-      "sha256": "810ab902e3319efd2e49887bafcaa8958d92a447dd0486cea989950a13e26303",
+      "sha256": "6bb9bbeeda482e0f7975c750b70b26c1f67b6cc739b6a71392fbbb1b58a7c7fe",
       "executable": false
     },
     "src/lanyard/domain/intervals.ts": {
@@ -1558,7 +1558,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy.ts": {
-      "sha256": "acac1e56d1f5274e6b87d9f7867a7866f65bdebe75bb8f519b06216a84e71a68",
+      "sha256": "da3b41114de6f1c92ec661ec7eb15528f79ab67a2656acc32df42f2533a61a80",
       "executable": false
     },
     "src/lanyard/domain/postings.ts": {
@@ -1750,7 +1750,7 @@
       "executable": false
     },
     "src/lanyard/ui/chat.ts": {
-      "sha256": "5fe5b82832b063deaab93d68099d1068fe83aface65dadb9ba6623c309a32a5f",
+      "sha256": "250784584d2fe9b4ebb91de2e29f549e007a431e1d9e61e2fdfd6aa6a473bb5e",
       "executable": false
     },
     "src/lanyard/ui/clocknets.ts": {
@@ -3874,7 +3874,7 @@
       "executable": false
     },
     "tests/chat-membership-journey.mjs": {
-      "sha256": "1ee5befa6006620ebd4abc5426d3c47019fe178a748e64f8abb3b50a4c197df2",
+      "sha256": "efe50f105758fe2f0b8e442870b0a7b813ef7daacccfe5e997bb18e5b4687b44",
       "executable": false
     },
     "tests/clock-offline-journey.mjs": {
@@ -4050,7 +4050,7 @@
       "executable": false
     },
     "tests/policy-regional-journey.mjs": {
-      "sha256": "646d2d3d713728ad5e3620c2daf1dd716685f47e2c40fb56def08e8b0f15f115",
+      "sha256": "35afbfe1f41c5d4602e4495f5c305213fe5446c1f57ffdbf8ed76adfe8bc986b",
       "executable": false
     },
     "tests/policy-release-journey.mjs": {

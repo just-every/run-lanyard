@@ -39,6 +39,18 @@ export function chatCommand(c:Context,name:string,p:Record<string,any>){
   if(p.kind==='shift'){shift=get(c.s,'shifts',p.shiftId);need(shift.status==='published'&&shift.revision===p.shiftRevision&&shift.site===site,'Choose the current published shift revision',409);need(manages(c.s,c.a,site)||shift.staffId===c.a.staffId,'Only your shift',403)}
   return put(c,'chatthreads',{kind:p.kind,site,title:text(p.title,'title',120),members:['direct','group'].includes(p.kind)?list:[],shiftId:shift?.id??null,shiftRevision:shift?.revision??null,rosterId:shift?.rosterId??null,createdBy:c.a.id,at:c.now})
  }
+ if(name==='chat.leave'){
+  keys(p,['id','revision','reason'])
+  const t=get(c.s,'chatthreads',p.id)
+  need(chatMayRead(c.s,c.a,t),'Not found',404)
+  need(t.kind==='group','Only group conversations support explicit departure')
+  exact(t,p)
+  const me=person(c.s,c.a),reason=text(p.reason,'departure reason',500)
+  need(me&&t.members.includes(me.id),'Only a current listed member may leave',403)
+  const members=t.members.filter((id:string)=>id!==me.id)
+  return put(c,'chatthreads',{...t,members,membershipChanges:[...(t.membershipChanges??[]),
+   {action:'left',staffId:me.id,by:c.a.id,at:c.now,reason,before:t.members,after:members}]},t)
+ }
  if(name==='chat.removeMember'){
   keys(p,['id','revision','staffId','reason'])
   const t=get(c.s,'chatthreads',p.id)

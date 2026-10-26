@@ -99,6 +99,7 @@ export async function policyRegionalClassificationApi(){
    const changed=await h.cmd('policy.review',{staffId:deviation.id,week})
    assert.deepEqual([changed.regularMinutes,changed.overtimeMinutes],[1920,480],'unknown employee choice cannot waive daily overtime in a redistributed week')
    assert.equal(changed.classificationIncomplete,true)
+   assert.equal(changed.breakPremiumEstimateCents,null,'unresolved alternate treatment withholds the break premium amount as well as wages')
    assert.ok(changed.alternateReviews.every(r=>r.reviewRequired&&r.reviewReason),'the deviation remains unresolved across the affected week')
    const longer=await h.cmd('policy.review',{staffId:extended.id,week})
    assert.equal(longer.overtimeMinutes,preset==='AK'?600:120,'Alaska deviation eligibility needs historical review; Nevada extended first day owes only its excess over ten')

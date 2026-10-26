@@ -61,6 +61,19 @@ export async function chatMembershipApi(){
    await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site})
   }
   await denied(h,f)
+  // Voluntary departure removes only the acting member, never somebody else.
+  const departure={...pin(saved),reason:'synthetic-lanyard voluntary departure'}
+  const beforeLeave=(await h.db.prepare('SELECT * FROM l_records ORDER BY id').all()).results
+  await h.cmd('chat.leave',{...departure,staffId:f.owner.id},f.manager.cookie,400)
+  await h.cmd('chat.leave',{...departure,revision:f.thread.revision},f.manager.cookie,409)
+  assert.deepEqual((await h.db.prepare('SELECT * FROM l_records ORDER BY id').all()).results,beforeLeave)
+  const left=await h.cmd('chat.leave',departure,f.manager.cookie)
+  assert.deepEqual(left.members,[f.owner.id])
+  assert.equal(left.membershipChanges.at(-1).action,'left')
+  assert.equal(left.membershipChanges.at(-1).staffId,f.manager.id)
+  await denied(h,{...f,member:f.manager})
+  await h.restart();await denied(h,{...f,member:f.manager})
+  assert.equal((await h.send(f.file,undefined,h.owner)).status,200)
   const p=(await h.state()).staff.find(p=>p.id===f.owner.id)
   await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site:'West'})
   await refused({...pin(saved),staffId:f.manager.id,reason:'Transferred owner attempt'},h.owner,404)
@@ -89,6 +102,12 @@ export async function chatMembershipBrowser(){
    assert.equal(await form.locator(`option[value="${f.member.id}"]`).count(),0)
    assert.ok((await page.locator('main').innerText()).includes('synthetic-lanyard-2 retained service history'))
    await denied(h,f);await shot('chat-membership-removed')
+   const leave=page.locator('form[action*="name=chat.leave"]')
+   await leave.getByLabel('Departure reason',{exact:true}).fill('synthetic-lanyard voluntary departure')
+   await leave.getByRole('button',{name:'Leave group',exact:true}).click();await page.waitForLoadState('networkidle')
+   assert.equal(await page.locator('form[action*="name=chat.leave"]').count(),0)
+   assert.ok(!(await page.locator('main').innerText()).includes('synthetic-lanyard-2 retained service history'))
+   await denied(h,{...f,member:{...f.owner,cookie:h.owner}});await shot('chat-membership-left')
   }finally{await context.close();await h.close()}
  }}finally{await browser.close()}
 }
