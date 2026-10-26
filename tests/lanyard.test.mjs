@@ -2056,3 +2056,6 @@ test('POLICY-001: California workday rests combine split cafe service and retain
 
 test('POLICY-001: Washington reviewed normal workdays govern additional meals without changing historical rules',async()=>{const {policyWashingtonApi}=await import('./policy-washington-journey.mjs');await policyWashingtonApi()})
 test('POLICY-001: Washington normal workday review and application through Settings at 1440 and 390',async()=>{const {policyWashingtonBrowser}=await import('./policy-washington-journey.mjs');await policyWashingtonBrowser()})
+
+test('CHAT-001: reviewed group removal immediately fences history, files and commands without granting readers',async()=>{const {chatMembershipApi}=await import('./chat-membership-journey.mjs');await chatMembershipApi()})
+test('CHAT-001: listed owner removes a group member through the native form at 1440 and 390',async()=>{const {chatMembershipBrowser}=await import('./chat-membership-journey.mjs');await chatMembershipBrowser()})

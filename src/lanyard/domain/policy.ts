@@ -59,7 +59,16 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
  // California pays at most one hour for each break kind per person and day,
  // even when several shifts or cafes have exceptions.
  const premiumDays=new Map<string,{meal:number;rest:number}>()
- for(const r of breakReviews){const day=r.workdayKey??r.date,d=premiumDays.get(day)??{meal:0,rest:0};d.meal=Math.max(d.meal,r.mealPremiumMinutes);d.rest=Math.max(d.rest,r.restPremiumMinutes);premiumDays.set(day,d)}
+ for(const r of breakReviews){
+  // A workday can be visible in two workweeks as calculation context. Report
+  // its premium only with its first retained payable venue-date allocation.
+  // This is estimate ownership, not statutory payroll or provider submission.
+  const day=r.workdayKey??r.date
+  const dates=r.workdayKey?allParts.filter(p=>key(p)===r.workdayKey&&p.minutes>0).map(p=>p.date).sort():[r.date]
+  r.premiumWeek=workweek(s,staffId,dates[0]??r.date)
+  if(r.premiumWeek!==week)continue
+  const d=premiumDays.get(day)??{meal:0,rest:0};d.meal=Math.max(d.meal,r.mealPremiumMinutes);d.rest=Math.max(d.rest,r.restPremiumMinutes);premiumDays.set(day,d)
+ }
  const weeklyRestReviews=illinoisRest(s,rows.filter(t=>t.staffId===staffId),week)
  const alternateReviews=parts.flatMap((p:any)=>{const r=policyOn(s,p.site,p.date),review=r?alternative(r,p):null;return review?[{date:p.date,site:p.site,...review}]:[]})
  const coverage=coverageReview(s,staffId,parts,((site,on)=>policyOn(s,site,on)));coverage.issues.push(...workdayReviewIssues)

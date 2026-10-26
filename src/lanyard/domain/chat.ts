@@ -13,7 +13,7 @@ export function chatMayRead(s:State,a:Actor,t:Row){
 const safeMessage=(m:Row)=>({...m,attachments:m.attachments.map(({data,...f}:any)=>f)})
 export function chatRead(s:State,a:Actor,q='',threadId=''){
  need(a.role!=='agent','Native session required',403)
- const threads=s.chatthreads.filter(t=>chatMayRead(s,a,t)),ids=new Set(threads.map(t=>t.id))
+ const threads=s.chatthreads.filter(t=>chatMayRead(s,a,t)).map(t=>{const {membershipChanges,...thread}=t;return a.role==='owner'?t:thread}),ids=new Set(threads.map(t=>t.id))
  if(threadId)need(ids.has(threadId),'Not found',404)
  const search=q.trim().toLowerCase();need(search.length<=120,'Search is too long')
  const messages=s.chatmessages.filter(m=>ids.has(m.threadId)&&(!threadId||m.threadId===threadId)&&(!search||m.text.toLowerCase().includes(search))).sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id)).slice(-100).map(safeMessage)
@@ -38,6 +38,20 @@ export function chatCommand(c:Context,name:string,p:Record<string,any>){
   let shift:any=null
   if(p.kind==='shift'){shift=get(c.s,'shifts',p.shiftId);need(shift.status==='published'&&shift.revision===p.shiftRevision&&shift.site===site,'Choose the current published shift revision',409);need(manages(c.s,c.a,site)||shift.staffId===c.a.staffId,'Only your shift',403)}
   return put(c,'chatthreads',{kind:p.kind,site,title:text(p.title,'title',120),members:['direct','group'].includes(p.kind)?list:[],shiftId:shift?.id??null,shiftRevision:shift?.revision??null,rosterId:shift?.rosterId??null,createdBy:c.a.id,at:c.now})
+ }
+ if(name==='chat.removeMember'){
+  keys(p,['id','revision','staffId','reason'])
+  const t=get(c.s,'chatthreads',p.id)
+  need(chatMayRead(c.s,c.a,t),'Not found',404)
+  need(c.a.role==='owner','Only a listed owner may remove group members',403)
+  need(t.kind==='group','Member removal applies only to group conversations')
+  exact(t,p)
+  const staffId=text(p.staffId,'group member'),reason=text(p.reason,'membership review reason',500)
+  need(staffId!==c.a.staffId,'The reviewing owner must remain a member')
+  need(t.members.includes(staffId),'Choose a current group member',409)
+  const members=t.members.filter((id:string)=>id!==staffId)
+  return put(c,'chatthreads',{...t,members,membershipChanges:[...(t.membershipChanges??[]),
+   {action:'removed',staffId,by:c.a.id,at:c.now,reason,before:t.members,after:members}]},t)
  }
  if(name==='chat.send'){
   keys(p,['threadId','text','attachment']);const t=get(c.s,'chatthreads',p.threadId);need(chatMayRead(c.s,c.a,t),'Not found',404)
