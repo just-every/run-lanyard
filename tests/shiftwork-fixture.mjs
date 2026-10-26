@@ -1,11 +1,11 @@
 import {days,monday,local,pin} from './workforce-journey.mjs'
 export {pin}
-export async function handoverFixture(h,withWork=true) {
+export async function handoverFixture(h,withWork=true,today=new Date().toISOString().slice(0,10)) {
  const alex=await h.person('Alex'),ben=await h.person('Ben'),manager=await h.person('Morgan','manager'),foreign=await h.person('Taylor','manager')
  for(const p of [alex,ben,manager,foreign])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site:p===foreign?'Mission':'Ocean Beach',position:'Service',hourlyRate:'20.00'})
  const counter=await h.cmd('job.save',{name:'Counter',skills:[],certifications:[]}),kitchen=await h.cmd('job.save',{name:'Kitchen',skills:['food prep'],certifications:[]})
  const profile=await h.cmd('workforce.save',{staffId:alex.id,jobs:[counter.id,kitchen.id],skills:['food prep'],certifications:[],sites:['Ocean Beach'],preferences:[],minHours:0,maxHours:40,classification:'hourly employee',employmentType:'part-time',startDate:'2024-01-01',rates:[{job:counter.id,from:'2020-01-01',cents:2000},{job:kitchen.id,from:'2020-01-01',cents:2400}]})
- const week=days(monday(new Date().toISOString().slice(0,10)),-7),start=local(week,'09:00'),end=local(week,'17:00')
+ const week=days(monday(today),-7),start=local(week,'09:00'),end=local(week,'17:00')
  await h.cmd('availability.save',{staffId:alex.id,start:local(days(week,-1),'00:00'),end:local(days(week,7),'00:00')})
  const draft=await h.cmd('roster.prepare',{week,shifts:[{staffId:alex.id,job:counter.id,site:'Ocean Beach',start,end,breakMinutes:30,label:'Service and close'}]})
  await h.cmd('roster.publish',pin(draft));let shift=(await h.state()).shifts.find(x=>x.rosterId===draft.id)

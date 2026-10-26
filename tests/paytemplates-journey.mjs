@@ -149,7 +149,7 @@ export async function classificationApi(h){
 }
 
 export async function earningInputsApi(h){
- const {tipFixture}=await import('./tipcredit-journey.mjs'),f=await tipFixture(h),{riley,morgan,server,prep,first,second}=f
+ const {tipFixture}=await import('./tipcredit-journey.mjs'),f=await tipFixture(h,'2026-10-26'),{riley,morgan,server,prep,first,second}=f
  await h.cmd('tipcredit.save',{site:'Austin',state:'TX',minimumWage:'7.25',from:'2020-01-01',tippedJobs:[server.id]})
  const spec={approved:true,name:'Approved non-work inputs',classification:'policy',delimiter:';',header:true,columns:[{field:'employee',header:'Employee'},{field:'code',header:'Code'},{field:'minutes',header:'Minutes'},{field:'amount',header:'USD'}],groupBy:[],dateFormat:'iso',decimals:4,employees:{[riley.id]:{id:'synthetic-lanyard-1',workflow:'W-2'}},codes:{regular:'REG',overtime:'OT','double time':'DT',PTO:'VAC',tips:'TIP','tip make-up':'MAKEUP'},jobs:{[server.id]:'SERVE',[prep.id]:'PREP'},locations:{Austin:'AUSTIN'}}
  const input={staffId:riley.id,date:first,kind:'PTO',minutes:120,amountCents:2000,reference:'synthetic-lanyard-5',reason:'Employer approved PTO from its external bank'}
@@ -184,7 +184,7 @@ export async function earningInputsApi(h){
 }
 
 export async function classifiedSegmentsApi(h,transfer=false){
- const {handoverFixture,captureWork}=await import('./shiftwork-fixture.mjs'),f=await handoverFixture(h,!transfer)
+ const {handoverFixture,captureWork}=await import('./shiftwork-fixture.mjs'),f=await handoverFixture(h,!transfer,'2026-10-26')
  let time
  if(transfer){await h.cmd('clock.in',{commandId:crypto.randomUUID(),capturedAt:f.start},f.alex.cookie);await h.cmd('clock.transfer',{commandId:crypto.randomUUID(),capturedAt:new Date(Date.parse(f.start)+240*60000).toISOString(),job:f.kitchen.id},f.alex.cookie);time=(await h.cmd('clock.out',{commandId:crypto.randomUUID(),capturedAt:f.end,breakMinutes:0},f.alex.cookie)).timesheet}else time=(await captureWork(h,f)).time
  const approved=await h.cmd('time.approve',pin(time),f.manager.cookie)

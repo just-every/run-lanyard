@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "469367d106300f3c432f27d287e3d2bb0dd5e6b9fc69f9532b50437c98166582",
+      "sha256": "108b5096d6b29ee306759160dd4c47bad396ea3242bfd08c7f5ffcc8069b281a",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "efece3fcc0aa978a0b6840b5c5af6c8b623ca4ad097cd5af9f7e0bf557598206",
+      "sha256": "8599a905bf42d22b00477abdb13f587f3cfa184bf3bf17b8fab2438ab64254e2",
       "executable": false
     },
     "DEMO.md": {
@@ -390,7 +390,7 @@
       "executable": false
     },
     "deploy.json": {
-      "sha256": "a64ec84e447e0b54d04cb0fb14c80d6b640a197720c098e6778ccdd8aa89f9a5",
+      "sha256": "67dd418c6e1e8079aeb3afd77bc7d2bbf985b3f61baff699585c22619f11e6e1",
       "executable": false
     },
     "docs/ACCESS-CHAT-KIOSK.md": {
@@ -722,7 +722,7 @@
       "executable": false
     },
     "public/lanyard.js": {
-      "sha256": "46c3f1538c030fb31e9f5b252c14ad4970f99fd3443f9a741c1a3bfaa998ac05",
+      "sha256": "80ea0f6262f4d84de263ff01358f96f0f7facc1d1521774727346c31f71e5caf",
       "executable": false
     },
     "public/punch-location.js": {
@@ -858,7 +858,7 @@
       "executable": false
     },
     "README.md": {
-      "sha256": "99ea322fc7ca62b90cf09dcc1343b8a9a233c692075d46f179fc1d88fd0c720f",
+      "sha256": "216d49f45f6e5124d84244fdff748f33be649751bc3a594b94d25deb31239a46",
       "executable": false
     },
     "release-history/0.1.0.json": {
@@ -3918,7 +3918,7 @@
       "executable": false
     },
     "tests/harness.mjs": {
-      "sha256": "9d9da91466525962b922b89e06a1a6f7ca24b41885b82be9dcec6dd3690c5831",
+      "sha256": "c69f55c1c980cb0257344747c2fe9649c1354c7be61cdc14965cc44e188eb6ad",
       "executable": false
     },
     "tests/holidays-api.mjs": {
@@ -3933,6 +3933,18 @@
       "sha256": "69e1a4d90d5b8cd76cc8897afd28790d4c4c2870278d27e6c404138a68e72ecb",
       "executable": false
     },
+    "tests/hosted-installation-journey.mjs": {
+      "sha256": "4272c7e48c57f6be80e0752b613f783151da3d38948019095f5267da5377392a",
+      "executable": false
+    },
+    "tests/hosted-installation-mail.py": {
+      "sha256": "5de62d0d4fa8633c7390f2b93c6d8c82719d3518015323a4a4313321c897fdca",
+      "executable": false
+    },
+    "tests/hosted-installation-provider.mjs": {
+      "sha256": "0cac0a989cf1050cce57cb8e0c5b47d44fc722f7b6c34bf9c33e2631d4ec37c1",
+      "executable": false
+    },
     "tests/installation-journey.mjs": {
       "sha256": "f523e28bdb8c0fc215028ce9886c67c340d2796f1b817b0dbc22e6508d389b35",
       "executable": false
@@ -3942,7 +3954,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "5994fac3584b110fc95d46c3257fd111e47334e028b163ce962424241bde8482",
+      "sha256": "732539b160a79b56c0788cf3e64eb52d1960f2177be83a18e8dd2d01c0863a32",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -3990,7 +4002,7 @@
       "executable": false
     },
     "tests/paytemplates-journey.mjs": {
-      "sha256": "4c30e3a307dff7b1ddc7470fb4050605f360f23ecafe774069b18ddfe1c40bb1",
+      "sha256": "4704d0a012221471067b3b9d529639533db8a76a2da41db5d7b52a4ee2e31b57",
       "executable": false
     },
     "tests/photos-journey.mjs": {
@@ -4102,7 +4114,7 @@
       "executable": false
     },
     "tests/shiftwork-fixture.mjs": {
-      "sha256": "0d375121434e767fa2c8121f5776d65a61b8f2eb06c8d5851a244edb61e4cbfa",
+      "sha256": "7e653b01be2bc2b1bf4bf7ca136914abc58643ff902e156f350a458e6e297df4",
       "executable": false
     },
     "tests/sick-journey.mjs": {
@@ -4114,7 +4126,7 @@
       "executable": false
     },
     "tests/tipcredit-journey.mjs": {
-      "sha256": "044479844fedce90212712e96904829d3043c6783161936a50ebf8288051b5a2",
+      "sha256": "3fb118195fc9c76ec12c5aa482131e296c2490eae395e2b8d4262533d97276e3",
       "executable": false
     },
     "tests/tradeoff-journey.mjs": {

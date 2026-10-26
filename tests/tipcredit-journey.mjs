@@ -12,13 +12,13 @@ const BARRED=[['CA','California'],['WA','Washington'],['OR','Oregon'],['NV','Nev
 // TIPS-002: Riley serves at the Austin cafe for a $2.13 tipped cash wage. Two weeks ago they declared
 // $10 of cash tips on each of two 8-hour Server shifts; last week $60 and $50, with the last hour of
 // Monday's shift changed to Prep (side work that produces no tips) through the phone clock (CLOCK-008).
-export async function tipFixture(h) {
+export async function tipFixture(h, today=new Date().toISOString().slice(0,10)) {
  const riley=await h.person('Riley'),morgan=await h.person('Morgan','manager'),taylor=await h.person('Taylor','manager')
  for(const [p,site] of [[riley,'Austin'],[morgan,'Austin'],[taylor,'Mission']])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site,position:'Server',hourlyRate:'2.13'})
  const server=await h.cmd('job.save',{name:'Server',skills:[],certifications:[]}),prep=await h.cmd('job.save',{name:'Prep',skills:[],certifications:[]})
  await h.cmd('workforce.save',{staffId:riley.id,jobs:[server.id,prep.id],skills:[],certifications:[],sites:['Austin'],preferences:[],minHours:0,maxHours:40,classification:'hourly employee',employmentType:'part-time',startDate:'2024-01-01',rates:[{job:'',from:'2020-01-01',cents:213}]})
  const tips=await h.cmd('question.save',{site:'Austin',position:'',when:'out',kind:'tips',text:'Cash tips received',required:false})
- const second=days(monday(new Date().toISOString().slice(0,10)),-7),first=days(second,-7)
+ const second=days(monday(today),-7),first=days(second,-7)
  await h.cmd('availability.save',{staffId:riley.id,start:local(days(first,-1),'00:00'),end:local(days(second,7),'00:00')})
  for(const week of [first,second]){const draft=await h.cmd('roster.prepare',{week,shifts:[0,1].map(d=>({staffId:riley.id,job:server.id,site:'Austin',start:local(days(week,d),'09:00'),end:local(days(week,d),'17:00'),breakMinutes:0,label:'Lunch service'}))});await h.cmd('roster.publish',pin(draft))}
  const shifts=(await h.state()).shifts.filter(x=>x.staffId===riley.id&&x.status==='published').sort((a,b)=>a.start.localeCompare(b.start))

@@ -348,13 +348,13 @@ PAY-001 remaining gaps (the complete clause stays PARTIAL):
 
 ## Status
 
-Judged from the code and tests at commit `62ec375f893b091e37b63756bca967df678265ab` (23 October 2026).
+Judged from the code and tests at commit `62ec375f893b091e37b63756bca967df678265ab` (23 October 2026). BASE-001 is updated by the named live hosted installation journey on 26 October 2026.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 15 | 1 | 0 | 16 |
+| Published | 16 | 0 | 0 | 16 |
 | Target and push further | 45 | 33 | 33 | 111 |
-| All | 60 | 34 | 33 | 127 |
+| All | 61 | 33 | 33 | 127 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -373,7 +373,7 @@ Judged from the code and tests at commit `62ec375f893b091e37b63756bca967df678265
 | `ERASE-001` | Unused identity erasure and restore fence | published | done | `src/lanyard/domain/people.ts`; `tests/lanyard.test.mjs`; `tests/archive.test.mjs` |  |
 | `AUDIT-001` | Durable decisions and transactional history | published | done | `src/lanyard/domain/storage.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/domain/activity.ts`; `src/lanyard/movein/index.ts`; `tests/lanyard.test.mjs`; `tests/archive.test.mjs` |  |
 | `PUBLIC-001` | Public run site and installed Lobby | published | done | `src/base/run-site.ts`; `src/site/pages.ts`; `src/site/docs.ts`; `src/base/lobby.ts`; `scripts/installer/local.mjs`; `tests/site/site.test.mjs`; `tests/lanyard.test.mjs` |  |
-| `BASE-001` | Maintained installation and operations commands | published | partial | `tests/installation-journey.mjs` (fresh clones: install and update, help and check, native setup and sign-in, build, archive equality and restore sign-in, preview, reset confirmation and other-installation isolation at 1440 and 390); `tests/archive.test.mjs` (supported data, exclusions and erasure fences); `tests/runtime.mjs` (emitted Worker health); `.github/workflows/verify.yml` (clean-clone verification) | The fresh-clone installation journey covers pinned launcher installation and update, command help and structural check, setup and native sign-in, build, backup, empty-clone restore, preview and explicit reset isolation. Hosted deployment and health remain BLOCKED on a real verified MAIL_FROM and a held mail credential mapped to MAIL_API_KEY. On 26 October the RunEditRun narrow Cloudflare token was minted successfully, but the public rer deploy command refused the placeholder sender before build or upload; no Worker, D1 database or bucket was created. |
+| `BASE-001` | Maintained installation and operations commands | published | done | `tests/installation-journey.mjs` (fresh clones: install and update, help and check, native setup and sign-in, build, archive equality and restore sign-in, preview, reset confirmation and other-installation isolation at 1440 and 390); `tests/archive.test.mjs` (supported data, exclusions and erasure fences); `tests/runtime.mjs` (emitted Worker health); `.github/workflows/verify.yml` (clean-clone verification) ; `tests/hosted-installation-journey.mjs` (hostedInstallation: live RunEditRun deployment and health readback, real fleet QA email sign-in, private roster writes and reads, absent local dev identity, schedule and icon tooltips at 1440 and 390, owned-resource removal readback and temporary token revocation) | None. |
 | `TEAM-001` | Multi-location roles and delegated management | target | partial | `src/lanyard/domain/model.ts`; `src/lanyard/domain/storage.ts`; `tests/lanyard.test.mjs` | Owner/manager/staff authority exists; business/location records, independent payroll roles and site-level permission scopes do not. |
 | `PEOPLE-002` | Jobs qualifications preferences and effective pay rates | target | done | `src/lanyard/domain/workforce.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/domain/templates.ts`; `src/lanyard/domain/cover.ts`; `src/lanyard/domain/swaps.ts`; `src/lanyard/domain/openshifts.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `tests/lanyard.test.mjs`; `tests/workforce-journey.mjs`; `docs/WORKFORCE.md` |  |
 | `PEOPLE-003` | Phone-number staff accounts and text invitations | target | missing |  | Staff records require a unique email; no SMS invitation, phone verification or text-code sign-in exists. |

@@ -12,11 +12,17 @@
   ],
   "originVar": "AUTH_ORIGIN",
   "vars": {
-    "AUTH_LOCAL": "false",
-    "MAIL_PROVIDER": "resend",
-    "MAIL_FROM": "auth@example.invalid"
+    "AUTH_LOCAL": "false"
   },
   "secrets": [
+    {
+      "binding": "MAIL_PROVIDER",
+      "environment": "MAIL_PROVIDER"
+    },
+    {
+      "binding": "MAIL_FROM",
+      "environment": "MAIL_FROM"
+    },
     {
       "binding": "OWNER_EMAIL",
       "environment": "OWNER_EMAIL"

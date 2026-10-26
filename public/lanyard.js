@@ -21,7 +21,11 @@
   }
   document.querySelectorAll('[data-tooltip]').forEach(target => {
     target.addEventListener('mouseenter', () => { tipTimer = setTimeout(() => showTip(target), 300) })
-    target.addEventListener('mouseleave', hideTip)
+    target.addEventListener('mouseleave', () => {
+      const focused = document.activeElement
+      if (focused?.matches('[data-tooltip]')) showTip(focused)
+      else hideTip()
+    })
     target.addEventListener('focus', () => showTip(target))
     target.addEventListener('blur', hideTip)
   })
