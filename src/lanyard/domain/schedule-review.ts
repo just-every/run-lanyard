@@ -8,6 +8,7 @@ import {acaReports} from './aca-report'
 import {conflicts} from './roster'
 import {localDate} from './settings'
 import {coverageCase} from './coverage'
+import {laborCosts} from './labor-cost'
 
 const dateAfter=(date:string,n:number)=>new Date(Date.parse(date+'T00:00:00Z')+n*86400000).toISOString().slice(0,10)
 const siteOf=(s:State,x:Row)=>x.site||s.staff.find(p=>p.id===x.staffId)?.site||''
@@ -66,20 +67,23 @@ export function scheduleReview(s:State,week:string,reader?:Actor) {
  const warnings:{kind:string;site:string;date?:string;message:string}[]=policyWarnings(s,shifts,week)
  const sites=cafes.map(site=>{
   const here=shifts.filter(x=>siteOf(s,x)===site),forecast=s.forecasts.find(f=>f.week===week&&(f.site??'')===site)
+  const estimate=laborCosts(s,week,site,new Date().toISOString(),true)
   const budgetPercent: number|null=forecast?.budgetPercent??null
   const cost=(list:Row[],forecastCents:number|null,date?:string)=>{
-   const t=totals(list),budgetCents=forecastCents!==null&&budgetPercent!==null?Math.round(forecastCents*budgetPercent/100):null
+   const allocation=date?estimate.days.find(d=>d.date===date)!.scheduled:estimate.scheduled
+   const t={...totals(list),costCents:allocation.totalCents??allocation.knownCents,costIncomplete:allocation.totalCents===null,costEstimate:allocation},budgetCents=forecastCents!==null&&budgetPercent!==null?Math.round(forecastCents*budgetPercent/100):null
    const percent=forecastCents?Math.round(t.costCents/forecastCents*1000)/10:null
    const overBudget=budgetCents!==null&&t.costCents>budgetCents
-   if(overBudget)warnings.push({kind:'budget',site,...(date?{date}:{}),message:`${date??'Week'} scheduled labor exceeds the forecast labor budget${t.unrated?' even before missing rates are included':''}.`})
+   if(overBudget)warnings.push({kind:'budget',site,...(date?{date}:{}),message:`${date??'Week'} scheduled labor exceeds the forecast labor budget${t.unrated||t.costIncomplete?' even before unknown costs are included':''}.`})
    return {...t,forecastCents,budgetCents,percent,budgetPercent,overBudget}
   }
   const daily=dates.map((date,i)=>({date,...cost(here.filter(x=>dayOf(x)===date),forecast?forecast.days[i]*100:null,date)}))
   const total=cost(here,forecast?forecast.days.reduce((n:number,v:number)=>n+v,0)*100:null)
   if(total.unrated)warnings.push({kind:'missing rate',site,message:`${total.unrated} scheduled employee${total.unrated===1?' has':'s have'} no hourly rate; scheduled cost is incomplete.`})
+  if(total.costIncomplete)warnings.push({kind:'incomplete cost',site,message:'Some scheduled cost inputs require review; the complete budget comparison is unknown.'})
   if(!forecast)warnings.push({kind:'missing forecast',site,message:'No sales forecast is set for this cafe and week; labor percentage and budget comparison are unavailable.'})
   else if(budgetPercent===null)warnings.push({kind:'missing budget',site,message:'No labor budget percentage is set for this cafe and week.'})
-  return {site,days:daily,...total}
+  return {site,days:daily,...total,burden:estimate.burden}
  })
  for(const id of new Set(shifts.map(x=>x.staffId))){const p=profileOf(s,id),minutes=shifts.filter(x=>x.staffId===id).reduce((n,x)=>n+x.minutes,0);if(p&&minutes<p.minHours*60)warnings.push({kind:'minimum hours',site:s.staff.find(v=>v.id===id)?.site??'',message:`${s.staff.find(v=>v.id===id)?.name}: scheduled below employer-recorded minimum weekly hours (${p.minHours}).`})}
  for(const gap of gaps)warnings.push({kind:'coverage',site:gap.site,date:gap.date,message:`${gap.kind==='call-out'?'Unresolved call-out':'Unfilled open shift'}: ${gap.position||'unassigned role'}.`})

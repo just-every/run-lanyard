@@ -1631,9 +1631,9 @@ test('SALES-001: two weeks of hourly sales by CSV and one day by hand, labelled 
   assert.deepEqual([fixed.value, fixed.source, fixed.versions.map(v => [v.value, v.source])], [35000, 'form', [[30000, 'csv']]])
   // Mon: $800 against 8 scheduled hours ($160): 20.0%, $100.00 an hour. Tue: $850, 18.8%, $106.25. Wed: $1,000, no scheduled labor.
   assert.deepEqual(w.days.slice(0, 3).map(d => [d.date, d.label, d.salesCents, d.laborCents, d.laborPercent, d.salesPerLaborHour, d.hourly]), [['2026-10-05', 'Manual', 80000, 16000, 20, 10000, true], ['2026-10-06', 'Manual', 85000, 16000, 18.8, 10625, true], ['2026-10-07', 'Manual', 100000, 0, 0, null, false]])
-  assert.deepEqual([w.days[1].metrics, w.entered], [{ covers: 40, sales: 85000, transactions: 80 }, { days: 7, salesCents: 585000, laborCents: 32000, laborMinutes: 960, laborPercent: 5.5, salesPerLaborHour: 36563 }])
+  assert.deepEqual([w.days[1].metrics, w.entered], [{ covers: 40, sales: 85000, transactions: 80 }, { days: 7, laborBasis: 'scheduled estimate', salesCents: 585000, laborCents: 32000, laborMinutes: 960, laborPercent: 5.5, salesPerLaborHour: 36563 }])
   const dash = (await h.send('/api/lanyard/dashboard?asOf=2026-10-08T15:30:00Z', undefined, priya.cookie)).value.labor[0]
-  assert.deepEqual([dash.site, dash.actual], ['Ocean Beach', { days: 7, salesCents: 585000, laborCents: 32000, percent: 5.5, salesPerLaborHour: 36563 }])
+  assert.deepEqual([dash.site, dash.actual], ['Ocean Beach', { days: 7, basis: 'scheduled estimate', salesCents: 585000, laborCents: 32000, percent: 5.5, salesPerLaborHour: 36563 }])
   const screen = (await h.send('/app/schedule?week=2026-10-05', undefined, priya.cookie)).text
   for (const part of ['id="sales"', 'Manual (CSV)', 'Manual (form)', '20.0%', '$106.25', 'earlier: $300.00']) assert.ok(screen.includes(part), part)
   // Mission's manager reads and enters only Mission; staff read none; the owner reads any cafe.
@@ -2059,3 +2059,13 @@ test('POLICY-001: Washington normal workday review and application through Setti
 
 test('CHAT-001: reviewed group removal immediately fences history, files and commands without granting readers',async()=>{const {chatMembershipApi}=await import('./chat-membership-journey.mjs');await chatMembershipApi()})
 test('CHAT-001: listed owner removes a group member through the native form at 1440 and 390',async()=>{const {chatMembershipBrowser}=await import('./chat-membership-journey.mjs');await chatMembershipBrowser()})
+
+test('PAY-011: reviewed IIF activities reconcile regular overtime and PTO with mapping refusal and once-only exports',()=>run(async h=>{const {iifApi}=await import('./payiif-journey.mjs');await iifApi(h)},{now:'2026-10-26T12:00:00Z'}))
+test('PAY-011: owner configures Desktop mappings and reviews and downloads IIF at 1440 and 390',async()=>{const {iifBrowser}=await import('./payiif-journey.mjs');await iifBrowser()})
+
+test('COST-001: native worked and approved cost retain rate history overtime burden and correction variance with budget warnings',async()=>{const {costApi}=await import('./cost-journey.mjs');await costApi()})
+test('COST-001: managers inspect worked costs and template warnings and owners configure burdens at 1440 and 390',async()=>{const {costBrowser}=await import('./cost-journey.mjs');await costBrowser()})
+
+test('AI-001: consented extraction resolves ambiguous names and repeated local times before exact native draft publication',async()=>{const {aiScheduleApi}=await import('./ai-schedule-journey.mjs');await aiScheduleApi()})
+test('AI-001: owner-scoped sources and model sends refuse other roles and erasure purges local material through restart',async()=>{const {aiScheduleScopeApi}=await import('./ai-schedule-journey.mjs');await aiScheduleScopeApi()})
+test('AI-001: owner corrects extracted fields inspects sources and approves a draft at 1440 and 390',async()=>{const {aiScheduleBrowser}=await import('./ai-schedule-journey.mjs');await aiScheduleBrowser()})

@@ -1,3 +1,4 @@
+import {quickbooksPreset,iifOptions,iifFile,iifForm} from './payiif'
 import {xlsx,base64} from './payxlsx'
 // PAY-002: retained, explicitly mapped files over approved payroll sources.
 import {type Context,type Row,keys,text,need,object,get,exact,put,canonical} from './model'
@@ -8,11 +9,16 @@ const mapping=(v:unknown,label:string)=>Object.fromEntries(Object.entries(object
 export function templateCommand(c:Context,name:string,p:Record<string,any>){
  if(name!=='payroll.template.save')return
  need(c.a.role==='owner','Only the payroll administrator (the owner) maintains export templates',403)
- keys(p,['id','revision','name','delimiter','header','columns','groupBy','dateFormat','decimals','employees','codes','jobs','locations','classification','format','timeFormat','approved'])
+ p=iifForm(c,p)
+ keys(p,['id','revision','name','delimiter','header','columns','groupBy','dateFormat','decimals','employees','codes','jobs','locations','classification','format','timeFormat','approved','preset','iif'])
  const old=p.id?get(c.s,'paytemplates',p.id):undefined;if(old)exact(old,p)
  const approved=p.approved??false;need(typeof approved==='boolean','Choose explicit template approval')
+ const preset=p.preset;need(preset===undefined||preset===quickbooksPreset,'Unknown maintained preset')
+ if(preset){p={...p,classification:'policy',format:'iif',header:true,columns:[{field:'hours',header:'Duration'}],groupBy:['date','job','location'],dateFormat:'us',decimals:4}}
  const classification=p.classification??'source';need(['source','policy'].includes(classification),'Choose source or policy classification')
- const format=p.format??'csv';need(['csv','tsv','delimited','xlsx'].includes(format),'Choose CSV, TSV, delimited text or XLSX')
+ const format=p.format??'csv';need(['csv','tsv','delimited','xlsx','iif'].includes(format),'Choose CSV, TSV, delimited text, XLSX or the QuickBooks preset')
+ need(format!=='iif'||preset===quickbooksPreset,'IIF requires the maintained QuickBooks preset')
+ const iif=preset?iifOptions(p.iif):undefined
  const timeFormat=p.timeFormat??'iso';need(['iso','utc-minute','utc-time'].includes(timeFormat),'Choose ISO UTC, UTC date and minute, or UTC time')
  const delimiter=format==='tsv'?'\t':p.delimiter??',';need(typeof delimiter==='string'&&delimiter.length===1&&!/["\r\n]/.test(delimiter),'Choose a single delimiter other than a quote or line ending')
  need(typeof p.header==='boolean','Choose whether to include a header')
@@ -24,7 +30,7 @@ export function templateCommand(c:Context,name:string,p:Record<string,any>){
  const decimals=p.decimals??4;need(Number.isInteger(decimals)&&decimals>=0&&decimals<=6,'Choose 0–6 decimal places')
  const employees=Object.fromEntries(Object.entries(object(p.employees)).map(([id,v])=>{const x=object(v);keys(x,['id','workflow']);need(c.s.staff.some(s=>s.id===id),'Employee not found',404);need(['W-2','1099','unclassified'].includes(x.workflow),'Choose W-2, 1099 or unclassified; classification requires owner review');return [id,{id:text(x.id,'provider employee ID',120),workflow:x.workflow}]}))
  need(new Set(Object.values(employees).map((e:any)=>e.id)).size===Object.keys(employees).length,'Provider employee IDs must be unique')
- return put(c,'paytemplates',{name:text(p.name,'template name',80),approved,classification,format,timeFormat,delimiter,header:p.header,columns,groupBy:p.groupBy,dateFormat,decimals,employees,codes:mapping(p.codes,'earning code'),jobs:mapping(p.jobs,'job code'),locations:mapping(p.locations,'location code'),by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),{...old,versions:undefined}]:[]},old)
+ return put(c,'paytemplates',{...(preset?{preset,iif}:{}),name:text(p.name,'template name',80),approved,classification,format,timeFormat,delimiter,header:p.header,columns,groupBy:p.groupBy,dateFormat,decimals,employees,codes:mapping(p.codes,'earning code'),jobs:mapping(p.jobs,'job code'),locations:mapping(p.locations,'location code'),by:c.a.id,at:c.now,versions:old?[...(old.versions??[]),{...old,versions:undefined}]:[]},old)
 }
 export function templateSnapshot(c:Context,id:unknown){
  need(c.a.role==='owner','Only the payroll administrator (the owner) prepares mapped payroll',403)
@@ -65,6 +71,7 @@ function mappedTable(c:Context,lines:any[],t:Row){
  return {headers:t.columns.map((x:any)=>x.header),fields:t.columns.map((x:any)=>x.field),rows:rows.map(r=>t.columns.map((x:any)=>x.field==='hours'?(r.minutes/60).toFixed(t.decimals):x.field==='amount'?(r.amount/100).toFixed(2):r[x.field]))}
 }
 export function mappedFile(c:Context,lines:any[],t:Row){
+ if(t.format==='iif')return iifFile(c,lines,t)
  const table=mappedTable(c,lines,t)
  const render=(row:any[],header=false)=>row.map((value,i)=>escaped(value,t.delimiter,t.format==='xlsx'||!header&&['minutes','hours','amount','revision','rateCents','multiplier'].includes(table.fields[i]))).join(t.delimiter)
  return (t.header?render(table.headers,true)+'\r\n':'')+table.rows.map(row=>render(row)).join('\r\n')+'\r\n'
@@ -72,7 +79,7 @@ export function mappedFile(c:Context,lines:any[],t:Row){
 export function mappedWorkbook(c:Context,lines:any[],t:Row){
  const table=mappedTable(c,lines,t);return base64(xlsx(table.headers,table.rows,table.fields,t.decimals,t.header))
 }
-export const fileExtension=(t?:Row)=>t?.format==='xlsx'?'xlsx':t?.format==='tsv'?'tsv':t?.format==='delimited'?'txt':'csv'
+export const fileExtension=(t?:Row)=>t?.format==='iif'?'iif':t?.format==='xlsx'?'xlsx':t?.format==='tsv'?'tsv':t?.format==='delimited'?'txt':'csv'
 
 export function reviewedFile(c:Context,b:Row){
  if(!b.exportTemplate)return undefined

@@ -1,4 +1,4 @@
-import {priced} from './workforce'
+import {laborCosts} from './labor-cost'
 // SALES-001: sales and workload entered by hand or from a CSV, for cafes whose POS has no connector.
 // Each value is one cafe, venue date, hour (or the whole day), metric and value; a day holds either one
 // daily value or hourly values per metric. Every value is labelled manual (form or CSV) and a correction
@@ -89,15 +89,16 @@ export async function sales(c:Context,name:string,p:Record<string,any>) {
 /** A cafe's week of entered sales beside its scheduled labor: labor % = scheduled labor cost / entered sales (one decimal), sales per labor hour = entered sales / scheduled hours (to the cent). */
 export function salesWeek(s:State,week:string,site:string) {
  const dates=[0,1,2,3,4,5,6].map(i=>new Date(Date.parse(week+'T00:00:00Z')+i*86400000).toISOString().slice(0,10))
- const shifts=s.shifts.filter(x=>x.status==='published'&&weekOf(s,x.start)===week&&siteOf(s,x)===site)
- const ratio=(sales:number,cents:number,minutes:number)=>({laborPercent:sales?Math.round(cents/sales*1000)/10:null,salesPerLaborHour:sales&&minutes?Math.round(sales*60/minutes):null})
- const days=dates.map(date=>{
-  const rows=s.sales.filter(r=>r.site===site&&r.date===date),day=shifts.filter(x=>localDate(x.start,s.timezone)===date)
+ const costs=laborCosts(s,week,site,new Date().toISOString()),worked=costs.actual.sourceCount>0
+ const ratio=(sales:number,cents:number|null,minutes:number)=>({laborPercent:sales&&cents!==null?Math.round(cents/sales*1000)/10:null,salesPerLaborHour:sales&&minutes?Math.round(sales*60/minutes):null})
+ const days=dates.map((date,i)=>{
+  const rows=s.sales.filter(r=>r.site===site&&r.date===date),labor=costs.days[i][worked?'actual':'scheduled']
   const total=(metric:string)=>rows.some(r=>r.metric===metric)?rows.filter(r=>r.metric===metric).reduce((n,r)=>n+r.value,0):null
-  const cents=day.reduce((n,x)=>n+(priced(s,x.staffId,x).costCents??0),0),minutes=day.reduce((n,x)=>n+x.minutes,0),salesCents=total('sales')
+  const cents=labor.totalCents,minutes=labor.minutes,salesCents=total('sales')
   const metrics=Object.fromEntries([...new Set(rows.map(r=>r.metric))].sort().map(m=>[m,total(m)]))
-  return {date,salesCents,metrics,hourly:rows.some(r=>r.hour!==null),label:rows.length?'Manual':null,laborCents:cents,laborMinutes:minutes,...ratio(salesCents??0,cents,minutes),entries:rows.map(r=>({id:r.id,revision:r.revision,hour:r.hour,metric:r.metric,value:r.value,source:r.source,versions:r.versions,savedAt:r.savedAt}))}
+  return {date,salesCents,metrics,hourly:rows.some(r=>r.hour!==null),label:rows.length?'Manual':null,laborBasis:worked?'worked estimate':'scheduled estimate',laborCents:cents,laborMinutes:minutes,...ratio(salesCents??0,cents,minutes),entries:rows.map(r=>({id:r.id,revision:r.revision,hour:r.hour,metric:r.metric,value:r.value,source:r.source,versions:r.versions,savedAt:r.savedAt}))}
  })
  const entered=days.filter(d=>d.salesCents!==null),sum=(k:'salesCents'|'laborCents'|'laborMinutes')=>entered.reduce((n,d)=>n+(d[k]??0),0)
- return {week,site,days,entered:{days:entered.length,salesCents:sum('salesCents'),laborCents:sum('laborCents'),laborMinutes:sum('laborMinutes'),...ratio(sum('salesCents'),sum('laborCents'),sum('laborMinutes'))}}
+ const laborCents=entered.some(d=>d.laborCents===null)?null:sum('laborCents')
+ return {week,site,days,entered:{days:entered.length,laborBasis:worked?'worked estimate':'scheduled estimate',salesCents:sum('salesCents'),laborCents,laborMinutes:sum('laborMinutes'),...ratio(sum('salesCents'),laborCents,sum('laborMinutes'))}}
 }

@@ -5,6 +5,11 @@ const preparation = [
  ['payroll.prepare','ids?: array of approved, unexported timesheet IDs'],
 ]
 const human = [
+ ['ai.consent','Owner','week, site, request, optional image {name,type,data: base64}, consent: true: privately retains an authorized source and records explicit OpenAI sharing consent before any provider call'],
+ ['ai.extract','Owner','id, revision of a consented source: sends only that source and selected cafe context to the configured OpenAI model; output stays private'],
+ ['ai.review','Owner','id, revision, rows with sourceIndex, staffId, site, startLocal, endLocal, breakMinutes, label, confirmed: true, optional startChoice or endChoice UTC occurrence, omit; reason: validates each corrected source row'],
+ ['ai.prepare','Owner','id, revision of the exact reviewed proposal: prepares a private draft requiring the existing roster.publish exact-revision approval'],
+ ['ai.erase','Owner','id, revision, reason, consent: true: removes local source and extracted content; retained schedule history, provider logs and disconnected backups are not erased'],
  ['geofence.save','Owner','site, latitude, longitude, radiusMeters, maxAccuracyMeters, retentionDays, enabled and consent: true; revision to edit. One consented browser position at each in or out punch; no background tracking.'],
  ['location.review / location.hold / location.erase','Owner','id and revision from private georeceipts; review adds reason, hold adds hold boolean and reason; erase adds reason and consent: true. Explicit erasure requires expired retention and no hold. Captured times and flags remain.'],
  ['photo.save','Owner','site, phone, browser, kiosk, breaks, retentionDays from captured time, consent: true; revision to edit. Legacy native sets both phone/browser settings. Device type uses owner-enrolled credentials; unknown requires either enabled setting. Site kiosks still require prior employer photo consent at enrollment. No automatic deletion.'],

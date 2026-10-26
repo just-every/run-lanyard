@@ -1,3 +1,5 @@
+import {laborBurdenSettings} from './labor-cost'
+import {quickbooksSettings} from './payiif'
 import {policyTextarea as textarea} from './policy-fields'
 import {alternatePolicySettings} from './policy-alternate'
 import {policyFields} from './policy-fields'
@@ -39,5 +41,5 @@ export function policiesPage(s:any,q:URLSearchParams,extras:any,now:number){
  const site=String(input?.site??q.get('site')??sites[0]),p=all.find(p=>p.site===site),preset=String(input?.preset??q.get('preset')??p?.preset??'federal')
  const same=p?.preset===preset,v={workdayStart:p?.workdayStart??'00:00',industry:same?p.industry??'nonfactory':'nonfactory',site,preset,from:p?.from??dateKey(now,venue(s)),presetVersion:same?p.presetVersion:VERSION,breakVersion:same?p.breakVersion:BREAK_VERSION,minimumRestMinutes:p?.minimumRestMinutes??0,jurisdiction:same?p.jurisdiction:'',dailyMinutes:same?p.dailyMinutes:480,doubleMinutes:same?p.doubleMinutes:720,weeklyMinutes:same?p.weeklyMinutes:2400,reviewReason:'',...input}
  const back='/app/settings?'+new URLSearchParams({site,preset}),pick=`<form method="get" action="/app/settings"><div class="fields">${select('site','Cafe',sites,site,v=>v||'Default cafe')}${select('preset','Policy preset',[...policyPresets.map(p=>p.id),'custom'],preset,label)}</div><button type="submit" class="secondary">Open policy</button></form>`
- return titleRow('Settings',s,now)+card('Overtime, meals and rest',pick,'','policy-pick')+(p?card('Current policy',record(s,p)+(p.versions?.length?disclosure('Policy revision history',p.versions.slice().reverse().map((v:any)=>`<article>${record(s,v)}</article>`).join('')):''),'','policy-current'):card('Current policy','<p>No policy is configured for this cafe.</p>'))+(review?preview(s,review,back):'')+edit(s,p,v,back)+workerPolicySettings(s,p,q,extras,back)+alternatePolicySettings(s,p,back)
+ return titleRow('Settings',s,now)+card('Overtime, meals and rest',pick,'','policy-pick')+(p?card('Current policy',record(s,p)+(p.versions?.length?disclosure('Policy revision history',p.versions.slice().reverse().map((v:any)=>`<article>${record(s,v)}</article>`).join('')):''),'','policy-current'):card('Current policy','<p>No policy is configured for this cafe.</p>'))+(review?preview(s,review,back):'')+edit(s,p,v,back)+workerPolicySettings(s,p,q,extras,back)+alternatePolicySettings(s,p,back)+quickbooksSettings(s)+laborBurdenSettings(s,q,now)
 }

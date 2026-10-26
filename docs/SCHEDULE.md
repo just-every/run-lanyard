@@ -66,3 +66,57 @@ Lanyard then offers the shift to every teammate in the same position who qualifi
 Teammates answer the offer at the top of their **Schedule** with **Accept** or **Decline** and an optional message. The manager chooses **Approve** on an accepted answer; the shift moves to that person and every other offer closes. **Wait for** closes the shortlist without deciding. The covered cell keeps the call-out and shows when the cover clocks in: the gap closes only at their clock-in.
 
 Continue with [Clock and timesheets](TIME.md) when the team starts work.
+
+## Prepare from a request or schedule image
+
+Built-in extraction currently belongs to the native owner. Supply
+`OPENAI_API_KEY` privately in the installed Worker's environment and optionally
+`OPENAI_MODEL` (default `gpt-5-nano`). Keep the key outside source control and
+archives. Extraction uses the Responses API with a structured schema and requests
+no stored response; provider security-log retention remains outside app erasure.
+
+In **Schedule → Prepare from a request or image**, select one cafe and Monday
+week, enter a staffing request and optionally attach an authorized PNG, JPEG or
+WebP image of at most 1 MB. Review what will be sent and retained, save explicit
+consent, then choose **Extract with OpenAI**. Saving consent sends nothing.
+
+Inspect each field's confidence and source reference. Correct ambiguous names,
+local dates and times, choose the exact occurrence of any repeated DST time,
+and confirm every retained or excluded row against its sources. Validate the
+corrected proposal, prepare its saved review, then review and publish the exact
+schedule revision. The normal availability, conflict, budget and policy checks
+apply. Extracted output cannot publish or alter approved worked time. There are
+no automatic provider retries or substitute models.
+
+The owner may explicitly erase the local image, request, extraction and review.
+A content-free consent and erasure record remains, as does any prepared schedule
+history. Earlier disconnected archives and provider logs cannot be recalled.
+Manager access, complete retention and archive erasure fences remain open under
+AI-001 and PRIVACY-001. Synthetic live-provider proof does not establish the
+required buyer-authorized schedule-photo acceptance.
+
+## Scheduled and worked labor estimates
+
+Choose one cafe and week to open **Labor cost** below the schedule. Scheduled,
+worked and approved-time estimates stay separate. Recorded time and open punches
+supply worked hours; an unworked shift contributes no worked cost. A pending
+correction replaces its source in the worked estimate while approved cost keeps
+the last approval. Approved time keeps its effective-dated job rates after a
+later rate edit. **Days and jobs** breaks down the estimate, and **Calculation
+inputs** shows retained sources, rate dates and unresolved amounts.
+
+The owner opens **Configure burden estimate** to maintain weekly assumptions in
+Settings. A percentage of estimated wages and premiums and an additional amount
+per payable hour save automatically against the current forecast revision. Blank
+components are excluded. These are employer estimates, not tax calculations.
+Existing daily sales forecasts and budget percentages drive warnings before
+publication, including a copied or applied template. The report never removes
+required worked time to make a budget fit.
+
+Worked estimates include available overtime, retained holiday and differential
+inputs and reviewed reporting, split and spread premiums. Declared tips remain
+separate from employer labor cost. Approved tip pools, paid non-work costs,
+complete statutory premiums, separate job budget caps, wider site-role scopes
+and provider-applied reconciliation remain open. **Approved time** never means
+paid wages. Entered-sales ratios use worked estimates when worked cost exists;
+missing rates or classifications keep amounts unknown.

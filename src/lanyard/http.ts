@@ -1,3 +1,6 @@
+import {laborCostReport} from './domain/labor-cost'
+import {aiSource} from './domain/ai-schedules'
+import {type AiConfiguration} from './domain/ai-provider'
 import {policyForm} from './policy-form'
 import {sickCsv,sickReports} from './domain/sick'
 import {localDate} from './domain/settings'
@@ -47,7 +50,7 @@ async function execute(request: Request, env: Bindings, who: Actor, name: string
   if (name.startsWith('import.')) return importCommand(env.DB, who, name, input)
   if (name.startsWith('clockbrowser.')) return clockBrowserCommand(env, who, name, input)
   // CLOCK-007: a punch carries its network identity (edge client IP and enrolled-browser cookie).
-  return command(env.DB, who, name, input, env.SESSION_SECRET, ['clock.in','clock.out','clock.breakStart','clock.breakEnd'].includes(name) ? await networkOf(request, env) : undefined, env.FILES)
+  return command(env.DB, who, name, input, env.SESSION_SECRET, ['clock.in','clock.out','clock.breakStart','clock.breakEnd'].includes(name) ? await networkOf(request, env) : undefined, env.FILES,undefined,env as Bindings&AiConfiguration)
 }
 
 /** CLOCK-007: an enrolment's token goes only into this response's HttpOnly cookie, never into the page or JSON. */
@@ -121,7 +124,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   if(params.has('taskLines')){input.tasks=String(input.taskLines).split(/\r?\n/).map(v=>v.trim()).filter(Boolean);delete input.taskLines}
   if(params.has('taskText')){input.tasks=params.getAll('taskText').filter(v=>v.trim());delete input.taskText}
   if(params.has('segmentUntil')){const until=params.getAll('segmentUntil'),job=params.getAll('segmentJob'),area=params.getAll('segmentArea');input.segments=until.map((v,i)=>({until:Number(v),job:job[i],area:area[i]})).filter((v,i)=>until[i]||v.job||v.area);for(const k of ['segmentUntil','segmentJob','segmentArea'])delete input[k]}
-  for (const key of ['shifts', 'ids', 'items']) if (typeof input[key]==='string'&&input[key]) { try { input[key] = JSON.parse(String(input[key])) } catch { fail(`Invalid ${key}`) } }
+  for (const key of ['shifts', 'ids', 'items', 'rows']) if (typeof input[key]==='string'&&input[key]) { try { input[key] = JSON.parse(String(input[key])) } catch { fail(`Invalid ${key}`) } }
   if ('active' in input) input.active = input.active === 'on' || input.active === 'true' || input.active === '1'
   return input
 }
@@ -162,6 +165,8 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
        await env.DB.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),who.id,who.role,'sick.download','balances',new Date().toISOString()).run()
        return new Response(sickCsv(current,on),{headers:{...headers,'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="lanyard-leave-balances.csv"'}})
       }
+      const aiImage=path.match(/^\/api\/lanyard\/ai-schedules\/([\w-]+)\/source$/)
+      if(aiImage){const image=aiSource(await load(env.DB),who,aiImage[1]),binary=atob(image.data),bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));return new Response(bytes,{headers:{...headers,'content-type':image.type,'content-disposition':`inline; filename="${image.name.replace(/[^\w. -]/g,'_')}"`}})}
       if(path==='/api/lanyard/access')return json(await customAccessRead(env.DB,who))
       if(path==='/app/access')return renderApp(await state(request,env,who),path,{result:{access:await customAccessRead(env.DB,who)}})
       if (pages.has(path)) {
@@ -172,13 +177,14 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
           const weeks=Number(url.searchParams.get('fairWeeks')??8),fairness=await fairnessRead(env.DB,who,w.week,site,weeks)
           let comparison,comparisonError:string|undefined
           if(url.searchParams.has('fairCompare'))try{comparison=await fairnessCompare(env.DB,who,w.week,site,weeks)}catch(error){if(Number((error as any)?.status)!==400)throw error;comparisonError=(error as Error).message}
-          return renderApp(view,path+url.search,{error:comparisonError,result:{fairness,fairnessCompare:comparison}})
+          return renderApp(view,path+url.search,{error:comparisonError,result:{fairness,fairnessCompare:comparison,cost:url.searchParams.get('site')==='all'?undefined:laborCostReport(await load(env.DB),who,w.week,site,new Date().toISOString(),w.view==='draft')}})
         }
         return renderApp(view,path+url.search)
       }
       if (path === '/api/lanyard/agent/demand') return json(await agentDemandRead(env.DB,who,url.searchParams.get('site')??'',url.searchParams.get('date')??''))
       if (path === '/api/lanyard/agent/learning/proposals') return json(await agentLearnRead(env.DB,who,url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/agent/fairness/compare') return json(await comparisonRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
+      if(path==='/api/lanyard/cost')return json(laborCostReport(await load(env.DB),who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',url.searchParams.get('asOf')??new Date().toISOString(),url.searchParams.get('view')==='draft'))
       if (path === '/api/lanyard/fairness/compare') return json(await fairnessCompare(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/fairness') return json(await fairnessRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       // CONTACT-001: the audited emergency contact card, as a screen and as JSON.
@@ -194,7 +200,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       // TIPS-002: a workweek's tip-credit checks, and its make-up pay inputs as a CSV.
       if (path === '/api/lanyard/tipcredit') return json(await tipCreditRead(env.DB, who, url.searchParams.get('week') ?? '', 'json'))
       if (path === '/api/lanyard/tipcredit.csv') { const week = url.searchParams.get('week') ?? ''; return new Response(await tipCreditRead(env.DB, who, week, 'csv') as string, { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lanyard-tip-credit-${week}.csv"` } }) }
-      const file = path.match(/^\/api\/lanyard\/batches\/([\w-]+)\.(csv|tsv|txt|xlsx)$/)
+      const file = path.match(/^\/api\/lanyard\/batches\/([\w-]+)\.(csv|tsv|txt|xlsx|iif)$/)
       if (file) {const download=await batchFile(env.DB,who,file[1],file[2]);return new Response(download.body,{headers:{...headers,'content-type':download.contentType,'content-disposition':`attachment; filename="lanyard-${file[1]}.${download.extension}"`}})}
       if (path === '/api/lanyard/intervals' || path === '/app/intervals') {
         const report = await intervalsRead(env.DB, who, url.searchParams.get('site') ?? '', url.searchParams.get('date') ?? '', Number(url.searchParams.get('size') ?? 60))

@@ -17,6 +17,7 @@ export async function harness(options = {}) {
   const mailbox = []
   // Fake only the paid mail provider; native invitation and session routes stay real.
   const outboundService = async request => {
+    if(new URL(request.url).hostname==='api.openai.com'&&options.modelOutbound)return options.modelOutbound(request)
     assert.equal(request.url, 'https://api.resend.com/emails')
     assert.equal(request.method, 'POST')
     mailbox.push(await request.json())

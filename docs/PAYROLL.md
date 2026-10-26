@@ -194,3 +194,33 @@ changes leave closed periods, retained batches and downloaded bytes unchanged.
 Contractor classification review and conversion, other 1099 forms and state
 treatments remain open under PAY-001. The file path does not claim Gusto,
 Rippling or QuickBooks Payroll approval, legal classification or tax filing.
+
+## QuickBooks Desktop IIF time activities
+
+The owner opens **Settings**, then **QuickBooks Desktop → Configure IIF time
+export**. Copy the company name, creation time, Timer version and release from
+that company's exported Timer header. Enter existing employee names and payroll
+items exactly; map each native job to a customer and job name and service item.
+Classes are optional. Approve the preset revision explicitly.
+
+In **Payroll**, choose the approved Desktop preset, prepare and review the IIF,
+then approve **Export reviewed IIF** and download it. The export-only preset
+writes grouped employee, date, payroll-item, customer-job and service-item
+activities. Whole payable minutes become hours and minutes. Classified regular,
+overtime and PTO hours retain the existing once-only payroll claims and file
+hash. A missing employee, payroll item, customer-job or service item refuses
+preparation. Each activity must fit the Timer format's 23:59 limit. Negative
+corrections and earnings other than classified worked hours or PTO require
+separate reconciliation; they cannot silently turn into fresh positive time.
+
+Format source: [Intuit's IIF Import Kit](https://support.quickbooks.intuit.com/support/pages/executable/iif/iif_import_kit.zip),
+Timer Activity example dated 18 April 2008 and its TIMEACT and TIMERHDR header
+references. The kit specifies the company header, date and duration format and
+list-name mappings. Its older header reference marks PITEM unused; this preset
+supplies the reviewed payroll-item name and requests transfer to payroll, but
+that does not prove the installed Desktop version applies those items.
+[Intuit's overview](https://quickbooks.intuit.com/learn-support/en-us/help-article/list-management/iif-overview-import-kit-sample-files-headers/L5CZIpJne_US_en_US)
+explains the import limitations. The required buyer-authorized Desktop Payroll
+Enhanced import, mapped weekly-timesheet readback and total reconciliation
+remain a manual acceptance check. No live Desktop connection or successful
+company-file import is claimed.
