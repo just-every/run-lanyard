@@ -27,7 +27,7 @@ export function acaReports(s:State,a:Actor,at:string,draft?:Draft) {
    for(const t of s.timesheets.filter(t=>t.staffId===staffId&&t.status==='approved'))for(const p of daily(s,t))if(relevant(p.date)&&p.date<=today&&p.minutes) {
     sources.push({kind:'approved time',id:t.id,revision:t.revision,date:p.date,minutes:p.minutes})
    }
-   for(const c of [...s.acaCredits.filter(c=>!s.holidaypay.some(h=>h.reference===c.reference)&&!s.sickuses.some(u=>u.status==='approved'&&u.reference===c.reference)),...s.holidaypay,...s.sickuses.filter(u=>u.status==='approved')].filter(c=>c.staffId===staffId&&relevant(c.date)&&c.date<=today&&c.minutes))sources.push({kind:'paid non-work',id:c.id,revision:c.revision,date:c.date,minutes:c.minutes,category:c.category,reference:c.reference,source:c.source})
+   for(const c of [...s.acaCredits.filter(c=>!s.holidaypay.some(h=>h.reference===c.reference)&&!s.sickuses.some(u=>u.status==='approved'&&u.paid!==false&&u.reference===c.reference)),...s.holidaypay,...s.sickuses.filter(u=>u.status==='approved'&&u.paid!==false)].filter(c=>c.staffId===staffId&&relevant(c.date)&&c.date<=today&&c.minutes))sources.push({kind:'paid non-work',id:c.id,revision:c.revision,date:c.date,minutes:c.minutes,category:c.category,reference:c.reference,source:c.source})
    const workedMinutes=sources.filter(x=>x.kind==='approved time').reduce((n,x)=>n+x.minutes,0),paidLeaveMinutes=sources.filter(x=>x.kind==='paid non-work').reduce((n,x)=>n+x.minutes,0),totalMinutes=workedMinutes+paidLeaveMinutes
    const rosterWeek=(r:Row)=>s.rosters.find(p=>p.id===r.rosterId)?.week
    const scheduled=[...s.shifts.filter(r=>r.staffId===staffId&&r.status==='published'&&(!draft||rosterWeek(r)!==draft.week)),...(draft?.shifts.filter(r=>r.staffId===staffId)??[])]

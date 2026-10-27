@@ -46,7 +46,7 @@ export function earningsOf(staffId:string,week:string,tz:string,shifts:any[],tim
   for(const i of [0,1,2].sort((a,b)=>(raw[b]-rounded[b])-(raw[a]-rounded[a])||a-b))if(left-->0)rounded[i]++
  }
  const [regularCostCents,overtimeCostCents,doubleCostCents]=rounded.map(v=>workedCostCents===null?null:v)
- const uses=state.sickuses.filter(u=>u.staffId===staffId&&u.status==='approved'&&inside(u.date)),diff=differentialEstimate(state,staffId,range.start,range.end),holiday=holidayEstimate(state,staffId,range.start,range.end,new Date().toISOString()),extra=premiumEstimate(state,staffId,range.start,range.end)
+ const uses=state.sickuses.filter(u=>u.staffId===staffId&&u.status==='approved'&&u.paid!==false&&inside(u.date)),diff=differentialEstimate(state,staffId,range.start,range.end),holiday=holidayEstimate(state,staffId,range.start,range.end,new Date().toISOString()),extra=premiumEstimate(state,staffId,range.start,range.end)
  // Only totals cross the employee boundary: no rule records, source facts,
  // retained rate references, policy revisions or another person's records.
  const paidLeave={minutes:uses.reduce((n,u)=>n+u.minutes,0),costCents:priced?uses.reduce((n,u)=>n+(u.costCents??0),0):null}
