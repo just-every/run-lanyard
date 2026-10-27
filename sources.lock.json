@@ -422,7 +422,7 @@
       "executable": false
     },
     "docs/PAYROLL.md": {
-      "sha256": "469ec28cc72ff2f597980312d80a976a7c9721f2d443d7632d56c726a6ced213",
+      "sha256": "cb454dbc1778f088265dab0843eac96549c24a74d1cea421ab36c390d333d57e",
       "executable": false
     },
     "docs/PRIVACY.md": {
@@ -1674,7 +1674,7 @@
       "executable": false
     },
     "src/lanyard/domain/sick-presets.ts": {
-      "sha256": "2578b224b9ac3ea593f24d5ae4716a4894fd88fe3e48dfed3414c124c2733e2f",
+      "sha256": "a00550db8ecf15cbbde23b2f5ffed6286e28fe2332da40f8692ccd8e02efb6b3",
       "executable": false
     },
     "src/lanyard/domain/sick-transfers.ts": {
@@ -1966,7 +1966,7 @@
       "executable": false
     },
     "src/lanyard/ui/payroll.ts": {
-      "sha256": "49fd4581aa6b2c0f21cdc37064a3f649dab4472b6964980f8e7b5b408c63eb91",
+      "sha256": "fc76906d53fa27b56ff5bbb370c206f53edd6bf7dde1459c3f245074f5a0a296",
       "executable": false
     },
     "src/lanyard/ui/payschedules.ts": {
@@ -4226,7 +4226,7 @@
       "executable": false
     },
     "tests/sick-journey.mjs": {
-      "sha256": "7f3a78948f2f311e000efb256775ef5ac1f5fb98a7fbfc77c827853573fc7bca",
+      "sha256": "bae01300900feb5673b334de1839c118078e16514fb82b1b3e421ad822318c1d",
       "executable": false
     },
     "tests/site/site.test.mjs": {
