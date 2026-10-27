@@ -49,3 +49,11 @@ A manager cannot approve their own hours. Arrange for the owner or another manag
 ## Your first week
 
 Start with [Schedule, call-outs and time off](SCHEDULE.md), then [Clock and timesheets](TIME.md), then [Payroll exports](PAYROLL.md). Keep a [private backup](BACKUP-RESTORE.md) before moving installations or removing local data.
+
+## Organization and scoped access
+
+The owner opens **Settings**, then **Organization**, to create businesses, locations and departments and assign an employee to several eligible locations. Cafe identifiers and location timezones stay fixed to preserve historical references. Location timezones are recorded for future multi-location calendars; scheduling currently uses the installation timezone. Eligibility limits new assignments and grants no administrative permissions. Existing workforce qualifications still apply.
+
+In **Access**, the owner can create editable role defaults at a cafe. Defaults initially have no permissions: configure each role before assigning it. Business levels require an explicit assignment at each registered cafe; department levels additionally check the target employee’s current department membership. Changes apply on the next request. Time approval and payroll export can be granted independently from scheduling. Payroll export also requires wage visibility. Interval reports can show hours while withholding wage amounts and wage-derived percentages.
+
+Only the implemented scoped doors are available. Unsupported catalog operations remain refused. The owner maintains business and department levels and can restore native authority; a revoked custom assignment alone never restores broad manager access.

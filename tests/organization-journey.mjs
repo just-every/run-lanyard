@@ -53,8 +53,9 @@ export async function organizationApi(h){
 }
 
 export async function organizationBrowser(){
- const h=await harness({secure:true}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
+ const h=await harness({secure:true});let browser
  try{
+ browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
   const alex=await h.person('synthetic-lanyard-1')
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
   const context=await browser.newContext({viewport:{width:1440,height:1000},ignoreHTTPSErrors:true})
@@ -91,8 +92,24 @@ export async function organizationBrowser(){
   const scoped=(await h.send('/api/lanyard/access',undefined,alex.cookie)).value
   assert.deepEqual(scoped.drafts.map(r=>r.shifts[0].site),['Mission']);assert.equal('rateBasis' in scoped.drafts[0].shifts[0],false)
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});if(width===1440)assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.ORGANIZATION_SCREENS)await page.screenshot({path:join(process.env.ORGANIZATION_SCREENS,`organization-delegated-${width}.png`),fullPage:true})}
+  const reviewer=await h.person('synthetic-lanyard-2'),payroller=await h.person('synthetic-lanyard-3'),analyst=await h.person('synthetic-lanyard-4')
+  for(const person of [reviewer,payroller,analyst])await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:'staff',active:true,site:'Ocean Beach'})
+  const roleLevels=(await h.send('/api/lanyard/access',undefined,h.owner)).value.levels
+  for(const [person,role,permissions] of [[reviewer,'Time approver',['time.approve']],[payroller,'Payroll administrator',['payroll.export','wages.view']],[analyst,'Read-only analyst',['reports.view']]]){
+   const level=roleLevels.find(l=>l.defaultRole===role)
+   await h.cmd('access.level.save',{...pin(level),name:level.name,site:level.site,permissions})
+   await h.cmd('access.grant',{levelId:level.id,staffId:person.id,site:'Ocean Beach'})
+  }
+  const sign=async person=>{await context.clearCookies();const [name,...value]=person.cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin,secure:true}]);await page.setViewportSize({width:1440,height:1000});await page.goto(h.origin+'/app/access')}
+  const screens=async label=>{for(const width of [1440,390]){await page.setViewportSize({width,height:1000});if(width===1440)assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.ORGANIZATION_SCREENS)await page.screenshot({path:join(process.env.ORGANIZATION_SCREENS,`${label}-${width}.png`),fullPage:true})}}
+  const sheet=await h.cmd('time.prepare',{staffId:alex.id,start:'2026-10-12T09:00:00Z',end:'2026-10-12T12:00:00Z',breakMinutes:0,reason:'Recorded missed clock',site:'Ocean Beach'})
+  await sign(reviewer);await screens('organization-approver');await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'Approve time',exact:true}).click();assert.equal((await h.state()).timesheets.find(t=>t.id===sheet.id).status,'approved')
+  await sign(payroller);await page.getByRole('button',{name:'Prepare payroll',exact:true}).click();const exportForm=page.locator('form[action*="name=payroll.export"]');await exportForm.locator('input[type=checkbox]').check();await exportForm.getByRole('button',{name:'Export payroll',exact:true}).click()
+  const file=await context.request.get(h.origin+await page.getByRole('link',{name:'Download payroll',exact:true}).getAttribute('href'));assert.equal(file.status(),200);assert.ok((await file.text()).includes(alex.payrollId));await screens('organization-payroll')
+  await sign(analyst);await page.locator('input[name=date]').fill('2026-10-12');await page.getByRole('button',{name:'Open interval report',exact:true}).click();assert.deepEqual(await page.locator('td[data-label="Actual hours"]').allTextContents(),['1.00','1.00','1.00']);assert.equal(await page.locator('td[data-label="Actual labor %"]').first().innerText(),'—');await screens('organization-report')
+  assert.deepEqual(errors,[])
   await context.close()
- }finally{await browser.close();await h.close()}
+ }finally{await browser?.close();await h.close()}
 }
 
 export async function organizationAccessApi(h){
@@ -131,6 +148,12 @@ export async function organizationAccessApi(h){
  const departmentGrant=await h.cmd('access.grant',{levelId:scoped.id,staffId:other.id,site:'Ocean Beach'})
  await h.cmd('roster.prepare',{week,shifts:[shift]},other.cookie)
  await refusal('roster.prepare',{week,shifts:[{...shift,staffId:scheduler.id}]},other.cookie)
+ const contactManager=await h.person('synthetic-lanyard-6','manager')
+ await h.cmd('staff.save',{...pin(contactManager),name:contactManager.name,email:contactManager.email,payrollId:contactManager.payrollId,role:'manager',active:true,site:'Ocean Beach'})
+ const contactLevel=await h.cmd('access.level.save',{name:'Department contacts',departmentId:department.id,site:'',permissions:['contacts.view']})
+ await h.cmd('access.grant',{levelId:contactLevel.id,staffId:contactManager.id,site:'Ocean Beach'})
+ assert.equal((await h.send('/api/lanyard/contacts/'+worker.id,undefined,contactManager.cookie)).status,200)
+ assert.equal((await h.send('/api/lanyard/contacts/'+scheduler.id,undefined,contactManager.cookie)).status,404)
  const privateView=(await h.send('/api/lanyard/access',undefined,other.cookie)).value
  assert.deepEqual(privateView.people.map(p=>p.id),[worker.id]);assert.equal(JSON.stringify(privateView).includes('rateBasis'),false)
  await h.cmd('access.level.save',{...pin(time),name:time.name,site:time.site,permissions:['time.approve']})
@@ -139,6 +162,12 @@ export async function organizationAccessApi(h){
  await refusal('time.approve',pin(sheet),scheduler.cookie)
  const approved=await h.cmd('time.approve',pin(sheet),approver.cookie);assert.equal(approved.status,'approved')
  await refusal('payroll.prepare',{ids:[sheet.id]},approver.cookie)
+ const local=await h.cmd('time.prepare',{staffId:worker.id,start:'2026-10-13T09:00:00Z',end:'2026-10-13T10:00:00Z',breakMinutes:0,reason:'Local missed clock',site:'Ocean Beach'})
+ const remote=await h.cmd('time.prepare',{staffId:worker.id,start:'2026-10-13T11:00:00Z',end:'2026-10-13T12:00:00Z',breakMinutes:0,reason:'Other cafe missed clock',site:'Mission'})
+ const bulk=await h.cmd('time.approveMany',{items:[pin(local),pin(remote)]},approver.cookie)
+ assert.deepEqual(bulk.approved.map(t=>t.id),[local.id]);assert.deepEqual(bulk.skipped,[{id:remote.id,reason:'Outside your permissions'}])
+ assert.equal((await h.state()).timesheets.find(t=>t.id===remote.id).status,'submitted')
+
  await h.cmd('access.level.save',{...pin(pay),name:pay.name,site:pay.site,permissions:['payroll.export','wages.view']})
  await h.cmd('access.grant',{levelId:pay.id,staffId:payroll.id,site:'Ocean Beach'})
  const batch=await h.cmd('payroll.prepare',{ids:[sheet.id]},payroll.cookie)

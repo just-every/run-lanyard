@@ -1,3 +1,5 @@
+import {restricted,allowed} from './access'
+import {siteOf} from './team'
 // TIME-008 bulk approval: a manager filters waiting timesheets, reviews the list and
 // approves it in one action. Each item is pinned to the revision the manager saw and
 // goes through the single approval; anything changed, flagged, foreign or their own is skipped.
@@ -17,10 +19,10 @@ export function statesOf(r:Record<string,any>):string[] {
  const states=[...(r.exceptions?.length?['exception']:[]),...(r.corrects?['edited']:[]),...(r.clockId||r.requested||r.employeeConfirmed?[]:['unconfirmed'])]
  return states.length?states:['clean']
 }
-/** Site is the person's home cafe, position their People position, from/to inclusive venue dates of the start. */
+/** Filter by the retained worked cafe, People position and inclusive venue start dates. */
 export function matches(s:State,r:Record<string,any>,f:Filter) {
  const p=s.staff.find(v=>v.id===r.staffId),day=localDate(r.start,s.timezone)
- return (!f.site||(p?.site??'')===f.site)&&(!f.position||(p?.position??'')===f.position)&&(!f.from||day>=f.from)&&(!f.to||day<=f.to)&&(!f.state||statesOf(r).includes(f.state))
+ return (!f.site||siteOf(s,r)===f.site)&&(!f.position||(p?.position??'')===f.position)&&(!f.from||day>=f.from)&&(!f.to||day<=f.to)&&(!f.state||statesOf(r).includes(f.state))
 }
 const date=(v:unknown,label:string)=>{const d=text(v,label,10,true);need(!d||/^\d{4}-\d{2}-\d{2}$/.test(d)&&new Date(d+'T00:00:00Z').toISOString().slice(0,10)===d,`Invalid ${label}: use YYYY-MM-DD`);return d}
 export function filterOf(p:Record<string,any>):Filter {
@@ -40,7 +42,7 @@ export function approvals(c:Context,name:string,p:Record<string,any>) {
   const id=text(item.id,'id'),revision=integer(item.revision,'revision',1,Number.MAX_SAFE_INTEGER);need(!seen.has(id),'Each timesheet once');seen.add(id)
   const r=c.s.timesheets.find(t=>t.id===id),skip=(reason:string)=>skipped.push({id,staffId:r?.staffId,reason})
   if(!r){skip('Not found');continue}
-  if(home!==null&&(c.s.staff.find(v=>v.id===r.staffId)?.site??'')!==home){skip('Outside your cafe');continue}
+  if(restricted(c.s,c.a)){if(!allowed(c.s,c.a,'time.approve',siteOf(c.s,r),r.staffId)){skipped.push({id,reason:'Outside your permissions'});continue}}else if(home!==null&&siteOf(c.s,r)!==home){skip('Outside your cafe');continue}
   // An exception is named even when it arrived after the manager pinned the revision (BREAK-001).
   if(r.exceptions?.length){skip(`Exception: ${r.exceptions.join(', ')}`);continue}
   if(r.revision!==revision){skip('Changed since you reviewed it');continue}
@@ -54,5 +56,5 @@ export function approvals(c:Context,name:string,p:Record<string,any>) {
 }
 /** The same activity a single approval leaves: actor, role, timesheet and time, one per approved revision. */
 function recordDecision(c:Context,id:string) {
- c.sql.push(c.db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),c.a.id,c.a.role,'time.approve',id,c.now))
+ c.sql.push(c.db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),c.a.id,c.a.nativeRole??c.a.role,'time.approve',id,c.now))
 }

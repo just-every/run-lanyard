@@ -105,6 +105,7 @@ export function authorizeCommand(c:Context,name:string,p:Record<string,any>){
  if(!restricted(c.s,c.a)||name.startsWith('access.')||name.startsWith('chat.'))return
  if(personal.has(name)){if(p.staffId)need(p.staffId===c.a.staffId,'Only your own record',403);c.a={...c.a,nativeRole:c.a.role,role:'staff'};return}
  const permission=commandPermissions[name];need(permission,'This command is unavailable to custom levels',403)
+ if(name==='time.approveMany'){need(c.s.accessgrants.some(g=>g.staffId===c.a.staffId&&!g.revoked&&!g.archivedAt&&allowed(c.s,c.a,'time.approve',g.site)),'Time approval permission required',403);c.a={...c.a,nativeRole:c.a.role,role:'manager'};return}
  const sites=sitesFor(c.s,name,p);need(sites.length&&sites.every(site=>allowed(c.s,c.a,permission,site)),'Permission not granted at this cafe',403)
  const targets=commandTargets(c.s,name,p)
  need(targets.every(x=>allowed(c.s,c.a,permission,siteOf(c.s,x),x.staffId)),'Permission not granted for this department',403)

@@ -6,8 +6,8 @@ import {type Context,type State,keys,text,integer,need,manager,put} from './mode
 export type TeamShift={name:string;position:string|null;start:string;end:string}
 const SCOPES=['site','position']
 
-/** A shift's cafe: the one it was scheduled at, else the person's home cafe ('' when unnamed). */
-export const siteOf=(s:State,x:Record<string,any>)=>x.site||s.staff.find(p=>p.id===x.staffId)?.site||''
+/** The retained cafe, including payroll's source time, else the person's home cafe. */
+export const siteOf=(s:State,x:Record<string,any>)=>x.site||(x.timeId?s.timesheets.find(t=>t.id===x.timeId)?.site:undefined)||x.rateBasis?.site||s.staff.find(p=>p.id===x.staffId)?.site||''
 
 /** The cafe's saved choice, or the default whole-site view with nobody hidden. */
 export function visibility(s:State,site:string) {

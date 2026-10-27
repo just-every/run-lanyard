@@ -1,3 +1,4 @@
+import {siteOf} from './team'
 import {unbase64} from './payxlsx'
 import {payrollInputCommand,payrollInputLines,makeUpLines} from './payinputs'
 import {classifiedLines} from './payclassification'
@@ -47,7 +48,7 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
   const nonwork=[...(c.a.role==='owner'?sickLines(c):[]),...nonWorkLines(c),...arrivalLines(c),...(exportTemplate?[...payrollInputLines(c),...makeUpLines(c)]:[])],adjustments=await overtimeInputs(c)
   for(const l of adjustments)need(staff(c,l.staffId).payroll_id,'Set the staff payroll ID first',409)
   need((selected.length>0||adjustments.length>0||nonwork.length>0)&&selected.length<=500,`No approved unexported time, or too many entries${held.length?`; ${held.length} provisionally closed punch${held.length===1?'':'es'} held until confirmed`:''}`,409)
-  const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).flatMap((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);const base={timeId:t.id,revision:t.revision,staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,sourceStart:t.start,sourceEnd:t.end,corrects:t.corrects,rootId:t.rootId,rateBasis:priced(c.s,t.staffId,t)};return [...regularLines(c,t,base),...breakPremiumLines(c,t,base),...holidayLines(c,t,base),...premiumLines(c,t,base),...differentialLines(c,t,base)]})
+  const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).flatMap((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);const base={timeId:t.id,revision:t.revision,site:siteOf(c.s,t),staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,sourceStart:t.start,sourceEnd:t.end,corrects:t.corrects,rootId:t.rootId,rateBasis:priced(c.s,t.staffId,t)};return [...regularLines(c,t,base),...breakPremiumLines(c,t,base),...holidayLines(c,t,base),...premiumLines(c,t,base),...differentialLines(c,t,base)]})
   for(const l of nonwork)need(l.payrollId,'Set the staff payroll ID first',409)
   lines.push(...adjustments,...nonwork)
   const classificationLines=exportTemplate?.classification==='policy'?classifiedLines(c,lines,exportTemplate):undefined

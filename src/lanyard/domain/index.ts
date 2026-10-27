@@ -39,7 +39,7 @@ import {settings} from './settings'
 import {cover} from './cover'
 import {coverageCases} from './coverage'
 import {forecast} from './forecast'
-import {team,teamFor} from './team'
+import {team,teamFor,siteOf} from './team'
 import {approvals} from './approvals'
 import {clockRules} from './clockrules'
 import {leaveRules,allowedDates} from './leaverules'
@@ -185,7 +185,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
   result={...safe,lines:lines.map(({payrollId,rateBasis,...line}:any)=>withoutRates(line))}
  }
  if(!['owner','manager'].includes(a.role))result=hideRates(result)
- if(restricted(s,a)&&!commandTargets(s,name,p).every(x=>allowed(s,a,'wages.view',x.site||s.staff.find(p=>p.id===x.staffId)?.site||'',x.staffId)))result=wageRedact(result)
+ if(restricted(s,a)&&!commandTargets(s,name,p).every(x=>allowed(s,a,'wages.view',siteOf(s,x),x.staffId)))result=wageRedact(result)
  const ownerRow=await db.prepare("SELECT id,email FROM oa_operators WHERE role='owner' AND status='active' ORDER BY created_at LIMIT 1").first<{id:string;email:string}>()
  if(ownerRow)await reconcileNotices(c,await actor(db,{userId:ownerRow.id,email:ownerRow.email,isOwner:true}))
  return await commit(c,before,name,commandId,digest,result)
@@ -338,7 +338,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string,earni
  return result
 }
 export async function batchFile(db:D1Database,identity:Actor,id:string,requestedExtension?:string):Promise<{body:string|Uint8Array<ArrayBuffer>;extension:string;contentType:string}> {
- const a=await live(db,identity),s=await load(db),b=get(s,'batches',id);if(restricted(s,a))need(b.lines.length&&b.lines.every((x:any)=>allowed(s,a,'payroll.export',x.site||s.staff.find(p=>p.id===x.staffId)?.site||'',x.staffId)&&allowed(s,a,'wages.view',x.site||s.staff.find(p=>p.id===x.staffId)?.site||'',x.staffId)),'Payroll file permission required',403);else manager(fresh(a,s));need(a.role==='owner'||!b.exportTemplate&&!b.lines.some((l:any)=>l.sickLine),'Only the owner reads mapped or private paid-leave payroll',403);need(['exported','acknowledged'].includes(b.status),'Batch has not been exported',409);need(typeof b.csv==='string'&&await sha(b.fileBase64?unbase64(b.fileBase64):b.csv)===b.sha256,'Stored payroll file integrity check failed',409)
+ const a=await live(db,identity),s=await load(db),b=get(s,'batches',id);if(restricted(s,a))need(b.lines.length&&b.lines.every((x:any)=>allowed(s,a,'payroll.export',siteOf(s,x),x.staffId)&&allowed(s,a,'wages.view',siteOf(s,x),x.staffId)),'Payroll file permission required',403);else manager(fresh(a,s));need(a.role==='owner'||!b.exportTemplate&&!b.lines.some((l:any)=>l.sickLine),'Only the owner reads mapped or private paid-leave payroll',403);need(['exported','acknowledged'].includes(b.status),'Batch has not been exported',409);need(typeof b.csv==='string'&&await sha(b.fileBase64?unbase64(b.fileBase64):b.csv)===b.sha256,'Stored payroll file integrity check failed',409)
  if(requestedExtension)need(requestedExtension===fileExtension(b.exportTemplate),'Use the original exported file type',409)
  await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,a.role,'payroll.download',b.id,new Date().toISOString()).run()
  const extension=fileExtension(b.exportTemplate)
@@ -383,7 +383,7 @@ export async function dashboardRead(db:D1Database,identity:Actor,asOf:string,sit
 }
 /** CONTACT-001: a person's emergency contact card; every view and every refused attempt is an activity event naming the reader and the person. */
 export async function contactRead(db:D1Database,identity:Actor,staffId:string) {
- const a=await live(db,identity),s=await load(db),f=a.role==='agent'?a:fresh(a,s),ok=mayRead(s,f,staffId)&&(f.staffId===staffId||!restricted(s,f)||allowed(s,f,'contacts.view',s.staff.find(p=>p.id===staffId)?.site??''))
+ const a=await live(db,identity),s=await load(db),f=a.role==='agent'?a:fresh(a,s),ok=mayRead(s,f,staffId)&&(f.staffId===staffId||!restricted(s,f)||allowed(s,f,'contacts.view',s.staff.find(p=>p.id===staffId)?.site??'',staffId))
  await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,f.role,ok?'contact.view':'contact.refused',staffId,new Date().toISOString()).run()
  need(ok,'Not found',404)
  return contactCard(s,staffId)
@@ -487,11 +487,11 @@ export async function learningRead(db:D1Database,identity:Actor,week:string,site
 export async function customAccessRead(db:D1Database,identity:Actor){
  const a=await live(db,identity),s=await load(db),v:any=accessView(s,a)
  if(a.role==='agent')return v
- const can=(permission:string,x:any)=>allowed(s,a,permission,x.site||s.staff.find(p=>p.id===x.staffId)?.site||'',x.staffId)
+ const can=(permission:string,x:any)=>allowed(s,a,permission,siteOf(s,x),x.staffId)
  v.people=s.staff.filter(p=>p.active&&!p.erased_at&&v.sites.some((site:string)=>(p.site===site||s.orgmemberships.some(m=>m.staffId===p.id&&m.locationIds.some((id:string)=>s.locations.some(l=>l.id===id&&l.site===site))))&&(can('draft.view',{site,staffId:p.id})||can('draft.edit',{site,staffId:p.id})))).map(p=>({id:p.id,name:p.name}))
  v.waitingTime=s.timesheets.filter(x=>x.status==='submitted'&&x.staffId!==a.staffId&&can('time.approve',x)).map(x=>({...wageRedact(x),personName:s.staff.find(p=>p.id===x.staffId)?.name??'Former person'}))
  const pay=(x:any)=>can('payroll.export',x)&&can('wages.view',x)
- v.payrollTime=s.timesheets.filter(x=>x.status==='approved'&&pay(x)&&!s.claims.some(cl=>cl.time_id===x.id&&cl.time_revision===x.revision)).map(x=>({...wageRedact(x),personName:s.staff.find(p=>p.id===x.staffId)?.name??'Former person'}))
+ v.exportableTime=s.timesheets.filter(x=>x.status==='approved'&&pay(x)&&!s.claims.some(cl=>cl.time_id===x.id&&cl.time_revision===x.revision)).map(x=>({...wageRedact(x),personName:s.staff.find(p=>p.id===x.staffId)?.name??'Former person'}))
  v.batches=s.batches.filter(b=>!b.exportTemplate&&!b.lines.some((x:any)=>x.sickLine)&&b.lines.length&&b.lines.every(pay))
  v.reportSites=v.sites.filter((site:string)=>wholeSiteAllowed(s,a,'reports.view',site))
  v.jobs=s.jobs.map(j=>({id:j.id,name:j.name}))
