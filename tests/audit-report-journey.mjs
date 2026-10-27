@@ -218,6 +218,8 @@ async function auditDelegation(h,f){
  await h.cmd('access.audit.grant',input,f.morgan.cookie,403)
  await h.cmd('access.audit.grant',{...input,consent:false},h.owner,403)
  await h.cmd('access.audit.grant',{...input,site:'Mission'},h.owner,403)
+ await h.cmd('access.audit.grant',{...input,employeeIds:[subject.id,' '+subject.id+' ']},h.owner,400)
+ await h.cmd('access.audit.grant',{...input,jurisdictions:['CA',' CA ']},h.owner,400)
  await h.cmd('access.audit.grant',{...input,classes:['sick-leave']},h.owner,403)
  await h.cmd('access.audit.grant',{...input,classes:['tip-credit']},h.owner,403)
  await h.cmd('access.audit.grant',{...input,classes:['tip-credit'],wages:true,sensitivePurpose:''},h.owner,400)

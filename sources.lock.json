@@ -1310,7 +1310,7 @@
       "executable": false
     },
     "src/lanyard/domain/audit-access.ts": {
-      "sha256": "fa2fdfda54c62a2cc5c8cc5a7a1f56eee7e672828db6b791d0c087f33c872bac",
+      "sha256": "611569d60a21018e7cfb68c2ed7fc7396678850dde702e58e45a0c80ca0d6e51",
       "executable": false
     },
     "src/lanyard/domain/audit-report.ts": {
@@ -3982,7 +3982,7 @@
       "executable": false
     },
     "tests/audit-report-journey.mjs": {
-      "sha256": "14a888f019c222fc2e8cf42ccdf274305305a11f387058756ba91168feb0a1db",
+      "sha256": "8e51010e0c2daef1d6dca578073c36a320bf9d6c490a7874810f5a1c5ec265c4",
       "executable": false
     },
     "tests/autorules-workweek-journey.mjs": {
