@@ -69,6 +69,6 @@ export function sickCoverage(id:string,p:Record<string,any>,need:(v:unknown,m:st
   }
  }
  if(id==='OR_UNPAID'){coverage.portland=flag('portland');need(employeeCount<(coverage.portland?6:10),'This employer requires paid Oregon sick time')}
- if(id==='PHILADELPHIA_UNPAID'){coverage.chainLocations=integer(Number(p.chainLocations),'chain establishments',0,10000000);need(employeeCount<10&&coverage.chainLocations<15,'This employer requires paid Philadelphia sick time')}
+ if(id==='PHILADELPHIA_UNPAID'){need(typeof p.chainLocations==='number'||typeof p.chainLocations==='string'&&p.chainLocations.trim()!=='','Review chain establishments');coverage.chainLocations=integer(Number(p.chainLocations),'chain establishments',0,10000000);need(employeeCount<10&&coverage.chainLocations<15,'This employer requires paid Philadelphia sick time')}
  return coverage
 }

@@ -33,7 +33,7 @@ export async function people(c:Context,name:string,p:Record<string,any>) {
  if(name==='staff.erase') {
   need(c.a.role==='owner','Owner required',403);keys(p,['id','revision']);const old=c.s.staff.find(s=>s.id===text(p.id,'id'));need(old,'Staff not found',404);need(!old.erased_at,'Staff already erased',409);need(integer(p.revision,'revision',1,Number.MAX_SAFE_INTEGER)===old.version,'Staff changed; reload',409)
   // COVER-004's employment record (type, start date) is not history: it never blocks erasure and is erased with the person.
-  const unusedSql=`NOT EXISTS(SELECT 1 FROM l_records r,json_tree(r.data) j WHERE r.kind<>'employment' AND j.key='staffId' AND j.value=?)
+  const unusedSql=`NOT EXISTS(SELECT 1 FROM l_records r,json_tree(r.data) j WHERE r.kind<>'employment' AND j.key IN ('staffId','donorId','recipientId') AND j.value=?)
    AND NOT EXISTS(SELECT 1 FROM oa_operators WHERE email=? COLLATE NOCASE)
    AND NOT EXISTS(SELECT 1 FROM ik_provenance WHERE destination='lanyard:staff' AND target_kind='staff' AND target_id=?)
    AND NOT EXISTS(SELECT 1 FROM ik_d1_history WHERE destination='lanyard:staff' AND target_kind='staff' AND target_id=?)

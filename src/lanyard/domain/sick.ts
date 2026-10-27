@@ -110,6 +110,10 @@ export function sickLines(c:Context){
 export function sickCsv(s:State,on:string){
  const cell=(v:any)=>{const raw=String(v??''),safe=typeof v!=='number'&&/^[\s]*[=+@-]/.test(raw)?"'"+raw:raw;return '"'+safe.replaceAll('"','""')+'"'}
  const lines=[['payroll_id','staff_id','site','as_of','preset','policy_id','balance_minutes','annual_accrued_minutes','annual_used_minutes','pending_minutes','paid','pay_code','source_id','source_revision','source_minutes','credited_minutes']]
- for(const r of sickReports(s,on)){const person=s.staff.find(p=>p.id===r.staffId)!;const base=[person.payroll_id??'',r.staffId,r.site,on,r.preset,r.policyId,r.balanceMinutes,r.annualAccrued,r.annualUsed,r.pendingMinutes,r.paid,r.code];lines.push([...base,'','','',''] as string[]);for(const e of r.sources)lines.push([...base,e.id??'',e.revision??'',e.minutes??'',e.creditedMinutes??''] as string[])}
+ for(const r of sickReports(s,on)){const person=s.staff.find(p=>p.id===r.staffId)!;const base=[person.payroll_id??'',r.staffId,r.site,on,r.preset,r.policyId,r.balanceMinutes,r.annualAccrued,r.annualUsed,r.pendingMinutes,r.paid,r.code];lines.push([...base,'','','',''] as string[]);for(const e of r.sources){
+   const rule=sickRule(get(s,'sickpolicies',r.policyId),e.date),source=[...base]
+   source[4]=rule?.preset;source[10]=e.paid??(rule?.paid!==false);source[11]=e.code??rule?.code
+   lines.push([...source,e.id??'',e.revision??'',e.minutes??'',e.creditedMinutes??''] as string[])
+  }}
  return lines.map(l=>l.map(cell).join(',')).join('\r\n')+'\r\n'
 }
