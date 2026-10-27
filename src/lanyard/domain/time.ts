@@ -131,7 +131,11 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   const captured=r.captured??{start:r.start,end:r.end,breakMinutes:r.breakMinutes,minutes:r.rounding?.capturedMinutes??r.minutes}
   // Edited time is never rounded (TIME-005): its payable time is the edited time, and no rule rounds it at approval.
   // BREAK-001: the edit is re-checked against the break policy; a newly missing or short break adds its exception, premiums follow the edited facts.
-  const {payable,rounding,...rest}=r;return put(c,'timesheets',{...rest,...w,captured,edited:{by:c.a.id,at:c.now,reason:text(p.reason,'reason',500)},...recheck(c,r,w)},r)
+  const edited={by:c.a.id,at:c.now,reason:text(p.reason,'reason',500)}
+  const facts=(v:Row|typeof w)=>({start:v.start,end:v.end,minutes:'minutes' in v?v.minutes:Math.floor((Date.parse(v.end)-Date.parse(v.start))/60000)-v.breakMinutes,breakMinutes:v.breakMinutes})
+  const editHistory=[...(r.editHistory??[]),{revision:r.revision+1,priorRevision:r.revision,...edited,before:facts(r),after:facts(w)}]
+  const editHistoryComplete=r.editHistoryComplete??!r.edited
+  const {payable,rounding,...rest}=r;return put(c,'timesheets',{...rest,...w,captured,edited,editHistory,editHistoryComplete,...recheck(c,r,w)},r)
  }
  if(name==='time.request') {
   // TIME-003: an employee requests a missing punch or a correction of their own approved time, attesting to it; a manager approves it.

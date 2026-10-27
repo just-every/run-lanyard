@@ -52,3 +52,11 @@ is over 36. Use nice -n 15 and at most two workers, one heavy job at a time.
 Stop only processes you started. Never read ~/.env or print secrets.
 Keep research outside this public repository. Run Base's publication scan
 on the exact tree before every public push; no exclusions or force pushes.
+
+## Contract documents
+
+After changing CONTRACT.md, run `node scripts/contract-docs.mjs write CLAUSE-ID`, then
+`node scripts/contract-docs.mjs check CLAUSE-ID` for the changed clauses.
+Omit the identifiers to refresh every metadata row. Existing journey wording is
+preserved; this command synchronizes status, evidence and gaps only. Commit both generated documents with
+the contract, then regenerate the edition source lock last.
