@@ -1673,6 +1673,10 @@
       "sha256": "2cff3903fb2fc9b3d78cbd9f71edc7d4455ad92b054ad8ed23efcd95fb3667a4",
       "executable": false
     },
+    "src/lanyard/domain/sick-coverage.ts": {
+      "sha256": "038471d153f1d2f9b69faa8977bc998585c0eee2d4275993fc8f56dd1666647a",
+      "executable": false
+    },
     "src/lanyard/domain/sick-presets.ts": {
       "sha256": "a00550db8ecf15cbbde23b2f5ffed6286e28fe2332da40f8692ccd8e02efb6b3",
       "executable": false
