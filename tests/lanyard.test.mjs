@@ -2071,4 +2071,4 @@ test('AI-001: owner-scoped sources and model sends refuse other roles and erasur
 test('AI-001: owner corrects extracted fields inspects sources and approves a draft at 1440 and 390',async()=>{const {aiScheduleBrowser}=await import('./ai-schedule-journey.mjs');await aiScheduleBrowser()})
 
 test('POLICY-002: source-versioned employer coverage and retained notice rest and premium previews use published shifts and postings',async()=>{const {fairworkApi}=await import('./fairwork-journey.mjs');await fairworkApi()})
-test('POLICY-002: owner reviews coverage and change consequences in Settings at 1440 and 390',async()=>{const {fairworkBrowser}=await import('./fairwork-journey.mjs');await fairworkBrowser()})
+test('POLICY-002: owner reviews coverage and change consequences in Settings',async()=>{const {fairworkBrowser}=await import('./fairwork-journey.mjs');await fairworkBrowser()})
