@@ -2070,8 +2070,8 @@ test('AI-001: consented extraction resolves ambiguous names and repeated local t
 test('AI-001: owner-scoped sources and model sends refuse other roles and erasure purges local material through restart',async()=>{const {aiScheduleScopeApi}=await import('./ai-schedule-journey.mjs');await aiScheduleScopeApi()})
 test('AI-001: owner corrects extracted fields inspects sources and approves a draft at 1440 and 390',async()=>{const {aiScheduleBrowser}=await import('./ai-schedule-journey.mjs');await aiScheduleBrowser()})
 
-test('POLICY-002: source-versioned employer coverage and retained notice rest and premium previews use published shifts and postings',async()=>{const {fairworkApi}=await import('./fairwork-journey.mjs');await fairworkApi()})
-test('POLICY-002: owner reviews coverage and change consequences in Settings at 1440 and 390',async()=>{const {fairworkBrowser}=await import('./fairwork-journey.mjs');await fairworkBrowser()})
+test('POLICY-002: attributable source-versioned coverage and retained consequence previews refuse unauthorized and stale decisions atomically',async()=>{const {fairworkApi}=await import('./fairwork-journey.mjs');await fairworkApi()})
+test('POLICY-002: owner reviews coverage and change consequences in Settings',async()=>{const {fairworkBrowser}=await import('./fairwork-journey.mjs');await fairworkBrowser()})
 
 test('TEAM-001: owner organization records retain hierarchy and eligible locations without granting authority',()=>run(async h=>{const {organizationApi}=await import('./organization-journey.mjs');await organizationApi(h)}))
 test('TEAM-001: organization Settings creates two locations and a shared employee through native forms',async()=>{const {organizationBrowser}=await import('./organization-journey.mjs');await organizationBrowser()})

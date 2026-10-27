@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "c411da97d3ae4580ef404225b33db831dd50558eb068580fbab1d65c72bc97f4",
+      "sha256": "eb2a3f08561b214d2923d23566c3c5bd22c692eec2ac77356949cbcfe7949b05",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "d66737c299b7d822edd2305e9a3ed0879f7c07d60ee76db1a5805ac05f10fcf4",
+      "sha256": "589a95cceb29a6f4a5eb581c86572c022619bfcdf44b2d0694c550e0b9819f9f",
       "executable": false
     },
     "DEMO.md": {
@@ -3994,7 +3994,7 @@
       "executable": false
     },
     "tests/fairwork-journey.mjs": {
-      "sha256": "240b510d772c3f394e2cfc366a4041e80c87e0407d69a1ee998025f5eb019310",
+      "sha256": "5f86e830bbe0ed34d579011f5fda121439ae60d2e370a7b798761e8543e5d993",
       "executable": false
     },
     "tests/fixtures/staff.csv": {
@@ -4006,7 +4006,7 @@
       "executable": false
     },
     "tests/harness.mjs": {
-      "sha256": "f21dd31ae1c601c69b8eb1487c86c39b02449d1adf5b4e9ee320255679f963b4",
+      "sha256": "7f1a7c3fb48716ec4cdc22da189d6cddc18af2979e14f9858f8c251456c57966",
       "executable": false
     },
     "tests/holidays-api.mjs": {
@@ -4042,7 +4042,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "2de00362d2e81c0c6a510236158e96d4a3a7802b4d732f72b69a591a72144b50",
+      "sha256": "9573ad8d92052cab3526e29ca0908121412313c9bab243cfda11471eedeecb35",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
