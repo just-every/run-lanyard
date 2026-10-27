@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "9e86996dee6dd240abdeaa40d432bc35b767fcf11a3bc0c7aec9f174160d5338",
+      "sha256": "ee9cde7571a3ba09f6c7bf0e5a6d71fdcf65ca09de96940535d9c143ef79139d",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "fa9d59a683240c258914d58360ca7b7a45fd7619fb07ef2601df22504bb5196c",
+      "sha256": "f720a902e9bf3525bb3653a85876b182713b99ba37dbfd7ed72ded12fe757806",
       "executable": false
     },
     "DEMO.md": {
@@ -1671,10 +1671,6 @@
     },
     "src/lanyard/domain/shiftworkfiles.ts": {
       "sha256": "2cff3903fb2fc9b3d78cbd9f71edc7d4455ad92b054ad8ed23efcd95fb3667a4",
-      "executable": false
-    },
-    "src/lanyard/domain/sick-coverage.ts": {
-      "sha256": "038471d153f1d2f9b69faa8977bc998585c0eee2d4275993fc8f56dd1666647a",
       "executable": false
     },
     "src/lanyard/domain/sick-presets.ts": {
