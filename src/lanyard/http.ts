@@ -149,7 +149,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     who = await principal(request, env, isAgent)
     if (request.method === 'GET') {
       const custom=await customMode(env,who)
-      if(custom&&!['/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path))fail('This read is unavailable to custom levels',403)
+      if(custom&&!['/api/lanyard/intervals','/app/intervals','/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path)&&!/^\/api\/lanyard\/batches\/[\w-]+\.(csv|tsv|txt|xlsx|iif)$/.test(path))fail('This read is unavailable to custom levels',403)
       if(path==='/api/lanyard/chat-membership')return json(chatMembershipAudit(await load(env.DB),who))
       if(path==='/app/chat'||path==='/api/lanyard/chat'){
        const chat=chatRead(await load(env.DB),who,url.searchParams.get('q')??'',url.searchParams.get('threadId')??'')

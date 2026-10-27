@@ -2075,3 +2075,4 @@ test('POLICY-002: owner reviews coverage and change consequences in Settings at 
 
 test('TEAM-001: owner organization records retain hierarchy and eligible locations without granting authority',()=>run(async h=>{const {organizationApi}=await import('./organization-journey.mjs');await organizationApi(h)}))
 test('TEAM-001: organization Settings creates two locations and a shared employee through native forms',async()=>{const {organizationBrowser}=await import('./organization-journey.mjs');await organizationBrowser()})
+test('ACCESS-003: organization scopes and editable role defaults separate scheduling time approval and payroll authority',()=>run(async h=>{const {organizationAccessApi}=await import('./organization-journey.mjs');await organizationAccessApi(h)}))

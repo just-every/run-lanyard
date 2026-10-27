@@ -14,7 +14,7 @@ import {minorCommand,checkMinorAssignments} from './minors'
 import {differentialCommand} from './differentials'
 import {clockLanguage,kioskCheck,kioskReceipt} from './kiosk'
 import {chatCommand} from './chat'
-import {accessCommand,authorizeCommand,restricted,accessView,wageRedact,allowed} from './access'
+import {accessCommand,authorizeCommand,authorizeResult,commandTargets,wholeSiteAllowed,restricted,accessView,wageRedact,allowed} from './access'
 import {noticeCommand,reconcileNotices,noticesFor} from './notices'
 import {demandRule,demandCommand} from './demand'
 import {demandReport} from './demand-compare'
@@ -85,7 +85,7 @@ import {holidayPay} from './holiday-pay'
 import {holidayReviews} from './holidays'
 export {actor}
 export type {Actor} from './model'
-const commands=['organization.business.save','organization.location.save','organization.department.save','organization.member.save','fairwork.save','fairwork.preview','ai.consent','ai.extract','ai.review','ai.prepare','ai.erase','payroll.input.save','payroll.template.save','privacy.review','privacy.retention','privacy.hold','privacy.export','privacy.erase','policy.save','policy.preview','policy.review','policy.worker.preview','policy.worker.save','geofence.save','location.review','location.hold','location.erase','photo.save','photo.hold','photo.erase','sickpolicy.save','sick.request','sick.decide','sick.correct','minor.save','differential.save','clocklanguage.save','chat.create','chat.removeMember','chat.leave','chat.send','chat.acknowledge','access.level.save','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
+const commands=['organization.business.save','organization.location.save','organization.department.save','organization.member.save','fairwork.save','fairwork.preview','ai.consent','ai.extract','ai.review','ai.prepare','ai.erase','payroll.input.save','payroll.template.save','privacy.review','privacy.retention','privacy.hold','privacy.export','privacy.erase','policy.save','policy.preview','policy.review','policy.worker.preview','policy.worker.save','geofence.save','location.review','location.hold','location.erase','photo.save','photo.hold','photo.erase','sickpolicy.save','sick.request','sick.decide','sick.correct','minor.save','differential.save','clocklanguage.save','chat.create','chat.removeMember','chat.leave','chat.send','chat.acknowledge','access.level.save','access.defaults.create','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -170,6 +170,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=workforce(c,name,p)
  if(result===undefined)result=tipCredit(c,name,p)
  need(result!==undefined,'Unknown command',404)
+ authorizeResult(c,name,result)
  result=locationReceipt(c,name,p,result,pendingLocation)
  result=photoReceipt(c,name,p,result,pendingPhoto)
  const capture=kioskReceipt(c,name,p,result);if(capture)result={...capture.result,kioskReceipt:capture.receipt}
@@ -184,7 +185,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
   result={...safe,lines:lines.map(({payrollId,rateBasis,...line}:any)=>withoutRates(line))}
  }
  if(!['owner','manager'].includes(a.role))result=hideRates(result)
- if(restricted(s,a)&&!allowed(s,a,'wages.view',s.staff.find(p=>p.id===a.staffId)?.site??''))result=wageRedact(result)
+ if(restricted(s,a)&&!commandTargets(s,name,p).every(x=>allowed(s,a,'wages.view',x.site||s.staff.find(p=>p.id===x.staffId)?.site||'',x.staffId)))result=wageRedact(result)
  const ownerRow=await db.prepare("SELECT id,email FROM oa_operators WHERE role='owner' AND status='active' ORDER BY created_at LIMIT 1").first<{id:string;email:string}>()
  if(ownerRow)await reconcileNotices(c,await actor(db,{userId:ownerRow.id,email:ownerRow.email,isOwner:true}))
  return await commit(c,before,name,commandId,digest,result)
@@ -337,7 +338,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string,earni
  return result
 }
 export async function batchFile(db:D1Database,identity:Actor,id:string,requestedExtension?:string):Promise<{body:string|Uint8Array<ArrayBuffer>;extension:string;contentType:string}> {
- const a=await live(db,identity);manager(a);const s=await load(db);manager(fresh(a,s));const b=get(s,'batches',id);need(a.role==='owner'||!b.exportTemplate&&!b.lines.some((l:any)=>l.sickLine),'Only the owner reads mapped or private paid-leave payroll',403);need(['exported','acknowledged'].includes(b.status),'Batch has not been exported',409);need(typeof b.csv==='string'&&await sha(b.fileBase64?unbase64(b.fileBase64):b.csv)===b.sha256,'Stored payroll file integrity check failed',409)
+ const a=await live(db,identity),s=await load(db),b=get(s,'batches',id);if(restricted(s,a))need(b.lines.length&&b.lines.every((x:any)=>allowed(s,a,'payroll.export',x.site||s.staff.find(p=>p.id===x.staffId)?.site||'',x.staffId)&&allowed(s,a,'wages.view',x.site||s.staff.find(p=>p.id===x.staffId)?.site||'',x.staffId)),'Payroll file permission required',403);else manager(fresh(a,s));need(a.role==='owner'||!b.exportTemplate&&!b.lines.some((l:any)=>l.sickLine),'Only the owner reads mapped or private paid-leave payroll',403);need(['exported','acknowledged'].includes(b.status),'Batch has not been exported',409);need(typeof b.csv==='string'&&await sha(b.fileBase64?unbase64(b.fileBase64):b.csv)===b.sha256,'Stored payroll file integrity check failed',409)
  if(requestedExtension)need(requestedExtension===fileExtension(b.exportTemplate),'Use the original exported file type',409)
  await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,a.role,'payroll.download',b.id,new Date().toISOString()).run()
  const extension=fileExtension(b.exportTemplate)
@@ -396,8 +397,14 @@ export async function salesRead(db:D1Database,identity:Actor,week:string,site:st
 }
 /** REPORT-003: one cafe's day by interval (15, 30 or 60 minutes), for the owner and that cafe's managers. */
 export async function intervalsRead(db:D1Database,identity:Actor,site:string,date:string,size:number) {
- const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
- const cafe=f.role==='owner'?site:s.staff.find(p=>p.id===f.staffId)?.site??'';need(salesSite(s,f,cafe),'Not found',404)
+ const a=await live(db,identity),s=await load(db),f=fresh(a,s)
+ if(restricted(s,f)){
+  need(wholeSiteAllowed(s,f,'reports.view',site),'Report permission required for the whole cafe',403)
+  const report=intervalReport(s,site,date,size,new Date().toISOString()),wagesVisible=wholeSiteAllowed(s,f,'wages.view',site)
+  if(!wagesVisible)for(const x of report.intervals){for(const group of [x.scheduled,x.actual]){(group as any).cents=null;group.laborPercent=null;for(const position of Object.values(group.byPosition))(position as any).cents=null};(x as any).exceeded=null}
+  return {...report,wagesVisible}
+ }
+ manager(f);const cafe=f.role==='owner'?site:s.staff.find(p=>p.id===f.staffId)?.site??'';need(salesSite(s,f,cafe),'Not found',404)
  return intervalReport(s,cafe,date,size,new Date().toISOString())
 }
 /** DEMAND-001: a cafe day's forecast, saved versions and outcome, for the owner and that cafe's managers. */
@@ -480,9 +487,16 @@ export async function learningRead(db:D1Database,identity:Actor,week:string,site
 export async function customAccessRead(db:D1Database,identity:Actor){
  const a=await live(db,identity),s=await load(db),v:any=accessView(s,a)
  if(a.role==='agent')return v
- const home=s.staff.find(p=>p.id===a.staffId)?.site??''
- if(allowed(s,a,'draft.view',home)||allowed(s,a,'draft.edit',home)){v.people=s.staff.filter(p=>p.active&&!p.erased_at&&p.site===home).map(p=>({id:p.id,name:p.name}));v.jobs=s.jobs.map(j=>({id:j.id,name:j.name}));v.drafts=s.rosters.filter(r=>r.status==='draft'&&s.shifts.filter(x=>x.rosterId===r.id&&x.status==='draft').every(x=>(x.site||s.staff.find(p=>p.id===x.staffId)?.site)===home)).map(r=>({...r,shifts:s.shifts.filter(x=>x.rosterId===r.id&&x.status==='draft')}))
- }
- if(allowed(s,a,'swap.approve',home))v.swaps=s.swaps.filter(w=>[w.give,w.take].every(x=>!x||x.site===home))
- return allowed(s,a,'wages.view',home)?v:wageRedact(v)
+ const can=(permission:string,x:any)=>allowed(s,a,permission,x.site||s.staff.find(p=>p.id===x.staffId)?.site||'',x.staffId)
+ v.people=s.staff.filter(p=>p.active&&!p.erased_at&&v.sites.some((site:string)=>(p.site===site||s.orgmemberships.some(m=>m.staffId===p.id&&m.locationIds.some((id:string)=>s.locations.some(l=>l.id===id&&l.site===site))))&&(can('draft.view',{site,staffId:p.id})||can('draft.edit',{site,staffId:p.id})))).map(p=>({id:p.id,name:p.name}))
+ v.waitingTime=s.timesheets.filter(x=>x.status==='submitted'&&x.staffId!==a.staffId&&can('time.approve',x)).map(x=>({...wageRedact(x),personName:s.staff.find(p=>p.id===x.staffId)?.name??'Former person'}))
+ const pay=(x:any)=>can('payroll.export',x)&&can('wages.view',x)
+ v.payrollTime=s.timesheets.filter(x=>x.status==='approved'&&pay(x)&&!s.claims.some(cl=>cl.time_id===x.id&&cl.time_revision===x.revision)).map(x=>({...wageRedact(x),personName:s.staff.find(p=>p.id===x.staffId)?.name??'Former person'}))
+ v.batches=s.batches.filter(b=>!b.exportTemplate&&!b.lines.some((x:any)=>x.sickLine)&&b.lines.length&&b.lines.every(pay))
+ v.reportSites=v.sites.filter((site:string)=>wholeSiteAllowed(s,a,'reports.view',site))
+ v.jobs=s.jobs.map(j=>({id:j.id,name:j.name}))
+ v.draftSites=v.sites.filter((site:string)=>allowed(s,a,'draft.edit',site))
+ v.drafts=s.rosters.filter(r=>r.status==='draft').flatMap(r=>{const shifts=s.shifts.filter(x=>x.rosterId===r.id&&x.status==='draft');return shifts.length&&shifts.every(x=>can('draft.view',x)||can('draft.edit',x))?[{...r,shifts}]:[]})
+ v.swaps=s.swaps.filter(w=>commandTargets(s,'swap.decide',{id:w.id}).every(x=>can('swap.approve',x)))
+ return a.role==='owner'?v:wageRedact(v)
 }

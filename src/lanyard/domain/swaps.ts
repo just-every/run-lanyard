@@ -1,3 +1,4 @@
+import {restricted,allowed} from './access'
 import {minimumRestIssue} from './policy'
 // COVER-001: employee shift swaps. An employee offers one of their upcoming published shifts to
 // an eligible coworker, or proposes exchanging it for one of that coworker's; the coworker consents
@@ -78,7 +79,7 @@ export function swaps(c:Context,name:string,p:Record<string,any>) {
   need(w.status==='accepted','Only a swap both people agreed to can be decided',409);need(c.a.staffId!==w.fromId&&c.a.staffId!==w.toId,'You cannot decide your own swap',403)
   // Until TEAM-001 brings site scopes, a manager decides swaps whose shifts are all at their home cafe; the owner decides any.
   const home=c.s.staff.find(v=>v.id===c.a.staffId)?.site??''
-  if(c.a.role==='manager')need([w.give,w.take].every(x=>!x||x.site===home),'Only a manager of this shift’s cafe can decide this swap',403)
+  if(c.a.role==='manager')need([w.give,w.take].every(x=>!x||(restricted(c.s,c.a)?allowed(c.s,c.a,'swap.approve',x.site):x.site===home)),'Only a manager of this shift’s cafe can decide this swap',403)
   need(['approved','refused'].includes(p.decision),'Invalid decision');const note=text(p.note,'note',280,true)
   if(p.decision==='refused')return put(c,'swaps',{...w,status:'refused',decisionNote:note,decidedBy:c.a.id,decidedAt:c.now},w)
   const {give,take,overtime}=recheck(c,w,'manager')
