@@ -3986,7 +3986,7 @@
       "executable": false
     },
     "tests/fairwork-journey.mjs": {
-      "sha256": "89145c07d08398c587dbaade675cd0d4572d6e986ed1e46b2e237b8827452a5e",
+      "sha256": "5f86e830bbe0ed34d579011f5fda121439ae60d2e370a7b798761e8543e5d993",
       "executable": false
     },
     "tests/fixtures/staff.csv": {
