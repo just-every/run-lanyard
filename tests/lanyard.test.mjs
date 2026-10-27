@@ -2069,3 +2069,5 @@ test('COST-001: managers inspect worked costs and template warnings and owners c
 test('AI-001: consented extraction resolves ambiguous names and repeated local times before exact native draft publication',async()=>{const {aiScheduleApi}=await import('./ai-schedule-journey.mjs');await aiScheduleApi()})
 test('AI-001: owner-scoped sources and model sends refuse other roles and erasure purges local material through restart',async()=>{const {aiScheduleScopeApi}=await import('./ai-schedule-journey.mjs');await aiScheduleScopeApi()})
 test('AI-001: owner corrects extracted fields inspects sources and approves a draft at 1440 and 390',async()=>{const {aiScheduleBrowser}=await import('./ai-schedule-journey.mjs');await aiScheduleBrowser()})
+
+test('REPORT-001: filtered native reports and CSV reconcile approved revisions across two sites and retain incomplete offline sources without leaking wages',async()=>{const {reportsApi}=await import('./reports-journey.mjs');await reportsApi()})

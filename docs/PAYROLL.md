@@ -224,3 +224,26 @@ explains the import limitations. The required buyer-authorized Desktop Payroll
 Enhanced import, mapped weekly-timesheet readback and total reconciliation
 remain a manual acceptance check. No live Desktop connection or successful
 company-file import is claimed.
+
+## Native operational report API
+
+Signed-in native managers can read `GET /api/lanyard/reports` or download `GET /api/lanyard/reports.csv`. Supply `from` and `through` as venue dates, inclusive, for a period of at most 93 days. Optional filters are `site`, `job` (the job id), `person` (the staff id) and `kind`: `schedule`, `attendance`, `breaks`, `PTO`, `worked`, `labor`, `tips`, `payroll`, or `all`. For example: `/api/lanyard/reports.csv?from=2026-10-12&through=2026-10-18&site=East&kind=worked`.
+
+The owner can report across sites. A native manager defaults to their home site, cannot request another site's wages or people, and cannot read owner-only PTO inputs or payroll export records. Custom access levels and preparation keys do not gain report access. CSV downloads are audited and spreadsheet formula characters in text cells are escaped.
+
+Worked rows use approved time and retained rate revisions; pending corrections leave those approved totals unchanged until approval. Amounts are USD cents and remain estimates. Labor rows include configured employer burdens and list approved-time and manually entered sales revisions, with missing budgets or incomplete sales marked incomplete. Job and person filters omit unallocated site labor rows. Missing punches, overnight no-shows, open breaks and unresolved device-reported captures remain visible. Captures still held only on a disconnected device cannot be observed by the server.
+
+Report kinds are separate ledgers: do not add schedule, worked, labor, PTO or payroll rows together. Tips distinguish declared clock-out amounts from employer-approved input amounts; the totals keep declared amounts separate. Exception summaries do not count timed breaks a second time. Each row identifies its source and revision. Empty report categories are incomplete rather than proof that no activity occurred.
+
+These API reports do not yet have an app report screen, scheduled email delivery or revocable download links. Manual sales entries and employer payroll acknowledgements do not establish POS or provider-applied payroll reconciliation. Approved tip pools remain outside the supported report sources.
+
+## Job labor caps
+
+The existing `forecast.save` command accepts `jobBudgets` alongside the site, Monday week, seven sales forecast days and budget percentage. Include the current forecast `revision` (zero for a new forecast). Each cap names a `job`, a `weeklyCents` amount and seven `days` amounts in USD cents, Monday first. A daily `null` leaves that day uncapped; zero is an explicit zero budget. Each job occurs once, and an empty job id covers work without an assigned job.
+
+Omitting `jobBudgets` preserves existing caps when saving sales or employer burdens; an explicit empty list removes them with the same revision check. Native managers configure only their home site's caps. Cap configuration currently uses the public command; a Settings editor remains pending.
+
+The Schedule's labor-cost card shows daily and weekly job caps beside scheduled and worked estimates, and identifies overruns. Draft publication review warns when either cap is exceeded, including after applying a template, copy or recurrence. Caps warn without removing worked time or changing payable hours. The site sales-percentage budget remains independent.
+
+
+The owner also sees approved paid non-work costs in the Schedule cost card, including employer PTO, paid leave and non-work holiday inputs with retained source revisions. These stay separate from worked hours. The employer estimate adds their approved amounts and configured burdens to the worked estimate. Reusing a source reference across these input families makes the non-work total unknown until reconciled. Native managers retain their existing worked-cost view; private payroll inputs are not newly disclosed.

@@ -68,6 +68,10 @@ export function scheduleReview(s:State,week:string,reader?:Actor) {
  const sites=cafes.map(site=>{
   const here=shifts.filter(x=>siteOf(s,x)===site),forecast=s.forecasts.find(f=>f.week===week&&(f.site??'')===site)
   const estimate=laborCosts(s,week,site,new Date().toISOString(),true)
+  for(const j of estimate.jobs) {
+   if(j.overBudget)warnings.push({kind:'job budget',site,message:`${j.name} scheduled labor exceeds its weekly job budget.`})
+   for(const d of j.days)if(d.overBudget)warnings.push({kind:'job budget',site,date:d.date,message:`${j.name} scheduled labor exceeds its daily job budget on ${d.date}.`})
+  }
   const budgetPercent: number|null=forecast?.budgetPercent??null
   const cost=(list:Row[],forecastCents:number|null,date?:string)=>{
    const allocation=date?estimate.days.find(d=>d.date===date)!.scheduled:estimate.scheduled
