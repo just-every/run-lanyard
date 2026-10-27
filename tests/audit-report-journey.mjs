@@ -82,6 +82,12 @@ export async function auditApi(h){
  await h.restart()
  const retained=(await read()).rows.find(x=>x.category==='punch-edit');assert.deepEqual(retained.facts.editHistory,latest.facts.editHistory)
  const historyCsv=await h.send('/api/lanyard/audit.csv?'+query,undefined,h.owner);assert.ok(historyCsv.text.includes('Checked closing record')&&historyCsv.text.includes('Second reviewed correction'))
+ await auditResubmissions(h,f.alex)
+ const returnedRound=await h.cmd('time.return',{...pin(f.timesheet),reason:'Confirm captured time'})
+ const confirmedRound=await h.cmd('time.resubmit',{...pin(returnedRound),start:returnedRound.start,end:returnedRound.end,breakMinutes:returnedRound.breakMinutes,note:'Captured times confirmed'},f.riley.cookie)
+ assert.deepEqual([confirmedRound.minutes,confirmedRound.rounding,confirmedRound.payable],[495,f.timesheet.rounding,f.timesheet.payable])
+ const roundingRow=(await read()).rows.find(x=>x.category==='rounding'&&x.sourceId===f.timesheet.id)
+ assert.deepEqual([roundingRow.facts.capturedMinutes,roundingRow.facts.minutes,roundingRow.facts.netMinutes],[481,495,14])
  await auditBoundary(h,f)
  await auditQuarter(h)
  const level=await h.cmd('access.level.save',{name:'Synthetic report reader',site:'Austin',permissions:['reports.view']})
@@ -91,6 +97,53 @@ export async function auditApi(h){
  await h.cmd('staff.save',{id:f.morgan.id,revision:before.staff.find(p=>p.id===f.morgan.id).revision,name:f.morgan.name,email:f.morgan.email,payrollId:f.morgan.payrollId,role:'manager',active:false,site:'Austin'})
  await read(query,f.morgan.cookie,403)
  return r
+}
+async function auditResubmissions(h,person){
+ const read=async id=>{
+  const r=await h.send('/api/lanyard/audit?'+query,undefined,h.owner);assert.equal(r.status,200,r.text)
+  const row=r.value.rows.find(x=>x.category==='punch-edit'&&x.sourceId===id)
+  assert.ok(row,'changed employee time is included in the audit report');return row
+ }
+ const original=await h.cmd('time.prepare',{staffId:person.id,site:'Austin',start:'2026-10-11T08:00:00Z',end:'2026-10-11T16:00:00Z',breakMinutes:30,reason:'Missing closing punch'})
+ const edited=await h.cmd('time.edit',{...pin(original),start:original.start,end:'2026-10-11T15:30:00Z',breakMinutes:30,reason:'Reviewed closing log'})
+ const back=await h.cmd('time.return',{...pin(edited),reason:'Please confirm your departure'})
+ const payload={...pin(back),start:back.start,end:'2026-10-11T15:00:00Z',breakMinutes:30,note:'I left after the register closed'}
+ await h.cmd('time.resubmit',payload,h.owner,403)
+ const resubmitted=await h.cmd('time.resubmit',payload,person.cookie)
+ const row=await read(original.id)
+ assert.equal(row.facts.minutes,390)
+ assert.equal(row.facts.editHistoryComplete,true)
+ assert.deepEqual(row.facts.editHistory.map(e=>[e.priorRevision,e.revision,e.before.minutes,e.after.minutes,e.reason]),[[1,2,450,420,'Reviewed closing log'],[3,4,420,390,payload.note]])
+ assert.notEqual(row.facts.editHistory.at(-1).by,edited.edited.by)
+ assert.equal(row.facts.editHistory.at(-1).by,(await h.state(person.cookie)).actor.id)
+ assert.equal(row.facts.editedBy,(await h.state(person.cookie)).actor.id)
+ assert.equal(row.facts.editHistory.at(-1).at,'2026-10-27T12:00:00.000Z')
+ assert.equal(row.facts.reason,payload.note)
+ assert.deepEqual(row.facts.captured,{start:original.start,end:original.end,breakMinutes:30,minutes:450})
+ await h.cmd('time.resubmit',payload,person.cookie,409)
+ const again=await h.cmd('time.return',{...pin(resubmitted),reason:'Confirm the unchanged record'})
+ const unchanged=await h.cmd('time.resubmit',{...pin(again),note:'Confirmed unchanged'},person.cookie)
+ assert.deepEqual((await read(original.id)).facts.editHistory,row.facts.editHistory)
+ const secondReturn=await h.cmd('time.return',{...pin(unchanged),reason:'Check meal length'})
+ const second=await h.cmd('time.resubmit',{...pin(secondReturn),start:secondReturn.start,end:secondReturn.end,breakMinutes:60,note:'Meal lasted one hour'},person.cookie)
+ const final=await h.cmd('time.edit',{...pin(second),start:second.start,end:'2026-10-11T14:30:00Z',breakMinutes:60,reason:'Reviewed final register time'})
+ const expected=await read(original.id)
+ assert.deepEqual(expected.facts.editHistory.map(e=>[e.priorRevision,e.revision,e.before.minutes,e.after.minutes,e.reason]),[[1,2,450,420,'Reviewed closing log'],[3,4,420,390,payload.note],[7,8,390,360,'Meal lasted one hour'],[8,9,360,330,'Reviewed final register time']])
+ assert.equal(expected.facts.editHistory.at(-1).after.minutes,expected.facts.minutes)
+ assert.equal(expected.facts.editHistoryComplete,true)
+ const approved=await h.cmd('time.approve',pin(final))
+ await h.cmd('time.resubmit',{...pin(approved),note:'Wrong state'},person.cookie,409)
+ await h.restart()
+ assert.deepEqual((await read(original.id)).facts.editHistory,expected.facts.editHistory)
+ const file=await h.send('/api/lanyard/audit.csv?'+query,undefined,h.owner)
+ assert.equal(file.status,200);assert.ok(file.text.includes(payload.note)&&file.text.includes('Meal lasted one hour')&&file.text.includes('Reviewed final register time'))
+ // An employee correction also appears when no manager has ever edited it.
+ const requested=await h.cmd('time.prepare',{staffId:person.id,site:'Austin',start:'2026-10-12T08:00:00Z',end:'2026-10-12T12:00:00Z',breakMinutes:0,reason:'Missing employee punch'})
+ const returned=await h.cmd('time.return',{...pin(requested),reason:'Check departure'})
+ await h.cmd('time.resubmit',{...pin(returned),start:returned.start,end:'2026-10-12T11:00:00Z',breakMinutes:0,note:'Departed before lunch'},person.cookie)
+ const first=await read(requested.id)
+ assert.deepEqual(first.facts.editHistory.map(e=>[e.before.minutes,e.after.minutes,e.reason]),[[240,180,'Departed before lunch']])
+ assert.equal(first.facts.editHistoryComplete,true)
 }
 async function auditBoundary(h,f){
  const person=await h.person('Boundary')
@@ -203,7 +256,8 @@ export async function auditBrowser(){
  try{
   const fixture=await auditFixture(h)
   await auditBoundary(h,fixture)
-  await h.cmd('time.edit',{id:fixture.manual.id,revision:2,start:fixture.manual.start,end:'2026-10-10T15:00:00Z',breakMinutes:30,reason:'Second reviewed correction'})
+  const back=await h.cmd('time.return',{id:fixture.manual.id,revision:2,reason:'Confirm closing time'})
+  await h.cmd('time.resubmit',{...pin(back),start:back.start,end:'2026-10-10T15:00:00Z',breakMinutes:30,note:'Employee corrected closing time'},fixture.alex.cookie)
   const context=await browser.newContext({viewport:{width:1440,height:1000}})
   try{
    await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
@@ -221,10 +275,10 @@ export async function auditBrowser(){
    assert.ok((await page.locator('table').innerText()).includes('Review closing change'))
    assert.ok((await page.locator('table').innerText()).includes('sick-leave'))
    assert.ok((await page.locator('table').innerText()).includes('Whole workweek across cafes'))
-   assert.ok((await page.locator('table').innerText()).includes('Second reviewed correction'))
+   assert.ok((await page.locator('table').innerText()).includes('Employee corrected closing time'))
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
    for(const width of [1440,390]){await page.setViewportSize({width,height:1000});if(process.env.AUDIT_SCREENS){await mkdir(process.env.AUDIT_SCREENS,{recursive:true});await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:join(process.env.AUDIT_SCREENS,`audit-${width}.png`)})
-     await page.locator('tbody tr').filter({hasText:'Second reviewed correction'}).first().scrollIntoViewIfNeeded();await page.screenshot({path:join(process.env.AUDIT_SCREENS,`audit-edits-${width}.png`)})
+     await page.locator('tbody tr').filter({hasText:'Employee corrected closing time'}).first().scrollIntoViewIfNeeded();await page.screenshot({path:join(process.env.AUDIT_SCREENS,`audit-edits-${width}.png`)})
      await page.locator('tbody tr').filter({hasText:'Whole workweek across cafes'}).first().scrollIntoViewIfNeeded();await page.screenshot({path:join(process.env.AUDIT_SCREENS,`audit-workweek-${width}.png`)})}}
    assert.deepEqual(errors,[])
   }finally{await context.close()}

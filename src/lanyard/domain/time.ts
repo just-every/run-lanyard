@@ -79,6 +79,11 @@ function recheck(c:Context,r:Row,w:{start:string;end:string;breakMinutes:number}
  const shiftId=r.clockId?c.s.clocks.find(k=>k.id===r.clockId)?.shiftId:null
  return breakOutcome(checkBreaks(c.s,r.staffId,shiftId,w,timedFor(r,w.breakMinutes),Boolean(r.breakWaiver)),{...r,exceptions:[...(r.exceptions??[]).filter((x:string)=>!x.startsWith('Minor work rule ')),...minorTime(c.s,{...r,...w,edited:true})]})
 }
+/** Retain every changed revision, including the employee's answer to a send-back. */
+function editRecord(c:Context,r:Row,w:Record<string,any>,reason:string) {
+ const facts=(v:Record<string,any>)=>({start:v.start,end:v.end,minutes:v.minutes,breakMinutes:v.breakMinutes})
+ return {editHistory:[...(r.editHistory??[]),{revision:r.revision+1,priorRevision:r.revision,by:c.a.id,at:c.now,reason,before:facts(r),after:facts(w)}],editHistoryComplete:r.editHistoryComplete??(!r.edited&&!r.resubmitted)}
+}
 export function time(c:Context,name:string,p:Record<string,any>) {
  if(name==='clock.in'||name==='clock.out') {
   keys(p,name==='clock.in'?['commandId','capturedAt','answers']:['commandId','capturedAt','breakMinutes','meal','waiveMeal','breakNote','answers']);const staffId=self(c.a),at=instant(p.capturedAt,'capturedAt');need(Date.parse(at)<=Date.parse(c.now)+60000,'Clock capture cannot be in the future')
@@ -132,10 +137,7 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   // Edited time is never rounded (TIME-005): its payable time is the edited time, and no rule rounds it at approval.
   // BREAK-001: the edit is re-checked against the break policy; a newly missing or short break adds its exception, premiums follow the edited facts.
   const edited={by:c.a.id,at:c.now,reason:text(p.reason,'reason',500)}
-  const facts=(v:Row|typeof w)=>({start:v.start,end:v.end,minutes:'minutes' in v?v.minutes:Math.floor((Date.parse(v.end)-Date.parse(v.start))/60000)-v.breakMinutes,breakMinutes:v.breakMinutes})
-  const editHistory=[...(r.editHistory??[]),{revision:r.revision+1,priorRevision:r.revision,...edited,before:facts(r),after:facts(w)}]
-  const editHistoryComplete=r.editHistoryComplete??!r.edited
-  const {payable,rounding,...rest}=r;return put(c,'timesheets',{...rest,...w,captured,edited,editHistory,editHistoryComplete,...recheck(c,r,w)},r)
+  const {payable,rounding,...rest}=r;return put(c,'timesheets',{...rest,...w,captured,edited,...editRecord(c,r,w,edited.reason),...recheck(c,r,w)},r)
  }
  if(name==='time.request') {
   // TIME-003: an employee requests a missing punch or a correction of their own approved time, attesting to it; a manager approves it.
@@ -167,7 +169,8 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   keys(p,['id','revision','start','end','breakMinutes','note']);const r=get(c.s,'timesheets',p.id);exact(r,p);need(r.staffId===self(c.a),'Only your own time',403);need(r.status==='returned','This time was not sent back to you',409)
   const w=p.start===undefined?{start:r.start,end:r.end,breakMinutes:r.breakMinutes,minutes:r.minutes}:work({start:p.start,end:p.end,breakMinutes:typeof p.breakMinutes==='string'?Number(p.breakMinutes):p.breakMinutes});need(w.end<=c.now,'Time cannot end in the future');clearOverlap(c,r.staffId,w,r.rootId)
   const captured=r.captured??{start:r.start,end:r.end,breakMinutes:r.breakMinutes,minutes:r.rounding?.capturedMinutes??r.minutes},changed=w.start!==r.start||w.end!==r.end||w.breakMinutes!==r.breakMinutes
-  const {payable,rounding,...rest}=r;return put(c,'timesheets',{...(changed?rest:r),...w,...(changed?{captured,...recheck(c,r,w)}:{}),status:'submitted',resubmitted:{at:c.now,note:text(p.note,'note',500,true)}},r)
+  const note=text(p.note,'note',500,true),history=changed?editRecord(c,r,w,note||'Employee corrected returned time'):{editHistoryComplete:r.editHistoryComplete??(!r.edited&&!r.resubmitted)}
+  const {payable,rounding,...rest}=r;return put(c,'timesheets',{...(changed?rest:r),...(changed?{...w,captured,...recheck(c,r,w)}:{}),...history,status:'submitted',resubmitted:{at:c.now,note}},r)
  }
  if(name==='time.approve') {
   manager(c.a);keys(p,['id','revision']);const r=get(c.s,'timesheets',p.id);exact(r,p);return approve(c,r)
