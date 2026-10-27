@@ -5,7 +5,7 @@ import {policyForm} from './policy-form'
 import {sickCsv,sickReports} from './domain/sick'
 import {localDate} from './domain/settings'
 import {kioskResponse,kioskAdmin,kioskPin} from './kiosk'
-import {chatRead,chatFile} from './domain/chat'
+import {chatRead,chatFile,chatMembershipAudit} from './domain/chat'
 import {load} from './domain/storage'
 import {customAccessRead} from './domain'
 import { runtimeBindings, type Bindings } from '../auth.server'
@@ -149,6 +149,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     if (request.method === 'GET') {
       const custom=await customMode(env,who)
       if(custom&&!['/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path))fail('This read is unavailable to custom levels',403)
+      if(path==='/api/lanyard/chat-membership')return json(chatMembershipAudit(await load(env.DB),who))
       if(path==='/app/chat'||path==='/api/lanyard/chat'){
        const chat=chatRead(await load(env.DB),who,url.searchParams.get('q')??'',url.searchParams.get('threadId')??'')
        return path==='/app/chat'?renderApp(await state(request,env,who),path+url.search,{result:{chat}}):json(chat)

@@ -1,5 +1,5 @@
-import {type State,type Actor,type Context,type Row,need,keys,text,get,exact,put,self} from './model'
-import {restricted,allowed} from './access'
+import {type State,type Actor,type Context,type Row,need,keys,text,get,exact,put} from './model'
+import {restricted} from './access'
 const person=(s:State,a:Actor)=>s.staff.find(p=>p.id===a.staffId&&p.active&&!p.erased_at)
 function manages(s:State,a:Actor,site:string){return a.role==='owner'||a.role==='manager'&&!restricted(s,a)&&person(s,a)?.site===site}
 export function chatMayRead(s:State,a:Actor,t:Row){
@@ -19,7 +19,11 @@ export function chatRead(s:State,a:Actor,q='',threadId=''){
  const messages=s.chatmessages.filter(m=>ids.has(m.threadId)&&(!threadId||m.threadId===threadId)&&(!search||m.text.toLowerCase().includes(search))).sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id)).slice(-100).map(safeMessage)
  return {threads,messages,reads:s.chatreads.filter(x=>ids.has(x.threadId)),people:s.staff.filter(p=>p.active&&!p.erased_at&&(p.site===person(s,a)?.site||a.role==='owner')).map(p=>({id:p.id,name:p.name,site:p.site})),q}
 }
-export function chatCommand(c:Context,name:string,p:Record<string,any>){
+export function chatMembershipAudit(s:State,a:Actor){
+ need(a.role==='owner','Native owner required',403)
+ return {receipts:s.chatthreads.flatMap(t=>(t.membershipChanges??[]).map((r:Row)=>({threadId:t.id,...r})))}
+}
+export async function chatCommand(c:Context,name:string,p:Record<string,any>){
  if(!name.startsWith('chat.'))return undefined
  need(c.a.role!=='agent','Native session required',403)
  if(name==='chat.create'){
@@ -48,8 +52,17 @@ export function chatCommand(c:Context,name:string,p:Record<string,any>){
   const me=person(c.s,c.a),reason=text(p.reason,'departure reason',500)
   need(me&&t.members.includes(me.id),'Only a current listed member may leave',403)
   const members=t.members.filter((id:string)=>id!==me.id)
-  return put(c,'chatthreads',{...t,members,membershipChanges:[...(t.membershipChanges??[]),
-   {action:'left',staffId:me.id,by:c.a.id,at:c.now,reason,before:t.members,after:members}]},t)
+  if(c.a.role==='owner'){
+   // Remaining listed native owners are checked again in the membership transaction.
+   const placeholders=members.map(()=>'?').join(',')
+   const sql=`SELECT 1 FROM oa_operators o JOIN l_staff p ON p.email=o.email COLLATE NOCASE WHERE o.role='owner' AND o.status='active' AND p.id IN (${placeholders||'NULL'})`
+   need(await c.db.prepare(sql).bind(...members).first(),'The last listed native owner must remain in the group',409)
+   c.sql.push(c.db.prepare(`INSERT INTO l_guard(id,ok) VALUES(?,CASE WHEN EXISTS(${sql}) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(),...members))
+  }
+  const changed=put(c,'chatthreads',{...t,members,membershipChanges:[...(t.membershipChanges??[]),
+   {action:'left',staffId:me.id,by:c.a.id,revision:t.revision,at:c.now,reason,before:t.members,after:members}]},t)
+  // Departure grants no access to private receipts, including the actor's own receipt.
+  return {id:changed.id,revision:changed.revision,left:true}
  }
  if(name==='chat.removeMember'){
   keys(p,['id','revision','staffId','reason'])
@@ -63,7 +76,7 @@ export function chatCommand(c:Context,name:string,p:Record<string,any>){
   need(t.members.includes(staffId),'Choose a current group member',409)
   const members=t.members.filter((id:string)=>id!==staffId)
   return put(c,'chatthreads',{...t,members,membershipChanges:[...(t.membershipChanges??[]),
-   {action:'removed',staffId,by:c.a.id,at:c.now,reason,before:t.members,after:members}]},t)
+   {action:'removed',staffId,by:c.a.id,revision:t.revision,at:c.now,reason,before:t.members,after:members}]},t)
  }
  if(name==='chat.send'){
   keys(p,['threadId','text','attachment']);const t=get(c.s,'chatthreads',p.threadId);need(chatMayRead(c.s,c.a,t),'Not found',404)
