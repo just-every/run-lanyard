@@ -1842,7 +1842,7 @@
       "executable": false
     },
     "src/lanyard/ui/fairwork.ts": {
-      "sha256": "7774f36389c294ba78f325b29489a87b8fd2d3bd4a7143423426c1a004d5a87f",
+      "sha256": "4894838ed4e803a4f9fbc48df16cc91668bc0715d58774ce3a975fe9d0653669",
       "executable": false
     },
     "src/lanyard/ui/feedback.ts": {
@@ -3982,7 +3982,7 @@
       "executable": false
     },
     "tests/fairwork-journey.mjs": {
-      "sha256": "b6b5b289e314bfdce06db6d74db81f49fe19e1f56b698fede199c6ecc9070d87",
+      "sha256": "240b510d772c3f394e2cfc366a4041e80c87e0407d69a1ee998025f5eb019310",
       "executable": false
     },
     "tests/fixtures/staff.csv": {
