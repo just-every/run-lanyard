@@ -8,7 +8,7 @@ const add=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().s
 export async function minorFixture(h){
  const alex=await h.person('Alex'),ben=await h.person('Ben'),morgan=await h.person('Morgan','manager')
  for(const p of [alex,ben,morgan])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site:'Ocean Beach',position:'Service',hourlyRate:'20.00'})
- const today=new Date().toISOString().slice(0,10),future=add(today,10),week=add(future,-((new Date(future+'T00:00:00Z').getUTCDay()+6)%7)),last=add(week,6),past=add(today,-7-((new Date(today+'T00:00:00Z').getUTCDay()+6)%7)),birthday=add(today,-10),birthDate=String(Number(birthday.slice(0,4))-15)+birthday.slice(4)
+ const today='2026-10-27',future=add(today,10),week=add(future,-((new Date(future+'T00:00:00Z').getUTCDay()+6)%7)),last=add(week,6),past=add(today,-7-((new Date(today+'T00:00:00Z').getUTCDay()+6)%7)),birthday=add(today,-10),birthDate=String(Number(birthday.slice(0,4))-15)+birthday.slice(4)
  const schoolDays=Array.from({length:42},(_,n)=>add(past,n-7)).filter(d=>![0,6].includes(new Date(d+'T00:00:00Z').getUTCDay()))
  const input={staffId:alex.id,birthDate,state:'federal',permit:'synthetic-lanyard-1',permitThrough:last,calendarFrom:add(past,-7),calendarThrough:add(past,60),schoolDays,schoolStart:480,schoolEnd:900}
  const minor=await h.cmd('minor.save',input)
@@ -51,31 +51,34 @@ export async function minorApi(h){
  await h.cmd('minor.save',input,ben.cookie,403);await h.cmd('minor.save',input,morgan.cookie,403)
  await h.cmd('minor.save',{...input,...pin(minor)},h.owner,409)
  await minorVariants()
+ await minorAuthorizations()
 }
 export async function minorBrowser(){
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
- try{for(const width of [1440,390]){const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
+ const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
+ try{const h=await harness({now:'2026-10-27T12:00:00Z'}),context=await browser.newContext({viewport:{width:1440,height:1000}})
  try{const f=await minorFixture(h),page=await context.newPage()
  await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
  const as=async cookie=>{const [name,...value]=cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])}
- const shot=async name=>{assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.C35_SCREENS){await mkdir(process.env.C35_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C35_SCREENS,`${name}-${width}.png`)})}}
+ const shot=async(name,target)=>{for(const width of [1440,390]){await page.setViewportSize({width,height:1000});if(target)await page.locator(target).evaluate(el=>el.scrollIntoView({block:'start'}));if(width===1440)assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.C35_SCREENS){await mkdir(process.env.C35_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C35_SCREENS,`${name}-${width}.png`)})}}await page.setViewportSize({width:1440,height:1000})}
  await as(h.owner);await page.goto(h.origin+'/app/people',{waitUntil:'networkidle'});const card=page.locator('#minors');await card.getByText('Alex · federal',{exact:true}).click();const form=card.locator('form').first();assert.equal(await form.getByLabel('Birth date',{exact:true}).inputValue(),f.input.birthDate);await form.getByLabel('State work permit reference').fill('synthetic-lanyard-3');await Promise.all([page.waitForResponse(r=>r.url().includes('name=minor.save')),form.getByRole('button',{name:'Save minor record'}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);await page.locator('#minors').getByText('Alex · federal',{exact:true}).click();await page.locator('#minors form').first().scrollIntoViewIfNeeded();await shot('minor-record')
- const invalid=await h.cmd('roster.prepare',{week:f.week,shifts:[f.spec(f.week,'16:00','20:00')]});await page.goto(h.origin+`/app/schedule?week=${f.week}&view=draft`,{waitUntil:'networkidle'});assert.ok((await page.locator('main').innerText()).includes('school-day limit 180'));await page.locator('[data-saved-review]').scrollIntoViewIfNeeded();await shot('minor-schedule-refusal')
+ const invalid=await h.cmd('roster.prepare',{week:f.week,shifts:[f.spec(f.week,'16:00','20:00')]});await page.goto(h.origin+`/app/schedule?week=${f.week}&view=draft`,{waitUntil:'networkidle'});assert.ok((await page.locator('main').innerText()).includes('school-day limit 180'));await page.locator('[data-saved-review]').scrollIntoViewIfNeeded();await shot('minor-schedule-refusal','[data-saved-review]')
+ const r=(await h.state()).minors[0];await h.cmd('minor.save',{...f.input,...pin(r),state:'WA',birthDate:String(Number(f.input.birthDate.slice(0,4))-2)+f.input.birthDate.slice(4)})
+ await h.cmd('roster.prepare',{week:f.week,shifts:[f.spec(f.week,'16:00','17:00')]});await page.goto(h.origin+`/app/schedule?week=${f.week}&view=draft`,{waitUntil:'networkidle'});assert.ok((await page.locator('main').innerText()).includes('employer-endorsement requires current employer validation'));await page.locator('[data-saved-review]').scrollIntoViewIfNeeded();await shot('minor-state-review','[data-saved-review]')
  const previous=page.getByRole('link',{name:'Previous week',exact:true});await previous.focus();await page.getByRole('tooltip',{name:'Previous week',exact:true}).waitFor({state:'visible'});await shot('minor-tooltip')
  await as(f.ben.cookie);await page.goto(h.origin+`/app/schedule?week=${f.week}`,{waitUntil:'networkidle'});assert.ok(!(await page.locator('body').innerText()).includes(f.input.birthDate));assert.equal(await page.locator('[name=birthDate]').count(),0);await shot('minor-coworker')
- }finally{await context.close();await h.close()}}}finally{await browser.close()}
+ }finally{await context.close();await h.close()}}finally{await browser.close()}
 }
 
 // Retained actuals and planned shifts must describe each interval once, including
 // an approved correction and late work that crosses a calendar-day boundary.
 async function minorVariants(){
- const h=await harness()
+ const h=await harness({now:'2026-10-27T12:00:00Z'})
  try{
   const alex=await h.person('Alex'),morgan=await h.person('Morgan','manager')
   const input={staffId:alex.id,birthDate:'2008-01-01',state:'CO',permit:'synthetic-lanyard-20',permitThrough:'2025-12-31',calendarFrom:'2025-01-01',calendarThrough:'2025-12-31',schoolDays:[],schoolStart:480,schoolEnd:900}
   let record=await h.cmd('minor.save',input)
   await h.cmd('availability.save',{staffId:alex.id,start:local('2025-01-01','00:00'),end:local('2026-01-01','00:00')})
-  const shift=(day,start,end)=>({staffId:alex.id,start:local(day,start),end:local(day,end),breakMinutes:0})
+  const shift=(day,start,end)=>({staffId:alex.id,start:local(day,start),end:local(day,end),breakMinutes:0,site:'Ocean Beach'})
   const worked=shift('2025-10-13','16:00','22:00'),draft=await h.cmd('roster.prepare',{week:'2025-10-13',shifts:[worked]})
   assert.deepEqual(draft.conflicts,[]);await h.cmd('roster.publish',pin(draft))
   const source=await h.cmd('time.prepare',{...worked,reason:'Recorded actual work'})
@@ -96,7 +99,7 @@ async function minorVariants(){
   const flagged=await h.cmd('time.approve',pin(actual),morgan.cookie)
   assert.ok(flagged.exceptions.some(x=>x.includes('rolling 24-hour limit 480')),'unscheduled manual actuals are retained and flagged rather than discarded')
   // California allows 00:00–00:30 on a non-school date, but not a minute more.
-  record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',schoolDays:['2025-10-20','2025-10-21']})
+  record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',authorizations:[permitEvidence('CA')],schoolDays:['2025-10-20','2025-10-21']})
   const overnight=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[{...shift('2025-10-24','20:00','23:00'),end:local('2025-10-25','00:30')}]})
   assert.deepEqual(overnight.conflicts,[])
   const over=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[{...shift('2025-10-24','20:00','23:00'),end:local('2025-10-25','00:31')}]})
@@ -104,14 +107,14 @@ async function minorVariants(){
   const school=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[shift('2025-10-20','16:00','21:00')]})
   assert.ok(school.conflicts.some(x=>x.reason.includes('school-day limit 240')))
   // Unknown next-day or week dates cannot become implicit non-school permission.
-  record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',calendarThrough:'2025-10-24',schoolDays:['2025-10-24']})
+  record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',authorizations:[permitEvidence('CA')],calendarThrough:'2025-10-24',schoolDays:['2025-10-24']})
   const unknown=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[shift('2025-10-24','16:00','23:30')]})
   assert.ok(unknown.conflicts.some(x=>x.reason.includes('calendar must include the next day')))
   await h.cmd('roster.publish',pin(unknown),h.owner,409)
-  record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',schoolDays:['2025-10-24','2025-10-25']})
+  record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',authorizations:[permitEvidence('CA')],schoolDays:['2025-10-24','2025-10-25']})
   const nextSchool=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[shift('2025-10-24','16:00','23:30')]})
   assert.ok(nextSchool.conflicts.some(x=>x.reason.includes('outside permitted clock hours')))
-  record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',schoolDays:['2025-10-24']})
+  record=await h.cmd('minor.save',{...input,...pin(record),state:'CA',authorizations:[permitEvidence('CA')],schoolDays:['2025-10-24']})
   const nextFree=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[shift('2025-10-24','16:00','23:30')]})
   assert.deepEqual(nextFree.conflicts,[],'an explicitly covered non-school next day permits the existing extended hours')
   record=await h.cmd('minor.save',{...input,...pin(record),state:'federal',birthDate:'2010-01-01',calendarFrom:'2025-10-20',calendarThrough:'2025-10-20',schoolDays:[]})
@@ -131,5 +134,104 @@ async function minorVariants(){
   const before=(await h.state()).clocks.length
   await h.cmd('clock.in',{commandId:'synthetic-lanyard-21',capturedAt:local('2025-10-20','16:00')},alex.cookie,409)
   assert.equal((await h.state()).clocks.length,before)
+ }finally{await h.close()}
+}
+
+function permitEvidence(state,overrides={}){
+ return {kind:'permit',reference:'synthetic-lanyard-20',from:'2025-01-01',through:'2025-12-31',site:'Ocean Beach',permitKind:({CA:'individual-work-permit',NY:'employment-certificate',IL:'employment-certificate',WA:'employer-endorsement',OR:'employer-certificate'})[state],dailyMinutes:480,weeklyMinutes:2880,startMinute:0,endMinute:1440,...overrides}
+}
+async function minorAuthorizations(){
+ const h=await harness({now:'2026-10-27T12:00:00Z'})
+ try{
+  const alex=await h.person('Alex'),supervisor=await h.person('Morgan','manager')
+  const base={staffId:alex.id,birthDate:'2008-01-01',state:'WA',permit:'synthetic-lanyard-20',permitThrough:'2025-12-31',calendarFrom:'2025-01-01',calendarThrough:'2025-12-31',schoolDays:['2025-10-20','2025-10-21','2025-10-22','2025-10-23','2025-10-24'],schoolStart:480,schoolEnd:900}
+  let record=await h.cmd('minor.save',base)
+  await h.cmd('availability.save',{staffId:alex.id,start:local('2025-01-01','00:00'),end:local('2026-01-01','00:00')})
+  const authorization=(kind,extra={})=>({kind,reference:'synthetic-lanyard-30',from:'2025-10-01',through:'2025-10-31',site:'Ocean Beach',...extra})
+  const parent=authorization('parent-consent'),school=authorization('school-consent'),permit=permitEvidence('WA')
+  const save=async(p={})=>record=await h.cmd('minor.save',{...base,...pin(record),...p})
+  const trial=async(day,start,end)=>h.cmd('roster.prepare',{week:'2025-10-20',shifts:[{staffId:alex.id,start:local(day,start),end:local(day,end),breakMinutes:0,site:'Ocean Beach'}]})
+  const refused=async(draft,pattern)=>{assert.ok(draft.conflicts.some(x=>pattern.test(x.reason)),JSON.stringify(draft.conflicts));await h.cmd('roster.publish',pin(draft),h.owner,409)}
+  const publish=async draft=>{assert.deepEqual(draft.conflicts,[]);await h.cmd('roster.publish',pin(draft))}
+  await refused(await trial('2025-10-20','16:00','17:00'),/employer-endorsement requires current employer validation/)
+  await save({authorizations:[permit,parent,school]})
+  await publish(await trial('2025-10-20','16:00','17:00'))
+  await save({authorizations:[{...permit,site:'Other cafe'},parent,school]})
+  await refused(await trial('2025-10-20','16:00','17:00'),/requires current employer validation/)
+  await save({authorizations:[permit,{...parent,through:'2025-10-19'},school]})
+  await refused(await trial('2025-10-20','16:00','17:00'),/current parent and applicable school authorization/)
+  await save({authorizations:[permit,parent,school]})
+  await refused(await trial('2025-10-20','19:00','21:00'),/responsible adult supervision/)
+  const adult=authorization('supervision',{supervisorId:supervisor.id,adultConfirmed:true,start:local('2025-10-20','20:00'),end:local('2025-10-20','21:00')})
+  await save({authorizations:[permit,parent,school,{...adult,start:local('2025-10-20','20:01')}]})
+  await refused(await trial('2025-10-20','19:00','21:00'),/responsible adult supervision/)
+  await save({authorizations:[permit,parent,school,adult]})
+  await publish(await trial('2025-10-20','19:00','21:00'))
+  await h.cmd('staff.save',{...pin(supervisor),name:supervisor.name,email:supervisor.email,payrollId:supervisor.payrollId,role:'manager',active:false})
+  await refused(await trial('2025-10-20','19:00','21:00'),/responsible adult supervision/)
+  const release=authorization('school-release',{classEndMinute:720})
+  await save({authorizations:[permit,parent,school]})
+  await refused(await trial('2025-10-20','12:00','14:00'),/school release must establish/)
+  await save({authorizations:[permit,parent,school,release]})
+  await publish(await trial('2025-10-20','12:00','14:00'))
+  await refused(await trial('2025-10-20','11:59','14:00'),/school release must establish/)
+  await refused(await trial('2025-10-20','15:00','20:00'),/school-day limit 240/)
+  const variance=authorization('wa-special-variance',{schoolYearThrough:'2026-06-30'})
+  await save({authorizations:[permit,parent,school,variance]})
+  await publish(await trial('2025-10-20','15:00','20:00'))
+  const overWeek=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[...Array.from({length:5},(_,n)=>({staffId:alex.id,start:local(add('2025-10-20',n),'15:00'),end:local(add('2025-10-20',n),'20:00'),breakMinutes:0,site:'Ocean Beach'})),{staffId:alex.id,start:local('2025-10-25','10:00'),end:local('2025-10-25','14:00'),breakMinutes:0,site:'Ocean Beach'}]})
+  await refused(overWeek,/school-week limit 1680/)
+  await refused(await trial('2025-10-20','13:00','20:00'),/school-day limit 360/)
+  await save({authorizations:[permit,parent,{...school,through:'2025-10-19'},variance]})
+  await refused(await trial('2025-10-20','15:00','20:00'),/school-day limit 240/)
+  // A permit can tighten the statutory cap; its review cannot loosen it.
+  await save({authorizations:[{...permit,dailyMinutes:60},parent,school]})
+  await refused(await trial('2025-10-20','16:00','17:01'),/school-day limit 60/)
+  await save({authorizations:[{...permit,startMinute:960,endMinute:1020},parent,school]})
+  await refused(await trial('2025-10-20','16:00','17:01'),/employer-validated permit clock hours/)
+  // Every maintained permit jurisdiction distinguishes absent and current review.
+  for(const state of ['CA','NY','IL','OR']){
+   const birthDate=state==='IL'?'2010-01-01':base.birthDate
+   await save({state,birthDate,authorizations:[]})
+   await refused(await trial('2025-10-20','16:00','17:00'),/requires current employer validation/)
+   await save({state,birthDate,authorizations:[permitEvidence(state)]})
+   await publish(await trial('2025-10-20','16:00','17:00'))
+  }
+  // New York late school-night work needs both parent and school consent.
+  await save({state:'NY',authorizations:[permitEvidence('NY'),parent]})
+  await refused(await trial('2025-10-20','21:00','23:00'),/outside permitted clock hours/)
+  await save({state:'NY',authorizations:[permitEvidence('NY'),parent,school]})
+  await publish(await trial('2025-10-20','21:00','23:00'))
+  await save({state:'NY',authorizations:[permitEvidence('NY'),parent,{...school,through:'2025-10-19'}]})
+  await refused(await trial('2025-10-20','21:00','23:00'),/outside permitted clock hours/)
+  await publish(await trial('2025-10-24','21:00','23:00'))
+  await save({state:'NY',calendarThrough:'2025-10-25',authorizations:[permitEvidence('NY'),parent,school]})
+  await refused(await trial('2025-10-25','21:00','23:00'),/school calendar must include the next day/)
+  // Revising the underlying permit invalidates omitted reviews; explicit empty revokes.
+  await save({state:'NY',authorizations:[permitEvidence('NY')]})
+  await h.cmd('minor.save',{...base,...pin(record),state:'WA',authorizations:[{...parent,from:'2025-09-01',through:'2025-10-01'}]},h.owner,400)
+  await h.cmd('minor.save',{...base,...pin(record),state:'WA',authorizations:[{...variance,schoolYearThrough:'2025-10-19'}]},h.owner,400)
+  const changed=await save({state:'NY',permit:'synthetic-lanyard-31'})
+  assert.deepEqual(changed.authorizations,[])
+  assert.ok(changed.versions.some(x=>x.authorizations?.some(a=>a.kind==='permit')))
+  assert.deepEqual((await h.state(alex.cookie)).minors,[])
+  await h.cmd('minor.save',{...base,...pin(record),authorizations:[permit]},alex.cookie,403)
+  await save({authorizations:[permit,parent,school]})
+  const unchanged=await save()
+  assert.equal(unchanged.authorizations.length,3,'an ordinary exact-revision save retains matching reviews')
+  const calendarChanged=await save({schoolEnd:960})
+  assert.deepEqual(calendarChanged.authorizations,[],'a changed school timetable requires renewed review')
+  await save({authorizations:[permit,parent,school]})
+  await publish(await trial('2025-10-20','16:00','17:00'))
+  await h.cmd('clock.in',{commandId:'synthetic-lanyard-40',capturedAt:local('2025-10-20','16:00')},alex.cookie)
+  await save({authorizations:[]})
+  const retained=await h.cmd('clock.out',{commandId:'synthetic-lanyard-41',capturedAt:local('2025-10-20','17:00'),breakMinutes:0},alex.cookie)
+  assert.equal(retained.timesheet.minutes,60)
+  assert.ok(retained.timesheet.exceptions.some(x=>x.includes('requires current employer validation')))
+  const count=(await h.state()).clocks.length
+  const blocked=await h.cmd('clock.in',{commandId:'synthetic-lanyard-42',capturedAt:local('2025-10-21','16:00')},alex.cookie,409)
+  assert.match(blocked.error,/requires current employer validation/)
+  assert.equal((await h.state()).clocks.length,count)
+
  }finally{await h.close()}
 }

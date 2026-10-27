@@ -1939,7 +1939,7 @@ test('CLOCK-001: kiosk job changes retain qualified job rates and split payroll 
 test('PAYRULE-001: differential boundaries, stacking, retained area rates and signed mapped payroll under one claim',()=>run(async h=>{const {differentialApi}=await import('./differentials-journey.mjs');await differentialApi(h)}))
 test('PAYRULE-001: differential configuration, payroll, own estimates and icon tooltips at 1440 and 390',async()=>{const {differentialBrowser}=await import('./differentials-journey.mjs');await differentialBrowser()})
 
-test('MINOR-001: private birth and permit records, school-day/week and evening limits across schedule, offers, swaps, cover and clock',()=>run(async h=>{const {minorApi}=await import('./minors-journey.mjs');await minorApi(h)}))
+test('MINOR-001: private birth and permit records, school-day/week and evening limits across schedule, offers, swaps, cover and clock',()=>run(async h=>{const {minorApi}=await import('./minors-journey.mjs');await minorApi(h)},{now:'2026-10-27T12:00:00Z'}))
 test('MINOR-001: owner records, named scheduler conflicts and private coworker screens at 1440 and 390',async()=>{const {minorBrowser}=await import('./minors-journey.mjs');await minorBrowser()})
 
 test('LEAVE-003: every preset accrues approved work, caps and carries, pays partial leave once, exports source balances and reconciles ACA',async()=>{const {sickApi}=await import('./sick-journey.mjs');await sickApi()})
