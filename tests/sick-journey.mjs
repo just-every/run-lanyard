@@ -174,6 +174,14 @@ export async function sickUnpaid(){
    const corrected=await h.cmd('sick.correct',{...pin(approved),minutes:60,reason:'Reviewed unpaid reduction'});assert.equal(corrected.costCents,0);assert.equal(corrected.versions[0].minutes,120);assert.equal((await report('2026-01-09')).balanceMinutes,2340)
    const next=await h.cmd('sickpolicy.save',{...pin(policy),site:policy.site,from:'2026-02-01',preset:preset.replace('_UNPAID',''),...coverage[preset.replace('_UNPAID','')],code:'PAID-NEXT'})
    assert.equal(next.paid,true);assert.equal(next.versions[0].paid,false)
+   const history=await h.send('/api/lanyard/sick-balances.csv?asOf=2026-02-01',undefined,h.owner)
+   assert.equal(history.status,200,history.text)
+   const rows=history.text.trim().split('\r\n').map(line=>[...line.matchAll(/"((?:[^"]|"")*)"/g)].map(m=>m[1].replaceAll('""','"')))
+   const retainedWork=(await h.state()).timesheets[0]
+   const sourceRows=rows.slice(1).filter(r=>r[1]===alex.id&&r[5]===policy.id&&r[12])
+   assert.deepEqual(sourceRows.filter(r=>r[12]===corrected.id).map(r=>[r[4],r[10],r[11],r[13],r[14]]),[[preset,'false','SICK-'+preset,String(corrected.revision),'60']],'historical unpaid use retains its preset, paid status and code')
+   assert.deepEqual(sourceRows.filter(r=>r[12]===retainedWork.id).map(r=>[r[4],r[10],r[11]]),[[preset,'false','SICK-'+preset],[preset,'false','SICK-'+preset]],'historical worked accrual retains the effective unpaid policy')
+   assert.deepEqual(rows.slice(1).filter(r=>r[1]===alex.id&&r[5]===policy.id&&!r[12]).map(r=>[r[4],r[10],r[11]]),[[preset.replace('_UNPAID',''),'true','PAID-NEXT']],'the current balance summary uses the new policy')
    assert.deepEqual((await h.cmd('payroll.prepare',{})).lines.filter(l=>l.sickLine),[],'a later paid policy must not turn retained unpaid use into wages')
   }finally{await h.close()}
  }
@@ -275,14 +283,15 @@ export async function sickEmployerCoverage(){
    ['NYC40_UNPAID',{employeeCount:4,incomeAboveMillion:'no',domesticWorkers:'yes'}],
    ['OR_UNPAID',{employeeCount:10,portland:'no'}],['OR_UNPAID',{employeeCount:6,portland:'yes'}],
    ['PHILADELPHIA_UNPAID',{employeeCount:10,chainLocations:0}],['PHILADELPHIA_UNPAID',{employeeCount:1,chainLocations:15}],
-   ['OR_UNPAID',{employeeCount:5}],['NY40_UNPAID',{}]
+   ['OR_UNPAID',{employeeCount:5}],['NY40_UNPAID',{}],
+   ...['','   ',null,undefined,false].map(chainLocations=>['PHILADELPHIA_UNPAID',{employeeCount:1,chainLocations}])
   ]
   for(const [i,[preset,facts]] of bad.entries()){
    const r=await h.cmd('sickpolicy.save',{site:'Refused '+i,from:'2025-01-01',preset,code:'SICK',...facts},h.owner,400)
    assert.match(r.error,/paid|tier|Review|count/)
   }
   assert.equal((await h.state()).sickpolicies.length,0,'unsafe and unreviewed tiers create no policy')
-  const good=[...Object.entries(coverage),['OR_UNPAID',{employeeCount:5,portland:'yes'}],['NY40',{employeeCount:99}],['NYC40',{employeeCount:99}],['NY',{employeeCount:100}],['NYC',{employeeCount:100}]]
+  const good=[...Object.entries(coverage),['PHILADELPHIA_UNPAID',{employeeCount:9,chainLocations:0}],['OR_UNPAID',{employeeCount:5,portland:'yes'}],['NY40',{employeeCount:99}],['NYC40',{employeeCount:99}],['NY',{employeeCount:100}],['NYC',{employeeCount:100}]]
   for(const [i,[preset,facts]] of good.entries()){
    const input={site:'Covered '+i,from:'2025-01-01',preset,code:'SICK',...facts},p=await h.cmd('sickpolicy.save',input)
    assert.equal(p.paid,!preset.endsWith('_UNPAID'))
@@ -297,6 +306,7 @@ export async function sickEmployerCoverage(){
 }
 
 export async function sickDonations(){
+ await sickDonationErasure()
  const h=await harness({now:'2026-01-09T12:00:00Z'})
  try{
   const {alex,ben,morgan,policy:initial,request}=await sickFixture(h,'OR')
@@ -348,5 +358,28 @@ export async function sickDonations(){
   await h.cmd('time.approve',pin(correct))
   await h.cmd('sicktransfer.decide',{...pin(ok),decision:'approved'},h.owner,409)
   assert.equal((await h.state()).sicktransfers.find(t=>t.id===ok.id).status,'consented','failed approval preserves consent and changes no balances')
+ }finally{await h.close()}
+}
+
+export async function sickDonationErasure(){
+ const h=await harness({now:'2026-01-09T12:00:00Z'})
+ try{
+  const {alex,policy}=await sickFixture(h,'OR',2,48,{donations:true})
+  const create=name=>h.cmd('staff.save',{name,email:name.toLowerCase()+'@venue.example',payrollId:name,role:'staff',active:true,site:policy.site})
+  const unused=await create('Unused'),recipient=await create('Recipient')
+  assert.deepEqual(await h.cmd('staff.erase',pin(unused)),{id:unused.id,erased:true},'a genuinely unused person can still be erased')
+  const draft=await h.cmd('sicktransfer.prepare',{policyId:policy.id,donorId:alex.id,recipientId:recipient.id,date:'2026-01-09',minutes:60})
+  const consented=await h.cmd('sicktransfer.consent',{...pin(draft),consent:'yes'},alex.cookie)
+  const approved=await h.cmd('sicktransfer.decide',{...pin(consented),decision:'approved'})
+  await h.cmd('staff.erase',pin(recipient),h.owner,409)
+  const pending=await create('PendingRecipient')
+  await h.cmd('sicktransfer.prepare',{policyId:policy.id,donorId:alex.id,recipientId:pending.id,date:'2026-01-09',minutes:30})
+  await h.cmd('staff.erase',pin(pending),h.owner,409)
+  await h.restart()
+  const balances=(await h.send('/api/lanyard/sick-balances?asOf=2026-01-09',undefined,h.owner)).value.filter(r=>r.policyId===policy.id)
+  assert.deepEqual([alex.id,recipient.id].map(id=>balances.find(r=>r.staffId===id).balanceMinutes),[132,60],'refused erasure preserves both sides of the bank after restart')
+  const csv=await h.send('/api/lanyard/sick-balances.csv?asOf=2026-01-09',undefined,h.owner)
+  assert.ok(csv.text.includes(recipient.id)&&csv.text.includes(approved.id),'recipient credit remains in source reports')
+  assert.equal((await h.state(alex.cookie)).sicktransfers.find(t=>t.id===approved.id).recipientName,'Recipient')
  }finally{await h.close()}
 }
