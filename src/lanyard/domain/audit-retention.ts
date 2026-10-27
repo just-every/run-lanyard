@@ -10,9 +10,9 @@ export async function retainAudit(c:Context,name:string,p:Record<string,any>){
  need(p.consent===true,'Explicit reviewed owner authorization is required',403)
  need(integer(p.sourceVersion,'reviewed source version',0,Number.MAX_SAFE_INTEGER)===c.s.version,'Audit sources changed; review the report again',409)
  const reason=text(p.reason,'retention reason',500)
- const report=auditReport(c.s,c.a,text(p.site,'cafe',80,true),p.from,p.through,p.jurisdiction??'all')
+ const report=JSON.parse(JSON.stringify(auditReport(c.s,c.a,text(p.site,'cafe',80,true),p.from,p.through,p.jurisdiction??'all'))) as ReturnType<typeof auditReport>
  const csv=auditCsv(report)
- const packet={format:'lanyard.audit.v1',createdAt:c.now,createdBy:c.a.id,reason,sourceVersion:report.sourceVersion,report,csv,reportSha256:await sha(canonical(report)),csvSha256:await sha(csv),retention:{mode:'indefinite',expiresAt:null,boundary:'Owner-only retained copy. No automatic expiration or erasure. Preset-required periods and auditor grants await approved policy; this is not legal compliance proof.'}}
+ const packet={format:'lanyard.audit.v1',createdAt:c.now,createdBy:c.a.id,reason,sourceVersion:report.sourceVersion,filter:{site:report.site,from:report.from,through:report.through,jurisdiction:report.jurisdiction},report,csv,reportSha256:await sha(canonical(report)),csvSha256:await sha(csv),retention:{mode:'indefinite',expiresAt:null,boundary:'Owner-only retained copy. No automatic expiration or erasure. Preset-required periods and auditor grants await approved policy; this is not legal compliance proof.'}}
  need(new TextEncoder().encode(JSON.stringify(packet)).length<=1500000,'Audit copy is too large for one retained record; choose a shorter date range',413)
  return put(c,'auditpackets',packet)
 }

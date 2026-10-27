@@ -173,7 +173,8 @@ async function retainAuditProof(h,f,report){
  assert.equal(packet.reportSha256,createHash('sha256').update(canonical(report)).digest('hex'))
  const after=await h.state()
  for(const k of ['timesheets','shifts','rosters','clocks','sickuses','sickpolicies','tipcredits','roundrules','breakrules'])assert.deepEqual(after[k],before[k],k+' unchanged by retention')
- assert.deepEqual(after.auditpackets,[packet]);assert.equal(after.version,before.version+1)
+ const {report:storedReport,csv:storedCsv,...summary}=packet
+ assert.deepEqual(after.auditpackets,[summary]);assert.equal(after.version,before.version+1)
  assert.equal(after.events.filter(e=>e.action==='audit.retain'&&e.entityId===packet.id&&e.actorId===before.actor.id).length,1)
  for(const cookie of [f.riley.cookie,f.morgan.cookie,f.taylor.cookie]){
   for(const suffix of ['', '.csv'])assert.equal((await h.send('/api/lanyard/audit-packets/'+packet.id+suffix,undefined,cookie)).status,403)
