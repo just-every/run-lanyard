@@ -149,7 +149,7 @@ async function sickDayFloors(){
 // These public-door scenarios extend the existing clause registration, keeping the test cap.
 export async function sickUnpaid(){
  for(const preset of ['NY40_UNPAID','NYC40_UNPAID','OR_UNPAID','PHILADELPHIA_UNPAID']){
-  const h=await harness({now:'2026-02-01T12:00:00Z'})
+  const h=await harness({now:'2026-10-27T12:00:00Z'})
   try{
    const {alex,ben,morgan,policy,request}=await sickFixture(h,preset,52)
    assert.equal(policy.paid,false)
@@ -172,7 +172,15 @@ export async function sickUnpaid(){
    assert.deepEqual((await h.state(ben.cookie)).sickuses,[])
    await h.cmd('sick.correct',{...pin(approved),minutes:60,reason:'Unauthorized correction'},morgan.cookie,403)
    const corrected=await h.cmd('sick.correct',{...pin(approved),minutes:60,reason:'Reviewed unpaid reduction'});assert.equal(corrected.costCents,0);assert.equal(corrected.versions[0].minutes,120);assert.equal((await report('2026-01-09')).balanceMinutes,2340)
-   const next=await h.cmd('sickpolicy.save',{...pin(policy),site:policy.site,from:'2026-02-01',preset:preset.replace('_UNPAID',''),...coverage[preset.replace('_UNPAID','')],code:'PAID-NEXT'})
+   let effective=policy
+   if(preset==='NY40_UNPAID'){
+    effective=await h.cmd('sickpolicy.save',{...pin(policy),site:policy.site,from:'2026-02-01',preset,code:policy.code,...coverage[preset]})
+    assert.equal(effective.versions[0].from,'2025-01-01')
+    const start=local('2026-02-01','00:00'),worked=await h.cmd('time.prepare',{staffId:alex.id,start,end:new Date(Date.parse(start)+30*3600000).toISOString(),site:policy.site,breakMinutes:0,reason:'Approved work after an effective policy revision'})
+    await h.cmd('time.approve',pin(worked))
+    const current=await report('2026-02-03');assert.deepEqual([current.annualAccrued,current.balanceMinutes],[60,2400],'a later effective version preserves prior carry and resets the annual accrual counter')
+   }
+   const next=await h.cmd('sickpolicy.save',{...pin(effective),site:policy.site,from:'2026-03-01',preset:preset.replace('_UNPAID',''),...coverage[preset.replace('_UNPAID','')],code:'PAID-NEXT'})
    assert.equal(next.paid,true);assert.equal(next.versions[0].paid,false)
    assert.deepEqual((await h.cmd('payroll.prepare',{})).lines.filter(l=>l.sickLine),[],'a later paid policy must not turn retained unpaid use into wages')
   }finally{await h.close()}
