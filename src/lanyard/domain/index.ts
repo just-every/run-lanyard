@@ -208,7 +208,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string,earni
  for(const k of kinds)result[k]=s[k]
  for(const k of ['businesses','locations','departments','orgmemberships'] as const)result[k]=a.role==='owner'?s[k]:[]
  result.aischedules=aiSchedulesFor(s,a)
- result.auditpackets=a.role==='owner'?s.auditpackets:[]
+ result.auditpackets=a.role==='owner'?s.auditpackets.map(({report,csv,...summary})=>summary):[]
  result.paytemplates=a.role==='owner'?s.paytemplates:[]
  result.payinputs=a.role==='owner'?s.payinputs:[]
  for(const k of ['privacypolicies','privacyholds','privacyresults'] as const)result[k]=a.role==='owner'?s[k]:[]
