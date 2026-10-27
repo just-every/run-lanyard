@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import {readFile,mkdir} from 'node:fs/promises'
 import {join} from 'node:path'
+import {createHash} from 'node:crypto'
 import {chromium} from '@playwright/test'
 import {harness} from './harness.mjs'
 import {tipFixture} from './tipcredit-journey.mjs'
@@ -65,6 +66,7 @@ export async function auditApi(h){
  const after=await h.state();assert.equal(after.version,before.version)
  for(const k of ['timesheets','shifts','rosters','clocks','sickuses','sickpolicies','tipcredits','roundrules','breakrules'])assert.deepEqual(after[k],before[k],k+' unchanged')
  assert.equal(after.events.filter(e=>e.action==='audit.download').length,1)
+ const retained=await retainAuditProof(h,f,r)
  const updated=await h.cmd('time.edit',{id:f.manual.id,revision:2,start:f.manual.start,end:'2026-10-10T15:00:00Z',breakMinutes:30,reason:'Second reviewed correction'})
  const latest=(await read()).rows.find(x=>x.category==='punch-edit');assert.equal(latest.sourceRevision,updated.revision);assert.equal(latest.facts.reason,'Second reviewed correction');assert.equal(latest.facts.minutes,390)
  assert.equal(latest.facts.editHistoryComplete,true)
@@ -80,7 +82,14 @@ export async function auditApi(h){
  const approvedEdit=await h.cmd('time.approve',pin(updated))
  await h.cmd('time.edit',{...pin(approvedEdit),start:updated.start,end:updated.end,breakMinutes:30,reason:'Wrong state overwrite'},h.owner,409)
  await h.restart()
- const retained=(await read()).rows.find(x=>x.category==='punch-edit');assert.deepEqual(retained.facts.editHistory,latest.facts.editHistory)
+ const retainedEdit=(await read()).rows.find(x=>x.category==='punch-edit');assert.deepEqual(retainedEdit.facts.editHistory,latest.facts.editHistory)
+ const oldPacket=await h.send('/api/lanyard/audit-packets/'+retained.id,undefined,h.owner)
+ assert.equal(oldPacket.status,200,oldPacket.text);assert.deepEqual(oldPacket.value,retained)
+ assert.equal(oldPacket.value.report.rows.find(x=>x.category==='punch-edit').facts.minutes,420)
+ const retainedFile=await h.send('/api/lanyard/audit-packets/'+retained.id+'.csv',undefined,h.owner)
+ assert.equal(retainedFile.status,200);assert.equal(retainedFile.text,retained.csv)
+ assert.ok(!retainedFile.text.includes('Second reviewed correction'))
+ assert.equal((await h.state()).events.filter(e=>e.action==='audit.retained.download'&&e.entityId===retained.id).length,1)
  const historyCsv=await h.send('/api/lanyard/audit.csv?'+query,undefined,h.owner);assert.ok(historyCsv.text.includes('Checked closing record')&&historyCsv.text.includes('Second reviewed correction'))
  await auditResubmissions(h,f.alex)
  const returnedRound=await h.cmd('time.return',{...pin(f.timesheet),reason:'Confirm captured time'})
@@ -144,6 +153,43 @@ async function auditResubmissions(h,person){
  const first=await read(requested.id)
  assert.deepEqual(first.facts.editHistory.map(e=>[e.before.minutes,e.after.minutes,e.reason]),[[240,180,'Departed before lunch']])
  assert.equal(first.facts.editHistoryComplete,true)
+}
+async function retainAuditProof(h,f,report){
+ const input={site:'Austin',from:'2026-10-01',through:'2026-12-31',jurisdiction:'all',sourceVersion:report.sourceVersion,reason:'Quarter evidence preservation',consent:true}
+ const before=await h.state()
+ for(const cookie of [f.riley.cookie,f.morgan.cookie,f.taylor.cookie])await h.cmd('audit.retain',input,cookie,403)
+ await h.cmd('audit.retain',{...input,consent:false},h.owner,403)
+ await h.cmd('audit.retain',{...input,reason:''},h.owner,400)
+ await h.cmd('audit.retain',{...input,sourceVersion:report.sourceVersion-1},h.owner,409)
+ await h.cmd('audit.retain',{...input,id:'synthetic-lanyard-overwrite'},h.owner,400)
+ assert.deepEqual(await h.state(),before,'refused retention never changes sources or audit')
+ const packet=await h.cmd('audit.retain',input)
+ assert.deepEqual(packet.report,report)
+ assert.equal(packet.sourceVersion,report.sourceVersion)
+ assert.deepEqual([packet.createdAt,packet.createdBy,packet.reason,packet.revision],['2026-10-27T12:00:00.000Z',before.actor.id,'Quarter evidence preservation',1])
+ assert.deepEqual([packet.retention.mode,packet.retention.expiresAt],['indefinite',null])
+ assert.equal(packet.csvSha256,createHash('sha256').update(packet.csv).digest('hex'))
+ const canonical=v=>Array.isArray(v)?'['+v.map(canonical).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}':JSON.stringify(v)
+ assert.equal(packet.reportSha256,createHash('sha256').update(canonical(report)).digest('hex'))
+ const after=await h.state()
+ for(const k of ['timesheets','shifts','rosters','clocks','sickuses','sickpolicies','tipcredits','roundrules','breakrules'])assert.deepEqual(after[k],before[k],k+' unchanged by retention')
+ assert.deepEqual(after.auditpackets,[packet]);assert.equal(after.version,before.version+1)
+ assert.equal(after.events.filter(e=>e.action==='audit.retain'&&e.entityId===packet.id&&e.actorId===before.actor.id).length,1)
+ for(const cookie of [f.riley.cookie,f.morgan.cookie,f.taylor.cookie]){
+  for(const suffix of ['', '.csv'])assert.equal((await h.send('/api/lanyard/audit-packets/'+packet.id+suffix,undefined,cookie)).status,403)
+  assert.deepEqual((await h.state(cookie)).auditpackets,[])
+ }
+ const key=await h.cmd('agent.create',{label:'Retained audit boundary'})
+ for(const path of ['/api/lanyard/audit-packets/'+packet.id,'/api/lanyard/audit-packets/'+packet.id+'.csv']){
+  assert.equal((await h.send(path,undefined,'')).status,401)
+  assert.equal((await h.send(path,undefined,'',{authorization:`Bearer ${key.token}`})).status,401)
+ }
+ assert.deepEqual((await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${key.token}`})).value.auditpackets,[])
+ assert.equal((await h.send('/api/lanyard/audit-packets/synthetic-lanyard-missing',undefined,h.owner)).status,404)
+ await h.cmd('audit.retain',input,h.owner,409)
+ const headers={'x-test-now':String(Date.parse('2026-10-28T12:00:00Z'))}
+ assert.deepEqual((await h.send('/api/lanyard/audit-packets/'+packet.id,undefined,h.owner,headers)).value,packet,'retained copies never expire automatically')
+ return packet
 }
 async function auditBoundary(h,f){
  const person=await h.person('Boundary')

@@ -5,6 +5,7 @@ const preparation = [
  ['payroll.prepare','ids?: array of approved, unexported timesheet IDs'],
 ]
 const human = [
+ ['audit.retain','Owner','site, from, through, jurisdiction and sourceVersion from the reviewed audit report; reason and consent: true. Retains an immutable report and CSV under owner-only custody. Read GET /api/lanyard/audit-packets/ID or its .csv download. No automatic expiration, erasure or auditor grant; preset retention policy remains pending.'],
  ['ai.consent','Owner','week, site, request, optional image {name,type,data: base64}, consent: true: privately retains an authorized source and records explicit OpenAI sharing consent before any provider call'],
  ['ai.extract','Owner','id, revision of a consented source: sends only that source and selected cafe context to the configured OpenAI model; output stays private'],
  ['ai.review','Owner','id, revision, rows with sourceIndex, staffId, site, startLocal, endLocal, breakMinutes, label, confirmed: true, optional startChoice or endChoice UTC occurrence, omit; reason: validates each corrected source row'],
