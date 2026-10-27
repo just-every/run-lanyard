@@ -1,3 +1,4 @@
+import {operationalReport,operationalCsv} from './domain/reports'
 import {laborCostReport} from './domain/labor-cost'
 import {aiSource} from './domain/ai-schedules'
 import {type AiConfiguration} from './domain/ai-provider'
@@ -186,6 +187,12 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/agent/demand') return json(await agentDemandRead(env.DB,who,url.searchParams.get('site')??'',url.searchParams.get('date')??''))
       if (path === '/api/lanyard/agent/learning/proposals') return json(await agentLearnRead(env.DB,who,url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/agent/fairness/compare') return json(await comparisonRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
+      if(path==='/api/lanyard/reports'||path==='/api/lanyard/reports.csv') {
+       const report=operationalReport(await load(env.DB),who,url.searchParams,new Date().toISOString())
+       if(!path.endsWith('.csv'))return json(report)
+       await env.DB.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),who.id,who.role,'reports.download','operational',new Date().toISOString()).run()
+       return new Response(operationalCsv(report),{headers:{...headers,'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="lanyard-operational.csv"'}})
+      }
       if(path==='/api/lanyard/cost')return json(laborCostReport(await load(env.DB),who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',url.searchParams.get('asOf')??new Date().toISOString(),url.searchParams.get('view')==='draft'))
       if (path === '/api/lanyard/fairness/compare') return json(await fairnessCompare(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/fairness') return json(await fairnessRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))

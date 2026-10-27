@@ -5,7 +5,7 @@ import {salesSite} from './sales'
 
 export function forecast(c:Context,name:string,p:Record<string,any>) {
  if(name!=='forecast.save')return undefined
- manager(c.a);keys(p,['week','site','days','budgetPercent','burdenPercent','burdenPerHourCents','revision'])
+ manager(c.a);keys(p,['week','site','days','budgetPercent','burdenPercent','burdenPerHourCents','jobBudgets','revision'])
  const site=text(p.site,'site',80,true);need(salesSite(c.s,c.a,site),'Not found',404)
  const week=text(p.week,'week',10),monday=new Date(week+'T00:00:00Z')
  need(/^\d{4}-\d{2}-\d{2}$/.test(week)&&monday.toISOString().slice(0,10)===week&&monday.getUTCDay()===1,'Week must be a Monday YYYY-MM-DD')
@@ -19,6 +19,17 @@ export function forecast(c:Context,name:string,p:Record<string,any>) {
  const hourly=p.burdenPerHourCents===undefined?old?.burdenPerHourCents:p.burdenPerHourCents===''?undefined:Number(p.burdenPerHourCents)
  need(percent===undefined||Number.isFinite(percent)&&percent>=0&&percent<=100&&Math.round(percent*100)/100===percent,'Burden percentage must be 0 to 100 with up to two decimals')
  need(hourly===undefined||Number.isSafeInteger(hourly)&&hourly>=0&&hourly<=999999,'Burden per hour must be whole USD cents')
+ const jobBudgets=p.jobBudgets===undefined?old?.jobBudgets??[]:p.jobBudgets
+ need(Array.isArray(jobBudgets)&&jobBudgets.length<=200,'Provide job budget caps')
+ const seen=new Set<string>()
+ for(const cap of jobBudgets) {
+  need(cap&&typeof cap==='object'&&!Array.isArray(cap),'Invalid job cap');keys(cap,['job','weeklyCents','days'])
+  need(typeof cap.job==='string'&&(cap.job===''||c.s.jobs.some(j=>j.id===cap.job))&&!seen.has(cap.job),'Choose each job once');seen.add(cap.job)
+  integer(cap.weeklyCents,'weekly job budget',0,1000000000)
+  need(Array.isArray(cap.days)&&cap.days.length===7,'Provide seven daily job caps; use null for no cap')
+  for(const value of cap.days)if(value!==null)integer(value,'daily job budget',0,1000000000)
+ }
+ if(p.jobBudgets!==undefined)need(Number(p.revision)===(old?.revision??0),'Forecast or job caps changed; reload before saving',409)
  const previous=old?Object.fromEntries(Object.entries(old).filter(([key])=>key!=='versions')):null
- return put(c,'forecasts',{week,site,days,budgetPercent,...(percent===undefined?{}:{burdenPercent:percent}),...(hourly===undefined?{}:{burdenPerHourCents:hourly}),savedBy:c.a.id,savedAt:c.now,versions:old?[...(old.versions??[]),previous]:[]},old)
+ return put(c,'forecasts',{week,site,days,budgetPercent,jobBudgets,...(percent===undefined?{}:{burdenPercent:percent}),...(hourly===undefined?{}:{burdenPerHourCents:hourly}),savedBy:c.a.id,savedAt:c.now,versions:old?[...(old.versions??[]),previous]:[]},old)
 }

@@ -18,7 +18,10 @@ function punchFor(s:State,x:Row,asOf:string) {
 export function board(s:State,a:Actor,asOf:string,site='') {
  const day=localDate(asOf,s.timezone),home=s.staff.find(p=>p.id===a.staffId)?.site??''
  const shifts=s.shifts.filter(x=>x.status==='published'&&(localDate(x.start,s.timezone)===day||x.start<=asOf&&x.end>asOf)).filter(x=>(a.role==='owner'||siteOf(s,x)===home)&&(!site||siteOf(s,x)===site)).sort((p,q)=>p.start.localeCompare(q.start))
- return shifts.map(x=>{
+ return shifts.map(x=>attendanceFact(s,x,asOf))
+}
+/** One shift at a report instant, including shifts that ended on an earlier venue day. */
+export function attendanceFact(s:State,x:Row,asOf:string) {
   const cafe=siteOf(s,x),rule=s.attendrules.find(r=>r.site===cafe),grace=(rule?.graceMinutes??0)*60000,k=punchFor(s,x,asOf)
   const closed=k?.end&&k.end<=asOf,onBreak=k&&!closed&&(k.breaks??[]).some((b:any)=>b.start<=asOf&&(!b.end||b.end>asOf))
   const lateMinutes=k?Math.max(0,Math.round((at(k.start)-at(x.start))/60000)):null
@@ -31,7 +34,6 @@ export function board(s:State,a:Actor,asOf:string,site='') {
    lateMinutes:k?(lateMinutes!>(rule?.graceMinutes??0)?lateMinutes:0):null,
    punch:k?{clockId:k.id,start:k.start,end:closed?k.end:null,receivedAt:k.receivedAt,lastHeard:closed?k.closedReceivedAt:k.receivedAt,offlineMinutes:Math.max(0,Math.round((at(k.receivedAt)-at(k.start))/60000)),receivedAfter:k.receivedAt>asOf,seenAt:k.seenAt??null}:null,
    wrongSite:Boolean(k?.seenAt&&k.seenAt!==cafe),conflicts,alert}
- })
 }
 export function attendance(c:Context,name:string,p:Record<string,any>) {
  if(name==='attendrule.save') {

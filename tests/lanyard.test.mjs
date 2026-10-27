@@ -2079,3 +2079,4 @@ test('ACCESS-003: organization scopes and editable role defaults separate schedu
 
 test('LEAVE-003: employer coverage refuses unpaid and undersized tiers and preserves private effective reviews',async()=>{const {sickEmployerCoverage}=await import('./sick-journey.mjs');await sickEmployerCoverage()})
 test('LEAVE-003: Oregon donations need donor consent and owner approval and retain balanced sources without creating pay',async()=>{const {sickDonations}=await import('./sick-journey.mjs');await sickDonations()})
+test('REPORT-001: filtered native reports and CSV reconcile approved revisions across two sites and retain incomplete offline sources without leaking wages',async()=>{const {reportsApi}=await import('./reports-journey.mjs');await reportsApi()})
