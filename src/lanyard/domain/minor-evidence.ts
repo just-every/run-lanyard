@@ -46,9 +46,9 @@ export function minorEvidence(c:Context,p:Record<string,any>,old:Row|undefined){
 export function evidenceFor(r:Row,kind:string,on:string,site:string){return (r.authorizations??[]).filter((a:any)=>a.kind===kind&&a.from<=on&&a.through>=on&&a.site===site)}
 export function minorPermitIssues(r:Row,on:string,years:number,site:string){
  const required=Object.hasOwn(permitKinds,r.state)&&(r.state!=='IL'||years<16)
- if(!required)return {issues:[] as string[],permit:undefined}
- const permit=evidenceFor(r,'permit',on,site).find((a:any)=>a.permitKind===permitKinds[r.state]&&a.reference===r.permit)
- return {issues:permit?[]:[`${permitKinds[r.state]} requires current employer validation for this workplace`],permit}
+ if(!required)return {issues:[] as string[],permits:[]}
+ const permits=evidenceFor(r,'permit',on,site).filter((a:any)=>a.permitKind===permitKinds[r.state]&&a.reference===r.permit)
+ return {issues:permits.length?[]:[`${permitKinds[r.state]} requires current employer validation for this workplace`],permits}
 }
 function adultOn(s:State,id:string,on:string){
  const birth=s.minors.find(x=>x.staffId===id)?.birthDate

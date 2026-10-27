@@ -4,6 +4,9 @@ import {type Context,type State,type Row,keys,text,need,integer,put,get,exact} f
 import {date,dayAfter} from './aca'
 import {wall,localDate,instantAt} from './settings'
 import {minorWork,rollingWork} from './minor-work'
+import {siteOf} from './team'
+import {transferPlan} from './transfers'
+import {reconcileSegments} from './worksegments'
 import {minorEvidence,evidenceFor,minorPermitIssues,supervised} from './minor-evidence'
 const RULE_VERSION='2026-10-27'
 const SOURCES:Record<string,string>={federal:'https://www.dol.gov/agencies/whd/fact-sheets/43-child-labor-non-agriculture',CA:'https://www.dir.ca.gov/dlse/MinorsSummaryCharts.pdf',NY:'https://dol.ny.gov/hours-work-minors',IL:'https://labor.illinois.gov/laws-rules/fls/child-labor-law-compliance.html',WA:'https://www.lni.wa.gov/workers-rights/youth-employment/hours-of-work',OR:'https://www.oregon.gov/boli/employers/pages/minor-workers.aspx',CO:'https://cdle.colorado.gov/dlss/youth-law'}
@@ -37,7 +40,7 @@ export function minorIssues(s:State,staffId:string,w:any,other?:any[],skip:strin
  const r=s.minors.find(x=>x.staffId===staffId);if(!r)return []
  const warnings:string[]=[],add=(v:string)=>warnings.push(`Minor work rule ${r.state} (${RULE_VERSION}): ${v}`)
  const mine=(other??s.shifts.filter(x=>x.status==='published')).filter(x=>x.staffId===staffId&&x.id!==w.id&&!skip.includes(x.id))
- const all=minorWork(s,staffId,w,mine),candidate=pieces(s,w)
+ const all=minorWork(s,staffId,w.minorWhole??w,mine),candidate=pieces(s,w)
  for(const p of candidate){
   const years=age(r.birthDate,p.date);if(years>=18)continue
   if(years<14){add('work under age 14 requires separate authorization');continue}
@@ -46,7 +49,7 @@ export function minorIssues(s:State,staffId:string,w:any,other?:any[],skip:strin
   const weekStart=week(p.date),weekEnd=dayAfter(weekStart,6),nextDate=dayAfter(p.date)
   if((years<16||['NY','WA'].includes(r.state))&&(weekStart<r.calendarFrom||weekEnd>r.calendarThrough))add('school calendar must cover the full workweek')
   if(years>=16&&['CA','WA','NY'].includes(r.state)&&nextDate>r.calendarThrough)add('school calendar must include the next day')
-  const site=w.site??s.staff.find(x=>x.id===staffId)?.site??'',authorized=(kind:string)=>evidenceFor(r,kind,p.date,site).length>0
+  const site=siteOf(s,{...w,staffId}),authorized=(kind:string)=>evidenceFor(r,kind,p.date,site).length>0
   const school=r.schoolDays.includes(p.date),schoolWeek=r.schoolDays.some((d:string)=>week(d)===week(p.date)),day=new Date(p.date+'T00:00:00Z').getUTCDay(),tomorrow=r.schoolDays.includes(dayAfter(p.date))
   const labor=dayAfter(p.date.slice(0,4)+'-09-01',(8-new Date(p.date.slice(0,4)+'-09-01T00:00:00Z').getUTCDay())%7),summer=p.date>=p.date.slice(0,4)+'-06-01'&&p.date<=labor
   let daily=years<16?(school?180:480):1440,weekly=years<16?(schoolWeek?1080:2400):10080,earliest=years<16?420:0,latest=years<16?(summer?1260:1140):1440,days=7
@@ -63,7 +66,7 @@ export function minorIssues(s:State,staffId:string,w:any,other?:any[],skip:strin
   if(school&&years<16&&from<r.schoolEnd&&until>r.schoolStart)add('work overlaps configured school hours')
   if(r.state==='WA'&&school&&years>=16&&from<r.schoolEnd&&until>r.schoolStart&&!evidenceFor(r,'school-release',p.date,site).some((a:any)=>from>=a.classEndMinute))add('work overlaps configured school hours; school release must establish that active classes have ended')
   const validation=minorPermitIssues(r,p.date,years,site);validation.issues.forEach(add)
-  if(validation.permit){daily=Math.min(daily,validation.permit.dailyMinutes);weekly=Math.min(weekly,validation.permit.weeklyMinutes);if(from<validation.permit.startMinute||until>validation.permit.endMinute)add('outside employer-validated permit clock hours')}
+  for(const permit of validation.permits){daily=Math.min(daily,permit.dailyMinutes);weekly=Math.min(weekly,permit.weeklyMinutes);if(from<permit.startMinute||until>permit.endMinute)add('outside employer-validated permit clock hours')}
   if(r.state==='WA'){
    if(!authorized('parent-consent')||(schoolWeek&&!authorized('school-consent')))add('current parent and applicable school authorization required for this workplace')
    const lateStart=Math.max(Date.parse(p.start),Date.parse(instantAt(p.date,'20:00',s.timezone)))
@@ -80,7 +83,7 @@ export function minorIssues(s:State,staffId:string,w:any,other?:any[],skip:strin
  return [...new Set(warnings)]
 }
 export function checkMinorAssignments(s:State,before:State){
- for(const x of s.shifts.filter(x=>x.status==='published')){const old=before.shifts.find(y=>y.id===x.id);if(old?.status==='published'&&old.staffId===x.staffId&&old.start===x.start&&old.end===x.end)continue;const issues=minorIssues(s,x.staffId,x);need(!issues.length,issues.join('; '),409)}
+ for(const x of s.shifts.filter(x=>x.status==='published')){const old=before.shifts.find(y=>y.id===x.id);if(old?.status==='published'&&old.staffId===x.staffId&&old.start===x.start&&old.end===x.end&&siteOf(s,old)===siteOf(s,x))continue;const issues=minorIssues(s,x.staffId,x);need(!issues.length,issues.join('; '),409)}
 }
 export function minorClock(s:State,staffId:string,at:string,shiftId:string|null){
  const shift=s.shifts.find(x=>x.id===shiftId),w:any={...shift,start:at,end:shift?.end&&shift.end>at?shift.end:new Date(Date.parse(at)+60000).toISOString()};w.minutes=(Date.parse(w.end)-Date.parse(at))/60000-(shift?.breakMinutes??0)
@@ -89,7 +92,13 @@ export function minorClock(s:State,staffId:string,at:string,shiftId:string|null)
 
 /** Worked facts are always retained: flag a violation for review, never erase it. */
 export function minorTime(s:State,t:Record<string,any>,shiftId?:string|null){
- const clock=s.clocks.find(k=>k.id===t.clockId)
+ if(!s.minors.some(r=>r.staffId===t.staffId))return []
+ const clock=s.clocks.find(k=>k.id===(t.clockId??t.id))
  const source=t.edited||t.corrects?t:t.captured?{...t,...t.captured}:t
- return minorIssues(s,t.staffId,source,undefined,[shiftId,clock?.shiftId,t.segmentPlan?.shiftId].filter(Boolean))
+ const shift=s.shifts.find(x=>x.id===(shiftId??clock?.shiftId??t.segmentPlan?.shiftId))
+ const whole={...source,site:source.site||shift?.site||t.segmentPlan?.site||s.staff.find(x=>x.id===t.staffId)?.site||''}
+ const plan=t.segmentPlan??(clock?transferPlan(s,clock,source.end):null)
+ const segments=reconcileSegments(s,t.staffId,whole,plan)
+ const skip=[shiftId,clock?.shiftId,t.segmentPlan?.shiftId].filter(Boolean)
+ return [...new Set((segments.length?segments:[whole]).flatMap((part:any)=>minorIssues(s,t.staffId,{...whole,...part,minorWhole:whole},undefined,skip)))]
 }

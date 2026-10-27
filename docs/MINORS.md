@@ -18,7 +18,7 @@ Each entry contains `kind`, `reference`, `from`, `through` and `site`. Dates use
 YYYY-MM-DD, both ends are included, and a window cannot exceed one year. The
 workplace must match the shift's site, or the employee's home site for an
 unscheduled clock. A review at one workplace never grants another workplace
-permission. The public command is `POST /api/lanyard/command` with a native
+permission. Manual time uses its recorded workplace. Clock closure checks its matched shift and each transferred segment at its own workplace. A new transfer rechecks minor rules before acceptance; completed work is retained with exceptions after a review is revoked. The public command is `POST /api/lanyard/command` with a native
 owner session; see the app's command directory for the envelope and revisions.
 
 Supported entries:
@@ -26,7 +26,7 @@ Supported entries:
 - `permit`: add `permitKind`, `dailyMinutes`, `weeklyMinutes`, `startMinute`
   and `endMinute`. Minutes are whole venue-time minutes. The review reference
   must equal the employee's permit reference, and its end date cannot exceed
-  the recorded permit expiry. Its limits can tighten statutory limits.
+  the recorded permit expiry. Every current matching review applies, in either order; the strictest daily, weekly and clock-window terms tighten statutory limits.
   California uses `individual-work-permit`; New York and Illinois use
   `employment-certificate`; Washington uses `employer-endorsement`; Oregon
   uses `employer-certificate`. Illinois requires this check below age 16.

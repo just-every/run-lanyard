@@ -58,7 +58,18 @@ export async function harness(options = {}) {
     }
     const signIn = async email => { const response = await send('/auth/magic-link', {email}); assert.equal(response.status,202,response.text); return confirmMail(email) }
     return { get db(){return db}, mf, origin, owner, auth, send, cmd, state, person, signIn, confirmMail, restart:async()=>{await mf.setOptions(mfOptions);db=await mf.getD1Database('DB')}, close: async () => { await mf.dispose(); if (!options.root) await rm(dir, { recursive: true, force: true }) } }
-  } catch (error) { await mf.dispose(); if (!options.root) await rm(dir, { recursive: true, force: true }); throw error }
+  } catch (error) {
+    const collision=error?.code === 'ERR_ADDRESS_IN_USE'
+    try { await mf.dispose() } catch (cleanupError) { if(!collision)throw cleanupError }
+    if (!options.root) await rm(dir, { recursive: true, force: true })
+    // The probe releases its port before workerd can bind it. Another listener
+    // can win that race; retry only a failed startup bind, never a test assertion.
+    if (collision && (options.portAttempts ?? 0) < 2) {
+      console.warn('Harness startup port collision; allocating a fresh listener')
+      return harness({...options,portAttempts:(options.portAttempts ?? 0)+1})
+    }
+    throw error
+  }
 }
 
 export async function run(fn, options = {}) { const h = await harness(options); try { await fn(h) } finally { await h.close() } }

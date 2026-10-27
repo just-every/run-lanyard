@@ -2,6 +2,7 @@
 // without clocking out. Clock-out turns the changes into SCHEDULE-004 work segments.
 import {type Context,type State,type Row,keys,text,need,self,instant,put} from './model'
 import {qualification} from './workforce'
+import {minorIssues} from './minors'
 import {siteOf} from './team'
 import {checkNetwork} from './clocknets'
 import {provisional} from './closerules'
@@ -26,6 +27,8 @@ export function transfers(c:Context,name:string,p:Record<string,any>) {
  // PEOPLE-002: the job, its skills and certifications and the cafe must all hold from the change to the shift's end.
  const shift=open.shiftId?c.s.shifts.find(x=>x.id===open.shiftId):undefined,end=shift&&shift.end>at?shift.end:new Date(Date.parse(at)+60000).toISOString()
  const issue=qualification(c.s,staffId,{job,site,start:at,end});need(!issue,issue??'Not qualified',409)
+ const minorWarnings=minorIssues(c.s,staffId,{job,site,start:at,end,minorWhole:{...open,end,minutes:(Date.parse(end)-Date.parse(open.start))/60000}},undefined,shift?[shift.id]:[])
+ need(!minorWarnings.length,minorWarnings.join('; '),409)
  // CLOCK-007: moving to another cafe is checked against that cafe's approved networks like a clock-in there.
  const net=site===from.site?{exceptions:[] as string[]}:checkNetwork(c.s,site,c.net)
  const exceptions=[...(open.exceptions??[]),...net.exceptions.filter(e=>!open.exceptions?.includes(e))]

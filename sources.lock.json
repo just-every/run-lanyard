@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "eb2a3f08561b214d2923d23566c3c5bd22c692eec2ac77356949cbcfe7949b05",
+      "sha256": "1f68e6c13c8f07861fde364269e795883dea19ab617cb3504e45ed27a890c3f5",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "589a95cceb29a6f4a5eb581c86572c022619bfcdf44b2d0694c550e0b9819f9f",
+      "sha256": "932b24ee46134065eb95151f6bfecd462cc2b4d0c7dcdafa1d4a83678366553d",
       "executable": false
     },
     "DEMO.md": {
@@ -411,6 +411,10 @@
     },
     "docs/HOLIDAYS.md": {
       "sha256": "2c37a748053f962fc3ebb2227508bd8cca23bba969459db7642255e2f767a2ce",
+      "executable": false
+    },
+    "docs/MINORS.md": {
+      "sha256": "066f7690ef4919e16d893c4891d98da4908aa954a97662946d5e06b51fe20744",
       "executable": false
     },
     "docs/MOVE-IN.md": {
@@ -1457,12 +1461,16 @@
       "sha256": "ae231cbd3535f56cf878f343b31af058d4b74e4dcad1cd2bdde4b2991a1fbc5b",
       "executable": false
     },
+    "src/lanyard/domain/minor-evidence.ts": {
+      "sha256": "b6e5279ca9d7cebee48a716b30d7b1a895cc8a01116c77aeb304d97f76829043",
+      "executable": false
+    },
     "src/lanyard/domain/minor-work.ts": {
       "sha256": "ce1031d61da1e6ff49479a122246c52abc8bd080f26a571f116dffb3a9e3e80e",
       "executable": false
     },
     "src/lanyard/domain/minors.ts": {
-      "sha256": "fd915607f4411ee918d06049bbc5bd6d8023393f39359b2637c084d74f8fdd62",
+      "sha256": "e119e711195c68c06ba3672803beef336c76288e162c81ac890118a59a730314",
       "executable": false
     },
     "src/lanyard/domain/model.ts": {
@@ -1690,7 +1698,7 @@
       "executable": false
     },
     "src/lanyard/domain/time.ts": {
-      "sha256": "931621e89d6987bf3ddd87dd8e541c33e59e390b63c9cf595273269da742c44a",
+      "sha256": "54c65f916652e4f3b8379c754d48f3b74303f4fd58bb73dcaa66d587f2cc8fe0",
       "executable": false
     },
     "src/lanyard/domain/tipcredit.ts": {
@@ -1706,7 +1714,7 @@
       "executable": false
     },
     "src/lanyard/domain/transfers.ts": {
-      "sha256": "ce17fc3de2981d340b76566d28ee1040d58ad293c51d12560ee513320489735e",
+      "sha256": "e4af394763183f4fce2d9b35616ba7cba725544ac83ad14dc4243b4c311c9bc9",
       "executable": false
     },
     "src/lanyard/domain/workforce.ts": {
@@ -1818,7 +1826,7 @@
       "executable": false
     },
     "src/lanyard/ui/commands.ts": {
-      "sha256": "fc87ebc2c41a3d55608f6bb2ce9497d6bd52b68c6ee09c94f8df9b2a13066f08",
+      "sha256": "5617232792bf3ff05b6ba022d0d40aa57c40a59ce1d956945655361ee472b2d4",
       "executable": false
     },
     "src/lanyard/ui/contacts.ts": {
@@ -1918,7 +1926,7 @@
       "executable": false
     },
     "src/lanyard/ui/minors.ts": {
-      "sha256": "92fadc6ef01671b00adc189fcdc77dc096f893adefe5016c2472dfaca42c85b9",
+      "sha256": "ced9835c6919e03c8a8cc6cc973613b3f720b4f4b8b29184c8a6cc9d6bdd0176",
       "executable": false
     },
     "src/lanyard/ui/notices.ts": {
@@ -4006,7 +4014,7 @@
       "executable": false
     },
     "tests/harness.mjs": {
-      "sha256": "7f1a7c3fb48716ec4cdc22da189d6cddc18af2979e14f9858f8c251456c57966",
+      "sha256": "c81ce303f05e2226fa75e1d26229e717b20d78076fa9f3862c508bc42b6d3d85",
       "executable": false
     },
     "tests/holidays-api.mjs": {
@@ -4042,7 +4050,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "9573ad8d92052cab3526e29ca0908121412313c9bab243cfda11471eedeecb35",
+      "sha256": "2c2a25b5935e82aa515f0c2156c245a8d5af5235d40a79ec42707429202e459a",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -4074,7 +4082,7 @@
       "executable": false
     },
     "tests/minors-journey.mjs": {
-      "sha256": "06853d7735d7589d45e87bccd6e74c91ccd7c597ce8a687a5228662efa5f0522",
+      "sha256": "015b0834b6d58ef208a83b6397a15fb5e81d5def30f1163ce35f83f242ac8d28",
       "executable": false
     },
     "tests/notices-journey.mjs": {
@@ -4230,7 +4238,7 @@
       "executable": false
     },
     "tests/transfer-journey.mjs": {
-      "sha256": "f74c92e7383e5107db1562c034aa04bdea112c57db952cc21cb079207a184998",
+      "sha256": "37eda4e4f058b8ca6f96330438ec8f3ef328de874469af6976819c4f518ff958",
       "executable": false
     },
     "tests/worker.ts": {

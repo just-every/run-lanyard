@@ -52,6 +52,7 @@ export async function minorApi(h){
  await h.cmd('minor.save',{...input,...pin(minor)},h.owner,409)
  await minorVariants()
  await minorAuthorizations()
+ await minorWorkplaces()
 }
 export async function minorBrowser(){
  const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
@@ -59,8 +60,8 @@ export async function minorBrowser(){
  try{const f=await minorFixture(h),page=await context.newPage()
  await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
  const as=async cookie=>{const [name,...value]=cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])}
- const shot=async(name,target)=>{for(const width of [1440,390]){await page.setViewportSize({width,height:1000});if(target)await page.locator(target).evaluate(el=>el.scrollIntoView({block:'start'}));if(width===1440)assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.C35_SCREENS){await mkdir(process.env.C35_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C35_SCREENS,`${name}-${width}.png`)})}}await page.setViewportSize({width:1440,height:1000})}
- await as(h.owner);await page.goto(h.origin+'/app/people',{waitUntil:'networkidle'});const card=page.locator('#minors');await card.getByText('Alex · federal',{exact:true}).click();const form=card.locator('form').first();assert.equal(await form.getByLabel('Birth date',{exact:true}).inputValue(),f.input.birthDate);await form.getByLabel('State work permit reference').fill('synthetic-lanyard-3');await Promise.all([page.waitForResponse(r=>r.url().includes('name=minor.save')),form.getByRole('button',{name:'Save minor record'}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);await page.locator('#minors').getByText('Alex · federal',{exact:true}).click();await page.locator('#minors form').first().scrollIntoViewIfNeeded();await shot('minor-record')
+ const shot=async(name,target)=>{for(const width of [1440,390]){await page.setViewportSize({width,height:1000});if(target)await page.locator(target).first().evaluate(el=>el.scrollIntoView({block:'start'}));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.C35_SCREENS){await mkdir(process.env.C35_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C35_SCREENS,`${name}-${width}.png`)})}}await page.setViewportSize({width:1440,height:1000})}
+ await as(h.owner);await page.goto(h.origin+'/app/people',{waitUntil:'networkidle'});const card=page.locator('#minors');await card.getByText('Alex · federal',{exact:true}).click();const form=card.locator('form').first();assert.equal(await form.getByLabel('Birth date',{exact:true}).inputValue(),f.input.birthDate);await form.getByLabel('State work permit reference').fill('synthetic-lanyard-3');await Promise.all([page.waitForResponse(r=>r.url().includes('name=minor.save')),form.getByRole('button',{name:'Save minor record'}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);await page.locator('#minors').getByText('Alex · federal',{exact:true}).click();await page.locator('#minors form').first().scrollIntoViewIfNeeded();await shot('minor-record','#minors form')
  const invalid=await h.cmd('roster.prepare',{week:f.week,shifts:[f.spec(f.week,'16:00','20:00')]});await page.goto(h.origin+`/app/schedule?week=${f.week}&view=draft`,{waitUntil:'networkidle'});assert.ok((await page.locator('main').innerText()).includes('school-day limit 180'));await page.locator('[data-saved-review]').scrollIntoViewIfNeeded();await shot('minor-schedule-refusal','[data-saved-review]')
  const r=(await h.state()).minors[0];await h.cmd('minor.save',{...f.input,...pin(r),state:'WA',birthDate:String(Number(f.input.birthDate.slice(0,4))-2)+f.input.birthDate.slice(4)})
  await h.cmd('roster.prepare',{week:f.week,shifts:[f.spec(f.week,'16:00','17:00')]});await page.goto(h.origin+`/app/schedule?week=${f.week}&view=draft`,{waitUntil:'networkidle'});assert.ok((await page.locator('main').innerText()).includes('employer-endorsement requires current employer validation'));await page.locator('[data-saved-review]').scrollIntoViewIfNeeded();await shot('minor-state-review','[data-saved-review]')
@@ -193,6 +194,14 @@ async function minorAuthorizations(){
   await refused(await trial('2025-10-20','16:00','17:01'),/school-day limit 60/)
   await save({authorizations:[{...permit,startMinute:960,endMinute:1020},parent,school]})
   await refused(await trial('2025-10-20','16:00','17:01'),/employer-validated permit clock hours/)
+  // All current permit reviews restrict work, independently of their array order.
+  for(const [restriction,reason] of [[{dailyMinutes:60},/school-day limit 60/],[{weeklyMinutes:60},/school-week limit 60/],[{endMinute:1020},/employer-validated permit clock hours/],[{startMinute:1020},/employer-validated permit clock hours/]]){
+   for(const reviews of [[permit,{...permit,...restriction}],[{...permit,...restriction},permit]]){
+    await save({authorizations:[...reviews,parent,school]})
+    await refused(await trial('2025-10-20','16:00','18:00'),reason)
+    await publish(await trial('2025-10-20',restriction.startMinute?'17:00':'16:00',restriction.startMinute?'18:00':'17:00'))
+   }
+  }
   // Every maintained permit jurisdiction distinguishes absent and current review.
   for(const state of ['CA','NY','IL','OR']){
    const birthDate=state==='IL'?'2010-01-01':base.birthDate
@@ -201,8 +210,12 @@ async function minorAuthorizations(){
    await save({state,birthDate,authorizations:[permitEvidence(state)]})
    await publish(await trial('2025-10-20','16:00','17:00'))
   }
+  await save({state:'NY',authorizations:[permitEvidence('NY',{site:'Other cafe'})]})
+  await refused(await trial('2025-10-20','16:00','17:00'),/requires current employer validation/)
   // New York late school-night work needs both parent and school consent.
   await save({state:'NY',authorizations:[permitEvidence('NY'),parent]})
+  await refused(await trial('2025-10-20','21:00','23:00'),/outside permitted clock hours/)
+  await save({state:'NY',authorizations:[permitEvidence('NY'),school]})
   await refused(await trial('2025-10-20','21:00','23:00'),/outside permitted clock hours/)
   await save({state:'NY',authorizations:[permitEvidence('NY'),parent,school]})
   await publish(await trial('2025-10-20','21:00','23:00'))
@@ -237,5 +250,56 @@ async function minorAuthorizations(){
   assert.match(blocked.error,/requires current employer validation/)
   assert.equal((await h.state()).clocks.length,count)
 
+ }finally{await h.close()}
+}
+
+export async function minorWorkplaces(){
+ const h=await harness({now:'2026-10-27T12:00:00Z'})
+ try{
+  const alex=await h.person('Alex'),manager=await h.person('Morgan','manager')
+  await h.cmd('staff.save',{...pin(alex),name:alex.name,email:alex.email,payrollId:alex.payrollId,role:'staff',active:true,site:'Ocean Beach'})
+  const job=await h.cmd('job.save',{name:'Service',skills:[],certifications:[]})
+  await h.cmd('workforce.save',{staffId:alex.id,jobs:[job.id],skills:[],certifications:[],sites:['Ocean Beach','Mission'],preferences:[],minHours:0,maxHours:40,classification:'hourly',employmentType:'part-time',startDate:'2024-01-01',rates:[]})
+  const base={staffId:alex.id,birthDate:'2008-01-01',state:'NY',permit:'synthetic-lanyard-20',permitThrough:'2025-12-31',calendarFrom:'2025-01-01',calendarThrough:'2025-12-31',schoolDays:[],schoolStart:480,schoolEnd:900}
+  let record=await h.cmd('minor.save',{...base,authorizations:[permitEvidence('NY')]})
+  const save=async reviews=>record=await h.cmd('minor.save',{...base,...pin(record),authorizations:reviews})
+  const work=(day,site)=>({staffId:alex.id,start:local(day,'16:00'),end:local(day,'18:00'),breakMinutes:0,site,job:job.id,reason:'Recorded worked site'})
+  const missing=t=>assert.ok(t.exceptions?.some(x=>x.includes('requires current employer validation')),'worked workplace needs its own permit review')
+  const clean=t=>assert.ok(!t.exceptions?.some(x=>x.startsWith('Minor work rule ')),JSON.stringify(t.exceptions))
+  const manual=await h.cmd('time.prepare',work('2025-10-13','Mission'));missing(manual)
+  const edited=await h.cmd('time.edit',{...pin(manual),start:manual.start,end:manual.end,breakMinutes:0,reason:'Reviewed actual workplace'},manager.cookie);missing(edited)
+  const reviewed=await h.cmd('time.approve',pin(edited),manager.cookie);missing(reviewed)
+  const correction=await h.cmd('time.request',{start:reviewed.start,end:reviewed.end,breakMinutes:0,corrects:reviewed.id,reason:'Employee reviewed actual workplace',attest:true},alex.cookie);missing(correction)
+  assert.equal(correction.site,'Mission')
+  await save([permitEvidence('NY',{site:'Mission'})])
+  clean(await h.cmd('time.prepare',work('2025-10-14','Mission')))
+  // A published away shift must retain its workplace when the home cafe changes.
+  await h.cmd('availability.save',{staffId:alex.id,start:local('2025-10-01','00:00'),end:local('2025-11-01','00:00')})
+  const draft=await h.cmd('roster.prepare',{week:'2025-10-20',shifts:[work('2025-10-20','Mission'),work('2025-10-21','Mission')].map(({reason,...shift})=>shift)})
+  assert.deepEqual(draft.conflicts,[]);await h.cmd('roster.publish',pin(draft))
+  await h.cmd('clock.in',{commandId:'synthetic-lanyard-70',capturedAt:local('2025-10-20','16:00')},alex.cookie)
+  clean((await h.cmd('clock.out',{commandId:'synthetic-lanyard-71',capturedAt:local('2025-10-20','18:00'),breakMinutes:0},alex.cookie)).timesheet)
+  await h.cmd('clock.in',{commandId:'synthetic-lanyard-76',capturedAt:local('2025-10-21','16:00')},alex.cookie)
+  await save([permitEvidence('NY')])
+  missing((await h.cmd('clock.out',{commandId:'synthetic-lanyard-77',capturedAt:local('2025-10-21','18:00'),breakMinutes:0},alex.cookie)).timesheet)
+  await h.cmd('clock.in',{commandId:'synthetic-lanyard-72',capturedAt:local('2025-10-22','16:00')},alex.cookie)
+  const move={commandId:'synthetic-lanyard-73',capturedAt:local('2025-10-22','17:00'),job:job.id,site:'Mission'}
+  const refusal=await h.cmd('clock.transfer',move,alex.cookie,409);assert.match(refusal.error,/requires current employer validation/)
+  await save([permitEvidence('NY'),permitEvidence('NY',{site:'Mission'})])
+  await h.cmd('clock.transfer',{...move,commandId:'synthetic-lanyard-74'},alex.cookie)
+  // Revoke only the first site's review: every worked segment must be checked.
+  await save([permitEvidence('NY',{site:'Mission'})])
+  const closed=(await h.cmd('clock.out',{commandId:'synthetic-lanyard-75',capturedAt:local('2025-10-22','18:00'),breakMinutes:0},alex.cookie)).timesheet
+  assert.equal(closed.minutes,120);missing(closed)
+  const approved=await h.cmd('time.approve',pin(closed),manager.cookie);missing(approved)
+  assert.deepEqual(approved.workSegments.map(x=>[x.site,x.minutes]),[['Ocean Beach',60],['Mission',60]])
+  // Reverse the revocation: checking only the initial site must also fail.
+  await save([permitEvidence('NY'),permitEvidence('NY',{site:'Mission'})])
+  await h.cmd('clock.in',{commandId:'synthetic-lanyard-78',capturedAt:local('2025-10-23','16:00')},alex.cookie)
+  await h.cmd('clock.transfer',{...move,commandId:'synthetic-lanyard-79',capturedAt:local('2025-10-23','17:00')},alex.cookie)
+  await save([permitEvidence('NY')])
+  const revoked=(await h.cmd('clock.out',{commandId:'synthetic-lanyard-80',capturedAt:local('2025-10-23','18:00'),breakMinutes:0},alex.cookie)).timesheet
+  assert.equal(revoked.minutes,120);missing(revoked)
+  missing(await h.cmd('time.approve',pin(revoked),manager.cookie))
  }finally{await h.close()}
 }
