@@ -34,6 +34,7 @@ export function readable(s:State,a:Actor,events:Event[]):Event[] {
  const index=new Map<string,[string,Row]>(kinds.flatMap(k=>s[k].map(r=>[r.id,[k,r]] as [string,[string,Row]])))
  const home=s.staff.find(p=>p.id===a.staffId)?.site??'',siteOf=(id:string)=>s.staff.find(p=>p.id===id)?.site??''
  return events.filter(e=>{
+  if(['chat.removeMember','chat.leave'].includes(e.action))return false
   if(e.actorId===a.id)return true
   // FEEDBACK-001: events on anonymous feedback name its author, so only their performer reads them.
   if(privateEntity(s,e.entityId))return false

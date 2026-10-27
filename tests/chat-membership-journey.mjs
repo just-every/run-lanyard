@@ -27,12 +27,15 @@ export async function chatMembershipApi(){
  try{
   const f=await fixture(h),input={...pin(f.thread),staffId:f.member.id,reason:'Reviewed operational group departure'}
   assert.equal((await h.send(f.file,undefined,f.member.cookie)).status,200)
-  const refused=async(p,c,status)=>{
+  const refused=async(p,c,status,name='chat.removeMember')=>{
    const before=(await h.db.prepare('SELECT * FROM l_records ORDER BY id').all()).results
    const count=await h.db.prepare('SELECT COUNT(*) AS n FROM l_events').first()
-   await h.cmd('chat.removeMember',p,c,status)
+   const version=await h.db.prepare('SELECT version FROM l_meta').first(),commands=await h.db.prepare('SELECT COUNT(*) AS n FROM l_commands').first()
+   await h.cmd(name,p,c,status)
    assert.deepEqual((await h.db.prepare('SELECT * FROM l_records ORDER BY id').all()).results,before)
    assert.deepEqual(await h.db.prepare('SELECT COUNT(*) AS n FROM l_events').first(),count)
+   assert.deepEqual(await h.db.prepare('SELECT version FROM l_meta').first(),version)
+   assert.deepEqual(await h.db.prepare('SELECT COUNT(*) AS n FROM l_commands').first(),commands)
   }
   await refused(input,f.manager.cookie,403)
   await refused(input,f.member.cookie,403)
@@ -41,11 +44,24 @@ export async function chatMembershipApi(){
   await refused({...input,members:[f.member.id]},h.owner,400)
   const other=await h.cmd('chat.create',{kind:'group',site:'East',title:'No owner readership',members:[f.manager.id]},f.member.cookie)
   await refused({...input,...pin(other)},h.owner,404)
+  await refused({...pin(f.thread),reason:'Owner cannot abandon the last listed ownership'},h.owner,409,'chat.leave')
   const saved=await h.cmd('chat.removeMember',input)
   assert.deepEqual(saved.members,[f.manager.id,f.owner.id])
   assert.deepEqual(saved.membershipChanges[0].before,f.thread.members)
   assert.deepEqual(saved.membershipChanges[0].after,saved.members)
   assert.equal(saved.membershipChanges[0].reason,input.reason)
+  assert.equal(saved.membershipChanges[0].revision,f.thread.revision)
+  assert.equal(saved.membershipChanges[0].by,(await h.state()).actor.id)
+  const auditPath='/api/lanyard/chat-membership'
+  const audit=(await h.send(auditPath,undefined,h.owner)).value.receipts
+  assert.deepEqual(audit,[{threadId:f.thread.id,...saved.membershipChanges[0]}])
+  assert.equal(JSON.stringify(audit).includes('retained service history'),false)
+  assert.equal(JSON.stringify(audit).includes('service.txt'),false)
+  for(const cookie of [f.member.cookie,f.manager.cookie])assert.equal((await h.send(auditPath,undefined,cookie)).status,403)
+  assert.equal((await h.send(auditPath)).status,401)
+  const key=await h.cmd('agent.create',{label:'synthetic-lanyard membership probe'})
+  assert.equal((await h.send(auditPath,undefined,'',{authorization:`Bearer ${key.token}`})).status,401)
+  await h.cmd('chat.removeMember',input,'',401,{authorization:`Bearer ${key.token}`})
   assert.equal(saved.membershipChanges[0].at,'2026-10-26T12:00:00.000Z')
   await refused(input,h.owner,409)
   await denied(h,f)
@@ -55,10 +71,12 @@ export async function chatMembershipApi(){
   assert.equal('membershipChanges' in managerView.threads.find(t=>t.id===f.thread.id),false,'membership review reasons remain owner-private')
   assert.ok((await h.state()).events.some(e=>e.action==='chat.removeMember'&&e.entityId===f.thread.id&&e.actorRole==='owner'))
   await h.restart();await denied(h,f)
+  assert.deepEqual((await h.send(auditPath,undefined,h.owner)).value.receipts,audit)
+  await refused({...pin(saved),reason:'Last owner protection survives restart'},h.owner,409,'chat.leave')
   // Returning to the cafe cannot undo an explicit removal.
-  for(const site of ['West','East']){
+  for(const [site,active] of [['West',true],['East',false],['East',true]]){
    const p=(await h.state()).staff.find(p=>p.id===f.member.id)
-   await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site})
+   await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active,site})
   }
   await denied(h,f)
   // Voluntary departure removes only the acting member, never somebody else.
@@ -68,9 +86,29 @@ export async function chatMembershipApi(){
   await h.cmd('chat.leave',{...departure,revision:f.thread.revision},f.manager.cookie,409)
   assert.deepEqual((await h.db.prepare('SELECT * FROM l_records ORDER BY id').all()).results,beforeLeave)
   const left=await h.cmd('chat.leave',departure,f.manager.cookie)
-  assert.deepEqual(left.members,[f.owner.id])
-  assert.equal(left.membershipChanges.at(-1).action,'left')
-  assert.equal(left.membershipChanges.at(-1).staffId,f.manager.id)
+  assert.deepEqual(left,{id:saved.id,revision:saved.revision+1,left:true},'a departing member receives no membership receipts')
+  const receipts=(await h.send(auditPath,undefined,h.owner)).value.receipts
+  assert.deepEqual(receipts.at(-1),{threadId:f.thread.id,action:'left',staffId:f.manager.id,by:(await h.state(f.manager.cookie)).actor.id,revision:saved.revision,at:'2026-10-26T12:00:00.000Z',reason:departure.reason,before:saved.members,after:[f.owner.id]})
+  for(const cookie of [f.member.cookie,f.manager.cookie])assert.equal((await h.state(cookie)).events.some(e=>['chat.removeMember','chat.leave'].includes(e.action)),false,'membership activity stays owner-private even from its author')
+  await refused({...pin(left),reason:'Owner cannot leave alone'},h.owner,409,'chat.leave')
+  // An existing ownerless group retains its readers and permits self-departure.
+  const ownerless=await h.cmd('chat.leave',{...pin(other),reason:'Leaving my ownerless group'},f.member.cookie)
+  assert.deepEqual(ownerless,{id:other.id,revision:other.revision+1,left:true})
+  assert.equal((await h.send('/api/lanyard/chat?threadId='+other.id,undefined,f.manager.cookie)).status,200)
+  assert.equal((await h.send('/api/lanyard/chat?threadId='+other.id,undefined,h.owner)).status,404)
+  await refused({...pin(ownerless),staffId:f.manager.id,reason:'No takeover'},h.owner,404)
+  assert.ok((await h.send(auditPath,undefined,h.owner)).value.receipts.some(r=>r.threadId===other.id),'owner audit authority does not grant content readership')
+  // Existing native owners may depart when another native owner remains listed.
+  const second=await h.cmd('staff.save',{name:'Second native owner',email:'second-owner@venue.example',payrollId:'synthetic-lanyard-4',role:'staff',active:true,site:'East'})
+  const invite=await h.send('/auth/invite',{email:second.email,displayName:second.name,role:'owner'},await h.signIn(h.auth.OWNER_EMAIL))
+  assert.equal(invite.status,202,invite.text)
+  const secondCookie=await h.confirmMail(second.email)
+  const shared=await h.cmd('chat.create',{kind:'group',site:'East',title:'Two listed native owners',members:[second.id,f.member.id]})
+  const ownerLeft=await h.cmd('chat.leave',{...pin(shared),reason:'Reviewed exit with another listed owner'})
+  assert.deepEqual(ownerLeft,{id:shared.id,revision:2,left:true})
+  assert.equal((await h.send('/api/lanyard/chat?threadId='+shared.id,undefined,h.owner)).status,404)
+  assert.equal((await h.send('/api/lanyard/chat?threadId='+shared.id,undefined,secondCookie)).status,200)
+  await refused({...pin(ownerLeft),reason:'Last remaining owner cannot leave'},secondCookie,409,'chat.leave')
   await denied(h,{...f,member:f.manager})
   await h.restart();await denied(h,{...f,member:f.manager})
   assert.equal((await h.send(f.file,undefined,h.owner)).status,200)
@@ -105,9 +143,18 @@ export async function chatMembershipBrowser(){
    const leave=page.locator('form[action*="name=chat.leave"]')
    await leave.getByLabel('Departure reason',{exact:true}).fill('synthetic-lanyard voluntary departure')
    await leave.getByRole('button',{name:'Leave group',exact:true}).click();await page.waitForLoadState('networkidle')
+   assert.ok((await page.locator('main').innerText()).includes('The last listed native owner must remain in the group'))
+   assert.ok((await page.locator('main').innerText()).includes('synthetic-lanyard-2 retained service history'))
+   await shot('chat-last-owner-protected')
+   await context.clearCookies()
+   const [memberName,...memberValue]=f.manager.cookie.split('=');await context.addCookies([{name:memberName,value:memberValue.join('='),url:h.origin}])
+   await page.goto(h.origin+'/app/chat',{waitUntil:'networkidle'})
+   const memberLeave=page.locator('form[action*="name=chat.leave"]')
+   await memberLeave.getByLabel('Departure reason',{exact:true}).fill('synthetic-lanyard member departure')
+   await memberLeave.getByRole('button',{name:'Leave group',exact:true}).click();await page.waitForLoadState('networkidle')
    assert.equal(await page.locator('form[action*="name=chat.leave"]').count(),0)
    assert.ok(!(await page.locator('main').innerText()).includes('synthetic-lanyard-2 retained service history'))
-   await denied(h,{...f,member:{...f.owner,cookie:h.owner}});await shot('chat-membership-left')
+   await denied(h,{...f,member:f.manager});await shot('chat-membership-left')
   }finally{await context.close();await h.close()}
  }}finally{await browser.close()}
 }
