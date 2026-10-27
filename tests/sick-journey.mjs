@@ -213,6 +213,13 @@ export async function sickUnpaidApi(){
    assert.deepEqual((await h.cmd('payroll.prepare',{})).lines.filter(l=>l.sickUseId),[])
    await h.restart();assert.equal((await report('2026-01-09')).balanceMinutes,2340)
    const csv=await h.send('/api/lanyard/sick-balances.csv?asOf=2026-01-09',undefined,h.owner);assert.equal(csv.status,200);assert.match(csv.text,/"false",""/)
+   if(preset==='NY_UNPAID'){
+    const next=await h.cmd('sickpolicy.save',{...pin(policy),site:policy.site,from:'2026-02-01',preset,...facts})
+    assert.equal(next.versions[0].from,'2025-01-01')
+    const start=local('2026-02-01','00:00'),worked=await h.cmd('time.prepare',{staffId:alex.id,start,end:new Date(Date.parse(start)+30*3600000).toISOString(),site:policy.site,breakMinutes:0,reason:'Approved work after an effective policy revision'})
+    await h.cmd('time.approve',pin(worked))
+    const current=await report('2026-02-03');assert.deepEqual([current.annualAccrued,current.balanceMinutes],[60,2400],'a later effective version preserves prior carry and resets the annual accrual counter')
+   }
   }finally{await h.close()}
  }
 }

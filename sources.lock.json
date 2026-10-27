@@ -4206,7 +4206,7 @@
       "executable": false
     },
     "tests/sick-journey.mjs": {
-      "sha256": "d0f80c606a5e2dd2f26019ae248a2795698fcb995e50dae8a3e7bba55c86eb8e",
+      "sha256": "764ca35c053bea4134aa18e60ee393a080809b9fe766ea71e54084e2bf02b745",
       "executable": false
     },
     "tests/site/site.test.mjs": {
