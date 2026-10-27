@@ -1306,7 +1306,7 @@
       "executable": false
     },
     "src/lanyard/domain/audit-report.ts": {
-      "sha256": "09f3f3d4f2f180c01a710af3abbb2055fcc69bc308e9cff8c0a6ac4b3da9892c",
+      "sha256": "1bd990954bdd6807349829e4b72a9e162586176d4a0deb234a787097220c2cbe",
       "executable": false
     },
     "src/lanyard/domain/autorules.ts": {
@@ -3966,7 +3966,7 @@
       "executable": false
     },
     "tests/audit-report-journey.mjs": {
-      "sha256": "39f889f5af66b139f78e100893cfac7f761cbc14ab2a5545f69fe596f1ff382c",
+      "sha256": "c376d002b8688add93b92733027e1484fdb45f3349ca7b477161a9c9387c679b",
       "executable": false
     },
     "tests/autorules-workweek-journey.mjs": {

@@ -46,7 +46,7 @@ export function auditReport(s:State,a:Actor,site:string,from:string,through:stri
    for(const e of balance.sources.filter(e=>inside(e.date)&&(e.kind!=='carry'||e.balanceMinutes!==0)))add('sick-leave',e.kind==='work'?'timesheets':e.kind==='use'?'sickuses':e.kind.startsWith('donation')?'sicktransfers':'sickpolicies',{id:e.id??policy.id,revision:e.revision??policy.revision,staffId:balance.staffId},e.date,{kind:e.kind,policyId:policy.id,policyRevision:e.policyRevision??policy.revision,presetVersion:e.presetVersion??null,minutes:e.minutes??null,creditedMinutes:e.creditedMinutes??null,balanceMinutes:e.balanceMinutes??null,...(e.kind==='use'?{status:e.status,decidedAt:e.decidedAt,decidedBy:e.decidedBy}:{} )},balance.preset??'unassigned','/app/payroll')
   }
  }
- const starts=new Set<string>(),people=[...new Set(times.filter(t=>t.status==='approved').map(t=>t.staffId))]
+ const starts=new Set<string>(),people=[...new Set(s.timesheets.filter(t=>t.status==='approved'&&(siteOf(s,t)===site||t.workSegments?.some((w:any)=>w.site===site))).map(t=>t.staffId))]
  for(let on=from;on<=through;on=dayAfter(on))for(const id of people)starts.add(workweek(s,id,on))
  const checks=tipChecks(s,a,[...starts]).filter(r=>r.sites.some((x:any)=>x.site===site)&&r.week<=through&&dayAfter(r.week,6)>=from)
  for(const r of checks){
