@@ -1470,7 +1470,7 @@
       "executable": false
     },
     "src/lanyard/domain/minors.ts": {
-      "sha256": "0c393cbcea8910fab29cd054f246489a7c71c6a897198c16dab6ca7ac1fad1bf",
+      "sha256": "25e094ca284ba6f9276cf3e2ff776f549508e126b45d1c2eeb3a80c5fcb0b2d8",
       "executable": false
     },
     "src/lanyard/domain/model.ts": {

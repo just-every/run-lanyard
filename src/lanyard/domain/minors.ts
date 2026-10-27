@@ -5,8 +5,9 @@ import {date,dayAfter} from './aca'
 import {wall,localDate,instantAt} from './settings'
 import {minorWork,rollingWork} from './minor-work'
 import {minorEvidence,evidenceFor,minorPermitIssues,supervised} from './minor-evidence'
+const RULE_VERSION='2026-10-27'
 const SOURCES:Record<string,string>={federal:'https://www.dol.gov/agencies/whd/fact-sheets/43-child-labor-non-agriculture',CA:'https://www.dir.ca.gov/dlse/MinorsSummaryCharts.pdf',NY:'https://dol.ny.gov/hours-work-minors',IL:'https://labor.illinois.gov/laws-rules/fls/child-labor-law-compliance.html',WA:'https://www.lni.wa.gov/workers-rights/youth-employment/hours-of-work',OR:'https://www.oregon.gov/boli/employers/pages/minor-workers.aspx',CO:'https://cdle.colorado.gov/dlss/youth-law'}
-export const minorPresets=Object.entries(SOURCES).map(([id,source])=>({id,source,version:'2026-10-27',scope:'Non-agricultural hour limits and employer document reviews; no hazardous-task clearance'}))
+export const minorPresets=Object.entries(SOURCES).map(([id,source])=>({id,source,version:RULE_VERSION,scope:'Non-agricultural hour limits and employer document reviews; no hazardous-task clearance'}))
 export function minorCommand(c:Context,name:string,p:Record<string,any>){
  if(name!=='minor.save')return
  need(c.a.role==='owner','Only the owner maintains private birth and permit records',403)
@@ -22,7 +23,7 @@ export function minorCommand(c:Context,name:string,p:Record<string,any>){
  const schoolStart=integer(minute(p.schoolStart),'school start minute',0,1439),schoolEnd=integer(minute(p.schoolEnd),'school end minute',1,1440);need(schoolStart<schoolEnd,'School ends after it starts')
  const {versions,...prior}:any=old??{}
  const permit=text(p.permit,'work permit reference',160,true),permitThrough=p.permitThrough?date(p.permitThrough,'permit expiry'):''
- return put(c,'minors',{staffId:person.id,birthDate,state:p.state,permit,permitThrough,calendarFrom,calendarThrough,schoolDays,schoolStart,schoolEnd,authorizations:minorEvidence(c,{...p,birthDate,permit,permitThrough,calendarFrom,calendarThrough,schoolDays,schoolStart,schoolEnd},old),presetVersion:'2026-10-27',source:SOURCES[p.state],by:c.a.id,at:c.now,versions:old?[...(versions??[]),prior]:[]},old)
+ return put(c,'minors',{staffId:person.id,birthDate,state:p.state,permit,permitThrough,calendarFrom,calendarThrough,schoolDays,schoolStart,schoolEnd,authorizations:minorEvidence(c,{...p,birthDate,permit,permitThrough,calendarFrom,calendarThrough,schoolDays,schoolStart,schoolEnd},old),presetVersion:RULE_VERSION,source:SOURCES[p.state],by:c.a.id,at:c.now,versions:old?[...(versions??[]),prior]:[]},old)
 }
 const week=(on:string)=>dayAfter(on,-new Date(on+'T00:00:00Z').getUTCDay())
 const age=(birth:string,on:string)=>Number(on.slice(0,4))-Number(birth.slice(0,4))-(on.slice(5)<birth.slice(5)?1:0)
@@ -34,7 +35,7 @@ function pieces(s:State,w:any){
 /** No birth date or age leaves this module in a warning. */
 export function minorIssues(s:State,staffId:string,w:any,other?:any[],skip:string[]=[]):string[]{
  const r=s.minors.find(x=>x.staffId===staffId);if(!r)return []
- const warnings:string[]=[],add=(v:string)=>warnings.push(`Minor work rule ${r.state} (${r.presetVersion}): ${v}`)
+ const warnings:string[]=[],add=(v:string)=>warnings.push(`Minor work rule ${r.state} (${RULE_VERSION}): ${v}`)
  const mine=(other??s.shifts.filter(x=>x.status==='published')).filter(x=>x.staffId===staffId&&x.id!==w.id&&!skip.includes(x.id))
  const all=minorWork(s,staffId,w,mine),candidate=pieces(s,w)
  for(const p of candidate){
