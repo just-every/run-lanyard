@@ -8,7 +8,8 @@ const add=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().s
 export async function sickFixture(h,preset='CA',count=2,workedHours=48,options={}){
  const alex=await h.person('Alex'),ben=await h.person('Ben'),morgan=await h.person('Morgan','manager')
  for(const p of [alex,ben,morgan])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site:'Ocean Beach',position:'Service',hourlyRate:'20.00',startDate:'2020-01-01'})
- const policy=await h.cmd('sickpolicy.save',{site:'Ocean Beach',from:'2025-01-01',preset,code:'SICK-'+preset,...(options.normalDayMinutes?{normalDayMinutes:options.normalDayMinutes}:{})})
+ const coverage=preset==='NY_UNPAID'||preset==='NYC_UNPAID'?{employeeCount:4,incomeBand:'below1m',domesticWorkers:false}:preset==='OR_UNPAID'?{employeeCount:9,portlandLocation:false}:preset==='PHILADELPHIA_UNPAID'?{employeeCount:9,chainLocations:14}:{}
+ const policy=await h.cmd('sickpolicy.save',{site:'Ocean Beach',from:'2025-01-01',preset,code:'SICK-'+preset,...coverage,...(options.normalDayMinutes?{normalDayMinutes:options.normalDayMinutes}:{})})
  const entries=[]
  for(let i=0;i<count;i++){
   const start=local(add('2025-01-01',i*(options.spacingDays??7)),'00:00'),end=new Date(Date.parse(start)+workedHours*3600000).toISOString()
@@ -84,6 +85,7 @@ export async function sickApi(){
  await sickUnpaidApi()
  await sickReasonsApi()
  await sickSupplementalApi()
+ await sickPrenatalApi()
 }
 export async function sickBrowser(){
  const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
@@ -100,7 +102,7 @@ export async function sickBrowser(){
  const account=page.locator('summary[aria-label="Account"]');await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'});await shot('sick-tooltip')
  await as(f.alex.cookie);await page.goto(h.origin+'/app/time?week=2026-01-05',{waitUntil:'networkidle'});assert.ok((await page.locator('#earnings').innerText()).includes('Paid sick / safe leave (approved)'));assert.ok((await page.locator('#earnings').innerText()).includes('$40.00'));await page.locator('#earnings').scrollIntoViewIfNeeded();await shot('sick-earnings')
  await as(h.owner);await page.goto(h.origin+'/app/payroll',{waitUntil:'networkidle'});await card.getByText('Add a leave policy',{exact:true}).click()
- const unpaidForm=card.locator('form').filter({has:page.getByRole('button',{name:'Save leave policy',exact:true})}).last();await unpaidForm.getByLabel('Cafe',{exact:true}).fill('Riverbend');await unpaidForm.getByLabel('Effective from',{exact:true}).fill('2025-01-01');await unpaidForm.getByLabel('Jurisdiction preset').selectOption('OR_UNPAID')
+ const unpaidForm=card.locator('form').filter({has:page.getByRole('button',{name:'Save leave policy',exact:true})}).last();await unpaidForm.getByLabel('Cafe',{exact:true}).fill('Riverbend');await unpaidForm.getByLabel('Effective from',{exact:true}).fill('2025-01-01');await unpaidForm.getByLabel('Jurisdiction preset').selectOption('OR_UNPAID');await unpaidForm.getByText('Unpaid tier applicability',{exact:true}).click();await unpaidForm.getByLabel('Covered employer employee count').fill('9');await unpaidForm.getByLabel('Any Portland location').selectOption('false')
  await Promise.all([page.waitForResponse(r=>r.url().includes('name=sickpolicy.save')),unpaidForm.getByRole('button',{name:'Save leave policy',exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0)
  // Work at the unpaid location leaves the earlier paid bank intact.
  for(const day of ['2026-01-02','2026-01-04']){
@@ -114,6 +116,12 @@ export async function sickBrowser(){
  await Promise.all([page.waitForResponse(r=>r.url().includes('name=sickpolicy.save')),supplementalForm.getByRole('button',{name:'Save leave policy',exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);await card.getByText('Ocean Beach · NYC_SUPPLEMENTAL · 2026-02-22',{exact:true}).click();await card.locator('details[open]').last().scrollIntoViewIfNeeded();await shot('sick-immediate-bank');const supplementalPolicy=(await h.state()).sickpolicies.find(p=>p.preset==='NYC_SUPPLEMENTAL')
  await as(f.alex.cookie);await page.goto(h.origin+'/app/time?week=2026-03-02',{waitUntil:'networkidle'});const supplementalOwn=page.locator('#sick-own details').filter({has:page.locator('input[name="policyId"][value="'+supplementalPolicy.id+'"]')});await supplementalOwn.locator('summary').click();const supplementalRequest=supplementalOwn.locator('form');await supplementalRequest.getByLabel('Absence begins').fill('2026-03-03T09:00');await supplementalRequest.getByLabel('Absence ends').fill('2026-03-03T10:00');await supplementalRequest.getByLabel('Unpaid minutes',{exact:true}).fill('60');await supplementalRequest.getByLabel('Permitted purpose').selectOption('housing or benefits appointment')
  await Promise.all([page.waitForResponse(r=>r.url().includes('name=sick.request')),supplementalRequest.getByRole('button',{name:'Request unpaid leave',exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);await page.locator('#sick-own').scrollIntoViewIfNeeded();await shot('sick-immediate-request')
+ await as(h.owner);await page.goto(h.origin+'/app/payroll',{waitUntil:'networkidle'});await card.getByText('Add a leave policy',{exact:true}).click();const prenatalForm=card.locator('form').filter({has:page.getByRole('button',{name:'Save leave policy',exact:true})}).last();await prenatalForm.getByLabel('Cafe',{exact:true}).fill('Ocean Beach');await prenatalForm.getByLabel('Effective from',{exact:true}).fill('2025-01-01');await prenatalForm.getByLabel('Jurisdiction preset').selectOption('NY_PRENATAL');await prenatalForm.getByLabel('Mapped leave payroll code').fill('PRENATAL')
+ await Promise.all([page.waitForResponse(r=>r.url().includes('name=sickpolicy.save')),prenatalForm.getByRole('button',{name:'Save leave policy',exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);const prenatalPolicy=(await h.state()).sickpolicies.find(p=>p.preset==='NY_PRENATAL');await card.getByText('Ocean Beach · NY_PRENATAL · 2025-01-01',{exact:true}).click();await card.locator('details[open]').last().scrollIntoViewIfNeeded();await shot('sick-prenatal-policy')
+ await as(f.alex.cookie);await page.goto(h.origin+'/app/time?week=2026-03-09',{waitUntil:'networkidle'});const prenatalOwn=page.locator('#sick-own details').filter({has:page.locator('input[name="policyId"][value="'+prenatalPolicy.id+'"]')});await prenatalOwn.locator('summary').click();const prenatalRequest=prenatalOwn.locator('form');await prenatalRequest.getByLabel('Absence begins').fill('2026-03-10T09:00');await prenatalRequest.getByLabel('Absence ends').fill('2026-03-10T11:00');await prenatalRequest.getByLabel('Paid minutes',{exact:true}).fill('120');await prenatalRequest.getByLabel('Permitted purpose').selectOption('prenatal care')
+ await Promise.all([page.waitForResponse(r=>r.url().includes('name=sick.request')),prenatalRequest.getByRole('button',{name:'Request paid leave',exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);await page.locator('#sick-own').scrollIntoViewIfNeeded();await shot('sick-prenatal-request')
+ await as(h.owner);await page.goto(h.origin+'/app/payroll',{waitUntil:'networkidle'});const prenatalApproval=card.locator('form').filter({has:page.getByRole('button',{name:'Approve paid leave',exact:true})});await prenatalApproval.getByLabel('Paid-service source reference').fill('synthetic-lanyard-103');await Promise.all([page.waitForResponse(r=>r.url().includes('name=sick.decide')),prenatalApproval.getByRole('button',{name:'Approve paid leave',exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0);await card.scrollIntoViewIfNeeded();await shot('sick-prenatal-approved')
+
 
 
  }finally{await context.close();await h.close()}}}finally{await browser.close()}
@@ -155,6 +163,23 @@ export async function sickUnpaidApi(){
    const report=async on=>(await h.send('/api/lanyard/sick-balances?asOf='+on,undefined,h.owner)).value.find(r=>r.staffId===alex.id&&r.policyId===policy.id)
    assert.deepEqual([(await report('2025-12-31')).balanceMinutes,(await report('2026-01-01')).balanceMinutes],[2400,2400],preset+' accrual cap and carry')
    assert.equal(policy.paid,false);assert.equal(policy.code,'')
+   assert.ok(policy.coverageFacts)
+   assert.equal((await h.state(alex.cookie)).sickpolicies.find(p=>p.id===policy.id).coverageFacts,undefined,'employer income and headcount facts stay owner-only')
+   const facts=policy.coverageFacts
+   const attempt=async (site,extra,status)=>h.cmd('sickpolicy.save',{site,from:'2025-01-01',preset,...facts,...extra},h.owner,status)
+   await h.cmd('sickpolicy.save',{site:'Missing facts',from:'2025-01-01',preset},h.owner,400)
+   await attempt('Paid headcount',{employeeCount:preset.startsWith('NY')?5:10},409)
+   if(preset.startsWith('NY')){
+    await attempt('Domestic worker',{domesticWorkers:true},409)
+    await attempt('High income',{incomeBand:'above1m'},409)
+    await attempt('Income boundary',{incomeBand:'exact1m'},preset==='NY_UNPAID'?200:409)
+   }else if(preset==='OR_UNPAID'){
+    await attempt('Portland paid threshold',{employeeCount:6,portlandLocation:true},409)
+    const allowed=await attempt('Portland unpaid threshold',{employeeCount:5,portlandLocation:true},200);assert.equal(allowed.paid,false)
+   }else{
+    await attempt('Chain paid threshold',{chainLocations:15},409)
+   }
+
    await h.cmd('sickpolicy.save',{...pin(policy),site:policy.site,from:'2026-01-01',preset:'CA',code:'SICK-CA'},h.owner,409)
    assert.equal((await h.state()).sickpolicies.find(p=>p.id===policy.id).preset,preset,'a bank cannot be downgraded or converted')
    const before=(await h.state()).sickuses
@@ -169,6 +194,8 @@ export async function sickUnpaidApi(){
    await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:'staff',active:true,site:policy.site,hourlyRate:'',startDate:'2020-01-01'})
    const approved=await h.cmd('sick.decide',{...pin(use),decision:'approved'})
    assert.deepEqual([approved.paid,approved.costCents,approved.rateCents,approved.reference],[false,0,0,''])
+   await h.cmd('sick.decide',{...pin(approved),decision:'approved'},h.owner,409)
+   await h.cmd('sick.correct',{id:approved.id,revision:1,minutes:60,reason:'Stale unpaid correction'},h.owner,409)
    assert.equal((await h.state()).leave.find(l=>l.id===use.leaveId).reason,'Unpaid leave')
    assert.deepEqual([(await report('2026-01-09')).balanceMinutes,(await report('2026-01-09')).annualUsed],[2280,120])
    const batch=await h.cmd('payroll.prepare',{})
@@ -240,5 +267,38 @@ export async function sickSupplementalApi(){
   await h.cmd('sick.request',{...body,start:local('2026-03-04','00:00'),end:local('2026-03-04','08:00'),minutes:480},alex.cookie,409)
   assert.equal((await report('2026-03-04')).find(r=>r.policyId===supplement.id).balanceMinutes,360)
   await h.restart();assert.equal((await report('2026-03-04')).find(r=>r.policyId===supplement.id).balanceMinutes,360)
+ }finally{await h.close()}
+}
+
+export async function sickPrenatalApi(){
+ const h=await harness({now:'2027-01-02T12:00:00Z'})
+ try{
+  const {alex,ben,policy,request}=await sickFixture(h,'NYC40',0)
+  const prenatal=await h.cmd('sickpolicy.save',{site:policy.site,from:'2025-01-01',preset:'NY_PRENATAL',code:'PRENATAL'})
+  const report=async on=>{const r=await h.send('/api/lanyard/sick-balances?asOf='+on,undefined,h.owner);assert.equal(r.status,200,r.text);return r.value.find(r=>r.staffId===alex.id&&r.policyId===prenatal.id)}
+  assert.equal((await report('2025-02-28')).balanceMinutes,1200,'separate prenatal bank requires no worked accrual')
+  const body={...request,policyId:prenatal.id,start:local('2025-03-01','09:00'),end:local('2025-03-01','11:00'),purpose:'prenatal care'}
+  await h.cmd('sick.request',{...body,purpose:'care'},alex.cookie,400)
+  const use=await h.cmd('sick.request',body,alex.cookie)
+  const approved=await h.cmd('sick.decide',{...pin(use),decision:'approved',reference:'synthetic-lanyard-101'})
+  assert.deepEqual([approved.minutes,approved.costCents],[120,4000])
+  const acaPlan=await h.cmd('aca.plan.save',{name:'Separate prenatal paid service',start:'2025-01-01',end:'2025-12-31',adminEnd:'2025-12-31',stabilityEnd:'2026-12-31',staffIds:[alex.id]})
+  const paidService=async()=>(await h.send('/api/lanyard/aca/'+acaPlan.id,undefined,h.owner)).value.rows[0]
+  assert.equal((await paidService()).paidLeaveMinutes,120)
+  await h.cmd('aca.credit.save',{staffId:alex.id,date:'2025-03-01',minutes:120,category:'illness',reference:approved.reference,reason:'Same paid prenatal source; no duplicate service'})
+  assert.equal((await paidService()).paidLeaveMinutes,120)
+
+  assert.equal((await report('2026-01-01')).balanceMinutes,1080,'January does not renew the prenatal bank')
+  assert.equal((await report('2026-02-27')).balanceMinutes,1080,'last day of the 52-week entitlement')
+  assert.equal((await report('2026-02-28')).balanceMinutes,1200,'a full bank is available after 52 weeks')
+  const batch=await h.cmd('payroll.prepare',{});assert.deepEqual(batch.lines.map(l=>[l.minutes,l.costCents,l.payCode]),[[120,4000,'PRENATAL']]);await h.cmd('payroll.export',pin(batch))
+  const second=await h.cmd('sick.request',{...body,start:local('2026-02-28','09:00'),end:local('2026-02-28','11:00')},alex.cookie)
+  await h.cmd('sick.decide',{...pin(second),decision:'approved',reference:'synthetic-lanyard-102'})
+  const balance=await report('2026-03-01');assert.deepEqual([balance.balanceMinutes,balance.periodStart,balance.periodEnd],[1080,'2026-02-28','2027-02-27'])
+  assert.equal((await h.send('/api/lanyard/sick-balances?asOf=2026-03-01',undefined,h.owner)).value.find(r=>r.staffId===alex.id&&r.policyId===policy.id).balanceMinutes,0,'accrued sick bank remains independent')
+  await h.cmd('sick.correct',{...pin(approved),minutes:60,reason:'Reviewed one-hour prenatal visit'})
+  assert.deepEqual((await h.cmd('payroll.prepare',{})).lines.map(l=>[l.minutes,l.costCents,l.payCode]).sort((a,b)=>a[0]-b[0]),[[-60,-2000,'PRENATAL'],[120,4000,'PRENATAL']])
+  assert.equal((await report('2026-03-01')).balanceMinutes,1080,'earlier correction leaves the next entitlement intact');assert.equal((await paidService()).paidLeaveMinutes,60)
+  await h.restart();assert.equal((await report('2026-03-01')).balanceMinutes,1080)
  }finally{await h.close()}
 }

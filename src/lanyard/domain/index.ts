@@ -229,7 +229,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string,earni
  for(const k of ['fairworkpolicies','fairworkreviews'] as const)result[k]=a.role==='owner'?s[k]:[]
  result.geofences=a.role==='owner'?s.geofences:agent?[]:s.geofences.filter(p=>p.site===(s.staff.find(w=>w.id===a.staffId)?.site??'')||s.shifts.some(x=>x.staffId===a.staffId&&x.status==='published'&&x.site===p.site))
  result.georeceipts=agent?[]:s.georeceipts.filter(r=>a.role==='owner'||r.staffId===a.staffId)
- result.sickpolicies=a.role==='owner'?s.sickpolicies:agent?[]:s.sickpolicies.filter(p=>p.site===(s.staff.find(x=>x.id===a.staffId)?.site??'')||sickReports(s,localDate(new Date().toISOString(),s.timezone),a.staffId).some(r=>r.policyId===p.id&&r.sources.length)).map(({versions,by,at,...p})=>p)
+ result.sickpolicies=a.role==='owner'?s.sickpolicies:agent?[]:s.sickpolicies.filter(p=>p.site===(s.staff.find(x=>x.id===a.staffId)?.site??'')||sickReports(s,localDate(new Date().toISOString(),s.timezone),a.staffId).some(r=>r.policyId===p.id&&r.sources.length)).map(({versions,by,at,coverageFacts,...p})=>p)
  result.sickuses=a.role==='owner'?s.sickuses:agent?[]:s.sickuses.filter(u=>u.staffId===a.staffId)
  if(a.role!=='owner'&&!earnSettings(s.earnings).estimates)result.sickuses=result.sickuses.map(wageRedact)
  result.sickBalances=a.role==='owner'?sickReports(s,localDate(new Date().toISOString(),s.timezone)):agent?[]:sickReports(s,localDate(new Date().toISOString(),s.timezone),a.staffId)

@@ -36,7 +36,8 @@ export const sickPresets=[
  unpaid('NYC40','NYC_UNPAID','New York City · unpaid small-employer tier','1–4 employees and prior tax-year net income below $1 million; domestic workers require the paid tier.'),
  unpaid('OR','OR_UNPAID','Oregon · unpaid small-employer tier','Below 10 Oregon employees, or below 6 if the employer has a Portland location, under the cited 20-week count rule.'),
  unpaid('PHILADELPHIA','PHILADELPHIA_UNPAID','Philadelphia · unpaid small-employer tier','Fewer than 10 employees; chain establishments and other coverage exceptions require review of the cited source.'),
- {...unpaid('NYC40','NYC_SUPPLEMENTAL','New York City · 32 immediately available unpaid hours','Additional bank for covered NYC employees, from February 22, 2026; renewed January 1 independently of the accrued bank.'),bank:'supplemental',grantMinutes:1920,notBefore:'2026-02-22',annualAccrual:0,bankCap:1920,carry:0,annualUse:1920,wait:0}
+ {...unpaid('NYC40','NYC_SUPPLEMENTAL','New York City · 32 immediately available unpaid hours','Additional bank for covered NYC employees, from February 22, 2026; renewed January 1 independently of the accrued bank.'),bank:'supplemental',grantMinutes:1920,notBefore:'2026-02-22',annualAccrual:0,bankCap:1920,carry:0,annualUse:1920,wait:0},
+ {...paidPresets.find(p=>p.id==='NY40')!,id:'NY_PRENATAL',name:'New York State and NYC · separate paid prenatal bank',bank:'prenatal',grantMinutes:1200,entitlementDays:364,notBefore:'2025-01-01',annualAccrual:0,bankCap:1200,carry:0,annualUse:null,wait:0,reasons:['prenatal care'],source:'https://www.nyc.gov/site/dca/about/paid-sick-leave-FAQs.page',coverage:'20 separate paid hours for the employee receiving prenatal care, not a partner or family member; 52-week period starts on first use.'}
 ]
 
 /** California's day floor also applies under its local ordinances. The owner
