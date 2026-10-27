@@ -66,7 +66,7 @@ export async function auditApi(h){
  const after=await h.state();assert.equal(after.version,before.version)
  for(const k of ['timesheets','shifts','rosters','clocks','sickuses','sickpolicies','tipcredits','roundrules','breakrules'])assert.deepEqual(after[k],before[k],k+' unchanged')
  assert.equal(after.events.filter(e=>e.action==='audit.download').length,1)
- const retained=await retainAuditProof(h,f,r)
+ const retained=await retainAuditProof(h,f,r,file.text)
  const updated=await h.cmd('time.edit',{id:f.manual.id,revision:2,start:f.manual.start,end:'2026-10-10T15:00:00Z',breakMinutes:30,reason:'Second reviewed correction'})
  const latest=(await read()).rows.find(x=>x.category==='punch-edit');assert.equal(latest.sourceRevision,updated.revision);assert.equal(latest.facts.reason,'Second reviewed correction');assert.equal(latest.facts.minutes,390)
  assert.equal(latest.facts.editHistoryComplete,true)
@@ -155,7 +155,7 @@ async function auditResubmissions(h,person){
  assert.deepEqual(first.facts.editHistory.map(e=>[e.before.minutes,e.after.minutes,e.reason]),[[240,180,'Departed before lunch']])
  assert.equal(first.facts.editHistoryComplete,true)
 }
-async function retainAuditProof(h,f,report){
+async function retainAuditProof(h,f,report,originalCsv){
  const input={site:'Austin',from:'2026-10-01',through:'2026-12-31',jurisdiction:'all',sourceVersion:report.sourceVersion,reason:'Quarter evidence preservation',consent:true}
  const before=await h.state()
  for(const cookie of [f.riley.cookie,f.morgan.cookie,f.taylor.cookie])await h.cmd('audit.retain',input,cookie,403)
@@ -166,6 +166,7 @@ async function retainAuditProof(h,f,report){
  assert.deepEqual(await h.state(),before,'refused retention never changes sources or audit')
  const packet=await h.cmd('audit.retain',input)
  assert.deepEqual(packet.report,report)
+ assert.equal(packet.csv,originalCsv,'preservation keeps the reviewed original CSV bytes')
  assert.equal(packet.sourceVersion,report.sourceVersion)
  assert.deepEqual(packet.authorization,{ownerId:before.actor.id,at:'2026-10-27T12:00:00.000Z',reason:input.reason,affirmative:true,sourceVersion:report.sourceVersion})
  assert.deepEqual([packet.createdAt,packet.createdBy,packet.reason,packet.revision],['2026-10-27T12:00:00.000Z',before.actor.id,'Quarter evidence preservation',1])
@@ -202,6 +203,10 @@ async function retainAuditProof(h,f,report){
 }
 async function auditDelegation(h,f){
  const reader=await h.person('AuditReader','manager'),subject=await h.person('AuditSubject'),excluded=await h.person('AuditExcluded')
+ await h.cmd('staff.save',{...pin(reader),name:reader.name,email:reader.email,payrollId:reader.payrollId,role:'manager',active:true,site:'Austin'})
+ await h.cmd('kiosk.pin',{pin:'123456',language:'en',consent:true},reader.cookie)
+ const kiosk=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Austin',label:'Audit refusal proof',photo:false,consent:true}},h.owner)
+ assert.equal(kiosk.status,200,kiosk.text)
  for(const p of [subject,excluded])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:'staff',active:true,site:'Austin',hourlyRate:'21.00'})
  const business=await h.cmd('organization.business.save',{name:'Audit business'})
  await h.cmd('organization.location.save',{name:'Audit cafe',businessId:business.id,site:'Austin',timezone:'UTC'})
@@ -235,6 +240,12 @@ async function auditDelegation(h,f){
  assert.deepEqual((await read({staffId:subject.id,reportClass:'punch-edit'})).value.rows.map(x=>x.sourceId),[edited.id])
  for(const extra of [{site:'Mission'},{from:'2026-09-30'},{through:'2026-11-01'},{jurisdiction:'CA'},{jurisdiction:'all'},{staffId:excluded.id},{reportClass:'tip-credit'},{grantId:'synthetic-lanyard-absent'}])for(const csv of [false,true])await read(extra,csv,reader.cookie,403)
  for(const path of ['/api/lanyard/state','/app','/app/settings','/api/lanyard/access','/api/lanyard/sick-balances','/api/lanyard/audit-packets/'+(await h.state()).auditpackets[0].id])assert.equal((await h.send(path,undefined,reader.cookie)).status,403,path)
+ const action=await h.send('/app/action?name=time.edit&returnTo=/app/time',{...pin(edited),start:edited.start,end:edited.end,breakMinutes:0,reason:'Forbidden form'},reader.cookie)
+ assert.equal(action.status,403);assert.ok(!action.text.includes(subject.email)&&!action.text.includes(edited.id))
+ const login=await h.send('/api/lanyard/kiosk/signin',{email:reader.email,pin:'123456'},kiosk.cookie)
+ assert.equal(login.status,200,login.text)
+ const kioskCapture=await h.send('/api/lanyard/kiosk/capture',{name:'clock.in',input:{commandId:'synthetic-lanyard-audit-kiosk',capturedAt:'2026-10-27T12:00:00Z'}},kiosk.cookie+'; '+login.cookie)
+ assert.equal(kioskCapture.status,403,kioskCapture.text)
  const unchanged=await h.state()
  for(const [name,payload] of [['time.edit',{...pin(edited),start:edited.start,end:edited.end,breakMinutes:0,reason:'Forbidden audit edit'}],['access.audit.grant',input],['privacy.export',{staffId:subject.id,consent:true,reason:'Forbidden privacy action'}],['staff.invite',{id:subject.id}],['agent.create',{label:'Forbidden preparation key'}],['clock.in',{commandId:'synthetic-lanyard-auditor-clock',capturedAt:'2026-10-27T12:00:00Z'}]])await h.cmd(name,payload,reader.cookie,403)
  assert.deepEqual(await h.state(),unchanged,'audit readers cannot mutate through operational or credential doors')
@@ -443,6 +454,32 @@ export async function auditBrowser(){
    for(const width of [1440,390]){await page.setViewportSize({width,height:1000});if(process.env.AUDIT_SCREENS){await mkdir(process.env.AUDIT_SCREENS,{recursive:true});await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:join(process.env.AUDIT_SCREENS,`audit-${width}.png`)})
      await page.locator('tbody tr').filter({hasText:'Employee corrected closing time'}).first().scrollIntoViewIfNeeded();await page.screenshot({path:join(process.env.AUDIT_SCREENS,`audit-edits-${width}.png`)})
      await page.locator('tbody tr').filter({hasText:'Whole workweek across cafes'}).first().scrollIntoViewIfNeeded();await page.screenshot({path:join(process.env.AUDIT_SCREENS,`audit-workweek-${width}.png`)})}}
+   assert.deepEqual(errors,[])
+   const auditor=await h.person('ScreenAuditor')
+   const business=await h.cmd('organization.business.save',{name:'Screen audit business'})
+   await h.cmd('organization.location.save',{name:'Screen audit cafe',businessId:business.id,site:'Austin',timezone:'UTC'})
+   const grant=await h.cmd('access.audit.grant',{staffId:auditor.id,businessId:business.id,site:'Austin',employeeIds:[fixture.alex.id],jurisdictions:['CA'],classes:['minor-exception'],from:'2026-10-01',through:'2026-12-31',purpose:'Review permitted minor exception records',endsAt:'2026-12-31T23:59:59Z',wages:false,consent:true})
+   const [auditorName,...auditorValue]=auditor.cookie.split('=');await context.addCookies([{name:auditorName,value:auditorValue.join('='),url:h.origin}])
+   const auditQuery=new URLSearchParams({grantId:grant.id,site:'Austin',from:'2026-10-01',through:'2026-12-31',jurisdiction:'CA'})
+   await page.setViewportSize({width:1440,height:1000})
+   await page.goto(h.origin+'/app/audit?'+auditQuery,{waitUntil:'networkidle'})
+   assert.equal(await page.getByRole('heading',{name:'Audit records',exact:true}).count(),1)
+   assert.equal(await page.locator('tbody tr').count(),1)
+   assert.ok((await page.locator('table').innerText()).includes(fixture.manual.id))
+   assert.ok(!(await page.locator('main').innerText()).includes(fixture.foreign.id))
+   assert.equal(await page.getByRole('link',{name:'Payroll',exact:true}).count(),0)
+   assert.equal(await page.getByLabel('Cafe',{exact:true}).getAttribute('readonly'),'')
+   const download=await page.getByRole('link',{name:'Download audit CSV'}).getAttribute('href')
+   assert.equal(new URL(download,h.origin).searchParams.get('grantId'),grant.id)
+   await page.getByRole('button',{name:'Show report'}).click();await page.waitForLoadState('networkidle')
+   assert.equal(new URL(page.url()).searchParams.get('grantId'),grant.id)
+   assert.equal(await page.locator('tbody tr').count(),1)
+   const auditorAccount=page.locator('[data-tooltip="Account menu"]');await auditorAccount.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor();await auditorAccount.blur()
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});if(process.env.AUDIT_SCREENS){await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:join(process.env.AUDIT_SCREENS,`named-auditor-${width}.png`),fullPage:true})}}
+   await h.cmd('access.audit.revoke',{...pin(grant),reason:'Screen review finished'})
+   assert.equal((await page.reload({waitUntil:'networkidle'})).status(),403)
+   assert.ok(!(await page.locator('body').innerText()).includes(fixture.manual.id))
    assert.deepEqual(errors,[])
   }finally{await context.close()}
  }finally{await h.close();await browser.close()}

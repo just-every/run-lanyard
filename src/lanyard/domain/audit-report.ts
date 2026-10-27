@@ -74,7 +74,7 @@ export function auditCsv(report:ReturnType<typeof auditReport>){
 export async function auditRead(db:D1Database,identity:Actor,site:string,from:string,through:string,jurisdiction:string,format:'json'|'csv'='json',scope={grantId:'',staffId:'',reportClass:''}){
  const a=await live(db,identity),s=await load(db)
  const delegated=auditRestricted(s,a)
- let report:ReturnType<typeof auditReport>
+ let report:ReturnType<typeof auditReport>&{auditScope?:{grantId:string;from:string;through:string;jurisdictions:string[];staffId:string;reportClass:string}}
  if(delegated){
   from=date(from,'start date');through=date(through,'end date')
   const g=auditGrant(s,a,scope.grantId,site,from,through,jurisdiction,scope.staffId,scope.reportClass)
@@ -82,6 +82,7 @@ export async function auditRead(db:D1Database,identity:Actor,site:string,from:st
   report.rows=report.rows.filter(row=>auditRowAllowed(s,{...g,from,through},row)&&row.jurisdiction===jurisdiction&&(!scope.staffId||row.staffId===scope.staffId)&&(!scope.reportClass||row.category===scope.reportClass))
   report.jurisdiction=jurisdiction
   report.coverage=report.coverage.filter(c=>g.classes.includes(c.category)&&(!scope.reportClass||c.category===scope.reportClass)).map(c=>({...c,count:report.rows.filter(row=>row.category===c.category).length}))
+  report.auditScope={grantId:g.id,from:g.from,through:g.through,jurisdictions:g.jurisdictions,staffId:scope.staffId,reportClass:scope.reportClass}
   report.auditorAccess='Named read-only audit grant; current bounded authority checked on every request.'
  }else report=auditReport(s,a,site,from,through,jurisdiction)
  if(delegated||format==='csv')await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,a.role,format==='csv'?'audit.download':'audit.read',JSON.stringify({grantId:scope.grantId,site,from,through,jurisdiction,staffId:scope.staffId,reportClass:scope.reportClass}),new Date().toISOString()).run()

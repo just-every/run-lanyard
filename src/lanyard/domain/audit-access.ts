@@ -22,7 +22,7 @@ export function auditAccessCommand(c:Context,name:string,p:Record<string,any>){
  need(c.s.locations.some(l=>l.site===site&&l.businessId===business.id),'Site must belong to the selected business',403)
  const list=(v:any,label:string)=>{need(Array.isArray(v)&&v.length>0&&v.length<=100&&new Set(v).size===v.length,`Choose explicit ${label}`);return v.map(x=>text(x,label))}
  const employeeIds=list(p.employeeIds,'employees'),jurisdictions=list(p.jurisdictions,'jurisdictions'),classes=list(p.classes,'report classes')
- need(employeeIds.every(id=>c.s.staff.some(x=>x.id===id&&!x.erased_at&&(x.site===site||c.s.orgmemberships.some(m=>m.staffId===id&&m.locationIds.some((lid:string)=>c.s.locations.some(l=>l.id===lid&&l.site===site)))))),'Employee outside selected site',403)
+ need(employeeIds.every(id=>c.s.staff.some(x=>x.id===id&&!x.erased_at&&(x.site===site||c.s.orgmemberships.some(m=>m.staffId===id&&m.locationIds.some((lid:string)=>c.s.locations.some(l=>l.id===lid&&l.site===site)))||c.s.timesheets.some(t=>t.staffId===id&&(siteOf(c.s,t)===site||t.workSegments?.some((w:any)=>w.site===site)))||c.s.shifts.some(t=>t.staffId===id&&siteOf(c.s,t)===site)))),'Employee outside selected site',403)
  need(jurisdictions.every(x=>['CA','IL','CHICAGO','TX','CO','unassigned'].includes(x)),'Unsupported jurisdiction')
  need(classes.every(x=>auditClasses.includes(x)),'Private or unsupported report class',403)
  need(typeof p.wages==='boolean','Choose separate wage authority')

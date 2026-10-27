@@ -26,7 +26,7 @@ function me(s:any) {
 }
 export function topbar(s:any,tabs:Tab[],tab:string,w:Week,q:URLSearchParams) {
  const path=`/app/${tab==='roster'?'schedule':tab}`,dated=['schedule','time'].includes(tab)
- return `<header class="topbar"><a class="brand" href="/app"><img src="/brand/mark.svg" alt="" width="50" height="38"><span>Lanyard</span></a>${['schedule','time','people'].includes(tab)?sitePicker(w.sites,w.site,path,q):''}<nav class="tabs" aria-label="Lanyard">${tabs.map(t=>`<a href="/app/${h(t.key)}"${t.key===tab?' aria-current="page"':''}>${h(t.label)}</a>`).join('')}</nav>${dated?weekStepper(w,path,q):''}${tab==='schedule'?publishState(w):''}${me(s)}</header>`
+ return `<header class="topbar"><a class="brand" href="${s.auditOnly?h(path+'?'+q):'/app'}"><img src="/brand/mark.svg" alt="" width="50" height="38"><span>Lanyard</span></a>${['schedule','time','people'].includes(tab)?sitePicker(w.sites,w.site,path,q):''}<nav class="tabs" aria-label="Lanyard">${tabs.map(t=>`<a href="/app/${h(t.key)}${s.auditOnly?'?'+h(q.toString()):''}"${t.key===tab?' aria-current="page"':''}>${h(t.label)}</a>`).join('')}</nav>${dated?weekStepper(w,path,q):''}${tab==='schedule'?publishState(w):''}${me(s)}</header>`
 }
 /** Readable draft conflicts: who, when and why. */
 export function conflictList(s:any,list:any[],tz:string,shifts:any[]) {

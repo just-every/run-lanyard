@@ -139,6 +139,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
   if (!path.startsWith('/api/lanyard/') && path !== '/app' && !path.startsWith('/app/')) return null
   const env = runtimeBindings(original), isAgent = path.startsWith('/api/lanyard/agent/')
   let who: Actor | undefined
+  let auditOnly=false
   let policyInput: Record<string, unknown> | undefined
   let workerInput: Record<string, unknown> | undefined
   const back = returnTo(url.searchParams.get('returnTo'))
@@ -151,8 +152,8 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     if (path === '/app/roster' && request.method === 'GET') return new Response(null, { status: 301, headers: { ...headers, location: '/app/schedule' + url.search } })
     const kiosk=await kioskResponse(request,env);if(kiosk)return kiosk
     who = await principal(request, env, isAgent)
-    const auditOnly=auditRestricted(await load(env.DB),who)
-    if(auditOnly&&(request.method!=='GET'||!['/api/lanyard/audit','/api/lanyard/audit.csv'].includes(path)))fail('Audit authority grants only report reads and downloads',403)
+    auditOnly=auditRestricted(await load(env.DB),who)
+    if(auditOnly&&(request.method!=='GET'||!['/app/audit','/api/lanyard/audit','/api/lanyard/audit.csv'].includes(path)))fail('Audit authority grants only report reads and downloads',403)
     if (request.method === 'GET') {
       const custom=await customMode(env,who)
       if(custom&&!auditOnly&&!['/api/lanyard/intervals','/app/intervals','/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path)&&!/^\/api\/lanyard\/batches\/[\w-]+\.(csv|tsv|txt|xlsx|iif)$/.test(path))fail('This read is unavailable to custom levels',403)
@@ -165,7 +166,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
        const today=new Date().toISOString().slice(0,10),from=url.searchParams.get('from')??today.slice(0,4)+'-01-01',through=url.searchParams.get('through')??today
        const report=await auditRead(env.DB,who,url.searchParams.get('site')??'',from,through,url.searchParams.get('jurisdiction')??'all',path.endsWith('.csv')?'csv':'json',{grantId:url.searchParams.get('grantId')??'',staffId:url.searchParams.get('staffId')??'',reportClass:url.searchParams.get('reportClass')??''})
        if(path.endsWith('.csv'))return new Response(report as string,{headers:{...headers,'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="lanyard-audit.csv"'}})
-       return path==='/app/audit'?renderApp(await state(request,env,who),path+url.search,{result:{audit:report}}):json(report)
+       return path==='/app/audit'?renderApp(auditOnly?{auditOnly:true,actor:{id:who.id,email:who.email,role:'auditor',staffId:who.staffId},settings:{timezone:(report as any).timezone},staff:[]}:await state(request,env,who),path+url.search,{result:{audit:report}}):json(report)
       }
       if(path==='/api/lanyard/chat-membership')return json(chatMembershipAudit(await load(env.DB),who))
       if(path==='/app/chat'||path==='/api/lanyard/chat'){
@@ -300,7 +301,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
   } catch (error) {
     const status = Number((error as any)?.status) || 500
     const message = status < 500 ? (error as Error).message : 'Could not save this change. Refresh and try again.'
-    if (path === '/app/action' && who) return renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message, ...((policyInput||workerInput)?{result:{policyInput,workerInput}}:{}) })
+    if (path === '/app/action' && who && !auditOnly) return renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message, ...((policyInput||workerInput)?{result:{policyInput,workerInput}}:{}) })
     if (pages.has(path) && status === 401) return new Response(null, { status: 303, headers: { ...headers, location: '/signin?returnTo=' + encodeURIComponent(path) } })
     return json({ error: message }, status)
   }
