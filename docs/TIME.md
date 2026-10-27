@@ -89,3 +89,12 @@ An unassigned jurisdiction remains visible under a jurisdiction filter because t
 New manager edits retain the prior and resulting times and meal minutes, the reason, actor, timestamp and exact revisions. Approval and restart preserve this history. Older edits made before history capture remain explicitly incomplete.
 
 Tip-credit rows show the complete workweek even when the date filter cuts through it. Owners also see the contributing cafes, setup revisions and approved time sources for mixed-cafe weeks. These are shared whole-week totals, so do not add them across cafe reports. Native managers exclude mixed-cafe weeks. Dates outside the selection are context for that workweek, not additional period earnings.
+
+
+## Retain a reviewed audit copy
+
+The Audit records page and `GET /api/lanyard/audit` show current retained sources. An owner can preserve an exact reviewed report by sending `audit.retain` to `POST /api/lanyard/command`, with the same `site`, `from`, `through` and `jurisdiction`, the report's `sourceVersion`, a `reason` and `consent: true`. A changed source version refuses the request; review the report again before retrying. Oversized copies refuse before writing; choose a shorter report period. The resulting record includes the complete report, its original CSV, source revisions, authorization and integrity digests.
+
+The owner reads that immutable copy at `GET /api/lanyard/audit-packets/ID` and downloads its original bytes at the same path with `.csv` appended. Later source corrections do not rewrite it. Installation archives carry retained copies; restore still requires fresh native sign-in. Staff, managers, custom levels and preparation keys cannot read these copies, including through state snapshots. Downloading does not grant an auditor access.
+
+Conservative custody pending policy approval: retain indefinitely with no automatic expiry or erasure door, under the owner's existing authority. This does not establish a statutory preset period or complete compliance. Required preset durations, legal holds and employee-rights disposition need approved policy; disconnected downloads and old archives remain outside this installation's control.
