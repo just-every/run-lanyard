@@ -62,14 +62,17 @@ export function auditReport(s:State,a:Actor,site:string,from:string,through:stri
  const coverage=categories.map(category=>({category,count:rows.filter(r=>r.category===category).length,status:'partial',limitation:limitations[category]}))
  return {site,from,through,jurisdiction,timezone:s.timezone,sourceVersion:s.version,rows,coverage,retention:'Preset-required retention is not enforced. This report does not certify legal compliance.',auditorAccess:'No auditor grant is created; existing native readers only.'}
 }
-export async function auditRead(db:D1Database,identity:Actor,site:string,from:string,through:string,jurisdiction:string,format:'json'|'csv'='json'){
- const a=await live(db,identity),s=await load(db),report=auditReport(s,a,site,from,through,jurisdiction)
- if(format==='json')return report
+export function auditCsv(report:ReturnType<typeof auditReport>){
  const lines=[['record','category','source_kind','source_id','source_revision','date','staff_id','jurisdiction','source_url','facts']]
  lines.push(['report','','','','','','','','',JSON.stringify({site:report.site,from:report.from,through:report.through,jurisdiction:report.jurisdiction,timezone:report.timezone,sourceVersion:report.sourceVersion,auditorAccess:report.auditorAccess})])
  for(const r of report.rows)lines.push(['source',r.category,r.sourceKind,r.sourceId,String(r.sourceRevision),r.date,r.staffId??'',r.jurisdiction,r.sourceUrl,JSON.stringify(r.facts)])
  for(const c of report.coverage)lines.push(['coverage',c.category,'','','','','','','',JSON.stringify(c)])
  lines.push(['boundary','','','','','','','','',report.retention])
- await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,a.role,'audit.download',JSON.stringify({site,from,through,jurisdiction}),new Date().toISOString()).run()
  return lines.map(r=>r.map(cell).join(',')).join('\r\n')+'\r\n'
+}
+export async function auditRead(db:D1Database,identity:Actor,site:string,from:string,through:string,jurisdiction:string,format:'json'|'csv'='json'){
+ const a=await live(db,identity),s=await load(db),report=auditReport(s,a,site,from,through,jurisdiction)
+ if(format==='json')return report
+ await db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),a.id,a.role,'audit.download',JSON.stringify({site,from,through,jurisdiction}),new Date().toISOString()).run()
+ return auditCsv(report)
 }
