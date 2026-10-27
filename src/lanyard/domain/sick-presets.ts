@@ -24,7 +24,7 @@ export const sickPresets:Preset[]=[
  make('SEATTLE_PTO1','Seattle · tier 1 combined PTO',40,null,null,40,null,90,60,'https://www.seattle.gov/laborstandards/ordinances/paid-sick-and-safe-time',[...health,'public health closure','school or care closure','employer-approved PTO']),
  make('SEATTLE_PTO2','Seattle · tier 2 combined PTO',40,null,null,56,null,90,60,'https://www.seattle.gov/laborstandards/ordinances/paid-sick-and-safe-time',[...health,'public health closure','school or care closure','employer-approved PTO']),
  make('SEATTLE_PTO3','Seattle · tier 3 combined PTO',30,null,null,108,null,90,60,'https://www.seattle.gov/laborstandards/ordinances/paid-sick-and-safe-time',[...health,'public health closure','school or care closure','employer-approved PTO']),
- make('SF','San Francisco · state/local paid floor',30,null,80,80,null,90,60,'https://www.sf.gov/information/understanding-paid-sick-leave',['illness','care','safe','preventive care','jury duty','court witness']),
+ make('SF','San Francisco · state/local paid floor',30,null,80,80,null,90,60,'https://www.sf.gov/information/understanding-paid-sick-leave',['illness','care','safe','preventive care','jury duty','court witness','organ or tissue donation']),
  make('LA','Los Angeles · state/local paid floor',30,null,80,80,48,90,60,'https://wagesla.lacity.org/',['illness','care','safe','preventive care','jury duty','court witness']),
  make('PHILADELPHIA','Philadelphia · paid tier',40,40,null,40,40,90,60,'https://www.phila.gov/documents/paid-sick-leave-information/',health)
 ]
@@ -49,4 +49,26 @@ export function sickPreset(id:string,normalDayMinutes:number){
  if(!['CA','SF','LA'].includes(id))return {...preset,normalDayMinutes}
  const bankCap=Math.max(preset.bankCap??0,normalDayMinutes*10)
  return {...preset,normalDayMinutes,bankCap,carry:bankCap,annualUse:preset.annualUse===null?null:Math.max(preset.annualUse,normalDayMinutes*5)}
+}
+
+/** Refuse a selected base tier that would withhold the required paid entitlement.
+ * Larger paid tiers may always be chosen voluntarily. Headcounts are employer
+ * records, never inferred from how many people happen to be installed here. */
+export function sickCoverage(id:string,p:Record<string,any>,need:(v:unknown,m:string,status?:number)=>void,integer:(v:unknown,l:string,min:number,max:number)=>number){
+ const reviewed=['NY40','NYC40','NY40_UNPAID','NYC40_UNPAID','OR_UNPAID','PHILADELPHIA_UNPAID'].includes(id)
+ if(!reviewed)return undefined
+ const employeeCount=integer(Number(p.employeeCount),'employer employee count',1,10000000)
+ const flag=(key:string)=>{need(['yes','no'].includes(p[key]),'Review '+key);return p[key]==='yes'}
+ const coverage:Record<string,any>={employeeCount}
+ if(id.startsWith('NY')){
+  need(employeeCount<100,'Employers with 100 or more employees must choose the 56-hour tier')
+  if(id.endsWith('_UNPAID')){
+   coverage.incomeAboveMillion=flag('incomeAboveMillion')
+   need(employeeCount<5&&!coverage.incomeAboveMillion,'This employer requires a paid New York tier')
+   if(id.startsWith('NYC')){coverage.domesticWorkers=flag('domesticWorkers');need(!coverage.domesticWorkers,'NYC domestic workers require a paid tier')}
+  }
+ }
+ if(id==='OR_UNPAID'){coverage.portland=flag('portland');need(employeeCount<(coverage.portland?6:10),'This employer requires paid Oregon sick time')}
+ if(id==='PHILADELPHIA_UNPAID'){coverage.chainLocations=integer(Number(p.chainLocations),'chain establishments',0,10000000);need(employeeCount<10&&coverage.chainLocations<15,'This employer requires paid Philadelphia sick time')}
+ return coverage
 }

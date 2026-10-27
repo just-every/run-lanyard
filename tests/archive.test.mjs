@@ -109,6 +109,14 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     await h.cmd('sick.correct',{id:prenatalApproved.id,revision:prenatalApproved.revision,minutes:60,reason:'synthetic-lanyard-122 reviewed correction'})
     const leaveAdjustment=await h.cmd('payroll.prepare',{});assert.deepEqual(leaveAdjustment.lines.filter(l=>l.sickLine).map(l=>[l.minutes,l.costCents]),[[-60,-2000]]);await h.cmd('payroll.export',{id:leaveAdjustment.id,revision:leaveAdjustment.revision})
     files[leaveAdjustment.id]=(await h.send(`/api/lanyard/batches/${leaveAdjustment.id}.csv`,undefined,h.owner)).text
+    const donor=await h.person('DonationArchive'),recipient=await h.person('RecipientArchive')
+    for(const worker of [donor,recipient])await h.cmd('staff.save',{id:worker.id,revision:worker.revision,name:worker.name,email:worker.email,payrollId:worker.payrollId,role:'staff',active:true,site:'Oregon archive cafe',hourlyRate:'20.00',startDate:'2020-01-01'})
+    const donationPolicy=await h.cmd('sickpolicy.save',{site:'Oregon archive cafe',from:'2025-01-01',preset:'OR',code:'DONATED-SICK',donations:'yes'})
+    const donorWork=await h.cmd('time.prepare',{staffId:donor.id,start:'2026-10-01T07:00:00Z',end:'2026-10-03T07:00:00Z',breakMinutes:0,site:'Oregon archive cafe',reason:'Approved donation source'});await h.cmd('time.approve',{id:donorWork.id,revision:donorWork.revision})
+    const donationHeaders={'x-test-now':String(Date.parse('2026-10-27T12:00:00Z'))}
+    const donation=await h.cmd('sicktransfer.prepare',{policyId:donationPolicy.id,donorId:donor.id,recipientId:recipient.id,date:'2026-10-27',minutes:60},h.owner,200,donationHeaders)
+    const consented=await h.cmd('sicktransfer.consent',{id:donation.id,revision:donation.revision,consent:'yes'},donor.cookie,200,donationHeaders)
+    await h.cmd('sicktransfer.decide',{id:consented.id,revision:consented.revision,decision:'approved'},h.owner,200,donationHeaders)
     const originalChat=(await h.send('/api/lanyard/chat',undefined,h.owner)).value,originalAccess=(await h.send('/api/lanyard/access',undefined,h.owner)).value
     const journal=await h.cmd('import.journal',{jobId:imported.job.id}),original=await h.state()
     const identity={auth:h.auth,owner:h.owner}
@@ -138,7 +146,10 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.equal((await h.send('/api/lanyard/agent/fairness/compare?week=2026-10-12&site=synthetic-scope-cafe',undefined,'',{authorization:`Bearer ${agentKey.token}`})).status,401)
     const freshKey=await h.cmd('agent.create',{label:'Restored preparation only'},owner);assert.deepEqual(freshKey.scopes,[]);assert.deepEqual(freshKey.cafes,[])
     assert.equal((await h.send('/api/lanyard/agent/fairness/compare?week=2026-10-12&site=synthetic-scope-cafe',undefined,'',{authorization:`Bearer ${freshKey.token}`})).status,404)
-    assert.equal(back.sickpolicies.length,2)
+    assert.equal(back.sickpolicies.length,3)
+    assert.deepEqual(back.sicktransfers,original.sicktransfers)
+    const donationBalances=(await h.send('/api/lanyard/sick-balances?asOf=2026-10-27',undefined,owner)).value.filter(r=>r.policyId===donationPolicy.id)
+    assert.deepEqual([donationBalances.find(r=>r.staffId===donor.id).balanceMinutes,donationBalances.find(r=>r.staffId===recipient.id).balanceMinutes],[36,60])
     assert.deepEqual(back.sickpolicies,original.sickpolicies)
     assert.deepEqual(back.sickuses,original.sickuses)
     assert.deepEqual(back.sickuses.map(u=>[u.paid,u.minutes,u.costCents]).sort((a,b)=>Number(a[0])-Number(b[0])),[[false,120,0],[true,60,2000]])

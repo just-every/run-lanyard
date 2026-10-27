@@ -1,8 +1,9 @@
 import {type State,type Context,type Row,keys,text,need,integer,put,get,exact,window,overlap,canonical,self} from './model'
-import {sickPreset} from './sick-presets'
+import {sickPreset,sickCoverage} from './sick-presets'
 import {date,dayAfter} from './aca'
 import {localDate} from './settings'
 import {priced,rateAt} from './workforce'
+import {sickTransferCommand} from './sick-transfers'
 import {heldByPeriod} from './periods'
 export const sickRule=(plan:Row,on:string)=>[...(plan.versions??[]),plan].filter(r=>r.from<=on).sort((a,b)=>a.from.localeCompare(b.from)||a.revision-b.revision).at(-1)
 export function sickWork(s:State,staffId:string,site:string){
@@ -31,11 +32,13 @@ export function sickBalance(s:State,staffId:string,plan:Row,on:string,exclude?:s
   const pending=s.sickuses.filter(u=>u.staffId===staffId&&u.policyId===plan.id&&u.status==='pending').reduce((n,u)=>n+u.minutes,0)
   return {staffId,policyId:plan.id,site:plan.site,asOf:on,preset:rule?.preset,paid:rule?.paid!==false,label:rule?.label??'Not effective',code:rule?.code,balanceMinutes:granted-annualUsed,annualAccrued:0,annualUsed,pendingMinutes:pending,reconciliationRequired:granted<annualUsed,periodStart:rule?.grantDays?periodStart:null,periodEnd:rule?.grantDays&&periodStart?dayAfter(periodStart,rule.grantDays):null,sources}
  }
- const events=[...sickWork(s,staffId,plan.site),...s.sickuses.filter(u=>u.staffId===staffId&&u.policyId===plan.id&&u.status==='approved'&&u.id!==exclude).map(u=>({...u,kind:'use'}))].filter(e=>e.date<=on&&sickRule(plan,e.date)).sort((a,b)=>a.date.localeCompare(b.date)||(a.kind==='work'?-1:1)-(b.kind==='work'?-1:1)||a.id.localeCompare(b.id))
+ const transfers=s.sicktransfers.filter(t=>t.policyId===plan.id&&t.status==='approved'&&(t.donorId===staffId||t.recipientId===staffId)).map(t=>({kind:t.donorId===staffId?'donation given':'donation received',id:t.id,revision:t.revision,date:t.date,minutes:t.minutes}))
+ const events=[...transfers,...sickWork(s,staffId,plan.site),...s.sickuses.filter(u=>u.staffId===staffId&&u.policyId===plan.id&&u.status==='approved'&&u.id!==exclude).map(u=>({...u,kind:'use'}))].filter(e=>e.date<=on&&sickRule(plan,e.date)).sort((a,b)=>a.date.localeCompare(b.date)||(a.kind==='work'?-1:1)-(b.kind==='work'?-1:1)||a.id.localeCompare(b.id))
  let balance=0,annualAccrued=0,annualUsed=0,fraction=0,year=Number(plan.from.slice(0,4));const sources:any[]=[]
  const carryTo=(target:number)=>{while(year<target){year++;const rule=sickRule(plan,`${year}-01-01`)??sickRule(plan,`${year-1}-12-31`);if(rule&&rule.carry!==null)balance=Math.min(balance,rule.carry);annualAccrued=0;annualUsed=0;sources.push({kind:'carry',date:`${year}-01-01`,balanceMinutes:balance,presetVersion:rule?.version})}}
  for(const e of events){carryTo(Number(e.date.slice(0,4)));const rule=sickRule(plan,e.date)!
   if(e.kind==='work'){fraction+=e.minutes*(840/rule.denominator);const earned=Math.floor((fraction+1e-8)/840);fraction-=earned*840;const credited=Math.max(0,Math.min(earned,rule.annualAccrual===null?Infinity:rule.annualAccrual-annualAccrued,rule.bankCap===null?Infinity:rule.bankCap-balance));balance+=credited;annualAccrued+=credited;sources.push({...e,creditedMinutes:credited,balanceMinutes:balance,policyRevision:rule.revision,presetVersion:rule.version})}
+  else if(e.kind==='donation received'||e.kind==='donation given'){balance+=e.kind==='donation received'?e.minutes:-e.minutes;sources.push({...e,balanceMinutes:balance})}
   else{balance-=e.minutes;annualUsed+=e.minutes;sources.push({...e,balanceMinutes:balance})}
  }
  carryTo(Number(on.slice(0,4)))
@@ -55,8 +58,9 @@ function useAllowed(c:Context,u:any,minutes:number){
 }
 export function sickCommand(c:Context,name:string,p:Record<string,any>){
  if(!name.startsWith('sick'))return
+ if(name.startsWith('sicktransfer.'))return sickTransferCommand(c,name,p)
  if(name==='sickpolicy.save'){
-  need(c.a.role==='owner','Owner required',403);keys(p,['id','revision','site','from','preset','code','denominator','annualAccrual','bankCap','carry','annualUse','wait','increment','reasons','normalDayMinutes'])
+  need(c.a.role==='owner','Owner required',403);keys(p,['id','revision','site','from','preset','code','denominator','annualAccrual','bankCap','carry','annualUse','wait','increment','reasons','normalDayMinutes','employeeCount','incomeAboveMillion','portland','domesticWorkers','chainLocations','donations'])
   const site=text(p.site,'cafe',80),bank=p.preset==='NYC_UPFRONT'?'nyc-supplemental':p.preset==='NY_PRENATAL'?'ny-prenatal':'accrued',old=c.s.sickpolicies.find(x=>x.site===site&&(x.bank??'accrued')===bank);need(!p.id||old?.id===p.id,'Add a separate policy for a different leave bank',409);if(old){need(p.id===old.id,'Reload the existing policy',409);exact(old,p)}
   const from=date(p.from,'effective date');need(bank!=='nyc-supplemental'||from>='2026-02-22','NYC supplemental entitlement starts February 22, 2026');need(bank!=='ny-prenatal'||from>='2025-01-01','New York prenatal entitlement starts January 1, 2025');need(!old||from>old.from,'New versions take effect after the prior version',409)
   const normalDayMinutes=integer(Number(p.normalDayMinutes??480),'longest normal workday minutes',1,1440)
@@ -64,8 +68,9 @@ export function sickCommand(c:Context,name:string,p:Record<string,any>){
   need(preset||p.preset==='employer','Choose a listed preset or employer-configured')
   const cap=(v:any,label:string)=>v===''||v===null||v===undefined?null:integer(Number(v),label,0,60000)
   const custom=preset??{denominator:integer(Number(p.denominator),'worked minutes per leave minute',1,840),annualAccrual:cap(p.annualAccrual,'annual accrual cap'),bankCap:cap(p.bankCap,'bank cap'),carry:cap(p.carry,'carryover cap'),annualUse:cap(p.annualUse,'annual use cap'),wait:integer(Number(p.wait),'waiting days',0,365),increment:integer(Number(p.increment),'usage increment',1,480),reasons:['employer-approved'],source:'Employer configuration',version:'employer',paid:true,label:'Employer-configured, unmaintained'}
+  const coverage=sickCoverage(p.preset,p,need,integer)
   const {versions,...prior}:any=old??{}
-  return put(c,'sickpolicies',{...custom,preset:p.preset,bank,site,from,code:text(p.code,'mapped paid-leave code',80),by:c.a.id,at:c.now,versions:old?[...(versions??[]),prior]:[]},old)
+  return put(c,'sickpolicies',{...custom,coverage,donations:['OR','OR_UNPAID'].includes(p.preset)&&p.donations==='yes',preset:p.preset,bank,site,from,code:text(p.code,'mapped paid-leave code',80),by:c.a.id,at:c.now,versions:old?[...(versions??[]),prior]:[]},old)
  }
  if(name==='sick.request'){
   keys(p,['policyId','start','end','minutes','purpose']);const staffId=self(c.a)!,plan=get(c.s,'sickpolicies',p.policyId),w=window(p,1),on=localDate(w.start,c.s.timezone)

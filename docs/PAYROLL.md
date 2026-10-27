@@ -243,3 +243,28 @@ for the separate 20-hour paid prenatal bank. It needs no worked-time accrual. It
 January does not replenish it. The balance report’s annual-used field represents
 the active 52-week period for this bank. Complete eligibility and reason coverage
 remains partial as recorded in CONTRACT.md.
+
+### Reviewed employer tiers and Oregon donations
+
+When choosing a New York 40-hour tier, enter the employer's employee count.
+At 100 employees choose the 56-hour tier. Unpaid New York tiers also require
+an income review; the NYC unpaid tier excludes domestic workers. Unpaid Oregon
+requires fewer than ten employees, or fewer than six when the employer has a
+Portland location. Unpaid Philadelphia requires fewer than ten employees and
+fewer than fifteen chain establishments. Missing reviews and a tier that
+withholds required paid time are refused. These employer facts are private to
+the owner and retained with effective policy versions; they are not independently
+verified by Lanyard.
+
+Oregon donations follow the [BOLI sick-time guidance](https://www.oregon.gov/boli/workers/pages/sick-time.aspx).
+Enable **Allow Oregon sick-time donations** on the policy first. Under
+**Prepare Oregon donation**, choose the donor, recipient, minutes and today's
+venue date. The donor sees the named recipient and explicitly consents under
+**My sick and safe leave**. A separate owner then approves the exact request.
+Current source balances and policy versions are checked again at approval.
+The donor can withdraw before approval; a withdrawn request cannot transfer time.
+The transfer changes both balances without creating payroll, paid service or
+an absence. The recipient must request an ordinary permitted absence to use
+those minutes. Consent and transfer sources survive backup and restore.
+This conservative consent and authority default awaits ct approval; broader
+employee eligibility and complete reason applicability remain unproved.

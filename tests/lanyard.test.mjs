@@ -2076,3 +2076,6 @@ test('POLICY-002: owner reviews coverage and change consequences in Settings',as
 test('TEAM-001: owner organization records retain hierarchy and eligible locations without granting authority',()=>run(async h=>{const {organizationApi}=await import('./organization-journey.mjs');await organizationApi(h)}))
 test('TEAM-001: organization Settings creates two locations and a shared employee through native forms',async()=>{const {organizationBrowser}=await import('./organization-journey.mjs');await organizationBrowser()})
 test('ACCESS-003: organization scopes and editable role defaults separate scheduling time approval and payroll authority',()=>run(async h=>{const {organizationAccessApi}=await import('./organization-journey.mjs');await organizationAccessApi(h)}))
+
+test('LEAVE-003: employer coverage refuses unpaid and undersized tiers and preserves private effective reviews',async()=>{const {sickEmployerCoverage}=await import('./sick-journey.mjs');await sickEmployerCoverage()})
+test('LEAVE-003: Oregon donations need donor consent and owner approval and retain balanced sources without creating pay',async()=>{const {sickDonations}=await import('./sick-journey.mjs');await sickDonations()})
