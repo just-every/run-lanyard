@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "075f02846cc8eae944a2af07b8491643fdd5d6981ca1163e73b5e16781714c92",
+      "sha256": "c3e781c65900e0ff2f82e12e2b9d99c551d543786011cd733d55bc395f8b914d",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "17a545a9d1804815ac72ca78af2487b1196b349c4e22bf22b7576066a6f07da9",
+      "sha256": "eca03184d2e436d25111faf6135ca240de4b69db31ae4787c5a3348ce9a514e3",
       "executable": false
     },
     "DEMO.md": {
@@ -414,7 +414,7 @@
       "executable": false
     },
     "docs/MINORS.md": {
-      "sha256": "c2a4503acbc5072ee1008e02a7c4707fe3f384850e62cd2017f5275980ae5eb0",
+      "sha256": "4f596e0700859225300a46d98431dd3943206b8c8004ea839315353eb3eff9de",
       "executable": false
     },
     "docs/MOVE-IN.md": {
@@ -1462,7 +1462,7 @@
       "executable": false
     },
     "src/lanyard/domain/minor-evidence.ts": {
-      "sha256": "d65ae6683afb0aa1375dc3ec38c3ec6299faa29645c5836f3cd455c1262d9ec5",
+      "sha256": "c468ed5c9d2b4009cd6a9303079463cb5d036510671878e73d0ceb5f1e56d04c",
       "executable": false
     },
     "src/lanyard/domain/minor-work.ts": {
@@ -4074,7 +4074,7 @@
       "executable": false
     },
     "tests/minors-journey.mjs": {
-      "sha256": "52715d4d32a5afea54dcdaf4b93e11556b3b524eef1648fabbb1e446b6c4bd98",
+      "sha256": "a75e80621658429e6cbcaeac9ec037c72541a80fe04883b8e07a4cddddfe9e66",
       "executable": false
     },
     "tests/notices-journey.mjs": {

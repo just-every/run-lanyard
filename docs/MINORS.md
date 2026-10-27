@@ -47,7 +47,8 @@ Supported entries:
   and `end`. The owner attests that this active employee is a responsible
   adult on the premises. Washington work after 20:00 requires coverage of the
   entire late interval. Several adjacent intervals may cover it; a gap or
-  deactivated supervisor refuses it. This is an employer attestation, not
+  deactivated supervisor refuses it. A recorded birth date showing a minor on
+  the work date also refuses the attestation. This is an employer attestation, not
   live presence verification.
 - `wa-special-variance`: add `schoolYearThrough`. Retain the jointly signed
   parent and school variance and both current consent records. The review
@@ -84,6 +85,6 @@ Maintained sources: [California summary](https://www.dir.ca.gov/dlse/MinorsSumma
 and [Oregon minor workers](https://www.oregon.gov/boli/employers/pages/minor-workers.aspx).
 
 MINOR-001 remains partial. Complete maintained school-plus-work coverage,
-additional state release and variance variants, authority-specific permit
+additional state release, supervision, consent and variance variants, authority-specific permit
 conditions remain unproved. These commands
 supply recorded checks and named refusals; they do not certify compliance.

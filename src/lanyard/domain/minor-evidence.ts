@@ -50,8 +50,12 @@ export function minorPermitIssues(r:Row,on:string,years:number,site:string){
  const permit=evidenceFor(r,'permit',on,site).find((a:any)=>a.permitKind===permitKinds[r.state]&&a.reference===r.permit)
  return {issues:permit?[]:[`${permitKinds[r.state]} requires current employer validation for this workplace`],permit}
 }
+function adultOn(s:State,id:string,on:string){
+ const birth=s.minors.find(x=>x.staffId===id)?.birthDate
+ return !birth||Number(on.slice(0,4))-Number(birth.slice(0,4))-(on.slice(5)<birth.slice(5)?1:0)>=18
+}
 export function supervised(s:State,r:Row,on:string,site:string,start:number,end:number){
- const intervals=evidenceFor(r,'supervision',on,site).filter((a:any)=>a.adultConfirmed&&s.staff.some(x=>x.id===a.supervisorId&&x.active&&!x.erased_at)).map((a:any)=>[Date.parse(a.start),Date.parse(a.end)]).sort((a:any,b:any)=>a[0]-b[0])
+ const intervals=evidenceFor(r,'supervision',on,site).filter((a:any)=>a.adultConfirmed&&adultOn(s,a.supervisorId,on)&&s.staff.some(x=>x.id===a.supervisorId&&x.active&&!x.erased_at)).map((a:any)=>[Date.parse(a.start),Date.parse(a.end)]).sort((a:any,b:any)=>a[0]-b[0])
  let covered=start
  for(const [a,b] of intervals){if(a>covered)break;if(b>covered)covered=b;if(covered>=end)return true}
  return false
