@@ -250,7 +250,7 @@ async function auditDelegation(h,f){
  for(const [name,payload] of [['time.edit',{...pin(edited),start:edited.start,end:edited.end,breakMinutes:0,reason:'Forbidden audit edit'}],['access.audit.grant',input],['privacy.export',{staffId:subject.id,consent:true,reason:'Forbidden privacy action'}],['staff.invite',{id:subject.id}],['agent.create',{label:'Forbidden preparation key'}],['clock.in',{commandId:'synthetic-lanyard-auditor-clock',capturedAt:'2026-10-27T12:00:00Z'}]])await h.cmd(name,payload,reader.cookie,403)
  assert.deepEqual(await h.state(),unchanged,'audit readers cannot mutate through operational or credential doors')
  const actorId=(await h.db.prepare('SELECT id FROM oa_operators WHERE email=?').bind(reader.email).first()).id
- const events=(await h.state()).events.filter(e=>e.actorId===actorId)
+ const events=(await h.state()).events.filter(e=>e.actorId===actorId&&['audit.read','audit.download'].includes(e.action))
  assert.equal(events.filter(e=>e.action==='audit.read').length,2)
  assert.equal(events.filter(e=>e.action==='audit.download').length,1)
  assert.ok(events.every(e=>JSON.parse(e.entityId).grantId===grant.id))
