@@ -1,4 +1,5 @@
 import {operationalReport,operationalCsv} from './domain/reports'
+import {auditRead} from './domain/audit-report'
 import {laborCostReport} from './domain/labor-cost'
 import {aiSource} from './domain/ai-schedules'
 import {type AiConfiguration} from './domain/ai-provider'
@@ -151,6 +152,12 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     if (request.method === 'GET') {
       const custom=await customMode(env,who)
       if(custom&&!['/api/lanyard/intervals','/app/intervals','/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path)&&!/^\/api\/lanyard\/batches\/[\w-]+\.(csv|tsv|txt|xlsx|iif)$/.test(path))fail('This read is unavailable to custom levels',403)
+      if(['/app/audit','/api/lanyard/audit','/api/lanyard/audit.csv'].includes(path)){
+       const today=new Date().toISOString().slice(0,10),from=url.searchParams.get('from')??today.slice(0,4)+'-01-01',through=url.searchParams.get('through')??today
+       const report=await auditRead(env.DB,who,url.searchParams.get('site')??'',from,through,url.searchParams.get('jurisdiction')??'all',path.endsWith('.csv')?'csv':'json')
+       if(path.endsWith('.csv'))return new Response(report as string,{headers:{...headers,'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="lanyard-audit.csv"'}})
+       return path==='/app/audit'?renderApp(await state(request,env,who),path+url.search,{result:{audit:report}}):json(report)
+      }
       if(path==='/api/lanyard/chat-membership')return json(chatMembershipAudit(await load(env.DB),who))
       if(path==='/app/chat'||path==='/api/lanyard/chat'){
        const chat=chatRead(await load(env.DB),who,url.searchParams.get('q')??'',url.searchParams.get('threadId')??'')
