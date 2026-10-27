@@ -99,6 +99,7 @@ export async function auditApi(h){
  assert.deepEqual([roundingRow.facts.capturedMinutes,roundingRow.facts.minutes,roundingRow.facts.netMinutes],[481,495,14])
  await auditBoundary(h,f)
  await auditQuarter(h)
+ await auditDelegation(h,f)
  const level=await h.cmd('access.level.save',{name:'Synthetic report reader',site:'Austin',permissions:['reports.view']})
  await h.cmd('access.grant',{staffId:f.morgan.id,levelId:level.id,site:'Austin'})
  await read(query,f.morgan.cookie,403)
@@ -166,6 +167,7 @@ async function retainAuditProof(h,f,report){
  const packet=await h.cmd('audit.retain',input)
  assert.deepEqual(packet.report,report)
  assert.equal(packet.sourceVersion,report.sourceVersion)
+ assert.deepEqual(packet.authorization,{ownerId:before.actor.id,at:'2026-10-27T12:00:00.000Z',reason:input.reason,affirmative:true,sourceVersion:report.sourceVersion})
  assert.deepEqual([packet.createdAt,packet.createdBy,packet.reason,packet.revision],['2026-10-27T12:00:00.000Z',before.actor.id,'Quarter evidence preservation',1])
  assert.deepEqual([packet.retention.mode,packet.retention.expiresAt],['indefinite',null])
  assert.equal(packet.csvSha256,createHash('sha256').update(packet.csv).digest('hex'))
@@ -190,8 +192,122 @@ async function retainAuditProof(h,f,report){
  await h.cmd('audit.retain',input,h.owner,409)
  const headers={'x-test-now':String(Date.parse('2026-10-28T12:00:00Z'))}
  assert.deepEqual((await h.send('/api/lanyard/audit-packets/'+packet.id,undefined,h.owner,headers)).value,packet,'retained copies never expire automatically')
+ for(const mutate of [p=>{p.csv+='tampered'},p=>{p.report.rows[0].sourceRevision=999},p=>{p.authorization.ownerId='synthetic-lanyard-untrusted'}]){
+  const damaged=structuredClone(packet);mutate(damaged)
+  await h.db.prepare("UPDATE l_records SET data=? WHERE kind='auditpackets' AND id=?").bind(JSON.stringify(damaged),packet.id).run()
+  for(const suffix of ['', '.csv'])assert.equal((await h.send('/api/lanyard/audit-packets/'+packet.id+suffix,undefined,h.owner)).status,409)
+  await h.db.prepare("UPDATE l_records SET data=? WHERE kind='auditpackets' AND id=?").bind(JSON.stringify(packet),packet.id).run()
+ }
  return packet
 }
+async function auditDelegation(h,f){
+ const reader=await h.person('AuditReader','manager'),subject=await h.person('AuditSubject'),excluded=await h.person('AuditExcluded')
+ for(const p of [subject,excluded])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:'staff',active:true,site:'Austin',hourlyRate:'21.00'})
+ const business=await h.cmd('organization.business.save',{name:'Audit business'})
+ await h.cmd('organization.location.save',{name:'Audit cafe',businessId:business.id,site:'Austin',timezone:'UTC'})
+ const record=await h.cmd('time.prepare',{staffId:subject.id,site:'Austin',start:'2026-10-20T08:00:00Z',end:'2026-10-20T12:00:00Z',breakMinutes:0,reason:'Reviewed audit source'})
+ const edited=await h.cmd('time.edit',{...pin(record),start:record.start,end:'2026-10-20T11:00:00Z',breakMinutes:0,reason:'Verified departure'})
+ await h.cmd('time.prepare',{staffId:excluded.id,site:'Austin',start:record.start,end:record.end,breakMinutes:0,reason:'Excluded private reason'})
+ const input={staffId:reader.id,businessId:business.id,site:'Austin',employeeIds:[subject.id],jurisdictions:['unassigned'],classes:['breaks','punch-edit'],from:'2026-10-01',through:'2026-10-31',purpose:'Review October punch corrections',endsAt:'2026-10-28T12:00:00Z',wages:false,consent:true}
+ const before=await h.state()
+ await h.cmd('access.audit.grant',input,f.morgan.cookie,403)
+ await h.cmd('access.audit.grant',{...input,consent:false},h.owner,403)
+ await h.cmd('access.audit.grant',{...input,site:'Mission'},h.owner,403)
+ await h.cmd('access.audit.grant',{...input,classes:['sick-leave']},h.owner,403)
+ await h.cmd('access.audit.grant',{...input,classes:['tip-credit']},h.owner,403)
+ await h.cmd('access.audit.grant',{...input,classes:['tip-credit'],wages:true,sensitivePurpose:''},h.owner,400)
+ await h.cmd('access.audit.grant',{...input,endsAt:'2026-10-26T00:00:00Z'},h.owner,400)
+ assert.deepEqual(await h.state(),before,'refused audit grants are atomic')
+ const grant=await h.cmd('access.audit.grant',input)
+ assert.deepEqual([grant.createdBy,grant.ownerAuthorized,grant.purpose,grant.sensitivePurpose],[before.actor.id,true,input.purpose,''])
+ const params={grantId:grant.id,site:'Austin',from:'2026-10-01',through:'2026-10-31',jurisdiction:'unassigned'}
+ const read=async(extra={},csv=false,cookie=reader.cookie,status=200,headers={})=>{
+  const r=await h.send('/api/lanyard/audit'+(csv?'.csv':'')+'?'+new URLSearchParams({...params,...extra}),undefined,cookie,{'x-test-now':String(Date.parse('2026-10-27T12:10:00Z')),...headers})
+  assert.equal(r.status,status,r.text);return r
+ }
+ const report=(await read()).value
+ assert.deepEqual(report.rows.map(x=>[x.category,x.sourceId,x.sourceRevision,x.staffId,x.date,x.jurisdiction]),[['breaks',edited.id,2,subject.id,'2026-10-20','unassigned'],['punch-edit',edited.id,2,subject.id,'2026-10-20','unassigned']])
+ assert.deepEqual(report.coverage.map(c=>[c.category,c.count]),[['breaks',1],['punch-edit',1]])
+ assert.equal(report.rows[1].facts.minutes,180);assert.equal(report.rows[1].facts.reason,'Verified departure')
+ for(const secret of [excluded.id,excluded.email,subject.email,'Excluded private reason','hourlyRate','payrollId','wage','birthDate'])assert.ok(!JSON.stringify(report.rows).includes(secret),secret)
+ const csv=await read({},true);assert.equal(csv.text.split('\r\n').filter(l=>l.startsWith('"source"')).length,2)
+ assert.ok(csv.text.includes(edited.id)&&!csv.text.includes(excluded.id)&&!csv.text.includes('Excluded private reason'))
+ assert.deepEqual((await read({staffId:subject.id,reportClass:'punch-edit'})).value.rows.map(x=>x.sourceId),[edited.id])
+ for(const extra of [{site:'Mission'},{from:'2026-09-30'},{through:'2026-11-01'},{jurisdiction:'CA'},{jurisdiction:'all'},{staffId:excluded.id},{reportClass:'tip-credit'},{grantId:'synthetic-lanyard-absent'}])for(const csv of [false,true])await read(extra,csv,reader.cookie,403)
+ for(const path of ['/api/lanyard/state','/app','/app/settings','/api/lanyard/access','/api/lanyard/sick-balances','/api/lanyard/audit-packets/'+(await h.state()).auditpackets[0].id])assert.equal((await h.send(path,undefined,reader.cookie)).status,403,path)
+ const unchanged=await h.state()
+ for(const [name,payload] of [['time.edit',{...pin(edited),start:edited.start,end:edited.end,breakMinutes:0,reason:'Forbidden audit edit'}],['access.audit.grant',input],['privacy.export',{staffId:subject.id,consent:true,reason:'Forbidden privacy action'}],['staff.invite',{id:subject.id}],['agent.create',{label:'Forbidden preparation key'}],['clock.in',{commandId:'synthetic-lanyard-auditor-clock',capturedAt:'2026-10-27T12:00:00Z'}]])await h.cmd(name,payload,reader.cookie,403)
+ assert.deepEqual(await h.state(),unchanged,'audit readers cannot mutate through operational or credential doors')
+ const actorId=(await h.db.prepare('SELECT id FROM oa_operators WHERE email=?').bind(reader.email).first()).id
+ const events=(await h.state()).events.filter(e=>e.actorId===actorId)
+ assert.equal(events.filter(e=>e.action==='audit.read').length,2)
+ assert.equal(events.filter(e=>e.action==='audit.download').length,1)
+ assert.ok(events.every(e=>JSON.parse(e.entityId).grantId===grant.id))
+ const wageReader=await h.person('AuditWageReader')
+ const wageGrant=await h.cmd('access.audit.grant',{...input,staffId:wageReader.id,employeeIds:[f.riley.id],jurisdictions:['TX'],classes:['tip-credit'],wages:true,sensitivePurpose:'Reconcile the permitted employee tip-credit inputs'})
+ const wageReport=(await read({grantId:wageGrant.id,jurisdiction:'TX'},false,wageReader.cookie)).value
+ assert.deepEqual(wageReport.rows.map(row=>[row.category,row.staffId,row.date,row.facts.tippedMinutes,row.facts.makeUpCents]),[['tip-credit',f.riley.id,f.first,960,6192],['tip-credit',f.riley.id,f.second,900,0]])
+ assert.ok(!(await read({grantId:wageGrant.id,jurisdiction:'TX'},true,wageReader.cookie)).text.includes(subject.id))
+ await read({grantId:wageGrant.id,jurisdiction:'TX'},false,reader.cookie,403)
+ await h.cmd('access.audit.revoke',{...pin(wageGrant),reason:'Wage review complete'})
+ await read({grantId:wageGrant.id,jurisdiction:'TX'},true,wageReader.cookie,403)
+ await auditRetentionMatrix(h,edited,subject)
+ await h.restart()
+ assert.deepEqual((await read()).value.rows,report.rows,'scoped delegation survives restart')
+ const headers={'x-test-now':String(Date.parse('2026-10-28T12:00:00Z'))}
+ for(const csv of [false,true])await read({},csv,reader.cookie,403,headers)
+ const prior=await h.state()
+ await h.cmd('access.audit.revoke',{...pin(grant),reason:'Review complete'},f.morgan.cookie,403)
+ await h.cmd('access.audit.revoke',{...pin(grant),revision:2,reason:'Stale revocation'},h.owner,409)
+ assert.deepEqual(await h.state(),prior)
+ const revoked=await h.cmd('access.audit.revoke',{...pin(grant),reason:'Review complete'})
+ assert.deepEqual([revoked.revokedBy,revoked.revocationReason],[before.actor.id,'Review complete'])
+ for(const csv of [false,true])await read({},csv,reader.cookie,403)
+ await h.cmd('time.edit',{...pin(edited),start:edited.start,end:edited.end,breakMinutes:0,reason:'No fallback after revocation'},reader.cookie,403)
+}
+
+async function auditRetentionMatrix(h,record,person){
+ const base={sourceKind:'timesheets',sourceId:record.id,sourceRevision:record.revision,anchor:'2026-10-20',reason:'Reviewed source duties and applicability',consent:true}
+ const cases=[['federal-payroll','2029-10-20'],['federal-wage-computation','2028-10-20'],['chicago-fair-workweek','2029-10-20'],['chicago-paid-leave','2031-10-20'],['california-hours-wages','2030-01-01'],['california-sick-leave','2029-10-20']]
+ const duties=[]
+ for(const [preset,expected] of cases){
+  const duty=await h.cmd('privacy.recordDuty',{...base,preset,applicability:'applies',...(preset==='california-hours-wages'?{employmentThrough:'2027-01-01'}:{})})
+  assert.equal(duty.retainThrough,expected,preset)
+  assert.equal(duty.anchor,'2026-10-20');assert.equal(duty.ownerAuthorized,true)
+
+  duties.push(duty)
+ }
+ const review=()=>h.cmd('privacy.records.review',{sourceKind:'timesheets',sourceId:record.id})
+ const overlap=await review();assert.equal(overlap.retainThrough,'2031-10-20');assert.deepEqual(overlap.unresolved,[]);assert.equal(overlap.reviewDue,false);assert.equal(overlap.dispositionSupported,false)
+ await h.cmd('privacy.recordDuty',{...base,preset:'federal-payroll',applicability:'applies',anchor:'2026-10-19',...pin(duties[0])},h.owner,409)
+ await h.cmd('privacy.recordDuty',{...base,preset:'federal-payroll',applicability:'applies',sourceRevision:1,...pin(duties[0])},h.owner,409)
+ const unknown=await h.cmd('privacy.recordDuty',{...base,preset:'federal-payroll',applicability:'unknown',...pin(duties[0])})
+ assert.equal((await review()).unresolved.length,1)
+ const far={'x-test-now':String(Date.parse('2035-01-01T00:00:00Z'))},futureOwner=await h.signIn(h.auth.OWNER_EMAIL,far)
+ assert.equal((await h.cmd('privacy.records.review',{sourceKind:'timesheets',sourceId:record.id},futureOwner,200,far)).reviewDue,false)
+ await h.cmd('privacy.recordDuty',{...base,preset:'federal-payroll',applicability:'applies',...pin(unknown)})
+ const consent={staffId:person.id,type:'history',hold:true,reason:'Independent pending matter',consent:true}
+ const first=await h.cmd('privacy.hold',{...consent,caseId:'synthetic-lanyard-claim'})
+ const second=await h.cmd('privacy.hold',{...consent,caseId:'synthetic-lanyard-investigation'})
+ assert.deepEqual((await review()).holds.map(x=>x.id).sort(),[first.id,second.id].sort())
+ const report=(await h.send('/api/lanyard/audit?site=Austin&from=2026-10-20&through=2026-10-20&jurisdiction=all',undefined,h.owner)).value
+ const copy=await h.cmd('audit.retain',{site:'Austin',from:report.from,through:report.through,jurisdiction:'all',sourceVersion:report.sourceVersion,consent:true,reason:'Held evidence copy'})
+ await h.cmd('privacy.recordDuty',{sourceKind:'auditpackets',sourceId:copy.id,sourceRevision:copy.revision,preset:'federal-wage-computation',applicability:'applies',anchor:'2026-10-27',reason:'Copy must not shorten its source obligations',consent:true})
+ const copyReview=()=>h.cmd('privacy.records.review',{sourceKind:'auditpackets',sourceId:copy.id})
+ assert.equal((await copyReview()).retainThrough,'2031-10-20')
+ assert.ok((await copyReview()).unresolved.length>0,'unreviewed copied sources remain explicit')
+ assert.deepEqual((await copyReview()).holds.map(x=>x.id).sort(),[first.id,second.id].sort())
+ await h.cmd('privacy.hold',{...consent,caseId:'synthetic-lanyard-claim',hold:false,revision:first.revision})
+ assert.deepEqual((await review()).holds.map(x=>x.id),[second.id])
+ assert.deepEqual((await copyReview()).holds.map(x=>x.id),[second.id])
+ assert.equal((await h.cmd('privacy.records.review',{sourceKind:'timesheets',sourceId:record.id},futureOwner,200,far)).reviewDue,false)
+ await h.cmd('privacy.hold',{...consent,caseId:'synthetic-lanyard-investigation',hold:false,revision:second.revision})
+ const future=await h.cmd('privacy.records.review',{sourceKind:'timesheets',sourceId:record.id},futureOwner,200,far)
+ assert.equal(future.reviewDue,true);assert.equal(future.dispositionSupported,false)
+ assert.deepEqual((await h.send('/api/lanyard/audit-packets/'+copy.id,undefined,h.owner)).value,copy,'hold release never initiates deletion')
+ await h.restart();assert.equal((await review()).retainThrough,'2031-10-20')
+}
+
 async function auditBoundary(h,f){
  const person=await h.person('Boundary')
  await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:'staff',active:true,site:'Austin',hourlyRate:'2.13'})

@@ -1,3 +1,5 @@
+import {recordRetentionCommand} from './record-retention'
+import {auditAccessCommand,auditRestricted} from './audit-access'
 import {retainAudit} from './audit-retention'
 import {organization} from './organization'
 import {fairworkCommand} from './fairwork'
@@ -86,7 +88,7 @@ import {holidayPay} from './holiday-pay'
 import {holidayReviews} from './holidays'
 export {actor}
 export type {Actor} from './model'
-const commands=['audit.retain','organization.business.save','organization.location.save','organization.department.save','organization.member.save','fairwork.save','fairwork.preview','ai.consent','ai.extract','ai.review','ai.prepare','ai.erase','payroll.input.save','payroll.template.save','privacy.review','privacy.retention','privacy.hold','privacy.export','privacy.erase','policy.save','policy.preview','policy.review','policy.worker.preview','policy.worker.save','geofence.save','location.review','location.hold','location.erase','photo.save','photo.hold','photo.erase','sicktransfer.prepare','sicktransfer.withdraw','sicktransfer.consent','sicktransfer.decide','sickpolicy.save','sick.request','sick.decide','sick.correct','minor.save','differential.save','clocklanguage.save','chat.create','chat.removeMember','chat.leave','chat.send','chat.acknowledge','access.level.save','access.defaults.create','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
+const commands=['privacy.recordDuty','privacy.records.review','access.audit.grant','access.audit.revoke','audit.retain','organization.business.save','organization.location.save','organization.department.save','organization.member.save','fairwork.save','fairwork.preview','ai.consent','ai.extract','ai.review','ai.prepare','ai.erase','payroll.input.save','payroll.template.save','privacy.review','privacy.retention','privacy.hold','privacy.export','privacy.erase','policy.save','policy.preview','policy.review','policy.worker.preview','policy.worker.save','geofence.save','location.review','location.hold','location.erase','photo.save','photo.hold','photo.erase','sicktransfer.prepare','sicktransfer.withdraw','sicktransfer.consent','sicktransfer.decide','sickpolicy.save','sick.request','sick.decide','sick.correct','minor.save','differential.save','clocklanguage.save','chat.create','chat.removeMember','chat.leave','chat.send','chat.acknowledge','access.level.save','access.defaults.create','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -95,6 +97,7 @@ function fresh(a:Actor,s:State) {
 export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string,net?:Context['net'],files?:R2Bucket,kiosk?:Context['kiosk'],aiConfig?:AiConfiguration):Promise<object> {
  need(commands.includes(name)||['aca.plan.save','aca.credit.save','job.save','workforce.save','shiftwork.save','shiftwork.respond'].includes(name),'Unknown command',404);const a=await live(db,identity),p=object(input)
  if(a.role==='agent')need(['roster.prepare','time.prepare','payroll.prepare','learn.propose'].includes(name),'Agents may prepare drafts only; a human manager must approve',403)
+ need(!auditRestricted(await load(db),a),'Audit readers cannot perform operational mutations',403)
  const commandId=name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID(),digest=await sha(canonical({name,input:p,...(kiosk?{kioskDevice:kiosk.deviceId,photoDigest:kiosk.photo?await sha(kiosk.photo):null,photoFailure:kiosk.photoFailure??null}:{})}))
  // Kiosk authority is rechecked before returning a saved result.
  const previous=kiosk?null:await saved(db,commandId,a,digest);if(previous){locationReplay(await load(db),previous,net);return previous}
@@ -105,10 +108,12 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  authorizeCommand(c,name,p)
  const pendingLocation=locationBefore(c,name,p)
  const pendingPhoto=photoBefore(c,name,p)
- let result:any=await aiCommand(c,name,p,aiConfig)
+ let result:any=auditAccessCommand(c,name,p)
+ if(result===undefined)result=await aiCommand(c,name,p,aiConfig)
  if(result===undefined)result=await retainAudit(c,name,p)
  if(result===undefined)result=organization(c,name,p)
  if(result===undefined)result=fairworkCommand(c,name,p)
+ if(result===undefined)result=recordRetentionCommand(c,name,p)
  if(result===undefined)result=await privacyCommand(c,name,p)
  if(result===undefined)result=await policyWorkerCommand(c,name,p)
  if(result===undefined)result=await policyCommand(c,name,p)
@@ -208,6 +213,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string,earni
  for(const k of kinds)result[k]=s[k]
  for(const k of ['businesses','locations','departments','orgmemberships'] as const)result[k]=a.role==='owner'?s[k]:[]
  result.aischedules=aiSchedulesFor(s,a)
+ result.recordduties=a.role==='owner'?s.recordduties:[]
+ result.auditgrants=a.role==='owner'?s.auditgrants:[]
  result.auditpackets=a.role==='owner'?s.auditpackets.map(({report,csv,...summary})=>summary):[]
  result.paytemplates=a.role==='owner'?s.paytemplates:[]
  result.payinputs=a.role==='owner'?s.payinputs:[]

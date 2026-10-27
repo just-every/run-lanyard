@@ -44,11 +44,11 @@ export async function harness(options = {}) {
       return r.value.result ?? r.value
     }
     const state = async (cookie = owner, status = 200) => { const r = await send('/api/lanyard/state', undefined, cookie); assert.equal(r.status, status, JSON.stringify(r.value)); return r.value }
-    const confirmMail = async email => {
+    const confirmMail = async (email, headers = {}) => {
       const message = mailbox.findLast(m => m.to.includes(email))
       assert.ok(message, 'invitation accepted by the mail provider')
       const token = new URL(message.text.match(/https?:\/\/[^\s]+\/auth\/confirm\?token=[^\s]+/)[0]).searchParams.get('token')
-      const r = await send('/auth/confirm', { token })
+      const r = await send('/auth/confirm', { token }, '', headers)
       assert.equal(r.status, 303, JSON.stringify(r.value)); return r.cookie
     }
     const person = async (name, role = 'staff') => {
@@ -56,7 +56,7 @@ export async function harness(options = {}) {
       await cmd('staff.invite', { id: staff.id })
       return { ...staff, cookie: await confirmMail(email) }
     }
-    const signIn = async email => { const response = await send('/auth/magic-link', {email}); assert.equal(response.status,202,response.text); return confirmMail(email) }
+    const signIn = async (email, headers = {}) => { const response = await send('/auth/magic-link', {email}, '', headers); assert.equal(response.status,202,response.text); return confirmMail(email, headers) }
     return { get db(){return db}, mf, origin, owner, auth, send, cmd, state, person, signIn, confirmMail, restart:async()=>{await mf.setOptions(mfOptions);db=await mf.getD1Database('DB')}, close: async () => { await mf.dispose(); if (!options.root) await rm(dir, { recursive: true, force: true }) } }
   } catch (error) {
     const collision=error?.code === 'ERR_ADDRESS_IN_USE'

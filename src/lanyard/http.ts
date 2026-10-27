@@ -1,3 +1,4 @@
+import {auditRestricted} from './domain/audit-access'
 import {retainedAuditRead} from './domain/audit-retention'
 import {operationalReport,operationalCsv} from './domain/reports'
 import {auditRead} from './domain/audit-report'
@@ -150,9 +151,11 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     if (path === '/app/roster' && request.method === 'GET') return new Response(null, { status: 301, headers: { ...headers, location: '/app/schedule' + url.search } })
     const kiosk=await kioskResponse(request,env);if(kiosk)return kiosk
     who = await principal(request, env, isAgent)
+    const auditOnly=auditRestricted(await load(env.DB),who)
+    if(auditOnly&&(request.method!=='GET'||!['/api/lanyard/audit','/api/lanyard/audit.csv'].includes(path)))fail('Audit authority grants only report reads and downloads',403)
     if (request.method === 'GET') {
       const custom=await customMode(env,who)
-      if(custom&&!['/api/lanyard/intervals','/app/intervals','/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path)&&!/^\/api\/lanyard\/batches\/[\w-]+\.(csv|tsv|txt|xlsx|iif)$/.test(path))fail('This read is unavailable to custom levels',403)
+      if(custom&&!auditOnly&&!['/api/lanyard/intervals','/app/intervals','/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path)&&!/^\/api\/lanyard\/batches\/[\w-]+\.(csv|tsv|txt|xlsx|iif)$/.test(path))fail('This read is unavailable to custom levels',403)
       const retainedAudit=path.match(/^\/api\/lanyard\/audit-packets\/([\w-]+)(\.csv)?$/)
       if(retainedAudit){
        const packet=await retainedAuditRead(env.DB,who,retainedAudit[1],Boolean(retainedAudit[2]))
@@ -160,7 +163,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       }
       if(['/app/audit','/api/lanyard/audit','/api/lanyard/audit.csv'].includes(path)){
        const today=new Date().toISOString().slice(0,10),from=url.searchParams.get('from')??today.slice(0,4)+'-01-01',through=url.searchParams.get('through')??today
-       const report=await auditRead(env.DB,who,url.searchParams.get('site')??'',from,through,url.searchParams.get('jurisdiction')??'all',path.endsWith('.csv')?'csv':'json')
+       const report=await auditRead(env.DB,who,url.searchParams.get('site')??'',from,through,url.searchParams.get('jurisdiction')??'all',path.endsWith('.csv')?'csv':'json',{grantId:url.searchParams.get('grantId')??'',staffId:url.searchParams.get('staffId')??'',reportClass:url.searchParams.get('reportClass')??''})
        if(path.endsWith('.csv'))return new Response(report as string,{headers:{...headers,'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="lanyard-audit.csv"'}})
        return path==='/app/audit'?renderApp(await state(request,env,who),path+url.search,{result:{audit:report}}):json(report)
       }

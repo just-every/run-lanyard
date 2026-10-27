@@ -82,7 +82,7 @@ The employee and owner can read the captured evidence. The owner sees each event
 
 From **Payroll**, open **Audit records**, select a cafe and date range, and choose a recorded jurisdiction. The report combines retained schedule records, break exceptions and premium inputs, rounding, whole-workweek tip-credit checks, punch edits, minor exceptions and private leave sources. Each row names its source revision and links to the source screen. Download the same selection as CSV; the download is recorded in activity and leaves source records unchanged.
 
-The owner reads all supported sources. Native managers read their own cafe, excluding private leave and fair-workweek previews; custom levels have no new audit access. Personal contact details, birth dates, permits, private leave purposes and unrelated wage fields are excluded. No auditor grant is created.
+The owner reads all supported sources. Native managers read their own cafe, excluding private leave and fair-workweek previews; generic custom levels do not grant audit access. Personal contact details, birth dates, permits, private leave purposes and unrelated wage fields are excluded. Named audit grants are a separate explicit owner action.
 
 An unassigned jurisdiction remains visible under a jurisdiction filter because the source has no jurisdiction tag. Empty categories remain explicit. Notice delivery, employee consent, incomplete policy outcomes, unrecorded minor checks, legacy in-place edits without retained history and preset-required retention remain incomplete. This report does not certify legal compliance or provider payment.
 
@@ -97,4 +97,13 @@ The Audit records page and `GET /api/lanyard/audit` show current retained source
 
 The owner reads that immutable copy at `GET /api/lanyard/audit-packets/ID` and downloads its original bytes at the same path with `.csv` appended. Later source corrections do not rewrite it. Installation archives carry retained copies; restore still requires fresh native sign-in. Staff, managers, custom levels and preparation keys cannot read these copies, including through state snapshots. Downloading does not grant an auditor access.
 
-Conservative custody pending policy approval: retain indefinitely with no automatic expiry or erasure door, under the owner's existing authority. This does not establish a statutory preset period or complete compliance. Required preset durations, legal holds and employee-rights disposition need approved policy; disconnected downloads and old archives remain outside this installation's control.
+The ct ruling of 27 October 2026 approves this owner-only preservation floor. Authorization is bound into a packet digest along with original report and CSV digests; inconsistent content refuses both read and download. Storage remains indefinite with no automatic expiry or erasure. This is technical custody, not blanket lawful retention. Maintained minimum review dates and independent holds are available under PRIVACY-001; complete eligible disposition remains open. Disconnected downloads and old archives require separate external handling.
+
+
+## Named read-only audit API
+
+The owner invites a dedicated named audit identity through the existing People invitation. Send `access.audit.grant` to the native command API with `staffId`, `businessId`, `site`, explicit `employeeIds`, `jurisdictions`, `classes`, inclusive `from` and `through`, `purpose`, `endsAt`, `wages` and `consent: true`. The site must belong to that business. Supported classes are schedule, breaks, rounding, tip-credit, punch-edit and minor-exception. Private leave and policy previews remain owner-only. Tip-credit access additionally needs `wages: true` and a separate `sensitivePurpose` reviewed by the owner. An unknown jurisdiction is named `unassigned`; it is never inferred.
+
+Give the authenticated reader the grant identifier. They request `GET /api/lanyard/audit` or its `.csv` variant with `grantId`, `site`, `from`, `through` and one permitted `jurisdiction`. Optional `staffId` and `reportClass` narrow the grant. Every read and download rechecks the current grant and records the reader and scope. Foreign business or site, employee, jurisdiction, class and date requests refuse. A wage workweek is excluded if any contributing site, source or date falls outside the grant. Retained owner packets keep their separate owner boundary.
+
+Audit identities cannot use operational screens, state, credential administration or mutation commands, including after grant expiry or revocation. Use a dedicated identity rather than converting a working operator account. `access.audit.revoke` takes `id`, exact `revision` and `reason`; the active reader's next request fails. Grant management and reader screens are not yet implemented.

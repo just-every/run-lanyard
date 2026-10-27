@@ -119,6 +119,8 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     await h.cmd('sicktransfer.decide',{id:consented.id,revision:consented.revision,decision:'approved'},h.owner,200,donationHeaders)
     const retainedAudit=await h.cmd('audit.retain',{site:'',from:'2026-10-01',through:'2026-10-31',jurisdiction:'all',sourceVersion:(await h.state()).version,reason:'Preserve reviewed payroll audit sources',consent:true})
     assert.ok(retainedAudit.report.rows.some(r=>r.sourceId===first.id))
+    const retainedDuty=await h.cmd('privacy.recordDuty',{sourceKind:'auditpackets',sourceId:retainedAudit.id,sourceRevision:retainedAudit.revision,preset:'federal-payroll',applicability:'applies',anchor:retainedAudit.createdAt.slice(0,10),reason:'Reviewed archive copy minimum',consent:true})
+    const separateHold=await h.cmd('privacy.hold',{staffId:alex.id,type:'history',caseId:'synthetic-lanyard-archive-matter',hold:true,reason:'Independent archive hold',consent:true})
     const originalChat=(await h.send('/api/lanyard/chat',undefined,h.owner)).value,originalAccess=(await h.send('/api/lanyard/access',undefined,h.owner)).value
     const journal=await h.cmd('import.journal',{jobId:imported.job.id}),original=await h.state()
     const identity={auth:h.auth,owner:h.owner}
@@ -157,6 +159,10 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.deepEqual(back.sickuses.map(u=>[u.paid,u.minutes,u.costCents]).sort((a,b)=>Number(a[0])-Number(b[0])),[[false,120,0],[true,60,2000]])
     const leaveBalances=(await h.send('/api/lanyard/sick-balances?asOf=2026-10-16',undefined,owner)).value.filter(r=>r.staffId===leavePerson.id)
     assert.deepEqual(leaveBalances.map(r=>[r.preset,r.balanceMinutes]).sort(),[['NYC_UPFRONT',1800],['NY_PRENATAL',1140]])
+    assert.deepEqual(back.recordduties,original.recordduties)
+    assert.equal(back.recordduties.find(d=>d.id===retainedDuty.id).retainThrough,retainedDuty.retainThrough)
+    const restoredReview=await h.cmd('privacy.records.review',{sourceKind:'auditpackets',sourceId:retainedAudit.id},owner)
+    assert.ok(restoredReview.holds.some(hold=>hold.id===separateHold.id))
     assert.deepEqual(back.auditpackets,original.auditpackets)
     assert.deepEqual((await h.send('/api/lanyard/audit-packets/'+retainedAudit.id,undefined,owner)).value,retainedAudit)
     assert.deepEqual(back.logbook,original.logbook)

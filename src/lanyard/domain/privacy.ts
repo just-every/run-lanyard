@@ -23,9 +23,9 @@ export async function privacyCommand(c:Context,name:string,p:Record<string,any>)
  }
  const employee=person(c,p.staffId),staffId=employee.id
  if(name==='privacy.hold'){
-  keys(p,['staffId','type','hold','revision','reason','consent']);const reason=approved(p);need(privacyTypes.includes(p.type)&&typeof p.hold==='boolean','Choose a data type and explicit hold or release')
-  const old=c.s.privacyholds.find(h=>h.staffId===staffId&&h.type===p.type);if(old)exact(old,p)
-  return put(c,'privacyholds',{staffId,type:p.type,hold:p.hold,reason,by:c.a.id,at:c.now,changes:old?[...(old.changes??[]),{hold:old.hold,reason:old.reason,by:old.by,at:old.at}]:[]},old)
+  keys(p,['staffId','type','hold','revision','reason','consent','caseId']);const reason=approved(p);need(privacyTypes.includes(p.type)&&typeof p.hold==='boolean','Choose a data type and explicit hold or release')
+  const caseId=text(p.caseId,'hold case',120,true),old=c.s.privacyholds.find(h=>h.staffId===staffId&&h.type===p.type&&(h.caseId??'')===caseId);if(old)exact(old,p)
+  return put(c,'privacyholds',{staffId,type:p.type,caseId,hold:p.hold,reason,by:c.a.id,at:c.now,changes:old?[...(old.changes??[]),{hold:old.hold,reason:old.reason,by:old.by,at:old.at}]:[]},old)
  }
  if(name==='privacy.review'){
   keys(p,['staffId']);c.entity=staffId
