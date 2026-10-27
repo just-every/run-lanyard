@@ -1,3 +1,4 @@
+import {eligibleLocation} from './organization'
 // PEOPLE-002: employer-recorded qualifications and effective-dated USD job rates.
 // Keep the exact inputs and their revisions on prepared work; never reprice history.
 import {type Context,type State,type Row,keys,text,need,manager,integer,staff,get,exact,put} from './model'
@@ -38,6 +39,7 @@ function version(r:Row){const {versions,...v}=r;return v}
 /** Every venue date touched must be eligible, including an overnight certification expiry. */
 export function qualification(s:State,id:string,x:Record<string,any>):string|null {
  const p=profileOf(s,id),job=x.job?s.jobs.find(j=>j.id===x.job):null
+ if(!eligibleLocation(s,id,x.site||s.staff.find(v=>v.id===id)?.site||''))return 'Not eligible at this organization location'
  if(p?.jobs.length&&!x.job)return 'Choose a job for this employee'
  if(x.job&&!job)return 'Job not found'
  if(x.job&&(!p||!p.jobs.includes(x.job)))return 'Not qualified for job'

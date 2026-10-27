@@ -2072,3 +2072,6 @@ test('AI-001: owner corrects extracted fields inspects sources and approves a dr
 
 test('POLICY-002: source-versioned employer coverage and retained notice rest and premium previews use published shifts and postings',async()=>{const {fairworkApi}=await import('./fairwork-journey.mjs');await fairworkApi()})
 test('POLICY-002: owner reviews coverage and change consequences in Settings at 1440 and 390',async()=>{const {fairworkBrowser}=await import('./fairwork-journey.mjs');await fairworkBrowser()})
+
+test('TEAM-001: owner organization records retain hierarchy and eligible locations without granting authority',()=>run(async h=>{const {organizationApi}=await import('./organization-journey.mjs');await organizationApi(h)}))
+test('TEAM-001: organization Settings creates two locations and a shared employee through native forms',async()=>{const {organizationBrowser}=await import('./organization-journey.mjs');await organizationBrowser()})
