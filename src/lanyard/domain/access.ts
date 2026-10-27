@@ -83,6 +83,7 @@ export function accessCommand(c:Context,name:string,p:Record<string,any>){
  }
  if(name==='access.revoke'){
   keys(p,['id','revision']);const g=get(c.s,'accessgrants',p.id),level=get(c.s,'accesslevels',g.levelId);exact(g,p);need(!g.archivedAt,'Assignment is archived',409);administerSite(c,g.site,g.staffId)
+  if(level.businessId||level.departmentId)need(c.a.role==='owner','Only the owner revokes organization-scoped levels',403)
   need(c.a.role==='owner'||c.a.staffId!==g.staffId,'Only the owner changes their own custom grants',403)
   need(level.permissions.every((v:string)=>allowed(c.s,c.a,v,g.site)),'Cannot revoke a level beyond your permissions',403)
   return put(c,'accessgrants',{...g,revoked:true,changes:[...g.changes,{actor:c.a.id,at:c.now,before:level.permissions,after:[]}]},g)

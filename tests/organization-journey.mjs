@@ -146,6 +146,26 @@ export async function organizationAccessApi(h){
  await h.cmd('roster.prepare',{week,shifts:[shift]})
  const scoped=await h.cmd('access.level.save',{name:'Department scheduler',departmentId:department.id,site:'',permissions:['draft.view','draft.edit']})
  const departmentGrant=await h.cmd('access.grant',{levelId:scoped.id,staffId:other.id,site:'Ocean Beach'})
+ const nativeManager=await h.person('synthetic-lanyard-7','manager')
+ await h.cmd('staff.save',{...pin(nativeManager),name:nativeManager.name,email:nativeManager.email,payrollId:nativeManager.payrollId,role:'manager',active:true,site:'Ocean Beach'})
+ const businessGrant=await h.cmd('access.grant',{levelId:broad.id,staffId:worker.id,site:'Ocean Beach'})
+ for(const organizationLevel of [broad,scoped]){
+  await refusal('access.level.save',{...pin(organizationLevel),name:organizationLevel.name,site:organizationLevel.site,businessId:organizationLevel.businessId,departmentId:organizationLevel.departmentId,permissions:[]},nativeManager.cookie)
+  await refusal('access.grant',{levelId:organizationLevel.id,staffId:payroll.id,site:'Ocean Beach'},nativeManager.cookie)
+ }
+ const beforeRevoke=await h.state(),beforeAccess=(await h.send('/api/lanyard/access',undefined,h.owner)).value
+ const revokeResults=[]
+ for(const assignment of [businessGrant,departmentGrant]){
+  const response=await h.send('/api/lanyard/command',{name:'access.revoke',input:pin(assignment)},nativeManager.cookie)
+  revokeResults.push(response.status)
+ }
+ assert.deepEqual(revokeResults,[403,403],'native managers cannot revoke business or department grants')
+ const afterRevoke=await h.state()
+ assert.equal(afterRevoke.version,beforeRevoke.version,'refused revocations preserve persisted state')
+ assert.deepEqual(afterRevoke.events,beforeRevoke.events,'refused revocations preserve audit')
+ assert.deepEqual((await h.send('/api/lanyard/access',undefined,h.owner)).value,beforeAccess,'refused revocations preserve assignments and permission history')
+ const revokedBusiness=await h.cmd('access.revoke',pin(businessGrant))
+ assert.equal(revokedBusiness.revoked,true);assert.deepEqual(revokedBusiness.changes.at(-1).before,['draft.view','draft.edit']);assert.deepEqual(revokedBusiness.changes.at(-1).after,[])
  await h.cmd('roster.prepare',{week,shifts:[shift]},other.cookie)
  await refusal('roster.prepare',{week,shifts:[{...shift,staffId:scheduler.id}]},other.cookie)
  const contactManager=await h.person('synthetic-lanyard-6','manager')
@@ -195,7 +215,14 @@ export async function organizationAccessApi(h){
  scheduleLevel=await h.cmd('access.level.save',{...pin(scheduleLevel),name:scheduleLevel.name,site:scheduleLevel.site,permissions:[]})
  await refusal('roster.prepare',{week,shifts:[shift]},scheduler.cookie)
  assert.deepEqual(scheduleLevel.changes.at(-1).before,['draft.view','draft.edit']);assert.deepEqual(scheduleLevel.changes.at(-1).after,[])
- await h.cmd('access.revoke',pin(departmentGrant));await refusal('roster.prepare',{week,shifts:[shift]},other.cookie)
+ const revokedDepartment=await h.cmd('access.revoke',pin(departmentGrant))
+ assert.equal(revokedDepartment.revoked,true);assert.deepEqual(revokedDepartment.changes.at(-1).before,['draft.view','draft.edit']);assert.deepEqual(revokedDepartment.changes.at(-1).after,[])
+ await refusal('roster.prepare',{week,shifts:[shift]},other.cookie)
+ const localLevel=await h.cmd('access.level.save',{name:'Local scheduler',site:'Ocean Beach',permissions:['draft.view','draft.edit']},nativeManager.cookie)
+ const localGrant=await h.cmd('access.grant',{levelId:localLevel.id,staffId:other.id,site:'Ocean Beach'},nativeManager.cookie)
+ assert.equal((await h.cmd('access.revoke',pin(localGrant),nativeManager.cookie)).revoked,true,'a native manager can still administer an ordinary local level')
+ const revokedState=await h.state()
+ for(const assignment of [businessGrant,departmentGrant])assert.ok(revokedState.events.some(e=>e.action==='access.revoke'&&e.entityId===assignment.id&&e.actorRole==='owner'))
  assert.ok((await h.state()).events.some(e=>e.action==='access.defaults.create'&&e.actorRole==='owner'))
  assert.ok(grant.id)
 }

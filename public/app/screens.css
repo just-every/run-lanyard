@@ -13,7 +13,7 @@ html.rer-themed .lanyard-app .batch-side h3{margin-top:0}
 .batch .card-head .status{align-self:center}
 .ledger tfoot td{font-weight:700;border-bottom:0;padding:10px 12px}
 .ledger .margin{color:var(--muted);font-size:13px;border-left:1px dashed var(--rule-strong)}
-html.rer-themed .lanyard-app pre.csv{white-space:pre-wrap;overflow-wrap:anywhere;overflow:visible;font-size:12px}
+html.rer-themed .lanyard-app pre.csv{white-space:pre-wrap;overflow-wrap:anywhere;overflow:visible;font-size:13px}
 
 .filter{display:flex;align-items:center;gap:12px;margin:0 0 12px!important}
 .filter label{flex:1;max-width:420px}

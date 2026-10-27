@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "277df6ccc02395854accd48213bde14417333ac2ac7c5ff14ec13399d2d805c5",
+      "sha256": "c411da97d3ae4580ef404225b33db831dd50558eb068580fbab1d65c72bc97f4",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "2bb6cf701db5e1e422b534943337e1d5928966d2175e7f1b52a74986b13f88c3",
+      "sha256": "d66737c299b7d822edd2305e9a3ed0879f7c07d60ee76db1a5805ac05f10fcf4",
       "executable": false
     },
     "DEMO.md": {
@@ -606,7 +606,7 @@
       "executable": false
     },
     "public/app/screens.css": {
-      "sha256": "1dd68efaa0d618fea636779219562b165f616244ec9683bf7cbc08ad7df2c9bf",
+      "sha256": "91df9586b1227310922a2d1cda5f4fbcb7e8ab069d87c49794f50dfb3819cb8d",
       "executable": false
     },
     "public/app/shell.css": {
@@ -1266,7 +1266,7 @@
       "executable": false
     },
     "src/lanyard/domain/access.ts": {
-      "sha256": "2b096ae23be5e6645785d66f2cc2ebcbc5cbc19722509c83287021cffbab4919",
+      "sha256": "6eb2ad3754b1969ec1bb6783d4806e84cf0d7f7b63618844a5a8c0919044154c",
       "executable": false
     },
     "src/lanyard/domain/activity.ts": {
@@ -4086,7 +4086,7 @@
       "executable": false
     },
     "tests/organization-journey.mjs": {
-      "sha256": "f6427ccb669b0bcec91938dfd0f833070ef08ef75d344c0978e9bca74e79efe6",
+      "sha256": "7be71c73c56092a0701bd12fda0229fc119b854e8a410a563fe3bd5c243f81b3",
       "executable": false
     },
     "tests/payiif-journey.mjs": {
