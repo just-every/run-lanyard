@@ -114,7 +114,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=minorCommand(c,name,p)
  if(result===undefined)result=differentialCommand(c,name,p)
  if(result===undefined)result=clockLanguage(c,name,p)
- if(result===undefined)result=chatCommand(c,name,p)
+ if(result===undefined)result=await chatCommand(c,name,p)
  if(result===undefined)result=accessCommand(c,name,p)
  if(result===undefined)result=noticeCommand(c,name,p)
  if(result===undefined)result=demandRule(c,name,p)

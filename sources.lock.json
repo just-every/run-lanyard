@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "223cc111f7f3ccd90928faadf915157f039fb94f3d158e0a6267b46af3b4a0d1",
+      "sha256": "c058dcda687341cfd093328fe2883bd9b9f3b600c1f418c9168ef8c2f005d340",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "48230f06025c670f54653b8910b885367fb3525a182929881dfc4660510e5eb4",
+      "sha256": "50aab348dccd5c93b508e198aab742d963546f254d9cdca8a1925b4ba45c5265",
       "executable": false
     },
     "DEMO.md": {
@@ -1270,7 +1270,7 @@
       "executable": false
     },
     "src/lanyard/domain/activity.ts": {
-      "sha256": "04a7815ff54f76c53e01dea4212e9b2743ad3eb435bbb8f962b47149d22ec12d",
+      "sha256": "6dbea8788ebd6ca52dc35639ffe04205e49313d30555721e186019a8fc42584a",
       "executable": false
     },
     "src/lanyard/domain/ai-provider.ts": {
@@ -1302,7 +1302,7 @@
       "executable": false
     },
     "src/lanyard/domain/chat.ts": {
-      "sha256": "e07bd2f00231ee7e879f1094e370ba800f8c38ed0c4c968dbe5efdd06c158ab6",
+      "sha256": "6e012490b00d4c8cc8d44f799db85611322f363c881a46aa4f5910aa9be782e8",
       "executable": false
     },
     "src/lanyard/domain/clocknets.ts": {
@@ -1406,7 +1406,7 @@
       "executable": false
     },
     "src/lanyard/domain/index.ts": {
-      "sha256": "9b59232f35ec0186bbc30e87811594e1485ffb2543b28ec7bed41e827d36bb3c",
+      "sha256": "de225b83ddbb2a5fd38df08134038bd7ccb88a69b34a020af1e520831badab74",
       "executable": false
     },
     "src/lanyard/domain/intervals.ts": {
@@ -1714,7 +1714,7 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "a2314d24a83ff0086b22d4d88593f6b2c77cc668fd8730830858721d322925b8",
+      "sha256": "6df658ff6b66100d2c42e27ce3e12142b8ffc5dedaba71674114e9bdf00b9703",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
@@ -3942,7 +3942,7 @@
       "executable": false
     },
     "tests/chat-membership-journey.mjs": {
-      "sha256": "efe50f105758fe2f0b8e442870b0a7b813ef7daacccfe5e997bb18e5b4687b44",
+      "sha256": "8d681d9f9bf31da14532d8928e7bf87e9005d75a872a23d567cd291f0e44f129",
       "executable": false
     },
     "tests/clock-offline-journey.mjs": {
