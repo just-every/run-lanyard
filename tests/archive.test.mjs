@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { getPlatformProxy } from 'wrangler'
 import { harness } from './harness.mjs'
+import { auditLargeQuarter } from './audit-report-journey.mjs'
 const exec = promisify(execFile)
 const cli = resolve('node_modules/@runeditrun/rer/global/rer.mjs')
 const command = async (cwd, args, expected = 0) => {
@@ -129,6 +130,7 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     const scopedAudit=await h.send(auditPath,undefined,archivedAuditor.cookie)
     assert.equal(scopedAudit.status,200,scopedAudit.text)
     assert.deepEqual(scopedAudit.value.rows.map(r=>r.sourceId).sort(),[kioskOut.value.result.timesheet.id,nativeOut.timesheet.id].sort())
+    const quarterPackets=await auditLargeQuarter(h)
     const originalChat=(await h.send('/api/lanyard/chat',undefined,h.owner)).value,originalAccess=(await h.send('/api/lanyard/access',undefined,h.owner)).value
     const journal=await h.cmd('import.journal',{jobId:imported.job.id}),original=await h.state()
     const identity={auth:h.auth,owner:h.owner}
@@ -179,6 +181,10 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.ok(restoredReview.holds.some(hold=>hold.id===separateHold.id))
     assert.deepEqual(back.auditpackets,original.auditpackets)
     assert.deepEqual((await h.send('/api/lanyard/audit-packets/'+retainedAudit.id,undefined,owner)).value,retainedAudit)
+    for(const packet of quarterPackets){
+      assert.deepEqual((await h.send('/api/lanyard/audit-packets/'+packet.id,undefined,owner)).value,packet,'complete quarter payload and authorization survive supported archive restore')
+      assert.equal((await h.send('/api/lanyard/audit-packets/'+packet.id+'.csv',undefined,owner)).text,packet.csv)
+    }
     assert.deepEqual(back.logbook,original.logbook)
     assert.deepEqual(back.shiftwork,original.shiftwork);assert.deepEqual(back.taskanswers,original.taskanswers)
     assert.equal((await h.send(`/api/lanyard/handover/${answer.id}/files/${answer.attachment.id}`,undefined,owner)).text,'Retained blocker file')

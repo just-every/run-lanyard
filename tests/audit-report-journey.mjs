@@ -486,3 +486,54 @@ export async function auditBrowser(){
   }finally{await context.close()}
  }finally{await h.close();await browser.close()}
 }
+
+// Full-quarter preservation proof also runs from the existing archive journey.
+// All sources enter through native commands; only corruption probes touch SQL.
+export async function auditLargeQuarter(h){
+ const packets=[]
+ for(const site of ['Chicago retained quarter','California retained quarter']){
+  const people=[await h.person(site.startsWith('Chicago')?'ChicagoQuarterOne':'CaliforniaQuarterOne'),await h.person(site.startsWith('Chicago')?'ChicagoQuarterTwo':'CaliforniaQuarterTwo')]
+  const expected=[]
+  for(let day=0;day<92;day++){
+   const on=new Date(Date.UTC(2026,6,1+day)).toISOString().slice(0,10)
+   for(const person of people){
+    let record=await h.cmd('time.prepare',{staffId:person.id,site,start:on+'T08:00:00Z',end:on+'T16:00:00Z',breakMinutes:0,reason:'Quarter reconciliation source'})
+    for(let edit=0;edit<5;edit++)record=await h.cmd('time.edit',{...pin(record),start:record.start,end:on+`T15:${String(55-edit).padStart(2,'0')}:00Z`,breakMinutes:0,reason:`Review ${edit+1}: `+'Revisión comprobada 🔎 '.repeat(20)})
+    expected.push([record.id,record.revision])
+   }
+  }
+  const filter={site,from:'2026-07-01',through:'2026-09-30',jurisdiction:'all'},query=new URLSearchParams(filter)
+  const report=await h.send('/api/lanyard/audit?'+query,undefined,h.owner),csv=await h.send('/api/lanyard/audit.csv?'+query,undefined,h.owner)
+  assert.equal(report.status,200,report.text);assert.equal(csv.status,200,csv.text)
+  assert.equal(report.value.rows.length,368)
+  for(const category of ['breaks','punch-edit'])assert.deepEqual(report.value.rows.filter(r=>r.category===category).map(r=>[r.sourceId,r.sourceRevision]).sort(),[...expected].sort())
+  const input={...filter,sourceVersion:report.value.sourceVersion,reason:'Preserve the complete reviewed quarter',consent:true}
+  const summary=await h.cmd('audit.retain',input)
+  assert.equal(summary.report,undefined,'large command receipts contain a manifest rather than duplicate payload bytes')
+  assert.ok(summary.storage.bytes>1500000,'fixture exceeds the old single-record copy limit')
+  await h.cmd('audit.retain',input,h.owner,409)
+  const path='/api/lanyard/audit-packets/'+summary.id
+  const original=await h.send(path,undefined,h.owner)
+  assert.equal(original.status,200,original.text);assert.deepEqual(original.value.report,report.value);assert.equal(original.value.csv,csv.text)
+  assert.equal(original.value.csvSha256,createHash('sha256').update(csv.text).digest('hex'))
+  const review=await h.cmd('privacy.records.review',{sourceKind:'auditpackets',sourceId:summary.id})
+  assert.deepEqual([...new Set(review.unresolved.filter(r=>r.sourceKind==='timesheets').map(r=>r.sourceId))].sort(),expected.map(r=>r[0]).sort(),'chunked copies retain every source duty reference')
+  const before=await h.state(),partId=summary.storage.parts[0].id
+  const part=await h.db.prepare("SELECT data FROM l_records WHERE kind='auditpayloads' AND id=?").bind(partId).first()
+  for(const data of [null,JSON.stringify({...JSON.parse(part.data),data:'synthetic-lanyard-damaged'})]){
+   if(data===null)await h.db.prepare("DELETE FROM l_records WHERE kind='auditpayloads' AND id=?").bind(partId).run()
+   else await h.db.prepare("UPDATE l_records SET data=? WHERE kind='auditpayloads' AND id=?").bind(data,partId).run()
+   for(const suffix of ['', '.csv'])assert.equal((await h.send(path+suffix,undefined,h.owner)).status,409,'missing or damaged parts never produce a partial download')
+   await h.db.prepare("INSERT INTO l_records(kind,id,revision,data) VALUES('auditpayloads',?,1,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data").bind(partId,part.data).run()
+  }
+  assert.deepEqual((await h.state()).timesheets,before.timesheets,'retaining a quarter leaves worked sources unchanged')
+  const source=before.timesheets.find(r=>r.id===expected[0][0])
+  await h.cmd('time.edit',{...pin(source),start:source.start,end:source.start.slice(0,10)+'T14:00:00Z',breakMinutes:0,reason:'Later quarter correction'})
+  assert.deepEqual((await h.send(path,undefined,h.owner)).value,original.value,'later corrections do not rewrite the retained quarter')
+  await h.restart()
+  assert.deepEqual((await h.send(path,undefined,h.owner)).value,original.value,'every part and authorization survives restart')
+  assert.equal((await h.send(path+'.csv',undefined,h.owner)).text,csv.text)
+  packets.push(original.value)
+ }
+ return packets
+}

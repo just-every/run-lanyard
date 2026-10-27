@@ -14,7 +14,7 @@ export async function live(db:D1Database,a:Actor):Promise<Actor> {
  return actor(db,{userId:a.id,email:a.email,isOwner:a.isOwner===true||a.role==='owner'})
 }
 export async function load(db:D1Database):Promise<State> {
- const r=await db.batch<any>([db.prepare('SELECT version,timezone FROM l_meta WHERE id=1'),db.prepare('SELECT * FROM l_staff ORDER BY name,id'),db.prepare('SELECT kind,data FROM l_records ORDER BY id'),db.prepare('SELECT * FROM l_payroll_claims')])
+ const r=await db.batch<any>([db.prepare('SELECT version,timezone FROM l_meta WHERE id=1'),db.prepare('SELECT * FROM l_staff ORDER BY name,id'),db.prepare("SELECT kind,data FROM l_records WHERE kind<>'auditpayloads' ORDER BY id"),db.prepare('SELECT * FROM l_payroll_claims')])
  const s={version:r[0].results[0].version,timezone:r[0].results[0].timezone,staff:r[1].results,claims:r[3].results} as State
  for(const k of kinds)s[k]=[]
  for(const row of r[2].results)if((kinds as readonly string[]).includes(row.kind))s[row.kind as typeof kinds[number]].push(JSON.parse(row.data))
