@@ -224,3 +224,22 @@ explains the import limitations. The required buyer-authorized Desktop Payroll
 Enhanced import, mapped weekly-timesheet readback and total reconciliation
 remain a manual acceptance check. No live Desktop connection or successful
 company-file import is claimed.
+
+
+Sick and safe leave policies also offer accrued unpaid base tiers for small
+employers in New York State, New York City, Oregon and Philadelphia. Review the
+employer size, income and worker coverage against the linked rule before choosing
+a tier. NYC domestic workers and Philadelphia chain establishments require the
+applicable paid tier. An unpaid request is labeled unpaid, consumes its protected
+bank and costs zero. It appears in the owner’s balance download with its selected
+code and a paid flag, and contributes no paid payroll hours, earnings or ACA paid
+service. A later paid policy version does not turn earlier unpaid use into wages.
+For NYC, add a separate NYC_UPFRONT policy for the same cafe. It provides 32
+immediately available unpaid hours from 22 February 2026, without requiring
+accrued work; unused supplemental hours do not carry into the next January grant.
+For New York State and NYC, add a distinct NY_PRENATAL policy at the same cafe
+for the separate 20-hour paid prenatal bank. It needs no worked-time accrual. Its
+52-week period starts on first approved use and resets after 364 elapsed days;
+January does not replenish it. The balance report’s annual-used field represents
+the active 52-week period for this bank. Complete eligibility and reason coverage
+remains partial as recorded in CONTRACT.md.

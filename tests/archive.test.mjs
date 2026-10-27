@@ -26,7 +26,7 @@ async function checkout(root) {
 }
 // Pacific Monday Oct 12, 2026, 7:00 am – 3:00 pm PDT; the 45-minute break is a later agreed correction.
 const work = staffId => ({ staffId, start: '2026-10-12T14:00:00Z', end: '2026-10-12T22:00:00Z', breakMinutes: 30 })
-test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRULE-003, CLOCK-005, CLOCK-003, PRIVACY-001 and TRADEOFF-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
+test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRULE-003, CLOCK-005, CLOCK-003, PRIVACY-001, LEAVE-003 and TRADEOFF-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure', { timeout: 600_000 }, async () => {
   const temporary = await mkdtemp(join(tmpdir(),'lanyard-archive-')), source=join(temporary,'source'), restored=join(temporary,'restored'), erased=join(temporary,'erased'),photoErased=join(temporary,'photo-erased'),locationErased=join(temporary,'location-erased'),noteErased=join(temporary,'note-erased')
   let h
   try {
@@ -95,6 +95,20 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     const nativePhoto=await h.cmd('clock.in',{commandId:'synthetic-lanyard-51',capturedAt:'2026-10-14T14:00:00Z',location:location('2026-10-14T14:00:00Z'),photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true,photoNoticeSeen:true},nativeCookie)
     const nativeOut=await h.cmd('clock.out',{commandId:'synthetic-lanyard-52',capturedAt:'2026-10-14T15:00:00Z',location:location('2026-10-14T15:00:00Z'),breakMinutes:0,photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true,photoNoticeSeen:true},nativeCookie)
     const photoIds=[photoId,kioskOut.value.result.kioskReceipt.photoId,nativePhoto.photoReceipt.photoId,nativeOut.photoReceipt.photoId]
+    // Separate grant banks, private paid status and signed leave corrections travel through the CLI.
+    const leavePerson=await h.person('LeaveArchive')
+    await h.cmd('staff.save',{id:leavePerson.id,revision:leavePerson.revision,name:leavePerson.name,email:leavePerson.email,payrollId:leavePerson.payrollId,role:'staff',active:true,site:'Leave archive cafe',hourlyRate:'20.00',startDate:'2020-01-01'})
+    const unpaidPolicy=await h.cmd('sickpolicy.save',{site:'Leave archive cafe',from:'2026-02-22',preset:'NYC_UPFRONT',code:'UNPAID'})
+    const prenatalPolicy=await h.cmd('sickpolicy.save',{site:'Leave archive cafe',from:'2025-01-01',preset:'NY_PRENATAL',code:'PRENATAL'})
+    const unpaidRequest=await h.cmd('sick.request',{policyId:unpaidPolicy.id,start:'2026-10-15T16:00:00Z',end:'2026-10-15T18:00:00Z',minutes:120,purpose:'childcare'},leavePerson.cookie)
+    await h.cmd('sick.decide',{id:unpaidRequest.id,revision:unpaidRequest.revision,decision:'approved',reference:'synthetic-lanyard-120'})
+    const prenatalRequest=await h.cmd('sick.request',{policyId:prenatalPolicy.id,start:'2026-10-16T16:00:00Z',end:'2026-10-16T18:00:00Z',minutes:120,purpose:'prenatal care'},leavePerson.cookie)
+    const prenatalApproved=await h.cmd('sick.decide',{id:prenatalRequest.id,revision:prenatalRequest.revision,decision:'approved',reference:'synthetic-lanyard-121'})
+    const leaveBatch=await h.cmd('payroll.prepare',{});assert.deepEqual(leaveBatch.lines.filter(l=>l.sickLine).map(l=>[l.minutes,l.costCents,l.payCode]),[[120,4000,'PRENATAL']]);await h.cmd('payroll.export',{id:leaveBatch.id,revision:leaveBatch.revision})
+    files[leaveBatch.id]=(await h.send(`/api/lanyard/batches/${leaveBatch.id}.csv`,undefined,h.owner)).text
+    await h.cmd('sick.correct',{id:prenatalApproved.id,revision:prenatalApproved.revision,minutes:60,reason:'synthetic-lanyard-122 reviewed correction'})
+    const leaveAdjustment=await h.cmd('payroll.prepare',{});assert.deepEqual(leaveAdjustment.lines.filter(l=>l.sickLine).map(l=>[l.minutes,l.costCents]),[[-60,-2000]]);await h.cmd('payroll.export',{id:leaveAdjustment.id,revision:leaveAdjustment.revision})
+    files[leaveAdjustment.id]=(await h.send(`/api/lanyard/batches/${leaveAdjustment.id}.csv`,undefined,h.owner)).text
     const originalChat=(await h.send('/api/lanyard/chat',undefined,h.owner)).value,originalAccess=(await h.send('/api/lanyard/access',undefined,h.owner)).value
     const journal=await h.cmd('import.journal',{jobId:imported.job.id}),original=await h.state()
     const identity={auth:h.auth,owner:h.owner}
@@ -124,6 +138,12 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.equal((await h.send('/api/lanyard/agent/fairness/compare?week=2026-10-12&site=synthetic-scope-cafe',undefined,'',{authorization:`Bearer ${agentKey.token}`})).status,401)
     const freshKey=await h.cmd('agent.create',{label:'Restored preparation only'},owner);assert.deepEqual(freshKey.scopes,[]);assert.deepEqual(freshKey.cafes,[])
     assert.equal((await h.send('/api/lanyard/agent/fairness/compare?week=2026-10-12&site=synthetic-scope-cafe',undefined,'',{authorization:`Bearer ${freshKey.token}`})).status,404)
+    assert.equal(back.sickpolicies.length,2)
+    assert.deepEqual(back.sickpolicies,original.sickpolicies)
+    assert.deepEqual(back.sickuses,original.sickuses)
+    assert.deepEqual(back.sickuses.map(u=>[u.paid,u.minutes,u.costCents]).sort((a,b)=>Number(a[0])-Number(b[0])),[[false,120,0],[true,60,2000]])
+    const leaveBalances=(await h.send('/api/lanyard/sick-balances?asOf=2026-10-16',undefined,owner)).value.filter(r=>r.staffId===leavePerson.id)
+    assert.deepEqual(leaveBalances.map(r=>[r.preset,r.balanceMinutes]).sort(),[['NYC_UPFRONT',1800],['NY_PRENATAL',1140]])
     assert.deepEqual(back.logbook,original.logbook)
     assert.deepEqual(back.shiftwork,original.shiftwork);assert.deepEqual(back.taskanswers,original.taskanswers)
     assert.equal((await h.send(`/api/lanyard/handover/${answer.id}/files/${answer.attachment.id}`,undefined,owner)).text,'Retained blocker file')
