@@ -105,6 +105,7 @@
   document.querySelectorAll('form').forEach(form => {
     form.addEventListener('submit', event => {
       for (const input of form.querySelectorAll('input[data-utc]')) {
+        if (!input.value && !input.required) continue
         try { toAPI(input) } catch (error) {
           input.setCustomValidity(error.message)
           input.reportValidity()
@@ -113,7 +114,10 @@
       }
     }, true)
     form.addEventListener('formdata', event => {
-      for (const input of form.querySelectorAll('input[data-utc]')) event.formData.set(input.name,toAPI(input))
+      for (const input of form.querySelectorAll('input[data-utc]')) {
+        if (!input.value && !input.required) continue
+        event.formData.set(input.name,toAPI(input))
+      }
     })
   })
   window.LanyardSchedule?.start({localToUTC})
