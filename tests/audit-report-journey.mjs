@@ -434,7 +434,7 @@ export async function auditBrowser(){
   await auditBoundary(h,fixture)
   const back=await h.cmd('time.return',{id:fixture.manual.id,revision:2,reason:'Confirm closing time'})
   await h.cmd('time.resubmit',{...pin(back),start:back.start,end:'2026-10-10T15:00:00Z',breakMinutes:30,note:'Employee corrected closing time'},fixture.alex.cookie)
-  const context=await browser.newContext({viewport:{width:1440,height:1000}})
+  const context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse('2026-10-27T12:00:00Z'))}})
   try{
    await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
    const [name,...value]=h.owner.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
