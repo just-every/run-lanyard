@@ -450,7 +450,7 @@
       "executable": false
     },
     "docs/TIME.md": {
-      "sha256": "b247ce78838de4da3999d1e1e3998a2f1a9b54d4c2e38c567ea094747bd7a5a0",
+      "sha256": "f21acb418c90c3129d30c2f92c25c179a8fe976f53f3f5a95066d738f38086f3",
       "executable": false
     },
     "docs/WORKFORCE.md": {
@@ -3982,7 +3982,7 @@
       "executable": false
     },
     "tests/audit-report-journey.mjs": {
-      "sha256": "7b89212a3d06bc52a723fec9cad61a8aa0e2d4cb0950ba12c4bc4abdbbf37f8d",
+      "sha256": "b5005d3279d145034cf68b1d62dae6c2b67d4502b047c7be1ae8b61e66e96d32",
       "executable": false
     },
     "tests/autorules-workweek-journey.mjs": {

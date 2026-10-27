@@ -423,6 +423,22 @@ async function auditQuarter(h){
   for(const privateValue of [other.id,other.email,'synthetic-lanyard-quarter','birthDate','hourlyRate','payrollId'])assert.ok(!JSON.stringify(r.rows).includes(privateValue),privateValue)
   const csv=await h.send('/api/lanyard/audit.csv?'+q,undefined,h.owner);assert.equal(csv.status,200);assert.equal(csv.text.split('\r\n').filter(x=>x.startsWith('"source"')).length,r.rows.length)
   assert.match(r.retention,/not enforced/);assert.match(r.auditorAccess,/No auditor grant/)
+  const reader=await h.person(p.site+'QuarterReader'),business=await h.cmd('organization.business.save',{name:p.site+' quarter business'})
+  await h.cmd('organization.location.save',{name:p.site+' quarter location',site:p.site,businessId:business.id,timezone:'UTC'})
+  const grant=await h.cmd('access.audit.grant',{staffId:reader.id,businessId:business.id,site:p.site,employeeIds:[p.id],jurisdictions:['unassigned',p.state],classes:['schedule','breaks','punch-edit','minor-exception'],from:'2026-07-01',through:'2026-09-30',purpose:'Reconcile the recorded quarter sources',endsAt:'2026-12-31T23:59:59Z',wages:false,consent:true})
+  for(const jurisdiction of ['unassigned',p.state]){
+   const params=new URLSearchParams({site:p.site,from:'2026-07-01',through:'2026-09-30',jurisdiction,grantId:grant.id})
+   const scoped=await h.send('/api/lanyard/audit?'+params,undefined,reader.cookie)
+   assert.equal(scoped.status,200,scoped.text)
+   const expectedRows=r.rows.filter(row=>grant.classes.includes(row.category)&&row.jurisdiction===jurisdiction)
+   assert.deepEqual(scoped.value.rows,expectedRows)
+   assert.equal(scoped.value.rows.length,jurisdiction==='unassigned'?10:5)
+   const file=await h.send('/api/lanyard/audit.csv?'+params,undefined,reader.cookie)
+   assert.equal(file.status,200,file.text);assert.equal(file.text.split('\r\n').filter(x=>x.startsWith('"source"')).length,expectedRows.length)
+   assert.ok(!file.text.includes(other.id)&&!file.text.includes('illness'))
+  }
+  await h.cmd('access.audit.revoke',{...pin(grant),reason:'Quarter reconciliation complete'})
+  for(const suffix of ['', '.csv'])assert.equal((await h.send('/api/lanyard/audit'+suffix+'?'+new URLSearchParams({site:p.site,from:'2026-07-01',through:'2026-09-30',jurisdiction:p.state,grantId:grant.id}),undefined,reader.cookie)).status,403)
  }
  for(const key of ['timesheets','shifts','rosters','postings','minors','sickuses','sickpolicies'])assert.deepEqual((await h.state())[key],before[key])
 }
@@ -498,7 +514,7 @@ export async function auditLargeQuarter(h){
    const on=new Date(Date.UTC(2026,6,1+day)).toISOString().slice(0,10)
    for(const person of people){
     let record=await h.cmd('time.prepare',{staffId:person.id,site,start:on+'T08:00:00Z',end:on+'T16:00:00Z',breakMinutes:0,reason:'Quarter reconciliation source'})
-    for(let edit=0;edit<5;edit++)record=await h.cmd('time.edit',{...pin(record),start:record.start,end:on+`T15:${String(55-edit).padStart(2,'0')}:00Z`,breakMinutes:0,reason:`Review ${edit+1}: `+'Revisión comprobada 🔎 '.repeat(20)})
+    for(let edit=0;edit<2;edit++)record=await h.cmd('time.edit',{...pin(record),start:record.start,end:on+`T15:${String(55-edit).padStart(2,'0')}:00Z`,breakMinutes:0,reason:`Review ${edit+1}: `+'核对出勤记录与原始依据'.repeat(40)})
     expected.push([record.id,record.revision])
    }
   }
@@ -508,11 +524,17 @@ export async function auditLargeQuarter(h){
   assert.equal(report.value.rows.length,368)
   for(const category of ['breaks','punch-edit'])assert.deepEqual(report.value.rows.filter(r=>r.category===category).map(r=>[r.sourceId,r.sourceRevision]).sort(),[...expected].sort())
   const input={...filter,sourceVersion:report.value.sourceVersion,reason:'Preserve the complete reviewed quarter',consent:true}
+  const beforeSave=await h.state(),countParts=async()=>Number((await h.db.prepare("SELECT count(*) AS n FROM l_records WHERE kind='auditpayloads'").first()).n),beforeParts=await countParts()
+  await h.db.exec("CREATE TRIGGER synthetic_audit_failure BEFORE INSERT ON l_commands WHEN instr(NEW.result,'lanyard.audit.chunks.v1')>0 BEGIN SELECT RAISE(ABORT,'synthetic-lanyard-storage-refusal'); END")
+  try{await h.cmd('audit.retain',input,h.owner,409)}finally{await h.db.exec('DROP TRIGGER synthetic_audit_failure')}
+  assert.deepEqual(await h.state(),beforeSave,'a failed receipt rolls back the manifest, parts, sources and activity together')
+  assert.equal(await countParts(),beforeParts,'failed preservation leaves no orphaned payload parts')
   const summary=await h.cmd('audit.retain',input)
   assert.equal(summary.report,undefined,'large command receipts contain a manifest rather than duplicate payload bytes')
   assert.ok(summary.storage.bytes>1500000,'fixture exceeds the old single-record copy limit')
   await h.cmd('audit.retain',input,h.owner,409)
   const path='/api/lanyard/audit-packets/'+summary.id
+  for(const suffix of ['', '.csv'])assert.equal((await h.send(path+suffix,undefined,people[0].cookie)).status,403)
   const original=await h.send(path,undefined,h.owner)
   assert.equal(original.status,200,original.text);assert.deepEqual(original.value.report,report.value);assert.equal(original.value.csv,csv.text)
   assert.equal(original.value.csvSha256,createHash('sha256').update(csv.text).digest('hex'))
@@ -520,7 +542,7 @@ export async function auditLargeQuarter(h){
   assert.deepEqual([...new Set(review.unresolved.filter(r=>r.sourceKind==='timesheets').map(r=>r.sourceId))].sort(),expected.map(r=>r[0]).sort(),'chunked copies retain every source duty reference')
   const before=await h.state(),partId=summary.storage.parts[0].id
   const part=await h.db.prepare("SELECT data FROM l_records WHERE kind='auditpayloads' AND id=?").bind(partId).first()
-  for(const data of [null,JSON.stringify({...JSON.parse(part.data),data:'synthetic-lanyard-damaged'})]){
+  for(const data of [null,JSON.stringify({...JSON.parse(part.data),data:'synthetic-lanyard-damaged'}),JSON.stringify({...JSON.parse(part.data),packetId:'synthetic-lanyard-other-packet'})]){
    if(data===null)await h.db.prepare("DELETE FROM l_records WHERE kind='auditpayloads' AND id=?").bind(partId).run()
    else await h.db.prepare("UPDATE l_records SET data=? WHERE kind='auditpayloads' AND id=?").bind(data,partId).run()
    for(const suffix of ['', '.csv'])assert.equal((await h.send(path+suffix,undefined,h.owner)).status,409,'missing or damaged parts never produce a partial download')
