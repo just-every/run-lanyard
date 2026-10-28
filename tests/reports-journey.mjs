@@ -105,6 +105,8 @@ export async function reportsApi(){
   assert.equal(await sourceRecords(),beforeRefusal)
   assert.equal((await h.db.prepare("SELECT count(*) n FROM l_events WHERE action='reports.download'").first()).n,auditCount)
  }finally{await h.close()}
+ const {reportsDeliveryApi}=await import('./report-delivery-journey.mjs');await reportsDeliveryApi()
+ const {reportsDeliveryArchive}=await import('./report-delivery-archive.mjs');await reportsDeliveryArchive()
 }
 
 export async function reportsBrowser(){
@@ -202,6 +204,32 @@ export async function reportsBrowser(){
    await open();assert.match(await page.locator('main').innerText(),/unknown coverage, not proof of zero activity/)
    assert.match(await page.locator('[data-total-kind="worked"]').innerText(),/Unknown/)
    await proof('unknown-coverage')
+   await page.getByRole('link',{name:'Manage scheduled reports in Settings'}).click();await page.waitForLoadState('networkidle')
+   const deliverySettings=page.locator('#report-delivery-settings')
+   await deliverySettings.getByText('Create report schedule',{exact:true}).click()
+   const scheduleForm=deliverySettings.locator('form[data-report-schedule]').last()
+   await scheduleForm.getByLabel('Report name',{exact:true}).fill('Weekly service report')
+   await scheduleForm.getByLabel('Recipient',{exact:true}).selectOption(manager.id)
+   await scheduleForm.getByLabel('Report cafe',{exact:true}).selectOption('East')
+   await scheduleForm.getByLabel('Scheduled report kind',{exact:true}).selectOption('worked')
+   await scheduleForm.getByLabel('Report job',{exact:true}).selectOption(f.bar.id)
+   await scheduleForm.getByLabel('Report person',{exact:true}).selectOption(alex.id)
+   await scheduleForm.getByLabel('Completed days per report',{exact:true}).fill('14')
+   await scheduleForm.getByLabel('First run (venue time)',{exact:true}).fill('2026-10-26T12:15')
+   await scheduleForm.getByRole('checkbox').check()
+   await scheduleForm.getByRole('button',{name:'Approve report schedule',exact:true}).click();await page.waitForLoadState('networkidle')
+   let savedSchedule=(await h.state()).reportschedules[0]
+   assert.deepEqual([savedSchedule.recipient,savedSchedule.site,savedSchedule.kind,savedSchedule.job,savedSchedule.person,savedSchedule.periodDays,savedSchedule.nextDue],[manager.id,'East','worked',f.bar.id,alex.id,14,'2026-10-26T12:15:00.000Z'])
+   assert.match(await deliverySettings.innerText(),/Weekly service report/)
+   const scheduledTick=await (await h.mf.getWorker()).scheduled({scheduledTime:new Date('2026-10-26T12:15:00Z'),cron:'*/15 * * * *'});assert.equal(scheduledTick.outcome,'ok')
+   await page.reload({waitUntil:'networkidle'})
+   assert.match(await deliverySettings.innerText(),/SendGrid is not configured; no mail submitted/)
+   assert.equal((await h.state()).reportdeliveries[0].status,'blocked')
+   await proof('scheduled-report-settings')
+   await deliverySettings.getByRole('button',{name:'Pause and invalidate links',exact:true}).click();await page.waitForLoadState('networkidle')
+   assert.equal((await h.state()).reportschedules[0].enabled,false)
+   assert.match(await deliverySettings.innerText(),/Paused/)
+   await h.restart();await page.reload({waitUntil:'networkidle'});assert.match(await deliverySettings.innerText(),/Paused/)
    await signIn(manager.cookie)
    query.set('from',week);query.set('through','2026-10-18');query.set('kind','all')
    await open()
@@ -217,5 +245,6 @@ export async function reportsBrowser(){
    assert.ok(!(await page.locator('body').innerText()).includes(alex.id))
    assert.deepEqual(errors,[])
   }finally{await context.close()}
+  const {reportsDeliveryBrowser}=await import('./report-delivery-journey.mjs');await reportsDeliveryBrowser(browser)
  }finally{await h.close();await browser.close()}
 }

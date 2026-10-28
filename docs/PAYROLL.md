@@ -323,3 +323,32 @@ The Schedule's labor-cost card shows daily and weekly job caps beside scheduled 
 
 
 The owner also sees approved paid non-work costs in the Schedule cost card, including employer PTO, paid leave and non-work holiday inputs with retained source revisions. These stay separate from worked hours. The employer estimate adds their approved amounts and configured burdens to the worked estimate. Reusing a source reference across these input families makes the non-work total unknown until reconciled. Native managers retain their existing worked-cost view; private payroll inputs are not newly disclosed.
+
+
+## Scheduled operational reports
+
+Open **Operational reports** from the account menu to review current approved
+sources and download a matching CSV. Report kinds keep separate totals; missing
+sources remain unknown. Manual sales and native payroll export records do not
+establish POS reconciliation or provider-applied payroll.
+
+The owner can open **Settings → Scheduled operational reports** to approve daily
+or weekly notifications for the owner or an active native manager of the selected
+cafe. Choose the report kind, job, person, number of completed venue dates and
+first run. The current venue date is excluded. Recurrence keeps the same UTC time,
+so its local hour can change at daylight saving boundaries. Private paid-time and
+payroll reports remain owner-only. Custom access levels and auditor grants are
+not supported by this delivery boundary.
+
+Delivery requires the installation's configured SendGrid transport. Email contains
+only a report link, with no report data. The link requires its named recipient's
+current native session, expires after 24 hours and reads current approved source
+revisions for the saved dates and filters. Forwarding it grants no access.
+Pause or update the schedule to invalidate all previous links, or revoke an
+individual accepted link in its delivery history. Recipient record or grant changes
+and archive restores require fresh owner approval.
+
+Each due occurrence is attempted once. Settings distinguishes blocked, accepted,
+rejected, rate-limited and uncertain outcomes. Provider acceptance does not prove
+mailbox delivery. A failed or uncertain attempt is never automatically retried;
+review its result before explicitly approving a new schedule.

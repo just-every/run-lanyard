@@ -1,3 +1,4 @@
+import {reportDeliveryCsv} from './report-delivery'
 import {auditRestricted} from './domain/audit-access'
 import {retainedAuditRead} from './domain/audit-retention'
 import {operationalReport,operationalCsv,reportSites} from './domain/reports'
@@ -44,7 +45,7 @@ async function state(request:Request,env: Bindings, who: Actor, withChat=false) 
   const [snap, keys, browsers, jobs] = await Promise.all([snapshot(env.DB, who, env.SESSION_SECRET, new URL(request.url).searchParams.get('week')??undefined), agentKeys(env, who), clockBrowsers(env, who), who.role === 'owner' ? env.DB.prepare("SELECT id,state,checkpoint,total,fingerprint,error FROM ik_jobs WHERE destination='lanyard:staff' AND namespace='lanyard.staff.csv.v1' AND mapping_version='staff-csv-v1' AND principal_id=? ORDER BY rowid DESC LIMIT 30").bind(who.id).all() : null])
   const revokedKiosks=who.role==='owner'||who.role==='manager'?(await env.DB.prepare('SELECT id,site FROM l_kiosk_devices WHERE revoked_at IS NOT NULL OR locked=1').all<{id:string;site:string}>()).results.filter(d=>who.role==='owner'||d.site===(snap as any).staff.find((p:any)=>p.id===who.staffId)?.site).map(d=>d.id):[]
   const photoDevices=who.role==='agent'?[]:(await networkOf(request,env)).browsers.map(b=>({site:b.site,type:b.type}))
-  return { ...snap, photoDevices,revokedKiosks,kiosks:who.role==='owner'?(await env.DB.prepare('SELECT id,site,label,photo,locked,revoked_at FROM l_kiosk_devices').all()).results:[], ...(withChat?{chat:chatRead(await load(env.DB),who)}:{}), agentKeys: keys, clockBrowsers: browsers, importJobs: jobs ? jobs.results : [] }
+  return { ...snap, reportDeliveryConfigured:who.role==='owner'&&env.MAIL_PROVIDER==='sendgrid'&&Boolean(env.MAIL_FROM&&env.MAIL_API_KEY), photoDevices,revokedKiosks,kiosks:who.role==='owner'?(await env.DB.prepare('SELECT id,site,label,photo,locked,revoked_at FROM l_kiosk_devices').all()).results:[], ...(withChat?{chat:chatRead(await load(env.DB),who)}:{}), agentKeys: keys, clockBrowsers: browsers, importJobs: jobs ? jobs.results : [] }
 }
 
 async function execute(request: Request, env: Bindings, who: Actor, name: string, input: Record<string, unknown>) {
@@ -130,6 +131,10 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   if(params.has('taskText')){input.tasks=params.getAll('taskText').filter(v=>v.trim());delete input.taskText}
   if(params.has('segmentUntil')){const until=params.getAll('segmentUntil'),job=params.getAll('segmentJob'),area=params.getAll('segmentArea');input.segments=until.map((v,i)=>({until:Number(v),job:job[i],area:area[i]})).filter((v,i)=>until[i]||v.job||v.area);for(const k of ['segmentUntil','segmentJob','segmentArea'])delete input[k]}
   for (const key of ['shifts', 'ids', 'items', 'rows']) if (typeof input[key]==='string'&&input[key]) { try { input[key] = JSON.parse(String(input[key])) } catch { fail(`Invalid ${key}`) } }
+  if(new URL(request.url).searchParams.get('name')==='report.schedule.save'){
+    for(const key of ['periodDays','cadenceDays'])if(key in input)input[key]=Number(input[key])
+    input.consent=input.consent==='on'
+  }
   if ('active' in input) input.active = input.active === 'on' || input.active === 'true' || input.active === '1'
   return input
 }
@@ -204,6 +209,11 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/agent/demand') return json(await agentDemandRead(env.DB,who,url.searchParams.get('site')??'',url.searchParams.get('date')??''))
       if (path === '/api/lanyard/agent/learning/proposals') return json(await agentLearnRead(env.DB,who,url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/agent/fairness/compare') return json(await comparisonRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
+      const delivery=path.match(/^\/api\/lanyard\/report-deliveries\/([\w-]+)\.csv$/)
+      if(delivery){
+       const csv=await reportDeliveryCsv(env,who,delivery[1],url.searchParams.get('token')??'',new Date().toISOString())
+       return new Response(csv,{headers:{...headers,'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="lanyard-operational.csv"'}})
+      }
       if(path==='/app/reports'||path==='/api/lanyard/reports'||path==='/api/lanyard/reports.csv') {
        const source=await load(env.DB),params=new URLSearchParams(url.searchParams),now=new Date().toISOString()
        if(path==='/app/reports'){
@@ -277,6 +287,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         if (['policy.preview','policy.save'].includes(name) && new URL(back,url.origin).pathname === '/app/settings') policyInput = input
         if (name === 'staff.save' && !('active' in input)) input.active = false
         const result = await execute(request, env, who, name, input), { token, ...shown } = result as Record<string, unknown>
+        if(name.startsWith('report.'))return new Response(null,{status:303,headers:{...headers,location:back}})
         if(name==='kiosk.enroll'){const response=new Response(null,{status:303,headers:{...headers,location:'/app/kiosk'}});response.headers.append('set-cookie',String((result as any).cookie));return response}
         let displayed:any=name === 'import.preview' || name === 'sales.preview' ? { ...shown, csv: input.csv, mapping: input.mapping, site: input.site } : name.startsWith('clockbrowser.') ? shown : result
         if(name==='policy.worker.save') displayed={workerInput:input}
@@ -309,7 +320,10 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
   } catch (error) {
     const status = Number((error as any)?.status) || 500
     const message = status < 500 ? (error as Error).message : 'Could not save this change. Refresh and try again.'
-    if (path === '/app/action' && who && !auditOnly) return renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message, ...((policyInput||workerInput)?{result:{policyInput,workerInput}}:{}) })
+    if (path === '/app/action' && who && !auditOnly) {
+      const page=await renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message, ...((policyInput||workerInput)?{result:{policyInput,workerInput}}:{}) })
+      return url.searchParams.get('name')?.startsWith('report.')?new Response(page.body,{status,headers:page.headers}):page
+    }
     if (pages.has(path) && status === 401) return new Response(null, { status: 303, headers: { ...headers, location: '/signin?returnTo=' + encodeURIComponent(path) } })
     return json({ error: message }, status)
   }
