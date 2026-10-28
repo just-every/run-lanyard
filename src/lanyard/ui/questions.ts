@@ -1,3 +1,4 @@
+import {html,t,languageOf} from '../localization'
 // CLOCK-006 screens: the owner's clock questions (on People), the questions on the phone clock,
 // the answers under each timesheet, managers' safety follow-ups and declared cash tips, and the
 // employee's own follow-ups.
@@ -20,21 +21,21 @@ export function questionsCard(s:any) {
 export function clockQuestions(s:any,open:any,when:'in'|'out') {
  const me=staffOf(s,s.actor.staffId),shift=open?.shiftId?rows(s,'shifts').find(x=>x.id===open.shiftId):undefined,site=shift?.site||me?.site||''
  return ordered(rows(s,'questions')).filter(q=>q.active&&q.when===when&&(!q.site||q.site===site)&&(!q.position||q.position===(me?.position??''))).map(q=>{
-  const label=`${q.text}${q.textEs?` / ${q.textEs}`:''}`,name=`answer:${q.id}`,req=q.required?' required':''
+  const label=languageOf(s)==='es'?(q.textEs||`${q.text} — ${t(s,'Original wording; Spanish was not supplied.')}`):q.text,name=`answer:${q.id}`,req=q.required?' required':''
   if(q.kind==='tips')return field(name,`${label} ($)`,'','number',`min="0" max="100000" step="0.01"${req}`)
   if(q.kind==='number')return field(name,label,'','number',`step="any"${req}`)
-  return `<label>${h(label)}<select name="${h(name)}"${req}><option value="">Choose</option><option value="yes">Yes / Sí</option><option value="no">No</option></select></label>`
+  return html(s)`<label>${h(label)}<select name="${h(name)}"${req}><option value="">Choose</option><option value="yes">Yes</option><option value="no">No</option></select></label>`
  }).join('')
 }
 /** One line under a timesheet: the answers given at its punch (injury answers stay in their follow-up). */
-export function answersNote(r:any) {
+export function answersNote(s:any,r:any) {
  const list=(r.answers??[]).filter((a:any)=>a.kind!=='injury');if(!list.length)return ''
- return `<small>Answers: ${h(list.map((a:any)=>`${a.text} ${a.kind==='tips'?money(a.value):a.value}`).join(' · '))}</small>`
+ return html(s)`<small>Answers: ${h(list.map((a:any)=>`${languageOf(s)==='es'?(a.textEs||a.text):a.text} ${a.kind==='tips'?money(a.value):a.value}`).join(' · '))}</small>`
 }
 export function safetyCard(s:any,tz:string,back:string,canManage:boolean) {
  const list=rows(s,'injuries').filter(r=>r.status!=='none'&&(canManage?r.staffId!==s.actor.staffId:r.staffId===s.actor.staffId));if(!list.length)return ''
- const items=list.map(r=>`<li><strong>${canManage?h(person(s,r.staffId)):'Your report'}</strong> · ${h(day(dateKey(r.at,tz)))} · “${h(r.text)}” ${h(r.answer)} · ${r.status==='open'?'open':`resolved: ${h(r.resolution?.reason)}`}${canManage&&r.status==='open'?form('injury.resolve',back,exact(r)+field('reason','How it was followed up','','text','required maxlength="500"'),'Resolve','','secondary small'):''}</li>`).join('')
- return card(canManage?'Safety follow-ups':'My safety reports',`<ul class="swap-list">${items}</ul>`,'','safety')
+ const items=list.map(r=>html(s)`<li><strong>${canManage?h(person(s,r.staffId)):t(s,'Your report')}</strong> · ${h(day(dateKey(r.at,tz)))} · “${h(r.text)}” ${h(r.answer)} · ${r.status==='open'?'open':`resolved: ${h(r.resolution?.reason)}`}${canManage&&r.status==='open'?form('injury.resolve',back,exact(r)+field('reason',t(s,'How it was followed up'),'','text','required maxlength="500"'),t(s,'Resolve'),'','secondary small'):''}</li>`).join('')
+ return card(canManage?t(s,'Safety follow-ups'):t(s,'My safety reports'),html(s)`<ul class="swap-list">${items}</ul>`,'','safety')
 }
 /** Declared cash tips per person and day, from clock answers, for managers (TIPS-001 takes them into its pool draft). */
 export function tipsCard(s:any,days:string[],tz:string) {
