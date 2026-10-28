@@ -4242,7 +4242,7 @@
       "executable": false
     },
     "tests/policy-regional-journey.mjs": {
-      "sha256": "d0c18a191c87f888cbdcd7eefd8a549bdc240407658ed6738dce9aed6d39a009",
+      "sha256": "48ecf7d56d8e116855872208fc5f74fd478675f40a9b318a75115f1c7f083235",
       "executable": false
     },
     "tests/policy-release-journey.mjs": {
