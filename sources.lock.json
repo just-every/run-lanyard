@@ -742,7 +742,7 @@
       "executable": false
     },
     "public/mobile-workflows.js": {
-      "sha256": "7977a6b9d23ff6bd890189efdcf0a11e33b3b550a58a2007797571bc08efa2d1",
+      "sha256": "11675d7de26d1fc10693dd0812ba242a0eb1843820d137d9f28e7fd15fc95b40",
       "executable": false
     },
     "public/punch-location.js": {
@@ -4086,7 +4086,7 @@
       "executable": false
     },
     "tests/holidays-fixture.mjs": {
-      "sha256": "737dc3595778bdf7afb2b4fdbd5800d8c0c75b5ac9d7a7eebd38c1072bb5b09b",
+      "sha256": "bb5a39720664128566fb676b83cd2e7a3542879818c35ab54ff789e42deb7308",
       "executable": false
     },
     "tests/holidays-journey.mjs": {
@@ -4146,7 +4146,7 @@
       "executable": false
     },
     "tests/minors-journey.mjs": {
-      "sha256": "015b0834b6d58ef208a83b6397a15fb5e81d5def30f1163ce35f83f242ac8d28",
+      "sha256": "50c66810ede03afb680db3464bd3d241c79141d0ac35cd07da6c01150c663599",
       "executable": false
     },
     "tests/notices-journey.mjs": {

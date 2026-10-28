@@ -76,6 +76,7 @@ async function minorVariants(){
  const h=await harness({now:'2026-10-27T12:00:00Z'})
  try{
   const alex=await h.person('Alex'),morgan=await h.person('Morgan','manager')
+  await h.cmd('staff.save',{...pin(morgan),name:morgan.name,email:morgan.email,payrollId:morgan.payrollId,role:morgan.role,active:true,site:'Ocean Beach'})
   const input={staffId:alex.id,birthDate:'2008-01-01',state:'CO',permit:'synthetic-lanyard-20',permitThrough:'2025-12-31',calendarFrom:'2025-01-01',calendarThrough:'2025-12-31',schoolDays:[],schoolStart:480,schoolEnd:900}
   let record=await h.cmd('minor.save',input)
   await h.cmd('availability.save',{staffId:alex.id,start:local('2025-01-01','00:00'),end:local('2026-01-01','00:00')})
@@ -257,6 +258,7 @@ export async function minorWorkplaces(){
  const h=await harness({now:'2026-10-27T12:00:00Z'})
  try{
   const alex=await h.person('Alex'),manager=await h.person('Morgan','manager')
+  await h.cmd('staff.save',{...pin(manager),name:manager.name,email:manager.email,payrollId:manager.payrollId,role:manager.role,active:true,site:'Mission'})
   await h.cmd('staff.save',{...pin(alex),name:alex.name,email:alex.email,payrollId:alex.payrollId,role:'staff',active:true,site:'Ocean Beach'})
   const job=await h.cmd('job.save',{name:'Service',skills:[],certifications:[]})
   await h.cmd('workforce.save',{staffId:alex.id,jobs:[job.id],skills:[],certifications:[],sites:['Ocean Beach','Mission'],preferences:[],minHours:0,maxHours:40,classification:'hourly',employmentType:'part-time',startDate:'2024-01-01',rates:[]})
@@ -291,7 +293,7 @@ export async function minorWorkplaces(){
   await save([permitEvidence('NY',{site:'Mission'})])
   const closed=(await h.cmd('clock.out',{commandId:'synthetic-lanyard-75',capturedAt:local('2025-10-22','18:00'),breakMinutes:0},alex.cookie)).timesheet
   assert.equal(closed.minutes,120);missing(closed)
-  const approved=await h.cmd('time.approve',pin(closed),manager.cookie);missing(approved)
+  const approved=await h.cmd('time.approve',pin(closed),h.owner);missing(approved)
   assert.deepEqual(approved.workSegments.map(x=>[x.site,x.minutes]),[['Ocean Beach',60],['Mission',60]])
   // Reverse the revocation: checking only the initial site must also fail.
   await save([permitEvidence('NY'),permitEvidence('NY',{site:'Mission'})])
@@ -300,6 +302,6 @@ export async function minorWorkplaces(){
   await save([permitEvidence('NY')])
   const revoked=(await h.cmd('clock.out',{commandId:'synthetic-lanyard-80',capturedAt:local('2025-10-23','18:00'),breakMinutes:0},alex.cookie)).timesheet
   assert.equal(revoked.minutes,120);missing(revoked)
-  missing(await h.cmd('time.approve',pin(revoked),manager.cookie))
+  missing(await h.cmd('time.approve',pin(revoked),h.owner))
  }finally{await h.close()}
 }

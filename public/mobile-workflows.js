@@ -1,6 +1,13 @@
 /* Responsive native-session workflows. Only clock captures have a durable outbox. */
 (() => {
   if (!['schedule', 'time'].includes(document.querySelector('main')?.dataset.page)) return
+  const connectionForms = new Set([
+    'shift.confirm', 'shift.callout', 'swap.propose', 'swap.respond', 'swap.withdraw', 'swap.decide',
+    'availability.save', 'pattern.save', 'pattern.decide', 'leave.request', 'leave.decide',
+    'openshift.request', 'openshift.decline', 'openshift.approve', 'cover.respond', 'cover.approve',
+    'time.approve', 'time.edit', 'time.approveMany', 'time.return', 'time.resubmit',
+    'time.request', 'time.acknowledge', 'time.resolve', 'attendance.acknowledge',
+  ])
   const focusNotice = document.querySelector('.notice[role]')
   if (focusNotice) { focusNotice.tabIndex = -1; focusNotice.focus() }
   const feedback = (form, text, review = false) => {
@@ -21,7 +28,7 @@
   }
   document.addEventListener('submit', async event => {
     const form = event.target, action = new URL(form.action, location.href)
-    if (event.defaultPrevented || form.method !== 'post' || action.origin !== location.origin || action.pathname !== '/app/action') return
+    if (event.defaultPrevented || form.method !== 'post' || action.origin !== location.origin || action.pathname !== '/app/action' || !connectionForms.has(action.searchParams.get('name'))) return
     event.preventDefault()
     document.querySelectorAll('.notice[role]').forEach(note => note.remove())
     if (form.dataset.saveState === 'pending' || form.dataset.saveState === 'unknown') return
