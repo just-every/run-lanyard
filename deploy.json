@@ -16,14 +16,6 @@
   },
   "secrets": [
     {
-      "binding": "MAIL_PROVIDER",
-      "environment": "MAIL_PROVIDER"
-    },
-    {
-      "binding": "MAIL_FROM",
-      "environment": "MAIL_FROM"
-    },
-    {
       "binding": "OWNER_EMAIL",
       "environment": "OWNER_EMAIL"
     },
