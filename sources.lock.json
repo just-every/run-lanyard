@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "80007a5fb8cb5f852333617c9c952af9c64b52f475fc94cb5a869092507c1f9a",
+      "sha256": "241973cb1af502e8ac638c4129e418f7fe257c1908ac6eebe47a2ee2bf323d38",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "fe510c24c8907b16669511b51a10c198ec21b1d04ddb397f079531449b85d649",
+      "sha256": "1ab0390494f28da4acd4cde889fcdef332333e9cb5f8d62f81ed4739ea961612",
       "executable": false
     },
     "DEMO.md": {
@@ -438,7 +438,7 @@
       "executable": false
     },
     "docs/SCHEDULE.md": {
-      "sha256": "427528bc92713feb47dd64861f63b01d6554a55d5a7be916cf4e635c2b5c8c40",
+      "sha256": "3f6b22e954549b669625e36b7ae7a012a87fde7cab91455e6895c5a9bc149881",
       "executable": false
     },
     "docs/SOURCES.md": {
@@ -1642,7 +1642,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy-nevada.ts": {
-      "sha256": "045ccaadced5dd26b75afcd8b768c2fe30f22ec7d9aa709aab1b75b32e5d158c",
+      "sha256": "a7933676844f69b32d7ba474aa47641d52b5ac1cf1db3a78ff04cb1470d38e44",
       "executable": false
     },
     "src/lanyard/domain/policy-newyork.ts": {
@@ -1670,7 +1670,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy.ts": {
-      "sha256": "d0e32d4520504a534a727f3006ce55e4c09b4ed1235a7cd7cedd61b4c3dbd5f8",
+      "sha256": "416bb987285c7d9c5ed0aaf24cde93255367e95c613b42f989eaec37958e4575",
       "executable": false
     },
     "src/lanyard/domain/postings.ts": {
@@ -4066,7 +4066,7 @@
       "executable": false
     },
     "tests/calendar-journey.mjs": {
-      "sha256": "3800feacc29b1e4413e24a56a458783d4a1b5e372ae4edec46187806f18022c3",
+      "sha256": "04e8a2cc51db0902324d1432c59a19d1b37dc1e7923226a9d969f1cc46206a06",
       "executable": false
     },
     "tests/chat-membership-journey.mjs": {
@@ -4286,7 +4286,7 @@
       "executable": false
     },
     "tests/policy-workday-journey.mjs": {
-      "sha256": "10b0f0a2a21414d5840632964200f75309ba984f561c8147b1ea16aac9a31fb6",
+      "sha256": "0a9135707d9942b0f9b705264d916545f81d68376b267a29414a77d9d2eb1887",
       "executable": false
     },
     "tests/premiums-api.mjs": {

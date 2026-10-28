@@ -139,6 +139,8 @@ The feed includes your published shifts with retained identities and UTC
 instants across overnight and daylight-saving changes. Updated shifts advance
 their event sequence; cancellation and reassignment retain a cancellation for
 that employee. It contains no drafts, coworkers, handover text or private notes.
+Each read checks your current eligible locations and includes assignments only
+for those locations.
 Google and Microsoft decide when to refresh. The feed is read-only and makes no
 immediate refresh or two-way scheduling promise.
 
