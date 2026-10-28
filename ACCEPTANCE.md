@@ -29,7 +29,7 @@ Core · published · **done** · Cites BASE-ACCESS-001, BASE-ACCESS-002, BASE-AC
 1. Sign in as owner, manager and two staff through native invitation/confirmation routes; use the app and HTTP commands, attempt cross-person reads, self-approval, signed-out and cross-origin mutations, then deactivate a signed-in employee.
 2. Unauthorized attempts fail without writes.
 
-**Evidence.** `tests/lanyard.test.mjs` — "native access, owner-only grants, staff isolation, CSRF and immediate revocation"; `tests/lanyard.test.mjs` — "staff cannot change the sign-in email to another person’s staff identity"
+**Evidence.** `tests/lanyard.test.mjs` — "native access, owner-only grants, staff isolation, CSRF and immediate revocation"; `tests/lanyard.test.mjs` — "staff cannot change the sign-in email to another person’s staff identity"; `tests/lanyard.test.mjs` — "availability, approved leave, conflicts, exact roster publication and personal confirmation"; `tests/lanyard.test.mjs` — "TIME-008: a manager filters a 60-person week to clean timesheets and approves the shown revisions at once; changed, own, foreign-cafe and unfiltered items are skipped with reasons"; `tests/lanyard.test.mjs` — "AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta"
 **Gap.** None.
 
 #### PEOPLE-001 — Staff lifecycle and payroll identities
@@ -390,14 +390,14 @@ Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-1, D-2
 **Evidence.** `src/lanyard/domain/roster.ts`; `src/lanyard/domain/settings.ts`
 **Gap.** Global overlaps and a single venue timezone exist; sites, multiple local calendars, travel/rest and cross-site cost/coverage controls do not.
 
-#### SCHEDULE-004 — Shift notes tasks and work-area segments
+#### SCHEDULE-004 — Shift instructions checklists and blocker handovers
 
 Core · target · **done** · Cites BASE-INPUT-003, BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D-2
 
 **Requirement.** Managers attach operational instructions and checklists to shifts. The current assignee reads them, completes named tasks and reports immutable blockers with files; earlier authors retain their own responses. Editing instructions creates new task identities without treating an old answer as completion. Notes remain absent from print and wall schedules. Work-area allocation is SCHEDULE-007; custody and revision details are in the [handover details](docs/contract/MECHANISMS.md#schedule-004).
 
 **Acceptance.**
-1. Staff open it on mobile, complete tasks and report a blocker; managers inspect handover and reconcile segment totals to worked time.
+1. Staff open it on mobile, complete tasks and report a blocker; managers inspect the handover. SCHEDULE-007 carries area reconciliation.
 2. A printed copy and the wall display of that week show none of the notes (SCHEDULE-005).
 
 **Evidence.** `tests/lanyard.test.mjs` — "SCHEDULE-004: native shift handover keeps revisioned notes/checklists and immutable blockers; reassignment, offers, cancellation and supersession fence instructions while authors retain their own responses"; `tests/lanyard.test.mjs` — "SCHEDULE-004 / SCHEDULE-007: blocker files, immutable job-area reconciliation, labor costs and once-only split payroll with signed corrections through native HTTP"; `tests/lanyard.test.mjs` — "SCHEDULE-004 / SCHEDULE-007: managers publish counter/kitchen handovers, staff complete tasks with blocker files and managers reconcile labor and export payroll at 1440 and 390"
@@ -826,11 +826,11 @@ Core · target · **partial** · Cites BASE-ROLE-001, BASE-INPUT-003, BASE-MAIL-
 
 Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D-2
 
-**Requirement.** Owners configure short questions shown at clock-in or clock-out per site or role (breaks taken, injury today, cash tips declared, or a custom yes-no or number), with required answers, Spanish text and versioned wording. Answers attach to the punch, open BREAK-001, TIME-003 or safety follow-ups when they indicate a problem and feed TIPS-001 declarations. Changing a question never rewrites earlier answers. Questions apply by the punch's cafe (its TIME-006 matched shift's, else the person's home cafe) and the person's position, each optionally required. The [retained clock-in and clock-out questions and attestations details](docs/contract/MECHANISMS.md#clock-006) define source fields, calculations and revision behavior.
+**Requirement.** Owners configure short questions shown at clock-in or clock-out per site or role (breaks taken, injury today, cash tips declared, or a custom yes-no or number), with required answers, Spanish text and versioned wording. Answers attach to the punch, open BREAK-001, TIME-003 or safety follow-ups when they indicate a problem and feed TIPS-001 declarations. Changing a question never rewrites earlier answers. Questions apply by the punch's cafe (its TIME-006 matched shift's, else the person's home cafe) and the person's position, each optionally required. The [retained clock-in and clock-out questions and attestations details](docs/contract/MECHANISMS.md#clock-006) define source fields, calculations and revision behavior. TIPS-001 carries taking these declared cash tips into its pool draft.
 
 **Acceptance.**
 1. Configure a break attestation, an injury question and a cash-tips declaration; clock out answering that a meal was missed and that an injury happened.
-2. A break exception and a safety follow-up open for the manager, the declaration is listed for managers (TIPS-001 takes it into the tip pool draft) and an edited question keeps earlier answers under their old wording.
+2. A break exception and a safety follow-up open for the manager, the declaration is listed for managers and an edited question keeps earlier answers under their old wording.
 
 **Evidence.** `tests/lanyard.test.mjs` — "CLOCK-006: an owner’s break, injury, cash-tip and fit-for-duty questions are asked in English and Spanish; a missed break opens a break exception, an injury a private safety follow-up for that cafe’s managers, the tip declaration is listed for managers, and an edited question keeps earlier answers under their old wording"
 **Gap.** None.
@@ -983,8 +983,8 @@ Core · target · **partial** · Cites BASE-ROLE-001, BASE-INPUT-003, BASE-MAIL-
 2. Each row shows the right variance, break, photo (CLOCK-005), location and cost; filtering to exceptions lists exactly those three, and an edit with a reason keeps the captured facts.
 3. The review shows each punch's TIME-005 captured and payable time.
 
-**Evidence.** `tests/lanyard.test.mjs` — "TIME-009: the approval review shows scheduled, captured and payable times, variance, breaks, network, job, cost and the running week; filtering to exceptions lists the early, missed-meal and off-network rows; an edit keeps the captured facts and a send-back returns to the employee"; `tests/lanyard.test.mjs` — "TIME-009: policy meals, waiver thresholds, full paid-rest counts and unknown manual breaks reconcile beside automatic deductions through native HTTP"; `tests/lanyard.test.mjs` — "TIME-009: managers compare taken and required meals and paid rests and filter exceptions at 1440 and 390"
-**Gap.** Missing a complete approval-row journey with the required punch photo and geofenced location, plus the existing variance and correction outcomes, in the old cited evidence. The cited review/break journeys show variance, network location, meals, rests, edits and send-back; photo and geofence journeys are not in this clause's old Evidence set.
+**Evidence.** `tests/lanyard.test.mjs` — "TIME-009: the approval review shows scheduled, captured and payable times, variance, breaks, network, job, cost and the running week; filtering to exceptions lists the early, missed-meal and off-network rows; an edit keeps the captured facts and a send-back returns to the employee"; `tests/lanyard.test.mjs` — "TIME-009: policy meals, waiver thresholds, full paid-rest counts and unknown manual breaks reconcile beside automatic deductions through native HTTP"; `tests/lanyard.test.mjs` — "TIME-009: managers compare taken and required meals and paid rests and filter exceptions at 1440 and 390"; `tests/lanyard.test.mjs` — "CLOCK-005: kiosk and native stills, private approval review, camera exceptions, bulk skips, holds and explicit expired-photo erasure"; `tests/lanyard.test.mjs` — "CLOCK-005: photo policy, notice, consented camera capture and private approval at 1440 and 390"; `tests/lanyard.test.mjs` — "CLOCK-003: event-only location consent, accuracy, private review, bulk refusal, retention and device revocation through native commands"; `tests/lanyard.test.mjs` — "CLOCK-003: owner sees captured location and bulk exception at 1440 and 390"
+**Gap.** Missing the complete scoped-approver review journey with punch photos and geofenced coordinates. The cited review and break journeys show variance, network locations, meals, rests, edits and send-back; the same cited suite also runs owner-only photo/geofence review. Separately scoped supervisor/approver readers and their complete row parity remain owed under CLOCK-003, CLOCK-005 and TEAM-001/ACCESS-003.
 
 #### POLICY-001 — US overtime meal and rest policy rules
 

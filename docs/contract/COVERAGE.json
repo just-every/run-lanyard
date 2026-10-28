@@ -2452,6 +2452,7 @@
       "text": "Staff open it on mobile, complete tasks and report a blocker; managers inspect handover and reconcile segment totals to worked time.",
       "to": "clause",
       "ids": [
+        "SCHEDULE-004",
         "SCHEDULE-007"
       ]
     },
