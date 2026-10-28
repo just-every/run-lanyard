@@ -55,7 +55,9 @@ export async function reportsPoolApi(){
   assert.equal(report.totals.find(r=>r.kind==='tips').declaredAmountCents,301,'Original declaration stays separate from its pool allocation')
   assert.ok(allocations.every(r=>r.sourceId===approved.id&&r.revision===approved.revision))
   assert.deepEqual(allocations.flatMap(r=>JSON.parse(r.detail).sources).map(s=>s.revision).sort(),f.times.map(t=>t.revision).sort())
-  assert.equal((await read(manager.cookie)).totals.find(r=>r.kind==='tips').knownAmountCents,1001)
+  const managerReport=await read(manager.cookie)
+  assert.equal(managerReport.totals.find(r=>r.kind==='tips').knownAmountCents,1001)
+  assert.ok([...allocations,...managerReport.rows.filter(r=>r.status==='pool approved')].every(r=>JSON.parse(r.detail).totalCents===1001),'Authorized readers reconcile the complete pool total; later out-of-scope readers receive no pool total')
   const state=await h.state(),payinputs=state.payinputs.filter(p=>p.tipPoolId===approved.id)
   assert.equal(payinputs.length,3);assert.equal(payinputs.reduce((n,p)=>n+p.amountCents,0),1001)
   for(const p of people){
@@ -153,6 +155,7 @@ export async function reportsPoolBrowser(browser){
    assert.match(await page.locator('[data-total-kind="tips"]').innerText(),/\$10\.01/)
    assert.match(await page.locator('[data-total-kind="tips"]').innerText(),/Declared separately: \$3\.01/)
    assert.equal(await page.locator('[data-kind="tips"]').count(),4)
+   assert.match(await page.locator(`[data-source="${approved.id}"]`).first().innerText(),/Pool total: \$10\.01/)
    for(const [i,cents] of [167,334,500].entries()){
     const row=page.locator(`[data-kind="tips"][data-source="${approved.id}"]`).filter({hasText:people[i].name})
     assert.match(await row.first().innerText(),new RegExp('\\$'+(cents/100).toFixed(2).replace('.','\\.')))
