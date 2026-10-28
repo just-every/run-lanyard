@@ -421,6 +421,21 @@ async function eventNoticesApi(h,f){
  const missedHead={'x-test-now':String(Date.parse(missed))}
  let missedState=(await h.send('/api/lanyard/state',undefined,manager.cookie,missedHead)).value
  assert.ok(missedState.eventnotices.some(n=>n.source.id===covered.id&&n.label==='Replacement missed clock-in'))
+ const missedNotice=missedState.eventnotices.find(n=>n.source.id===covered.id&&n.topic==='coverage')
+ const missedFor=async cookie=>(await h.send('/api/lanyard/state',undefined,cookie,missedHead)).value
+ assert.ok((await missedFor(h.owner)).eventnotices.some(n=>n.source.id===covered.id&&n.label==='Replacement missed clock-in'))
+ for(const p of [dee,ben,alex,foreign]){
+  const personal=await missedFor(p.cookie)
+  assert.deepEqual(personal.coverageCases,[])
+  assert.ok(!personal.eventnotices.some(n=>n.source.id===covered.id&&n.topic==='coverage'),'replacement attendance remains private to authorized reviewers')
+ }
+ const privateVersion=await unchanged(),privateNotices=await stored()
+ await h.cmd('notice.acknowledge',pin(missedNotice),dee.cookie,404,missedHead)
+ assert.equal(await unchanged(),privateVersion);assert.deepEqual(await stored(),privateNotices)
+ await h.cmd('notice.acknowledge',pin(missedNotice),manager.cookie,200,missedHead)
+ await h.restart()
+ assert.ok((await missedFor(manager.cookie)).eventnotices.find(n=>n.id===missedNotice.id).acknowledgedAt)
+ assert.ok(!(await missedFor(dee.cookie)).eventnotices.some(n=>n.source.id===covered.id&&n.topic==='coverage'))
  await h.cmd('clock.in',{commandId:crypto.randomUUID(),capturedAt:missed},ben.cookie,200,missedHead)
  missedState=(await h.send('/api/lanyard/state',undefined,manager.cookie,missedHead)).value
  assert.ok(!missedState.eventnotices.some(n=>n.source.id===covered.id&&n.topic==='coverage'))

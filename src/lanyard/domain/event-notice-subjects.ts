@@ -42,7 +42,7 @@ export function eventNoticeSubjects(s:State,a:Actor,now:string):EventNoticeSubje
  for(const x of s.shifts){
   if(x.status!=='published'||!x.callout)continue
   const c=coverageCase(s,x,now),reviewer=manages(s,a,c.site)
-  if((reviewer||x.callout.staffId===me)&&['waiting','assigned','reopened'].includes(c.status)){
+  if((reviewer||x.callout.staffId===me&&c.status!=='reopened')&&['waiting','assigned','reopened'].includes(c.status)){
    add('coverage','shifts',x,`${c.status}:${x.callout.approvedAt??x.callout.at}:${x.callout.reoffers?.length??0}`,
     c.status==='reopened'?'Replacement missed clock-in':c.status==='assigned'?'Replacement approved':'Call-out needs cover','/app/schedule',c.reopenedAt??c.assignedAt??c.calledOutAt)
   }
