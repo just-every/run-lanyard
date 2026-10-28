@@ -360,7 +360,7 @@ The primary journey: move the crew in, build and publish the week, fill changes,
 **Requirement.** Managers attach operational instructions and checklists to shifts. The current assignee reads them, completes named tasks and reports immutable blockers with files; earlier authors retain their own responses. Editing instructions creates new task identities without treating an old answer as completion. Notes remain absent from print and wall schedules. Work-area allocation is SCHEDULE-007; custody and revision details are in the [handover details](docs/contract/MECHANISMS.md#schedule-004).
 
 **Acceptance.**
-1. Staff open it on mobile, complete tasks and report a blocker; managers inspect the handover. SCHEDULE-007 carries area reconciliation.
+1. Staff open it on mobile, complete tasks and report a blocker; managers inspect the handover.
 2. A printed copy and the wall display of that week show none of the notes (SCHEDULE-005).
 
 #### SCHEDULE-007 — Reconciled job and area segments
@@ -736,11 +736,11 @@ The primary journey: move the crew in, build and publish the week, fill changes,
 
 *Tier:* Core · *Cites:* BASE-DATA-006, BASE-MAIL-001
 
-**Requirement.** Owners may configure an automatic unpaid meal deduction per site (for example 30 minutes on shifts over 6 hours) when no meal was punched. The employee sees the deduction at clock-out and confirms the meal was taken or reports it missed or interrupted; a report reverses the deduction for approval and opens a BREAK-001 exception. Unconfirmed deductions are flagged in approval, and a site under a preset that requires recorded meal periods, such as California, cannot replace meal punches with a deduction. The rule belongs to the clock's cafe (its matched shift's cafe, else the person's home cafe) and applies when the clocked span is longer than the threshold and no meal minutes were entered; entered meal minutes replace the deduction. The [retained automatic meal deductions with employee attestation details](docs/contract/MECHANISMS.md#break-002) define source fields, calculations and revision behavior.
+**Requirement.** Owners may configure an automatic unpaid meal deduction per site (for example 30 minutes on shifts over 6 hours) when no meal was punched. The employee sees the deduction at clock-out and confirms the meal was taken or reports it missed or interrupted; a report reverses the deduction for approval and opens a BREAK-001 exception. Unconfirmed deductions are flagged in approval, and a site under a preset that requires recorded meal periods, such as California, cannot replace meal punches with a deduction. The rule belongs to the clock's cafe (its matched shift's cafe, else the person's home cafe) and applies when the clocked span is longer than the threshold and no meal minutes were entered; entered meal minutes replace the deduction. The [retained automatic meal deductions with employee attestation details](docs/contract/MECHANISMS.md#break-002) define source fields, calculations and revision behavior. The refusal of automatic deductions at California sites belongs to POLICY-003.
 
 **Acceptance.**
 1. Enable a 30-minute deduction, work a 7-hour shift without a meal punch and confirm at clock-out; work another and report the meal missed.
-2. The first deducts with the confirmation recorded, the second pays the full time with an exception, and a California site's refusal is POLICY-001's acceptance.
+2. The first deducts with the confirmation recorded, the second pays the full time with an exception.
 
 #### TIME-003 — Missed punches employee review and exception resolution
 
@@ -799,12 +799,11 @@ The primary journey: move the crew in, build and publish the week, fill changes,
 
 *Tier:* Core · *Cites:* BASE-ROLE-001, BASE-INPUT-003, BASE-MAIL-001 · *Rules:* D-1, D-2
 
-**Requirement.** Time approvers filter timesheets by site, role, period and state (clean, exception, edited, unconfirmed) and approve many in one action within their scope. The action pins each included timesheet's exact revision; at commit any item whose revision changed, that gained an exception (missed break, early or unscheduled punch, provisional close, out-of-zone or missing required photo) or that is the approver's own time is skipped, and the result lists approved and skipped items with reasons. Each approval records the same actor, time and revision as a single approval, and nothing outside the approver's sites is touched. The [retained bulk timesheet approval with pinned revisions details](docs/contract/MECHANISMS.md#time-008) define source fields, calculations and revision behavior.
+**Requirement.** Time approvers filter timesheets by site, role, period and state (clean, exception, edited, unconfirmed) and approve many in one action within their scope. The action pins each included timesheet's exact revision; at commit any item whose revision changed, that gained an exception (missed break, early or unscheduled punch, provisional close, out-of-zone or missing required photo) or that is the approver's own time is skipped, and the result lists approved and skipped items with reasons. Each approval records the same actor, time and revision as a single approval, and nothing outside the approver's sites is touched. The [retained bulk timesheet approval with pinned revisions details](docs/contract/MECHANISMS.md#time-008) define source fields, calculations and revision behavior. Break-exception skipping is also exercised by BREAK-001, and changed-edit skipping by TIME-003.
 
 **Acceptance.**
 1. Filter a 60-person week at one cafe to clean timesheets and bulk-approve the listed revisions while another manager decides one included timesheet.
 2. The result approves the rest and skips that one, the approver's own timesheet, a foreign-cafe timesheet and hand-entered time pinned outside the filter, each with its reason; audit shows one decision per approved revision and the skipped items are untouched.
-3. The break-exception skip is BREAK-001's acceptance and the edit skip TIME-003's.
 
 #### TIME-009 — Timesheet approval review with schedule variance
 
@@ -968,13 +967,12 @@ The primary journey: move the crew in, build and publish the week, fill changes,
 
 *Tier:* Core · *Cites:* BASE-ROLE-001, BASE-AUDIT-001, BASE-DATA-001, BASE-MAIL-001
 
-**Requirement.** Owners produce jurisdiction-scoped reports for audits: schedule postings and changes with notice given, consent and predictability-pay records (POLICY-002), meal and rest compliance and premiums (BREAK-001, POLICY-003), minor-hour checks (MINOR-001), sick leave accrual and use (LEAVE-003), rounding neutrality (TIME-005), tip-credit make-up (TIPS-002) and punch edits with reasons. Each traces to source revisions and is retained for the period its preset requires. Under RL-1, The live native owner may preserve the exact reviewed report with an explicit reason and affirmative owner authorization, retaining its original JSON, CSV, source revisions, integrity digests and authorization through later corrections, restart and supported installation archive restore. The [retained compliance and audit record reports details](docs/contract/MECHANISMS.md#report-002) define source fields, calculations and revision behavior.
+**Requirement.** Owners produce jurisdiction-scoped reports for audits: schedule postings and changes with notice given, consent and predictability-pay records (POLICY-002), meal and rest compliance and premiums (BREAK-001, POLICY-003), minor-hour checks (MINOR-001), sick leave accrual and use (LEAVE-003), rounding neutrality (TIME-005), tip-credit make-up (TIPS-002) and punch edits with reasons. Each traces to source revisions and is retained for the period its preset requires. Under RL-1, The live native owner may preserve the exact reviewed report with an explicit reason and affirmative owner authorization, retaining its original JSON, CSV, source revisions, integrity digests and authorization through later corrections, restart and supported installation archive restore. The [retained compliance and audit record reports details](docs/contract/MECHANISMS.md#report-002) define source fields, calculations and revision behavior. Delegated audit authority belongs to TEAM-003 and ACCESS-003; retention, employee requests and disposition belong to PRIVACY-001, PRIVACY-002 and PRIVACY-003.
 
 **Acceptance.**
 1. Run a quarter at a Chicago and a California site with schedule changes, premiums, missed meals, a minor and edited punches.
 2. Produce each report for an auditor-scoped reader, reconcile counts to the source records and confirm unrelated wage and personal data are excluded.
 3. Preserve an owner-authorized exact report and verify original JSON, CSV, source revisions, digests and authorization after correction, restart and supported archive restore.
-4. The delegated authority assertions belong to TEAM-001 and ACCESS-003; retention, holds and disposition assertions belong to PRIVACY-001.
 
 #### REPORT-003 — Sales per labor hour and labor percentage by interval
 
