@@ -21,10 +21,11 @@ function swapsFor(s:State,row:Row) {
 export const confirmations=(row:Row):Record<string,any>[]=>row.confirmations??(row.confirmedAt?[{staffId:row.staffId,at:row.confirmedAt}]:[])
 const NOTICE='not sent: in-app schedule only until NOTICE-001'
 
-/** On publish: each draft row continues an unclaimed row of the week's current published revision with the same person, times and cafe; otherwise it starts a new line. */
+/** Explicit editor sources retain identity through moves; source-free rows continue exact matches. */
 export function link(s:State,week:string,rows:Row[]) {
  const current=s.shifts.filter(x=>x.status==='published'&&s.rosters.find(r=>r.id===x.rosterId)?.week===week),claimed=new Set<string>()
- return rows.map(x=>{const same=current.find(o=>!claimed.has(o.id)&&o.staffId===x.staffId&&o.start===x.start&&o.end===x.end&&siteOf(s,o)===siteOf(s,x));if(same)claimed.add(same.id);return same?lineageOf(same):x.id})
+ for(const x of rows.filter(x=>x.lineage)){need(current.some(o=>lineageOf(o)===x.lineage)&&!claimed.has(x.lineage),'Source shift changed; reload this week',409);claimed.add(x.lineage)}
+ return rows.map(x=>{if(x.lineage)return x.lineage;const same=current.find(o=>!claimed.has(lineageOf(o))&&o.staffId===x.staffId&&o.start===x.start&&o.end===x.end&&siteOf(s,o)===siteOf(s,x));if(same)claimed.add(lineageOf(same));return same?lineageOf(same):x.id})
 }
 /** A new published revision of the shift's week with one shift changed (or removed, when `apply` returns null); open swaps and call-out offers follow the unchanged shifts. */
 function revise(c:Context,r:Row,action:string,reason:string,apply:(x:Row)=>Row|null) {

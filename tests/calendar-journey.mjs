@@ -12,13 +12,13 @@ const steady=(staffId)=>shift(staffId,'2026-10-29T16:00:00Z','2026-10-29T20:00:0
 const other=(staffId)=>shift(staffId,'2026-10-30T16:00:00Z','2026-10-30T20:00:00Z')
 function events(text){return [...text.replace(/\r\n /g,'').matchAll(/BEGIN:VEVENT\r\n([\s\S]*?)END:VEVENT/g)].map(match=>Object.fromEntries(match[1].trim().split('\r\n').map(line=>{const index=line.indexOf(':');return [line.slice(0,index),line.slice(index+1)]})))}
 const path=url=>new URL(url).pathname
-async function fixture(h){
+async function fixture(h,site=place){
  const alex=await h.person('CalendarAlex'),ben=await h.person('CalendarBen')
  for(const person of [alex,ben]){
-  await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:'staff',active:true,site:place})
+  await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:'staff',active:true,site})
   await h.cmd('availability.save',{staffId:person.id,start:'2026-10-26T07:00:00Z',end:'2026-11-02T08:00:00Z'})
  }
- const publish=async shifts=>{const draft=await h.cmd('roster.prepare',{week:'2026-10-26',shifts});return h.cmd('roster.publish',pin(draft))}
+ const publish=async shifts=>{const draft=await h.cmd('roster.prepare',{week:'2026-10-26',shifts:shifts.map(x=>({...x,site}))});return h.cmd('roster.publish',pin(draft))}
  await publish([own(alex.id),steady(alex.id),other(ben.id)])
  let row=(await h.state()).shifts.find(x=>x.start===own(alex.id).start&&x.status==='published')
  await h.cmd('shiftwork.save',{shiftId:row.id,shiftRevision:row.revision,notes:'synthetic-lanyard-2 private handover',tasks:['synthetic-lanyard-3 private task']})
@@ -74,6 +74,11 @@ export async function calendarApi(){
   await publish([own(alex.id),steady(alex.id),other(ben.id)])
   assert.equal((await read()).text,response.text)
   row=(await h.state()).shifts.find(x=>x.status==='published'&&x.start===own(alex.id).start)
+  const source={sourceShiftId:row.id,sourceRevision:row.revision},beforeSourceRefusal=await h.state()
+  await h.cmd('roster.prepare',{week:'2026-10-26',shifts:[{...own(alex.id),...source,sourceRevision:row.revision+1}]},h.owner,409)
+  await h.cmd('roster.prepare',{week:'2026-11-02',shifts:[{...own(alex.id),...source}]},h.owner,409)
+  await h.cmd('roster.prepare',{week:'2026-10-26',shifts:[{...own(alex.id),...source},{...steady(alex.id),...source}]},h.owner,409)
+  assert.deepEqual(await h.state(),beforeSourceRefusal,'stale, foreign-week and duplicate source claims cannot change schedules')
   const moved=await h.cmd('shift.change',{...pin(row),start:'2026-11-01T07:30:00Z',end:'2026-11-01T12:30:00Z',reason:'synthetic-lanyard-4'})
   let list=events((await read()).text),event=list.find(e=>e.UID===overnight.UID)
   assert.deepEqual([event.SEQUENCE,event.DTSTART,event.DTEND,event.STATUS],['1','20261101T073000Z','20261101T123000Z','CONFIRMED'])
@@ -143,7 +148,7 @@ export async function calendarBrowser(){
  const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  const h=await harness({now})
  try {
-  const {alex}=await fixture(h)
+  const {alex}=await fixture(h,'Orchard Street Cafe')
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded','x-test-now':String(Date.parse(now))},body:'confirm=yes',redirect:'manual'})
   const context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse(now))}})
   try {
@@ -173,5 +178,6 @@ export async function calendarBrowser(){
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
    await capture('calendar-revoked');assert.deepEqual(errors,[])
   }finally{await context.close()}
+  const {calendarPublication}=await import('./calendar-publication-journey.mjs');await calendarPublication(h,browser,alex)
  }finally{await h.close();await browser.close()}
 }

@@ -4,7 +4,7 @@ import {type Context,type Row,type State,keys,text,need,prepare,manager,self,sta
 import {qualification,rateBasis} from './workforce'
 import {localDate} from './settings'
 import {patternFit,weeklyMaximumConflicts} from './patterns'
-import {link,actorName,confirmations} from './history'
+import {link,actorName,confirmations,lineageOf} from './history'
 import {offerLog,draftOpenShift} from './openshifts'
 // Glove's prepare/approve split and Dial's occurrence fences: publication acts
 // on the exact draft and all conflicts are checked inside its state version.
@@ -40,9 +40,17 @@ export function draftWeek(c:Context,weekInput:unknown,inputs:any,openInputs?:Rec
  openInputs??=c.s.openshifts.filter(o=>o.week===week&&o.status==='draft')
  need(Array.isArray(inputs)&&inputs.length+openInputs.length>0&&inputs.length+openInputs.length<=250,'Provide 1–250 shifts');const weekEnd=new Date(monday.getTime()+7*86400000).toISOString().slice(0,10)
  // Replaced private draft rows remain archived, but are never published history.
- const prior=c.s.rosters.find(r=>r.week===week&&r.status==='draft');if(prior){for(const s of c.s.shifts.filter(s=>s.rosterId===prior.id&&s.status!=='replaced-draft'))put(c,'shifts',{...s,status:'replaced-draft'},s);for(const o of c.s.openshifts.filter(o=>o.rosterId===prior.id&&o.status==='draft'))put(c,'openshifts',{...o,status:'replaced-draft'},o)}
+ const prior=c.s.rosters.find(r=>r.week===week&&r.status==='draft')
+ const claimed=new Set<string>(),lineages=inputs.map((value:any)=>{
+  if(!value?.sourceShiftId){need(value?.sourceRevision===undefined,'Source shift required');return undefined}
+  const source=get(c.s,'shifts',value.sourceShiftId),roster=c.s.rosters.find(r=>r.id===source.rosterId)
+  need(roster?.week===week&&['draft','published'].includes(source.status)&&roster.status===source.status,'Source shift changed; reload this week',409);exact(source,{revision:value.sourceRevision})
+  const identity=source.lineage??source.id;need(!claimed.has(identity),'A source shift can only be continued once',409);claimed.add(identity)
+  return source.status==='published'?lineageOf(source):source.lineage
+ })
+ if(prior){for(const s of c.s.shifts.filter(s=>s.rosterId===prior.id&&s.status!=='replaced-draft'))put(c,'shifts',{...s,status:'replaced-draft'},s);for(const o of c.s.openshifts.filter(o=>o.rosterId===prior.id&&o.status==='draft'))put(c,'openshifts',{...o,status:'replaced-draft'},o)}
  const r=put(c,'rosters',{week,timezone:c.s.timezone,status:'draft',preparedBy:c.a.id,preparedAt:c.now},prior)
- const shifts=inputs.map((value:any)=>{need(value&&typeof value==='object'&&!Array.isArray(value),'Invalid shift');keys(value,['staffId','start','end','breakMinutes','label','site','job']);const w=work(value),date=localDate(w.start,c.s.timezone),person=staff(c,value.staffId);need(date>=week&&date<weekEnd,'Shift must start in the selected venue week');const job=text(value.job,'job',80,true),site=text(value.site,'site',80,true)||person.site||'';return put(c,'shifts',{rateBasis:rateBasis(c.s,person.id,{...w,job,site}),job,rosterId:r.id,staffId:person.id,...w,label:text(value.label,'label',120,true),site:text(value.site,'site',80,true)||person.site||'',status:'draft'})})
+ const shifts=inputs.map((value:any,i:number)=>{need(value&&typeof value==='object'&&!Array.isArray(value),'Invalid shift');keys(value,['staffId','start','end','breakMinutes','label','site','job','sourceShiftId','sourceRevision']);const w=work(value),date=localDate(w.start,c.s.timezone),person=staff(c,value.staffId);need(date>=week&&date<weekEnd,'Shift must start in the selected venue week');const job=text(value.job,'job',80,true),site=text(value.site,'site',80,true)||person.site||'';return put(c,'shifts',{rateBasis:rateBasis(c.s,person.id,{...w,job,site}),job,lineage:lineages[i],rosterId:r.id,staffId:person.id,...w,label:text(value.label,'label',120,true),site:text(value.site,'site',80,true)||person.site||'',status:'draft'})})
  const openShifts=openInputs.map(value=>{const date=localDate(value.start,c.s.timezone);need(date>=week&&date<weekEnd,'Shift must start in the selected venue week');return draftOpenShift(c,r.id,week,value as any)})
  c.entity=r.id;return {...r,shifts,openShifts,conflicts:conflicts(c,shifts,week),policyWarnings:policyWarnings(c.s,shifts,week),approvalRequired:'roster.publish',approval:{id:r.id,revision:r.revision}}
 }

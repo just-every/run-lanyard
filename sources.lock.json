@@ -770,7 +770,7 @@
       "executable": false
     },
     "public/schedule-editor.js": {
-      "sha256": "26242358541f765bb32c24902bd684a8344cda83e0594536d3d44f6e3b458013",
+      "sha256": "2a51706ef691b05eab3844a24ede632432e1fa86c2130a66d5cc94cadc89a125",
       "executable": false
     },
     "public/shiftwork.js": {
@@ -1442,7 +1442,7 @@
       "executable": false
     },
     "src/lanyard/domain/history.ts": {
-      "sha256": "1458cc48a745d68385b90e3f48b27bc1c148754513a02b6d9cc2fe3822695007",
+      "sha256": "536b882ae0341193692e09236a94a9db703e4707c08bbe6b0e91c029dc471885",
       "executable": false
     },
     "src/lanyard/domain/holiday-calendar.ts": {
@@ -1710,7 +1710,7 @@
       "executable": false
     },
     "src/lanyard/domain/roster.ts": {
-      "sha256": "31aa8934f98c513ffac3126a2235996c9a4f42a2fd64b9071623e5c7db2c3a6a",
+      "sha256": "c3e66a81fb0c9d57326820fd85f0bb0dbf98d4e38477dd64b5b9449c893783a8",
       "executable": false
     },
     "src/lanyard/domain/rounding.ts": {
@@ -2130,7 +2130,7 @@
       "executable": false
     },
     "src/lanyard/ui/schedule-editor.ts": {
-      "sha256": "55ce78fd2670ce8bf582f3162271c4c01e35a8cd593ed482327aa44d9d8cce76",
+      "sha256": "a773b24916781b1bb5367c9d3966d47f913d556ae9771d4be94b9cf8bfa64874",
       "executable": false
     },
     "src/lanyard/ui/schedule-review.ts": {
@@ -4066,7 +4066,11 @@
       "executable": false
     },
     "tests/calendar-journey.mjs": {
-      "sha256": "04e8a2cc51db0902324d1432c59a19d1b37dc1e7923226a9d969f1cc46206a06",
+      "sha256": "a7cc7f72d64c4e2f0b67ad75808a6fad6f774bc29f803c0066a9beaea376d010",
+      "executable": false
+    },
+    "tests/calendar-publication-journey.mjs": {
+      "sha256": "edd09cc3e6cf51213f43428a9e288f5d94e53ba2338375e5094576f213017d17",
       "executable": false
     },
     "tests/chat-membership-journey.mjs": {
