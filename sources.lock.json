@@ -626,7 +626,7 @@
       "executable": false
     },
     "public/app/screens.css": {
-      "sha256": "8bf9ed21b05a63b04ff041f5ef7804142341a854cb55a3e23e1c88e7d14d6ac5",
+      "sha256": "28951df38b5ad2ae35dad946b2aece433c5bce41d835490ef1790ba4e1bed295",
       "executable": false
     },
     "public/app/shell.css": {
@@ -1854,7 +1854,7 @@
       "executable": false
     },
     "src/lanyard/staff-catalog.json": {
-      "sha256": "28563d484e43606422d87c29ad0400e14749c9423c334b86de6fadfcdf3eccda",
+      "sha256": "2a0ecbede5ac828bad652337df2e09f69a03a8774fcf2ef73051be1cefef4d21",
       "executable": false
     },
     "src/lanyard/ui/aca.ts": {
@@ -1894,7 +1894,7 @@
       "executable": false
     },
     "src/lanyard/ui/breaks.ts": {
-      "sha256": "b921ec77f1b2b307989828283b79232932e296913d6de2a6a60c5084998a0120",
+      "sha256": "96c59e20fcd1aac4971307cd2ff86cd9ef780bb172d44e2908dc4dba995a8bea",
       "executable": false
     },
     "src/lanyard/ui/callout.ts": {
