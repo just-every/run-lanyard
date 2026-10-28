@@ -15,8 +15,10 @@ const enrolled=(rule:any,id:string)=>rule?.alternate?.kind==='NV_4X10'&&rule.alt
  * it grants no alternate-schedule exception or legal applicability decision.
  * Recut each retained venue-date allocation with exact integer remainders so
  * neither a break deduction nor a rate is priced or rounded a second time. */
-export function nevadaWorkdayParts<T extends {date:string;site:string;start:string;end:string;minutes:number;intervalStart?:string;intervalEnd?:string}>(s:State,staffId:string,parts:T[],ruleOn:(site:string,on:string)=>any):(T&Record<string,any>)[]{
- const intervals=parts.map(p=>({p,begin:Math.max(Date.parse(p.intervalStart??p.start),Date.parse(instantAt(p.date,'00:00',s.timezone))),end:Math.min(Date.parse(p.intervalEnd??p.end),Date.parse(instantAt(dayAfter(p.date),'00:00',s.timezone)))})).sort((a,b)=>a.begin-b.begin||a.end-b.end)
+export function nevadaWorkdayParts<T extends {date:string;site:string;start:string;end:string;minutes:number;intervalStart?:string;intervalEnd?:string}>(s:State,staffId:string,parts:T[],ruleOn:(site:string,on:string)=>any,through:string):(T&Record<string,any>)[]{
+ // Prior work supplies the anchor and elapsed daily minutes. Later work and
+ // policy releases cannot activate or invalidate an earlier week's treatment.
+ const intervals=parts.filter(p=>p.date<=through).map(p=>({p,begin:Math.max(Date.parse(p.intervalStart??p.start),Date.parse(instantAt(p.date,'00:00',s.timezone))),end:Math.min(Date.parse(p.intervalEnd??p.end),Date.parse(instantAt(dayAfter(p.date),'00:00',s.timezone)))})).sort((a,b)=>a.begin-b.begin||a.end-b.end)
  if(!intervals.some(({p})=>nevadaWorkday(ruleOn(p.site,p.date))&&!enrolled(ruleOn(p.site,p.date),staffId)))return parts
  let anchor=-Infinity
  const slices=intervals.flatMap(({p,begin,end})=>{

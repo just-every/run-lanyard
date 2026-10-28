@@ -1626,7 +1626,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy-nevada.ts": {
-      "sha256": "045ccaadced5dd26b75afcd8b768c2fe30f22ec7d9aa709aab1b75b32e5d158c",
+      "sha256": "6b41f8064f87d48c1d961e7733cab0dac437c8a56795c314e09420e8eec3aa2c",
       "executable": false
     },
     "src/lanyard/domain/policy-newyork.ts": {
@@ -1654,7 +1654,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy.ts": {
-      "sha256": "d0e32d4520504a534a727f3006ce55e4c09b4ed1235a7cd7cedd61b4c3dbd5f8",
+      "sha256": "416bb987285c7d9c5ed0aaf24cde93255367e95c613b42f989eaec37958e4575",
       "executable": false
     },
     "src/lanyard/domain/postings.ts": {
@@ -4250,7 +4250,7 @@
       "executable": false
     },
     "tests/policy-workday-journey.mjs": {
-      "sha256": "10b0f0a2a21414d5840632964200f75309ba984f561c8147b1ea16aac9a31fb6",
+      "sha256": "9454328b839845db2419b0a6724032701bb00f2842c830a90c0794b776cd2cc6",
       "executable": false
     },
     "tests/premiums-api.mjs": {

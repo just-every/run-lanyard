@@ -29,6 +29,7 @@ async function lock(h,p,period){
 // workday joins Monday's eight hours to Tuesday's first four across cafes.
 export async function policyWorkdayApi(){
  await nevadaAdoption()
+ await nevadaClosedAdoption()
  const h=await harness()
  try{
   await h.cmd('settings.save',{timezone:'UTC'})
@@ -184,6 +185,49 @@ async function nevadaAdoption(){
   await h.cmd('policy.preview',{...pin(west),site:'West',preset:'NV',from:'2026-09-29',presetVersion:'2026-10-28',reviewReason:'Refused closed-period reclassification'},h.owner,409)
   assert.equal((await report(h,p,'2026-09-28')).overtimeMinutes,60,'closed history keeps the retained older version')
   await h.restart();assert.deepEqual(await report(h,p),current,'restarting preserves exact workday classifications')
+ }finally{await h.close()}
+}
+
+async function nevadaClosedAdoption(){
+ const h=await harness({now:'2026-10-28T12:30:00Z'})
+ try{
+  const p=await nevadaFixture(h,{legacy:true})
+  const sunday=await approve(h,p,'2026-10-11T16:00:00Z','2026-10-11T22:00:00Z')
+  const monday=await approve(h,p,week+'T00:00:00Z',week+'T06:00:00Z',{site:'West'})
+  const template=await h.cmd('payroll.template.save',{approved:true,name:'Reviewed retained policy earnings',classification:'policy',header:true,
+   columns:[{field:'employee',header:'Worker'},{field:'code',header:'Earning'},{field:'minutes',header:'Minutes'},{field:'amount',header:'USD'}],groupBy:[],
+   employees:{[p.id]:{id:'synthetic-lanyard-1',workflow:'W-2'}},codes:{regular:'REG',overtime:'OT','double time':'DT'},jobs:{},locations:{East:'EAST',West:'WEST'}})
+  let period=await h.cmd('period.save',{start:'2026-10-05',end:'2026-10-11'});period=await lock(h,p,period)
+  const batch=await h.cmd('payroll.prepare',{ids:[sunday.id],templateId:template.id}),sent=await h.cmd('payroll.export',pin(batch))
+  await h.cmd('period.close',{...pin(period),reference:'synthetic-lanyard-1 retained employer run'})
+  const before=await report(h,p,'2026-10-05'),retained=await h.state()
+  assert.deepEqual([before.classificationIncomplete,before.minutes,before.estimateCents],[false,360,9600])
+  for(const site of ['East','West']){
+   const old=(await h.state()).policies.find(r=>r.site===site)
+   const change={...pin(old),site,preset:'NV',presetVersion:'2026-10-28',from:week,reviewReason:'Reviewed Monday release after closed Sunday payroll'}
+   const preview=await h.cmd('policy.preview',change)
+   for(const calculation of preview.calculations.filter(c=>c.staffId===p.id&&c.week==='2026-10-05'))assert.deepEqual(calculation.after,before,'preview cannot reclassify the closed prior week')
+   await h.cmd('policy.save',{...change,reviewDigest:preview.digest})
+  }
+  assert.deepEqual(await report(h,p,'2026-10-05'),before,'a later release preserves the entire closed classification')
+  const mixed=await report(h,p)
+  assert.equal(mixed.classificationIncomplete,true,'the new week still needs mixed-version workday review')
+  assert.equal(mixed.estimateCents,null)
+  assert.deepEqual([mixed.minutes,mixed.overtimeMinutes],[360,240],'Sunday remains prior context without replaying paid minutes')
+  const unchanged=await h.state()
+  await h.cmd('payroll.prepare',{ids:[monday.id],templateId:template.id},h.owner,409)
+  assert.equal((await h.state()).version,unchanged.version,'unresolved mixed treatment creates no payroll or audit writes')
+  const later=await approve(h,p,'2026-10-19T08:00:00Z','2026-10-19T16:00:00Z')
+  assert.equal((await report(h,p,'2026-10-19')).classificationIncomplete,false)
+  const next=await h.cmd('payroll.prepare',{ids:[later.id],templateId:template.id})
+  assert.deepEqual(next.classificationLines.map(l=>[l.timeId,l.earningCode,l.minutes,l.costCents]),[[later.id,'regular',480,12800]],'closed history never blocks complete later payroll or creates a historical delta')
+  await h.cmd('payroll.export',pin(next))
+  const after=await h.state()
+  assert.deepEqual(after.periods,retained.periods)
+  assert.deepEqual(after.batches.find(b=>b.id===sent.id),retained.batches.find(b=>b.id===sent.id))
+  assert.equal((await h.send(`/api/lanyard/batches/${sent.id}.csv`,undefined,h.owner)).text,sent.csv)
+  await h.restart()
+  assert.deepEqual(await report(h,p,'2026-10-05'),before,'restart preserves the closed classification after later payroll')
  }finally{await h.close()}
 }
 
