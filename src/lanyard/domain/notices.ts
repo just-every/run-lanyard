@@ -3,6 +3,7 @@
 import {type Actor,type Context,type Row,type State,canonical,keys,text,integer,need,manager,put,sha} from './model'
 import {noticeSubjects} from './notice-subjects'
 import {salesSite} from './sales'
+export {scheduleNoticeCommand,reconcileScheduleNotices,scheduleNoticesFor,historyNoticeState} from './schedule-notices'
 
 export const noticeFields=['shiftLeadMinutes','ackMinutes','offerLeadMinutes','exceptionMinutes','reviewMinutes','payrollLeadMinutes','escalationMinutes'] as const
 export function noticeCommand(c:Context,name:string,p:Record<string,any>) {
