@@ -13,7 +13,7 @@ export const recordPresets=[
 const sourceKinds:Kind[]=['timesheets','shifts','rosters','batches','sickuses','sickpolicies','fairworkreviews','auditpackets']
 const anniversary=(on:string,years:number)=>{const d=new Date(on+'T00:00:00Z');d.setUTCFullYear(d.getUTCFullYear()+years);return d.toISOString().slice(0,10)}
 function source(s:State,kind:unknown,id:unknown){need(sourceKinds.includes(kind as Kind),'Unsupported record class');return get(s,kind as Kind,id)}
-export function auditReferences(packet:Row){return packet.sourceRefs??[...new Map(packet.report.rows.flatMap((r:any)=>[{kind:r.sourceKind,id:r.sourceId,staffId:r.staffId},...(r.facts.sources??[]).map((ref:any)=>({kind:'timesheets',id:ref.id,staffId:r.staffId}))]).map((r:any)=>[r.kind+':'+r.id,r])).values()] as {kind:string;id:string;staffId:string}[]}
+export function auditReferences(packet:Row){return packet.sourceRefs??[...new Map(packet.report.rows.flatMap((r:any)=>[{kind:r.sourceKind,id:r.sourceId,staffId:r.staffId},...(r.facts.previousSource?[{kind:r.facts.previousSource.kind,id:r.facts.previousSource.id,staffId:r.staffId}]:[]),...(r.facts.sources??[]).map((ref:any)=>({kind:'timesheets',id:ref.id,staffId:r.staffId}))]).map((r:any)=>[r.kind+':'+r.id,r])).values()] as {kind:string;id:string;staffId:string}[]}
 export function recordReview(s:State,kind:string,record:Row,now:string){
  const refs=kind==='auditpackets'?[{kind,id:record.id,staffId:''},...auditReferences(record)]:[{kind,id:record.id,staffId:record.staffId??''}]
  const obligations=refs.flatMap(ref=>s.recordduties.filter(d=>d.sourceKind===ref.kind&&d.sourceId===ref.id))

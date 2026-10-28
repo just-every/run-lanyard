@@ -80,11 +80,15 @@ The employee and owner can read the captured evidence. The owner sees each event
 
 ## Audit records
 
-From **Payroll**, open **Audit records**, select a cafe and date range, and choose a recorded jurisdiction. The report combines retained schedule records, break exceptions and premium inputs, rounding, whole-workweek tip-credit checks, punch edits, minor exceptions and private leave sources. Each row names its source revision and links to the source screen. Download the same selection as CSV; the download is recorded in activity and leaves source records unchanged.
+From **Payroll**, open **Audit records**, select a cafe and date range, and choose a recorded jurisdiction. The report combines retained schedule records, break exceptions and premium inputs, rounding, whole-workweek tip-credit checks, punch edits, recorded minor-hour evaluations and private leave sources. Each row names its source revision and links to the source screen. Download the same selection as CSV; the download is recorded in activity and leaves source records unchanged.
 
 The owner reads all supported sources. Native managers read their own cafe, excluding private leave and fair-workweek previews; generic custom levels do not grant audit access. Personal contact details, birth dates, permits, private leave purposes and unrelated wage fields are excluded. Named audit grants are a separate explicit owner action.
 
 An unassigned jurisdiction remains visible under a jurisdiction filter because the source has no jurisdiction tag. Empty categories remain explicit. Notice delivery, employee consent, incomplete policy outcomes, unrecorded minor checks, legacy in-place edits without retained history and preset-required retention remain incomplete. This report does not certify legal compliance or provider payment.
+
+New approved time for a person with a minor record retains the evaluated rule version, private-record revision, time and outcome, including checks with no recorded exceptions. Later document changes do not relabel an earlier approval; a corrected approval records a fresh evaluation. Private document content remains excluded. Older time without an evaluation snapshot remains incomplete.
+
+Linked schedule cancellations retain the original shift revision, cancellation reason and time. Unchanged shifts do not inherit another shift’s change reason. Recorded schedule confirmations remain acknowledgments, not statutory consent. Older cancellations without retained lineage remain incomplete.
 
 New manager edits retain the prior and resulting times and meal minutes, the reason, actor, timestamp and exact revisions. Approval and restart preserve this history. Older edits made before history capture remain explicitly incomplete.
 
