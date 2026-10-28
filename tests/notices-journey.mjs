@@ -278,6 +278,7 @@ export async function scheduleNoticesApi(h){
  const agent=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${key.token}`,...f.head})
  assert.equal(agent.status,200);assert.deepEqual(agent.value.schedulenotices,[])
  const all=await stored();assert.equal(new Set(all.map(n=>n.id)).size,all.length)
+ await eventNoticesApi(h,f)
  assert.ok(all.every(n=>n.delivery.channel==='in-app'&&n.delivery.state==='available'))
  for(const secret of ['Private manager reason','Private replacement decision','Private cancellation reason','rateBasis','payrollId','consent'])assert.ok(!JSON.stringify(all).includes(secret),secret)
 }
@@ -325,4 +326,108 @@ export async function scheduleNoticesBrowser(){
   await f.cmd('shift.change',{...pin(moved),start:'2026-11-03T11:00:00Z',end:'2026-11-03T13:00:00Z',reason:'Final opening'},f.manager.cookie)
   await prove(390,false)
  }finally{await browser.close();await h.close()}
+}
+
+/** Continue the same public-door sanity journey through inherited events. */
+async function eventNoticesApi(h,f){
+ const {cmd,state,alex,ben,manager}=f,read=async p=>(await state(p?.cookie??h.owner)).eventnotices
+ const stored=async()=>(await h.db.prepare("SELECT id,revision,data FROM l_records WHERE kind='eventnotices' ORDER BY id").all()).results
+ const unchanged=async()=> (await h.db.prepare('SELECT version FROM l_meta').first()).version
+ const dee=await h.person('Eli'),foreign=await h.person('Omar','manager')
+ for(const p of [dee,foreign])await cmd('availability.save',{staffId:p.id,start:'2026-11-01T00:00:00Z',end:'2026-11-15T00:00:00Z'})
+ await cmd('staff.save',{...pin(foreign),name:foreign.name,email:foreign.email,payrollId:foreign.payrollId,active:true,role:'manager',site:'Elsewhere'})
+ const noPayrollChange={times:(await state()).timesheets,batches:(await state()).batches}
+ // A proposal, its consent, a manager's refusal and the resulting personal
+ // decisions reach only the existing participants and authorized reviewers.
+ let shift=(await state()).shifts.find(x=>x.status==='published'&&x.staffId===alex.id&&x.start.startsWith('2026-11-05'))
+ let swap=await cmd('swap.propose',{shiftId:shift.id,revision:shift.revision,to:dee.id,note:'Private swap explanation'},alex.cookie)
+ let n=(await read(dee)).find(n=>n.topic==='swap'&&n.source.id===swap.id)
+ assert.equal(n.label,'Swap proposed');assert.equal(n.actionable,true)
+ assert.ok(!(await read(ben)).some(n=>n.source.id===swap.id));assert.ok(!(await read(foreign)).some(n=>n.source.id===swap.id))
+ const before=await unchanged();await cmd('notice.acknowledge',pin(n),ben.cookie,404);assert.equal(await unchanged(),before)
+ const ack=await cmd('notice.acknowledge',pin(n),dee.cookie)
+ assert.ok(ack.acknowledgedAt);assert.equal((await state()).swaps.find(w=>w.id===swap.id).status,'proposed','notice acknowledgment grants no swap consent')
+ const version=await unchanged(),saved=await stored();await cmd('notice.acknowledge',pin(n),dee.cookie)
+ assert.equal(await unchanged(),version);assert.deepEqual(await stored(),saved,'receipt retry is a complete no-op')
+ swap=await cmd('swap.respond',{...pin(swap),decision:'accepted',note:'Private reply'},dee.cookie)
+ assert.ok((await read(alex)).some(n=>n.source.id===swap.id&&n.label==='Swap consent recorded'))
+ assert.ok((await read(manager)).some(n=>n.source.id===swap.id&&n.label==='Swap consent recorded'))
+ assert.ok((await read()).some(n=>n.source.id===swap.id));assert.ok(!(await read(foreign)).some(n=>n.source.id===swap.id))
+ const stale=await unchanged();await cmd('notice.acknowledge',pin(ack),dee.cookie,404);assert.equal(await unchanged(),stale)
+ swap=await cmd('swap.decide',{...pin(swap),decision:'refused',note:'Private decision'},manager.cookie)
+ for(const p of [alex,dee])assert.ok((await read(p)).some(n=>n.source.id===swap.id&&n.label==='Swap refused'))
+ swap=await cmd('swap.propose',{shiftId:shift.id,revision:shift.revision,to:ben.id},alex.cookie)
+ await cmd('swap.withdraw',pin(swap),alex.cookie)
+ assert.ok((await read(ben)).some(n=>n.source.id===swap.id&&n.label==='Swap withdrawn'))
+ // Each tier appears at its opening, not at posting. Replay and restart do not
+ // repeat it; picking one recipient closes every competing pending purpose.
+ const offer=await cmd('openshift.post',{site:'',position:'',start:'2026-11-07T09:00:00Z',end:'2026-11-07T11:00:00Z',breakMinutes:0,approval:'manager',pool:[alex.id,dee.id],order:'tiers',rule:'custom',ranking:[alex.id,dee.id],size:1,minutes:30})
+ assert.ok((await read(alex)).some(n=>n.source.id===offer.id&&n.topic==='open-offer'))
+ assert.ok(!(await read(dee)).some(n=>n.source.id===offer.id))
+ const at='2026-11-02T12:30:00.000Z',head={'x-test-now':String(Date.parse(at))}
+ const tick=async()=>{const r=await (await h.mf.getWorker()).scheduled({scheduledTime:new Date(at),cron:'*/15 * * * *'});assert.equal(r.outcome,'ok')}
+ const later=async(p=h.owner)=>(await h.send('/api/lanyard/state',undefined,p.cookie??p,head)).value
+ await tick();let due=(await later(dee)).eventnotices.find(n=>n.source.id===offer.id)
+ assert.ok(due);assert.equal(due.delivery.state,'available');assert.equal(due.acknowledgedAt,null)
+ const persisted=await stored();await tick();assert.deepEqual(await stored(),persisted);await h.restart();await tick();assert.deepEqual(await stored(),persisted)
+ const request=await h.cmd('openshift.request',pin(offer),dee.cookie,200,head)
+ assert.ok((await later(manager)).eventnotices.some(n=>n.topic==='pickup'&&n.source.id===request.id&&n.label==='Pickup requested'))
+ const other=await h.cmd('openshift.request',pin(offer),alex.cookie,200,head)
+ const assigned=await h.cmd('openshift.approve',pin(request),manager.cookie,200,head)
+ assert.ok((await later(dee)).eventnotices.some(n=>n.source.id===request.id&&n.label==='Pickup approved'))
+ assert.ok((await later(alex)).eventnotices.some(n=>n.source.id===other.id&&n.label==='Pickup closed'))
+ assert.ok(!(await later(alex)).eventnotices.some(n=>n.source.id===offer.id),'filled offers are obsolete')
+ const refused=await unchanged();await h.cmd('notice.acknowledge',pin(due),dee.cookie,404,head);assert.equal(await unchanged(),refused)
+ // Call-out offers exclude the private reason; explicit offer responses and
+ // replacement approval retain their own notice receipts.
+ const callout=await cmd('shift.callout',{...pin(assigned.shift),note:'Private medical reason'},dee.cookie)
+ assert.ok((await read(manager)).some(n=>n.topic==='coverage'&&n.label==='Call-out needs cover'))
+ let replacement=callout.offers.find(o=>o.staffId===ben.id)
+ assert.ok(replacement);assert.ok((await read(ben)).some(n=>n.source.id===replacement.id&&n.label==='Replacement shift offered'))
+ replacement=await cmd('cover.respond',{...pin(replacement),decision:'accepted',note:'Private cover reply'},ben.cookie)
+ assert.ok((await read(manager)).some(n=>n.source.id===replacement.id&&n.label==='Replacement offer accepted'))
+ const covered=await cmd('cover.approve',pin(replacement),manager.cookie)
+ assert.ok((await read(ben)).some(n=>n.source.id===replacement.id&&n.label==='Replacement offer approved'))
+ assert.ok((await read(dee)).some(n=>n.source.id===covered.id&&n.label==='Replacement approved'))
+ await cmd('attendrule.save',{site:'',graceMinutes:5,noShowMinutes:15})
+ const missed='2026-11-07T09:16:00.000Z'
+ await (await h.mf.getWorker()).scheduled({scheduledTime:new Date(missed),cron:'*/15 * * * *'})
+ const missedHead={'x-test-now':String(Date.parse(missed))}
+ let missedState=(await h.send('/api/lanyard/state',undefined,manager.cookie,missedHead)).value
+ assert.ok(missedState.eventnotices.some(n=>n.source.id===covered.id&&n.label==='Replacement missed clock-in'))
+ await h.cmd('clock.in',{commandId:crypto.randomUUID(),capturedAt:missed},ben.cookie,200,missedHead)
+ missedState=(await h.send('/api/lanyard/state',undefined,manager.cookie,missedHead)).value
+ assert.ok(!missedState.eventnotices.some(n=>n.source.id===covered.id&&n.topic==='coverage'))
+ // Mentions resolve only for current native logbook readers. Correction and
+ // cafe transfer immediately withdraw access, including an old receipt pin.
+ const log=await cmd('log.save',{site:'',date:'2026-11-02',category:'staffing',text:'Private staffing details',mentions:[manager.id]})
+ let mention=(await read(manager)).find(n=>n.source.id===log.id)
+ assert.equal(mention.label,'Mentioned in the manager logbook');assert.ok(!(await read(alex)).some(n=>n.source.id===log.id))
+ await cmd('log.save',{...pin(log),site:'',date:log.date,category:log.category,text:'Corrected private staffing details',mentions:[]})
+ assert.ok(!(await read(manager)).some(n=>n.source.id===log.id));await cmd('notice.acknowledge',pin(mention),manager.cookie,404)
+ // Message notifications use precisely the live conversation-membership door.
+ // Removing, leaving or transferring never exposes copied messages or titles.
+ for(const p of [alex,dee,manager]){const current=(await state()).staff.find(v=>v.id===p.id);await cmd('staff.save',{...pin(current),name:current.name,email:current.email,payrollId:current.payrollId,active:true,role:current.role,site:'Cafe'})}
+ const thread=await cmd('chat.create',{kind:'group',site:'Cafe',title:'Private conversation title',members:[alex.id,dee.id]},manager.cookie)
+ const message=await cmd('chat.send',{threadId:thread.id,text:'Private conversation content'},alex.cookie)
+ const messageNotice=(await read(dee)).find(n=>n.source.id===message.id)
+ assert.equal(messageNotice.label,'New conversation message');assert.ok(!(await read(ben)).some(n=>n.source.id===message.id));assert.ok(!(await read()).some(n=>n.source.id===message.id),'unlisted owner receives no private-message notice')
+ await cmd('chat.leave',{...pin(thread),reason:'Private departure reason'},dee.cookie)
+ assert.ok(!(await read(dee)).some(n=>n.source.id===message.id));await cmd('notice.acknowledge',pin(messageNotice),dee.cookie,404)
+ let person=(await state()).staff.find(v=>v.id===manager.id)
+ await cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,active:true,role:person.role,site:'Elsewhere'})
+ assert.ok(!(await read(manager)).some(n=>n.source.id===message.id))
+ person=(await state()).staff.find(v=>v.id===manager.id)
+ await cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,active:true,role:person.role,site:'Cafe'})
+ assert.ok(!(await read(manager)).some(n=>n.source.id===message.id),'returning access cannot resurrect an obsolete notice')
+ person=(await state()).staff.find(v=>v.id===dee.id)
+ await cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,active:false,role:person.role,site:person.site})
+ await state(dee.cookie,403)
+ await cmd('staff.save',{...pin((await state()).staff.find(v=>v.id===dee.id)),name:person.name,email:person.email,payrollId:person.payrollId,active:true,role:person.role,site:person.site})
+ assert.deepEqual(await read(dee),[],'reactivation cannot restore old native notice purposes')
+ const all=await stored();assert.equal(new Set(all.map(n=>n.id)).size,all.length)
+ const safe=JSON.stringify([all,await read(alex),await read(manager)])
+ for(const privateText of ['Private swap explanation','Private reply','Private decision','Private medical reason','Private cover reply','Private staffing details','Corrected private staffing details','Private conversation title','Private conversation content','Private departure reason'])assert.ok(!safe.includes(privateText),privateText)
+ assert.deepEqual((await state()).batches,noPayrollChange.batches)
+ assert.deepEqual((await state()).timesheets,noPayrollChange.times)
 }
