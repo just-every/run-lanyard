@@ -72,7 +72,7 @@
     if (board.getAttribute('aria-busy') === 'true') return
     board.setAttribute('aria-busy', 'true'); note.textContent = 'Updating attendance…'
     try {
-      const response = await fetch(link.href, {credentials:'same-origin', cache:'no-store'})
+      const response = await fetch(link.href, {credentials:'same-origin', cache:'no-store', signal:AbortSignal.timeout(15000)})
       if (response.redirected) { location.assign(response.url); return }
       if (!response.ok) throw new Error('Attendance unavailable')
       const result = new DOMParser().parseFromString(await response.text(), 'text/html').querySelector('#attendance')

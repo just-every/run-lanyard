@@ -317,7 +317,11 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string,earni
  // MOBILE-002 uses the same retained work-cafe boundary for desktop and phone review.
  if(a.role==='manager'){
   const home=s.staff.find(p=>p.id===a.staffId)?.site??''
-  for(const k of ['timesheets','clocks'] as const)result[k]=result[k].filter((r:any)=>siteOf(s,r)===home)
+  for(const k of ['timesheets','leave','patterns','availability'] as const)result[k]=result[k].filter((r:any)=>siteOf(s,r)===home)
+  result.swaps=result.swaps.filter((r:any)=>r.give.site===home&&(!r.take||r.take.site===home))
+  result.openshifts=result.openshifts.filter((r:any)=>r.site===home)
+  result.pickups=result.pickups.filter((r:any)=>s.openshifts.some(o=>o.id===r.openShiftId&&o.site===home))
+  result.clocks=result.clocks.filter((r:any)=>siteOf(s,s.shifts.find(x=>x.id===r.shiftId)??r)===home)
  }
  // TIME-009: managers see each waiting timesheet's approval review.
  if(manages)result.timesheets=result.timesheets.map((t:any)=>t.status==='submitted'?{...t,review:review(s,t)}:t)

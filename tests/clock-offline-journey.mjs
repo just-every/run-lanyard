@@ -184,6 +184,10 @@ export async function mobileJourney() {
   const sheets=[]
   for(const p of [alex,cy,dee,eve,foreign])sheets.push(await h.cmd('time.prepare',{staffId:p.id,start:'2026-10-26T14:00:00Z',end:'2026-10-26T16:00:00Z',breakMinutes:0,reason:'Recorded opening work'}))
   const [clean,edit,bulk,stale,foreignTime]=sheets
+  await h.cmd('availability.policy',{requireApproval:true})
+  const pickup=await h.cmd('openshift.post',{site:'Ocean Beach',position:'Counter',start:'2026-10-30T17:00:00Z',end:'2026-10-30T20:00:00Z',breakMinutes:0,approval:'manager'})
+  const foreignLeave=await h.cmd('leave.request',{start:'2026-10-31T00:00:00Z',end:'2026-11-01T00:00:00Z',reason:'Foreign private request'},foreign.cookie)
+  const foreignPattern=await h.cmd('pattern.save',{from:'2026-11-02',blocks:'Mon available 00:00-24:00'},foreign.cookie)
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
   context=await browser.newContext({viewport:{width:390,height:1000}})
   let holdEdit,releaseEdit,dropEdit=false,editRequests=0
@@ -200,7 +204,7 @@ export async function mobileJourney() {
   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message))
   const sign=async p=>{await context.clearCookies();const [name,...value]=p.cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])}
   const open=async path=>{await page.goto(h.origin+path,{waitUntil:'networkidle'});await page.clock.setFixedTime(new Date(now))}
-  const saved=async()=>{await page.locator('.notice[role=status]').filter({hasText:'Saved.'}).waitFor();assert.equal(await page.locator('.notice').evaluate(n=>n===document.activeElement),true)}
+  const saved=async()=>{await page.locator('.notice[role=status]').filter({hasText:'Saved.'}).waitFor();await page.waitForFunction(()=>document.querySelector('.notice[role=status]')===document.activeElement)}
   const screens=async label=>{
    if(!process.env.MOBILE_SCREENS)return
    await mkdir(process.env.MOBILE_SCREENS,{recursive:true})
@@ -208,6 +212,7 @@ export async function mobileJourney() {
    await page.setViewportSize({width:390,height:1000})
   }
   await sign(alex);await open('/app/schedule?week=2026-10-26&day=wed')
+  assert.ok((await page.locator('#team-view').innerText()).includes(alex.name));assert.ok(!(await page.locator('#team-view').innerText()).includes(foreign.name))
   await page.keyboard.press('Tab');assert.equal(await page.getByRole('link',{name:'Skip to content'}).evaluate(n=>n===document.activeElement),true)
   await page.keyboard.press('Enter');assert.equal(await page.locator('#main').evaluate(n=>n===document.activeElement),true)
   await page.getByText('Swap one of your shifts',{exact:true}).click()
@@ -220,9 +225,34 @@ export async function mobileJourney() {
   await screens('employee-unsent')
   await context.setOffline(false);await propose.getByRole('button',{name:'Propose swap'}).click();await saved()
   await sign(ben);await open('/app/schedule?week=2026-10-26&day=wed');await page.getByRole('button',{name:'Agree',exact:true}).click();await saved()
+  await page.getByText('Set a weekly pattern',{exact:true}).click()
+  const patternForm=page.locator('form[action*="name=pattern.save"]')
+  await patternForm.getByLabel('Starts on',{exact:true}).fill('2026-11-02');await patternForm.getByLabel('Weekly blocks, one per line').fill('Mon available 09:00-17:00')
+  await patternForm.getByRole('button',{name:'Save pattern'}).click();await saved()
+  assert.equal((await h.state(ben.cookie)).patterns[0].status,'pending')
+  await page.getByText('Request time off',{exact:true}).first().click()
+  const leaveForm=page.locator('form[action*="name=leave.request"]')
+  await leaveForm.getByLabel('Time off starts').fill('2026-10-31T00:00');await leaveForm.getByLabel('Time off ends').fill('2026-11-01T00:00');await leaveForm.getByLabel('Reason',{exact:true}).fill('Family day')
+  await leaveForm.getByRole('button',{name:'Request time off',exact:true}).click();await saved()
+  await page.locator('#open-shifts').getByRole('button',{name:'Request',exact:true}).click();await saved()
+  assert.equal((await h.state(ben.cookie)).pickups[0].status,'requested')
   await sign(manager);await open('/app/schedule?week=2026-10-26&day=wed')
   await page.getByRole('button',{name:'Approve swap',exact:true}).click();await saved()
   assert.equal((await h.state()).swaps[0].status,'approved')
+  const decide=async(command,id)=>{const form=page.locator(`form[action*="name=${command}"]`).filter({has:page.locator(`input[name=id][value="${id}"]`)});await form.getByRole('button',{name:'Approve',exact:true}).click();await saved()}
+  const pending=await h.state(ben.cookie)
+  await decide('leave.decide',pending.leave[0].id)
+  await decide('pattern.decide',pending.patterns[0].id)
+  await page.locator('form[action*="name=openshift.approve"]').getByRole('button',{name:`Approve ${ben.name}`,exact:true}).click();await saved()
+  const decisions=await h.state(ben.cookie)
+  assert.equal(decisions.leave[0].status,'approved');assert.equal(decisions.patterns[0].status,'approved');assert.equal(decisions.pickups[0].status,'approved')
+  assert.ok(decisions.shifts.some(x=>x.openShiftId===pickup.id&&x.staffId===ben.id))
+  assert.ok(!(await page.locator('#time-off').innerText()).includes('Foreign private request'))
+  assert.ok(!(await page.locator('#availability').innerHTML()).includes(foreignPattern.id))
+  const beforeForeign=await h.state()
+  await h.cmd('leave.decide',{...pin(foreignLeave),decision:'approved'},manager.cookie,403)
+  await h.cmd('pattern.decide',{...pin(foreignPattern),decision:'approved'},manager.cookie,403)
+  assert.equal((await h.state()).version,beforeForeign.version)
   await sign(ben);await open('/app/schedule?week=2026-10-26&day=wed')
   const shift=page.locator('.wk-cell[data-day=wed] details.shift').first()
   await shift.locator('summary').click();await shift.getByText('Confirmed ✓',{exact:true}).waitFor()
@@ -237,6 +267,10 @@ export async function mobileJourney() {
   for(const [name,input] of [['time.approve',pin(foreignTime)],['time.edit',{...pin(foreignTime),start:foreignTime.start,end:foreignTime.end,breakMinutes:0,reason:'Outside scope'}],['time.prepare',{staffId:foreign.id,start:'2026-10-27T14:00:00Z',end:'2026-10-27T16:00:00Z',breakMinutes:0,reason:'Outside scope'}]])await h.cmd(name,input,manager.cookie,403)
   assert.equal((await h.state()).version,foreignBefore.version)
   const beforeRefresh=await h.state()
+  await context.setOffline(true);await page.getByRole('link',{name:'Refresh attendance',exact:true}).click()
+  await page.locator('[data-attendance-status]').filter({hasText:'Attendance could not be updated.'}).waitFor()
+  await page.locator('#attendance li').filter({hasText:ben.name}).filter({hasText:'Late'}).waitFor()
+  await context.setOffline(false)
   await sign(ben)
   const employee=await context.newPage();await employee.goto(h.origin+'/app/time?week=2026-10-26',{waitUntil:'networkidle'});await employee.clock.setFixedTime(new Date(now))
   await employee.getByRole('button',{name:'Clock in',exact:true}).click()
@@ -288,6 +322,28 @@ export async function mobileJourney() {
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
   const account=page.locator('summary[aria-label=Account]');await account.focus();await page.getByRole('tooltip',{name:'Account menu'}).waitFor()
   await page.locator('h1').click();await screens('manager-approved')
+  await sign(alex);await open('/app/time?week=2026-10-26')
+  const earnings=page.locator('#earnings tr').filter({has:page.getByRole('rowheader',{name:'Regular (approved)',exact:true})})
+  assert.equal(Number.parseFloat(await earnings.locator('td').first().innerText()),2)
+  assert.ok(!(await page.locator('#main').innerHTML()).includes(foreignTime.id))
+  await sign(ben);await open('/app/schedule?week=2026-10-26&day=2026-10-30')
+  const friday=page.locator('.wk-cell[data-day=fri] details.shift').first()
+  await friday.locator('summary').click();await friday.getByLabel('Note for your manager (optional)').fill('Need a replacement')
+  await friday.getByRole('button',{name:'I can’t make this shift',exact:true}).click();await saved()
+  await sign(alex);await open('/app/schedule?week=2026-10-26&day=2026-10-30')
+  await page.getByRole('button',{name:'Accept',exact:true}).click();await saved()
+  const offer=(await h.send('/api/lanyard/state',undefined,alex.cookie,{'x-test-now':String(Date.parse(now))})).value.offers.find(o=>o.status==='accepted')
+  assert.ok(offer,JSON.stringify((await h.state(alex.cookie)).offers.map(o=>({id:o.id,status:o.status}))))
+  await sign(manager);await open(`/app/schedule?week=2026-10-26&day=2026-10-30&cover=${offer.shiftId}`)
+  await page.locator('form[action*="name=cover.approve"]').getByRole('button',{name:`Approve ${alex.name}`,exact:true}).click();await saved()
+  assert.equal((await h.state(alex.cookie)).shifts.find(x=>x.id===offer.shiftId).staffId,alex.id)
+  // A later home-cafe move does not move the cafe retained on worked time.
+  await h.cmd('staff.save',{id:foreign.id,revision:2,name:foreign.name,email:foreign.email,payrollId:foreign.payrollId,role:foreign.role,active:true,site:'Ocean Beach',position:'Counter'})
+  await open('/app/time?week=2026-10-26')
+  assert.ok(!(await page.locator('#main').innerHTML()).includes(foreignTime.id))
+  const retainedBefore=await h.state()
+  await h.cmd('time.approve',pin(foreignTime),manager.cookie,403)
+  assert.equal((await h.state()).version,retainedBefore.version)
   assert.deepEqual(errors,[])
  }finally{await context?.close();await browser.close();await h.close()}
 }

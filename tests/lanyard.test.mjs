@@ -293,6 +293,7 @@ test('LEAVE-002: a holiday blackout refuses requests, a two-server limit routes 
   const priya = await h.person('Priya', 'manager'), servers = [], eve = await h.person('Eve')
   for (const n of ['Ana', 'Ben', 'Cal', 'Dee']) { const p = await h.person(n); await place(p, 'Server'); servers.push(p) }
   await place(eve, 'Barista')
+  await place(priya, 'Manager')
   const [ana, ben, cal, dee] = servers
   // Dates 40 and 47 days out, 5 am – 1 pm venue time, so the test never ages out.
   const date = days => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10), day = date(40), holiday = date(47)
@@ -344,7 +345,7 @@ test('LEAVE-002: a holiday blackout refuses requests, a two-server limit routes 
 test('SCHEDULE-005: a manager prints cafe and employee PDFs stamped with the revision, opens the wall display, and a later change moves the wall and marks both copies superseded; pay and leave reasons never print', () => run(async h => {
   const place = (p, position, site) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position, site, hourlyRate: '21.75' })
   const alex = await h.person('Alex'), sam = await h.person('Sam'), lee = await h.person('Lee'), priya = await h.person('Priya', 'manager')
-  await place(alex, 'Barista', 'Ocean Beach'); await place(sam, 'Kitchen', 'Ocean Beach'); await place(lee, 'Barista', 'North Park')
+  await place(alex, 'Barista', 'Ocean Beach'); await place(sam, 'Kitchen', 'Ocean Beach'); await place(lee, 'Barista', 'North Park'); await place(priya, 'Manager', 'Ocean Beach')
   for (const p of [alex, sam, lee]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-12T07:00:00Z', end: '2026-10-19T07:00:00Z' })
   const leave = await h.cmd('leave.request', { start: '2026-10-18T15:00:00Z', end: '2026-10-18T20:00:00Z', reason: 'Dentist appointment' }, alex.cookie)
   await h.cmd('leave.decide', { id: leave.id, revision: 1, decision: 'approved' }, priya.cookie)
@@ -695,6 +696,7 @@ test('AVAIL-001: a staff weekly pattern waits for approval, lists the published 
   const place = p => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site: 'Ocean Beach' })
   const alex = await h.person('Alex'), ben = await h.person('Ben'), cara = await h.person('Cara'), priya = await h.person('Priya', 'manager')
   for (const p of [alex, ben, cara]) await place(p)
+  await h.cmd('staff.save', { id: priya.id, revision: priya.revision, name: priya.name, email: priya.email, payrollId: priya.payrollId, role: priya.role, active: true, position: 'Manager', site: 'Ocean Beach' })
   for (const p of [ben, cara]) await h.cmd('availability.save', { staffId: p.id, start: '2027-05-30T07:00:00Z', end: '2027-06-14T07:00:00Z' })
   // The old pattern (entered by a manager, so effective at once): every day 6 am – 10 pm from May 1, 2027.
   await h.cmd('pattern.save', { staffId: alex.id, from: '2027-05-01', blocks: 'Mon available 06:00-22:00\nTue available 06:00-22:00\nWed available 06:00-22:00\nThu available 06:00-22:00\nFri available 06:00-22:00\nSat available 06:00-22:00\nSun available 06:00-22:00' }, priya.cookie)
@@ -776,7 +778,8 @@ test('EARN-001: an employee reconciles their week’s scheduled, regular, overti
 }))
 
 test('TIME-005: quarter-hour rounding at one cafe and a 7-minute snap at another pay rounded time beside captured punches, report net minutes, refuse a round-down rule and never alter approved history', () => run(async h => {
-  const alex = await h.person('Alex'), sam = await h.person('Sam'), priya = await h.person('Priya', 'manager')
+  const alex = await h.person('Alex'), sam = await h.person('Sam'), priya = await h.person('Priya', 'manager'), nora = await h.person('Nora', 'manager')
+  for (const [p, site] of [[priya, 'Ocean Beach'], [nora, 'Noe Valley']]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, site })
   for (const [p, site] of [[alex, 'Ocean Beach'], [sam, 'Noe Valley']]) {
     await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, site })
     await h.cmd('availability.save', { start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' }, p.cookie)
@@ -798,12 +801,14 @@ test('TIME-005: quarter-hour rounding at one cafe and a 7-minute snap at another
   const a = await sheets(alex), b = await sheets(sam)
   assert.deepEqual(a.map(t => [t.start.slice(11, 16), t.payable.start.slice(11, 16), t.rounding.capturedMinutes, t.minutes]), [['15:52', '15:45', 488, 495], ['15:58', '16:00', 482, 480], ['16:04', '16:00', 476, 480], ['16:09', '16:15', 471, 465]])
   assert.deepEqual(b.map(t => [t.payable, t.minutes]), [[undefined, 488], [undefined, 482], [undefined, 476], [undefined, 471]])
-  const before = (await h.send('/app/time?week=2026-10-12&site=all', undefined, priya.cookie)).text
+  const beforeA = (await h.send('/app/time?week=2026-10-12&site=all', undefined, priya.cookie)).text, beforeB = (await h.send('/app/time?week=2026-10-12&site=all', undefined, nora.cookie)).text
+  assert.ok(beforeA.includes(a[0].id) && !beforeA.includes(b[0].id)); assert.ok(beforeB.includes(b[0].id) && !beforeB.includes(a[0].id))
+  const before = beforeA + beforeB
   assert.ok(before.includes('Paid 8:45 am – 5:00 pm (+7 min)') && before.includes('Rounded at approval'))
   for (const t of [...a, ...b]) await h.cmd('time.approve', { id: t.id, revision: t.revision })
   const approvedA = await sheets(alex), approvedB = await sheets(sam)
   assert.deepEqual(approvedB.map(t => [t.payable.start.slice(11, 16), t.minutes, t.status]), [['15:52', 488, 'approved'], ['15:58', 482, 'approved'], ['16:00', 480, 'approved'], ['16:09', 471, 'approved']])
-  const report = (await h.send('/app/time?week=2026-10-12&site=all', undefined, priya.cookie)).text
+  const report = (await h.send('/app/time?week=2026-10-12&site=all', undefined, priya.cookie)).text + (await h.send('/app/time?week=2026-10-12&site=all', undefined, nora.cookie)).text
   assert.ok(report.includes('Alex</th><td class="num">+3 min') && report.includes('Sam</th><td class="num">+4 min'), 'period neutrality report')
   const own = (await h.send('/app/time?week=2026-10-12', undefined, alex.cookie)).text
   assert.ok(own.includes('9:09 am – 5:00 pm') && own.includes('Paid 9:15 am – 5:00 pm (−6 min)'), 'the employee sees captured and paid time')
@@ -1223,7 +1228,7 @@ test('TIME-004: the owner defines a pay period, employees and a manager sign off
 
 test('TIME-009: the approval review shows scheduled, captured and payable times, variance, breaks, network, job, cost and the running week; filtering to exceptions lists the early, missed-meal and off-network rows; an edit keeps the captured facts and a send-back returns to the employee', () => run(async h => {
   const ana = await h.person('Ana'), ben = await h.person('Ben'), cy = await h.person('Cy'), dee = await h.person('Dee'), priya = await h.person('Priya', 'manager')
-  for (const p of [ana, ben, cy, dee]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: 'staff', active: true, position: 'Barista', site: 'Ocean Beach', hourlyRate: '19.00' })
+  for (const p of [ana, ben, cy, dee, priya]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site: 'Ocean Beach', hourlyRate: '19.00' })
   await h.cmd('clockrule.save', { site: 'Ocean Beach', position: '', early: 'flag', earlyMinutes: 10, unscheduled: 'allow' })
   await h.cmd('mealrule.save', { site: 'Ocean Beach', afterMinutes: 360, deductMinutes: 30, enabled: true })
   await h.cmd('clocknet.save', { site: 'Ocean Beach', mode: 'flag', ranges: '203.0.113.0/24' })
@@ -1494,6 +1499,8 @@ test('DASH-001: a live Thursday with a late arrival, an open shift, three pendin
   const [alex, ben, dee, eve, mo] = [await h.person('Alex'), await h.person('Ben'), await h.person('Dee'), await h.person('Eve'), await h.person('Mo')], priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager')
   for (const p of [alex, ben, dee, eve, mo, priya, omar]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: p.role === 'staff' ? 'Barista' : 'Manager', site: p === mo || p === omar ? 'Mission' : 'Ocean Beach', hourlyRate: '20.00' })
   // Week of Mon Oct 5, 2026 read as of Thu Oct 8, 8:30 am PDT.
+  const riley = await h.person('Riley', 'manager')
+  await h.cmd('staff.save', { id: riley.id, revision: riley.revision, name: riley.name, email: riley.email, payrollId: riley.payrollId, role: riley.role, active: true, position: 'Manager', site: 'Ocean Beach' })
   const oct = (d, hh, mm = 0) => new Date(Date.UTC(2026, 9, 5 + d, hh, mm)).toISOString().replace('.000Z', 'Z'), asOf = oct(3, 15, 30), W = '2026-10-05'
   for (const p of [alex, ben, dee, eve, mo]) await h.cmd('availability.save', { staffId: p.id, start: oct(0, 7), end: oct(7, 7) })
   await h.cmd('attendrule.save', { site: 'Ocean Beach', graceMinutes: 10, noShowMinutes: 30 })
@@ -1506,7 +1513,7 @@ test('DASH-001: a live Thursday with a late arrival, an open shift, three pendin
   const template = await h.cmd('template.save', { name: 'Open Friday', week: '2027-08-09' }, priya.cookie)
   const draft = await h.cmd('template.apply', { id: template.id, week: W, days: [4] }, priya.cookie)
   await h.cmd('roster.publish', { id: draft.id, revision: draft.revision }, priya.cookie)
-  for (const d of [0, 1, 2]) { const t = await h.cmd('time.prepare', { staffId: alex.id, start: oct(d, 16), end: oct(d, 25), breakMinutes: 0, reason: 'Paper sheet' }, priya.cookie); await h.cmd('time.approve', { id: t.id, revision: t.revision }, omar.cookie) }
+  for (const d of [0, 1, 2]) { const t = await h.cmd('time.prepare', { staffId: alex.id, start: oct(d, 16), end: oct(d, 25), breakMinutes: 0, reason: 'Paper sheet' }, priya.cookie); await h.cmd('time.approve', { id: t.id, revision: t.revision }, riley.cookie) }
   // Dee misses her Wednesday clock-out and corrects it; Ben clocks in 20 minutes late.
   await h.cmd('clock.in', { commandId: 'dee-in', capturedAt: oct(2, 15) }, dee.cookie)
   const punch = (await h.state(dee.cookie)).clocks[0]

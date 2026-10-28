@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "635a06938b4ebd17af0ff8b9cf03aeaf113af9627550bfe07e1d1bf829b49f46",
+      "sha256": "fe689880b8fd47b572299f9cb2b0f5dafa412a7b745fba92e7eeb13de8a844dd",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "a1136cb04e74fcd091ffea82765795a269f8a8a27c1c5b997cfedc456d2e3e56",
+      "sha256": "acd6005900e58c66736dc4b8d27a92547ed5b54ba79c0eaa2345a91e39a14b97",
       "executable": false
     },
     "DEMO.md": {
@@ -742,7 +742,7 @@
       "executable": false
     },
     "public/mobile-workflows.js": {
-      "sha256": "17c3805d8c058e9f1af92d676210adbd3c377aaa6c5e20b88ce55c72d60b0532",
+      "sha256": "84e55d362ffae5a3087b78a7456461004c03659110d5faab6fbde9360f12a086",
       "executable": false
     },
     "public/punch-location.js": {
@@ -1286,7 +1286,7 @@
       "executable": false
     },
     "src/lanyard/domain/access.ts": {
-      "sha256": "7827715e734bac2fb6f417c7ec0b68fbc47c8ad2782a2cfac499389ed9832a6b",
+      "sha256": "418c9731a7eac4a8a846c32c04055e1ea0e3b45ce7cec11c5ff3fe02b8c69633",
       "executable": false
     },
     "src/lanyard/domain/activity.ts": {
@@ -1438,7 +1438,7 @@
       "executable": false
     },
     "src/lanyard/domain/index.ts": {
-      "sha256": "2f0ed6d48816ff7fe0fe2b8b8f9cc010124100f60e6de4e164e1d434aa83d307",
+      "sha256": "a01b05aa2c0cec8cb6e7892823e8b716dd846bcce6f65c989d9b9b6a02c9d32d",
       "executable": false
     },
     "src/lanyard/domain/intervals.ts": {
@@ -1742,7 +1742,7 @@
       "executable": false
     },
     "src/lanyard/domain/time.ts": {
-      "sha256": "fa0704019b4c192bfde534f798bd7efac1cb999f942b41ae9346038f053c9b45",
+      "sha256": "3ab12b8ef29d9f54e6249ed054b3181352336ded36765dadea1a67da4b9d7b72",
       "executable": false
     },
     "src/lanyard/domain/tipcredit.ts": {
@@ -4014,7 +4014,7 @@
       "executable": false
     },
     "tests/clock-offline-journey.mjs": {
-      "sha256": "5f629cb379d2d3a82c0275113b5201ccd8def7fe72154eaefbc67938679b1404",
+      "sha256": "2e5b176ec681e7f2d6d30cedf1c0af610262b31aae168caf5c738c390a45d260",
       "executable": false
     },
     "tests/comparison-scope-journey.mjs": {
@@ -4102,7 +4102,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "b48c7b8200d316e9756b8384fb9028cb6015ad073ae6834a933a8030fc1d1946",
+      "sha256": "32c63dbe23b1b6084bf58a7bbf14b4eae9599e2c1506bd4efaa9c2cc16575d40",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {

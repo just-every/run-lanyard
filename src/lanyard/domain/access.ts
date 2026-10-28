@@ -99,13 +99,13 @@ function sitesFor(s:State,name:string,p:Record<string,any>):string[]{
  if(name==='payroll.prepare'){const ts=s.timesheets.filter(x=>p.ids?.includes(x.id)||!p.ids);return [...new Set(ts.map(x=>siteOf(s,x)))]}
  if(name.startsWith('payroll.')){const b=s.batches.find(x=>x.id===p.id);return [...new Set((b?.lines??[]).map((x:any)=>siteOf(s,x)))] as string[]}
  if(name==='time.approveMany')return [...new Set((p.items??[]).map((x:any)=>siteOf(s,s.timesheets.find(t=>t.id===x.id)??{})))] as string[]
- const row=s.timesheets.find(x=>x.id===p.id)??s.leave.find(x=>x.id===p.id)??{staffId:p.staffId};return [...new Set([siteOf(s,row),...(p.site?[String(p.site)]:[]),...(p.corrects?[siteOf(s,s.timesheets.find(t=>t.id===p.corrects)??{})]:[])])]
+ const row=s.timesheets.find(x=>x.id===p.id)??s.leave.find(x=>x.id===p.id)??s.patterns.find(x=>x.id===p.id)??{staffId:p.staffId};return [...new Set([siteOf(s,row),...(p.site?[String(p.site)]:[]),...(p.corrects?[siteOf(s,s.timesheets.find(t=>t.id===p.corrects)??{})]:[])])]
 }
-/** Restricted delegates enter only implemented public doors. Unknown administrative commands deny. */
+/** Native managers review their home cafe; delegates enter only doors their current grants allow. */
 export function authorizeCommand(c:Context,name:string,p:Record<string,any>){
- if(c.a.role==='manager'&&!restricted(c.s,c.a)&&['time.prepare','time.approve','time.edit','time.return','time.resolve'].includes(name)){
-  const sites=sitesFor(c.s,name,p)
-  need(sites.length&&sites.every(site=>allowed(c.s,c.a,commandPermissions[name],site)),'Only a manager of this cafe can review time',403)
+ if(c.a.role==='manager'&&!restricted(c.s,c.a)&&['time.prepare','time.approve','time.edit','time.return','time.resolve','leave.decide','pattern.decide'].includes(name)){
+  const sites=sitesFor(c.s,name,p),home=c.s.staff.find(person=>person.id===c.a.staffId)?.site??''
+  need(sites.length&&sites.every(site=>site===home),'Only a manager of this cafe can review this record',403)
  }
  if(!restricted(c.s,c.a)||name.startsWith('access.')||name.startsWith('chat.'))return
  if(personal.has(name)){if(p.staffId)need(p.staffId===c.a.staffId,'Only your own record',403);c.a={...c.a,nativeRole:c.a.role,role:'staff'};return}

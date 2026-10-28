@@ -125,7 +125,7 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   if(old){need(old.staffId===staffId,'Correction must keep the same staff');need(old.status==='approved','Correct the latest approved time',409);need(!c.s.timesheets.some(t=>t.corrects===old.id),'A correction already exists for this revision',409)}
   clearOverlap(c,staffId,w,old?.rootId)
   // BREAK-001: entered time is checked by its meal minutes; rest breaks are unknown without timed breaks.
-  const site=p.site===undefined?old?.site??'':text(p.site,'site',80,true),plan=old?.segmentPlan??segmentPlan(c.s,staffId,w)
+  const site=(p.site===undefined?'':text(p.site,'site',80,true))||siteOf(c.s,old??{staffId}),plan=old?.segmentPlan??segmentPlan(c.s,staffId,w)
   const r=put(c,'timesheets',{job:p.job===undefined?old?.job??'':text(p.job,'job',80,true),site,staffId,...w,segmentPlan:plan,reason,corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,...breakOutcome(checkBreaks(c.s,staffId,null,w),{exceptions:minorTime(c.s,{staffId,...w,site,segmentPlan:plan,corrects:old?.id,rootId:old?.rootId})})});if(!old)r.rootId=r.id
   return {...r,approvalRequired:'time.approve',approval:{id:r.id,revision:r.revision}}
  }
@@ -145,7 +145,7 @@ export function time(c:Context,name:string,p:Record<string,any>) {
   const old=p.corrects?get(c.s,'timesheets',p.corrects):undefined
   if(old){need(old.staffId===staffId,'Only your own time',403);need(old.status==='approved','Correct the latest approved time',409);need(!c.s.timesheets.some(t=>t.corrects===old.id),'A correction already exists for this revision',409)}
   clearOverlap(c,staffId,w,old?.rootId)
-  const site=old?.site??'',plan=old?.segmentPlan??segmentPlan(c.s,staffId,w)
+  const site=siteOf(c.s,old??{staffId}),plan=old?.segmentPlan??segmentPlan(c.s,staffId,w)
   const r=put(c,'timesheets',{staffId,site,...w,segmentPlan:plan,reason:text(p.reason,'reason',500),corrects:old?.id??null,rootId:old?.rootId??'',status:'submitted',submittedBy:c.a.id,submittedAt:c.now,requested:true,...breakOutcome(checkBreaks(c.s,staffId,null,w),{exceptions:[old?'employee correction':'missed punch',...minorTime(c.s,{staffId,...w,site,segmentPlan:plan,corrects:old?.id,rootId:old?.rootId})]}),...attestation(c,staffId,p.attest,true)});if(!old)r.rootId=r.id
   return r
  }
