@@ -1,4 +1,4 @@
-import {approvedTipPools} from './tip-pools'
+import {approvedTipPools,tipPoolCurrent} from './tip-pools'
 // Operational reads use current source revisions and never imply provider settlement.
 import {type Actor,type State,manager,need,instant} from './model'
 import {date,dayAfter,mayReadPerson} from './aca'
@@ -56,7 +56,7 @@ export function operationalReport(s:State,a:Actor,q:URLSearchParams,now:string) 
    add(row('tips',time,t.date,{sourceId:t.sourceId,revision:t.revision,amountCents:t.cents,status:'declared',detail:'Declared at clock-out; not an approved pool allocation.'}))
   }
  }
- for(const pool of approvedTipPools(s))for(const a of pool.allocations)add(row('tips',{...pool,staffId:a.staffId,job:a.job},pool.date,{status:'pool approved',amountCents:a.cents,detail:JSON.stringify({label:'Owner-approved native pool allocation; employer-reviewed eligibility, no POS or provider readback.',poolId:pool.id,rootId:pool.rootId,corrects:pool.corrects,totalCents:pool.participants.every((id:string)=>mayReadPerson(s,a,id))?pool.totalCents:null,minutes:a.minutes,approvedAt:pool.approvedAt,sources:pool.sources.filter((v:any)=>v.staffId===a.staffId&&v.job===a.job).map((v:any)=>({id:v.timeId,revision:v.revision,minutes:v.minutes}))})}))
+ for(const pool of approvedTipPools(s))for(const a of pool.allocations)add(row('tips',{...pool,staffId:a.staffId,job:a.job},pool.date,{status:'pool approved',amountCents:a.cents,incomplete:!tipPoolCurrent(s,pool),detail:JSON.stringify({label:tipPoolCurrent(s,pool)?'Owner-approved native pool allocation; employer-reviewed eligibility, no POS or provider readback.':'Approved pool sources changed; fresh owner review required. Amount is the last approved allocation.',poolId:pool.id,rootId:pool.rootId,corrects:pool.corrects,totalCents:pool.participants.every((id:string)=>mayReadPerson(s,a,id))?pool.totalCents:null,minutes:a.minutes,approvedAt:pool.approvedAt,sources:pool.sources.filter((v:any)=>v.staffId===a.staffId&&v.job===a.job).map((v:any)=>({id:v.timeId,revision:v.revision,minutes:v.minutes}))})}))
  // Existing payroll inputs and paid-leave purposes are owner-only. Reports keep that boundary.
  if(a.role==='owner') {
   for(const r of s.payinputs.filter(r=>!r.tipPoolId))add(row(r.kind==='tips'?'tips':'PTO',r,r.date,{status:'employer approved',minutes:r.minutes,amountCents:r.amountCents,detail:'Employer-approved source; no provider readback.'}))

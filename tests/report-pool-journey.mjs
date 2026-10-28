@@ -83,14 +83,18 @@ export async function reportsPoolApi(){
   const beforePending=await records();await h.cmd('tip.pool.approve',{...pin(pending),consent:true},h.owner,409);assert.equal(await records(),beforePending)
   await h.cmd('time.approve',pin(preparedTime))
   const beforeStale=await records();await h.cmd('tip.pool.approve',{...pin(pending),consent:true},h.owner,409);assert.equal(await records(),beforeStale,'Changed time refuses the old exact allocation without writes')
-  const staleBatch=await h.cmd('payroll.prepare',{templateId:template.id})
+  const changedWork=await read()
+  assert.ok(changedWork.rows.filter(r=>r.status==='pool approved').every(r=>r.incomplete),'Changed approved work marks retained pool allocations incomplete')
+  const reviewState=(await h.send('/api/lanyard/state?week='+day,undefined,people[0].cookie)).value
+  assert.equal(reviewState.ownEarnings.tips.reviewRequired,true);assert.equal(reviewState.ownEarnings.estimateCents,null)
+  assert.ok((await h.state()).tipChecks.every(r=>r.poolReviewRequired&&r.makeUpCents===null))
+  const beforeRefusedPayroll=await records()
+  await h.cmd('payroll.prepare',{templateId:template.id},h.owner,409);assert.equal(await records(),beforeRefusedPayroll)
   const refreshed=await h.cmd('tip.pool.prepare',correctionInput),corrected=await h.cmd('tip.pool.approve',{...pin(refreshed),consent:true})
   const current=await read();assert.equal(current.rows.some(r=>r.sourceId===approved.id),false)
   assert.equal(current.totals.find(r=>r.kind==='tips').knownAmountCents,1300)
   assert.deepEqual(people.map(p=>current.rows.find(r=>r.status==='pool approved'&&r.staffId===p.id).amountCents),[260,260,780])
   assert.ok(current.rows.filter(r=>r.status==='pool approved').every(r=>r.sourceId===corrected.id))
-  const beforeStaleExport=await records()
-  await h.cmd('payroll.export',pin(staleBatch),h.owner,409);assert.equal(await records(),beforeStaleExport,'A pool correction invalidates an earlier payroll review without claims or money changes')
   const delta=await h.cmd('payroll.prepare',{templateId:template.id})
   assert.deepEqual(people.map(p=>delta.lines.find(l=>l.payInputId&&l.staffId===p.id).costCents),[93,-74,280])
   assert.equal(delta.lines.filter(l=>l.payInputId).reduce((n,l)=>n+l.costCents,0),299,'A pool correction exports only the signed difference')
@@ -114,6 +118,7 @@ export async function reportsPoolApi(){
   await h.cmd('staff.save',{...pin(person),name:manager.name,email:manager.email,payrollId:manager.payrollId,role:'manager',active:false,site:'East'})
   assert.equal((await h.send('/api/lanyard/reports.csv?'+new URLSearchParams({site:'East',kind:'tips',from:day,through:day}),undefined,manager.cookie)).status,403)
  }finally{await h.close()}
+ await poolPayrollReview()
 }
 
 export async function reportsPoolBrowser(browser){
@@ -121,6 +126,7 @@ export async function reportsPoolBrowser(browser){
  try{
   const f=await poolFixture(h),{people,day,input}=f
   const draft=await h.cmd('tip.pool.prepare',input),approved=await h.cmd('tip.pool.approve',{...pin(draft),consent:true})
+  await h.cmd('tipcredit.save',{site:'East',state:'TX',minimumWage:'10.00',from:day,tippedJobs:[f.job.id]})
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
   const context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse('2026-10-26T12:00:00Z'))}})
   try{
@@ -185,12 +191,49 @@ export async function reportsPoolBrowser(browser){
    assert.equal((await h.send(allLink,undefined,h.owner)).text,(await h.send('/api/lanyard/reports.csv?'+allQuery,undefined,h.owner)).text)
    assert.equal((await h.send('/api/lanyard/reports?'+allQuery,undefined,f.manager.cookie)).status,404)
    await proof('owner-two-location-report')
+   await page.goto(h.origin+'/app/payroll#tip-credit',{waitUntil:'networkidle'})
+   assert.deepEqual(await page.locator('.tip-checks [data-label="Approved pools"]').allTextContents(),['$2.17','$4.33','$6.50'])
+   assert.deepEqual(await page.locator('.tip-checks [data-label="Declared tips"]').allTextContents(),['$0.00','$0.00','$0.00'])
+   await proof('pool-make-up-check')
    await signIn(people[0].cookie);await page.goto(h.origin+'/app/time?week='+day,{waitUntil:'networkidle'})
    const earnings=page.locator('#earnings')
    assert.match(await earnings.getByRole('row').filter({hasText:'Tip pool allocation (approved)'}).innerText(),/\$2\.17/)
    assert.ok(!(await earnings.innerText()).includes(people[1].name))
    await proof('employee-approved-pool')
+   const timeCorrection=await h.cmd('time.prepare',{staffId:people[0].id,site:'East',job:f.job.id,start:day+'T08:00:00Z',end:day+'T09:30:00Z',breakMinutes:0,reason:'Approved service correction',corrects:f.times[0].id})
+   await h.cmd('time.approve',pin(timeCorrection));await page.reload({waitUntil:'networkidle'})
+   assert.match(await earnings.innerText(),/owner must review a pool correction/);assert.match(await earnings.innerText(),/Tip pool allocation \(review required\)/)
+   await proof('employee-pool-review-required')
+   await signIn(h.owner);await page.goto(h.origin+'/app/reports?'+query,{waitUntil:'networkidle'})
+   assert.match(await page.locator('[data-total-kind="tips"]').innerText(),/Incomplete/);assert.match(await page.locator('[data-total-kind="tips"]').innerText(),/\$13\.00/)
+   assert.match(await page.locator(`[data-source="${corrected.id}"]`).first().innerText(),/fresh owner review required/)
+   await proof('changed-pool-sources')
+   await page.goto(h.origin+'/app/payroll#tip-credit',{waitUntil:'networkidle'})
+   assert.ok((await page.locator('.tip-checks [data-label="Make-up pay input"]').allTextContents()).every(value=>value.includes('review changed tip pool sources')))
    assert.deepEqual(errors,[])
   }finally{await context.close()}
+ }finally{await h.close()}
+}
+
+async function poolPayrollReview(){
+ const h=await harness({now:'2026-10-26T12:00:00Z'})
+ try{
+  const f=await poolFixture(h),draft=await h.cmd('tip.pool.prepare',f.input),approved=await h.cmd('tip.pool.approve',{...pin(draft),consent:true})
+  const template=await h.cmd('payroll.template.save',{approved:true,name:'Exact pool review',header:true,columns:[{field:'employee',header:'Employee'},{field:'code',header:'Earning'},{field:'minutes',header:'Minutes'},{field:'amount',header:'USD'}],groupBy:[],employees:Object.fromEntries([...f.people,f.foreign].map((p,i)=>[p.id,{id:'synthetic-lanyard-'+(130+i),workflow:'W-2'}])),codes:{regular:'REG',tips:'TIP'},jobs:{[f.job.id]:'SERVICE'},locations:{East:'EAST',West:'WEST'}})
+  const staleBatch=await h.cmd('payroll.prepare',{templateId:template.id})
+  const correction=await h.cmd('tip.pool.prepare',{...f.input,corrects:approved.id,inputs:[{...f.input.inputs[0],cents:999}]})
+  await h.cmd('tip.pool.approve',{...pin(correction),consent:true})
+  const records=async()=>JSON.stringify((await h.db.prepare('SELECT kind,id,revision,data FROM l_records ORDER BY kind,id').all()).results)
+  const beforeStaleExport=await records()
+  await h.cmd('payroll.export',pin(staleBatch),h.owner,409);assert.equal(await records(),beforeStaleExport,'A pool correction invalidates an earlier payroll review without claims or money changes')
+  assert.equal((await h.db.prepare('SELECT count(*) n FROM l_payroll_claims').first()).n,0)
+  const fresh=await h.cmd('payroll.prepare',{templateId:template.id});await h.cmd('payroll.export',pin(fresh))
+  const retired=(await h.state()).staff.find(p=>p.id===f.people[0].id)
+  await h.cmd('staff.save',{...pin(retired),name:retired.name,email:retired.email,payrollId:retired.payrollId,role:'staff',active:false,site:'East'})
+  const later=await h.cmd('time.prepare',{staffId:f.people[1].id,site:'East',job:f.job.id,start:'2026-10-13T08:00:00Z',end:'2026-10-13T09:00:00Z',breakMinutes:0,reason:'Next service after employee retirement'})
+  await h.cmd('time.approve',pin(later))
+  const next=await h.cmd('payroll.prepare',{templateId:template.id})
+  assert.equal(next.lines.some(l=>l.payInputId),false,'Settled tips never export again or block later payroll after staff deactivation')
+  assert.equal(next.lines.reduce((n,l)=>n+l.minutes,0),60);await h.cmd('payroll.export',pin(next))
  }finally{await h.close()}
 }

@@ -6,6 +6,7 @@ import {localDate} from './settings'
 import {tipPieces} from './tip-work'
 
 export const approvedTipPools=(s:State)=>s.tippools.filter(p=>p.status==='approved'&&!s.tippools.some(n=>n.status==='approved'&&n.corrects===p.id))
+export const tipPoolCurrent=(s:State,p:Row)=>p.sources.every((ref:any)=>s.timesheets.some(t=>t.id===ref.timeId&&t.status==='approved'&&t.revision===ref.revision))
 export const pooledDeclarations=(s:State)=>new Set(approvedTipPools(s).flatMap(p=>p.declarations.map((d:any)=>d.timeId)))
 const unique=(value:unknown,label:string)=>{
  need(Array.isArray(value)&&value.length>0&&value.length<=100,`Choose 1–100 ${label}`)
