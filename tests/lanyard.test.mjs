@@ -571,11 +571,18 @@ test('CLOCK-006: an owner’s break, injury, cash-tip and fit-for-duty questions
   const breaks = await ask('out', 'breaks', 'Did you take all your breaks?', '¿Tomó todos sus descansos?'), injury = await ask('out', 'injury', 'Were you injured at work today?', '¿Se lesionó hoy en el trabajo?')
   const tips = await ask('out', 'tips', 'Cash tips received', 'Propinas en efectivo', { required: false }), fit = await ask('in', 'yesno', 'Are you fit for duty?', '¿Está en condiciones de trabajar?', { flagOn: 'no' })
   const clockPage = async () => (await h.send('/app/time', undefined, alex.cookie)).text
-  assert.ok((await clockPage()).includes('Are you fit for duty? / ¿Está en condiciones de trabajar?'))
+  assert.ok((await clockPage()).includes('Are you fit for duty?'))
+  await h.cmd('clocklanguage.save',{language:'es'},alex.cookie)
+  assert.ok((await clockPage()).includes('¿Está en condiciones de trabajar?'))
+  await h.cmd('clocklanguage.save',{language:'en'},alex.cookie)
   await h.cmd('clock.in', { commandId: 'a1', capturedAt: '2026-10-06T15:00:00Z' }, alex.cookie, 400)
   await h.cmd('clock.in', { commandId: 'a2', capturedAt: '2026-10-06T15:00:00Z', answers: { [fit.id]: 'yes' } }, alex.cookie)
   const out = await clockPage()
-  for (const text of ['Did you take all your breaks? / ¿Tomó todos sus descansos?', 'Were you injured at work today? / ¿Se lesionó hoy en el trabajo?', 'Cash tips received / Propinas en efectivo ($)']) assert.ok(out.includes(text), text)
+  for (const text of ['Did you take all your breaks?', 'Were you injured at work today?', 'Cash tips received ($)']) assert.ok(out.includes(text), text)
+  await h.cmd('clocklanguage.save',{language:'es'},alex.cookie)
+  const spanishOut=await clockPage()
+  for(const text of ['¿Tomó todos sus descansos?','¿Se lesionó hoy en el trabajo?','Propinas en efectivo ($)'])assert.ok(spanishOut.includes(text),text)
+  await h.cmd('clocklanguage.save',{language:'en'},alex.cookie)
   await h.cmd('clock.out', { commandId: 'a3', capturedAt: '2026-10-06T23:00:00Z', breakMinutes: 30, answers: { [breaks.id]: 'no' } }, alex.cookie, 400)
   const { timesheet } = await h.cmd('clock.out', { commandId: 'a4', capturedAt: '2026-10-06T23:00:00Z', breakMinutes: 30, answers: { [breaks.id]: 'no', [injury.id]: 'yes', [tips.id]: '42.50' } }, alex.cookie)
   assert.deepEqual(timesheet.exceptions, ['missed break reported'])
@@ -2094,3 +2101,6 @@ test('REPORT-002: audit records reconcile retained sources, preserve unknown cov
 test('REPORT-002: native audit filters, source links and download remain usable on desktop with phone proof',async()=>{const {auditBrowser}=await import('./audit-report-journey.mjs');await auditBrowser()})
 
 test('MOBILE-001 MOBILE-002: phone shift change, offline unsent state, current attendance, reasoned edits and scoped exact-revision approvals',async()=>{const {mobileJourney}=await import('./clock-offline-journey.mjs');await mobileJourney()})
+
+test('LANG-001: native staff assignment changes and encrypted clock replay use each employee language without translating authored facts',async()=>{const {languageJourney}=await import('./language-journey.mjs');await languageJourney()})
+test('LANG-001: the inventoried staff journey refuses a build with untranslated first-party text',async()=>{const {untranslatedBuildRefusal}=await import('./language-journey.mjs');await untranslatedBuildRefusal()})

@@ -52,7 +52,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | LOG-001 | Manager logbook and shift handover log | done |
 | MOBILE-001 | Employee and manager mobile apps | partial |
 | MOBILE-002 | Manager mobile approvals and live attendance | partial |
-| LANG-001 | Spanish staff experience and notices | missing |
+| LANG-001 | Spanish staff experience and notices | partial |
 | CLOCK-001 | Shared kiosk clocks and device authority | partial |
 | CLOCK-002 | Durable offline capture and reconnect reconciliation | done |
 | CLOCK-003 | Geofenced mobile clocking with privacy controls | partial |
