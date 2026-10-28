@@ -1,12 +1,17 @@
 // Refresh contract metadata without rewriting the existing acceptance journeys.
 import {readFileSync,writeFileSync} from 'node:fs'
 import {parseContract} from '../src/base/seed-contract.mjs'
-const source=readFileSync('CONTRACT.md','utf8'),contract=parseContract(source)
+const source=readFileSync('CONTRACT.md','utf8')
+// Writing derives totals before asking the strict parser to validate them.
+// Check mode still validates the original source, including every summary row.
+const input=process.argv[2]==='write'?source.replace(/^\| (Published|Target and push further|All) \|.*$/gm,''):source
+const contract=parseContract(input)
 // Summary rows and the acceptance footer are views of the same Status source.
 // A status flip must not leave the old totals looking like an independent claim.
 const count=predicate=>contract.clauses.filter(predicate).reduce((totals,clause)=>{totals[clause.status]++;totals.total++;return totals},{done:0,partial:0,missing:0,total:0})
 const summary={Published:count(c=>c.kind==='published'),'Target and push further':count(c=>c.kind!=='published'),All:contract.counts}
 const contractView=source.replace(/^\| (Published|Target and push further|All) \|.*$/gm,(_,label)=>{const n=summary[label];return `| ${label} | ${n.done} | ${n.partial} | ${n.missing} | ${n.total} |`})
+parseContract(contractView)
 const selected=process.argv.slice(3)
 for(const id of selected)if(!contract.clauses.some(c=>c.id===id))throw Error('Unknown clause '+id)
 const rows=new Map(source.split('\n').filter(line=>/^\| `/.test(line)).map(line=>{const cells=line.slice(1,-1).split(/(?<!\\)\|/).map(v=>v.trim());return [cells[0].replaceAll('`',''),cells]}))
