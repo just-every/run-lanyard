@@ -34,7 +34,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | LEAVE-001 | PTO balances and staffing-aware time off | partial |
 | AVAIL-001 | Recurring availability preferences and approval | done |
 | LEAVE-002 | Time-off blackout dates limits and team leave calendar | done |
-| LEAVE-003 | Paid sick and safe leave jurisdiction presets | done |
+| LEAVE-003 | Paid sick and safe leave jurisdiction presets | partial |
 | MINOR-001 | Minor work-hour limits and permits | partial |
 | SCHEDULE-005 | Printable and posted schedules | done |
 | SCHEDULE-006 | Schedule change history and revision compare | done |

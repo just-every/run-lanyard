@@ -60,3 +60,7 @@ After changing CONTRACT.md, run `node scripts/contract-docs.mjs write CLAUSE-ID`
 Omit the identifiers to refresh every metadata row. Existing journey wording is
 preserved; this command synchronizes status, evidence and gaps only. Commit both generated documents with
 the contract, then regenerate the edition source lock last.
+
+For `sources.lock.json`, regenerate last with `node scripts/edition-authoring/cli.mjs lock`,
+then run `node scripts/edition-authoring/cli.mjs check`. This is the same freshness
+check used by Verify; keep the current Base selection when refreshing the lock.

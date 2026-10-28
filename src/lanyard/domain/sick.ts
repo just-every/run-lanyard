@@ -37,7 +37,8 @@ export function sickBalance(s:State,staffId:string,plan:Row,on:string,exclude?:s
  }
  const transfers=s.sicktransfers.filter(t=>t.policyId===plan.id&&t.status==='approved'&&(t.donorId===staffId||t.recipientId===staffId)).map(t=>({kind:t.donorId===staffId?'donation given':'donation received',id:t.id,revision:t.revision,date:t.date,minutes:t.minutes}))
  const events=[...transfers,...sickWork(s,staffId,plan.site),...s.sickuses.filter(u=>u.staffId===staffId&&u.policyId===plan.id&&u.status==='approved'&&u.id!==exclude).map(u=>({...u,kind:'use'}))].filter(e=>e.date<=on&&sickRule(plan,e.date)).sort((a,b)=>a.date.localeCompare(b.date)||(a.kind==='work'?-1:1)-(b.kind==='work'?-1:1)||a.id.localeCompare(b.id))
- let balance=0,annualAccrued=0,annualUsed=0,fraction=0,year=Number(plan.from.slice(0,4));const sources:any[]=[]
+ const firstRule=[...(plan.versions??[]),plan].sort((a,b)=>a.from.localeCompare(b.from))[0]
+ let balance=0,annualAccrued=0,annualUsed=0,fraction=0,year=Number(firstRule.from.slice(0,4));const sources:any[]=[]
  const carryTo=(target:number)=>{while(year<target){year++;const retained=sickRule(plan,`${year}-01-01`)??sickRule(plan,`${year-1}-12-31`),rule=retained?sickBankRule(s,staffId,plan,retained,on):undefined;if(rule&&rule.carry!==null)balance=Math.min(balance,rule.carry);annualAccrued=0;annualUsed=0;sources.push({kind:'carry',date:`${year}-01-01`,balanceMinutes:balance,presetVersion:rule?.version})}}
  for(const e of events){carryTo(Number(e.date.slice(0,4)));const retained=sickRule(plan,e.date)!,rule=sickBankRule(s,staffId,plan,retained,on)
   if(e.kind==='work'&&!sickWorkCovered(rule,staffId)){sources.push({...e,creditedMinutes:0,balanceMinutes:balance,policyRevision:rule.revision,presetVersion:rule.version,eligibility:'employer-reviewed exclusion'});continue}
