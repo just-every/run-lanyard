@@ -2,6 +2,7 @@ import {type State,type Row,canonical,sha} from './model'
 import {workweek} from './payschedules'
 import {policyClassification} from './policy'
 import {priced} from './workforce'
+import {dayAfter} from './aca'
 
 /** A release approval binds the proposed catalog and the open source facts.
  * Nothing is changed by preview; applying the reviewed version is explicit. */
@@ -19,6 +20,13 @@ export async function releasePreview(s:State,candidate:Record<string,any>,old?:R
     const week=workweek(s,t.staffId,part.date);affected.set(t.staffId+'|'+week,{staffId:t.staffId,week})
    }
   }
+ }
+ // A changed cafe can supply daily context for another cafe's next workweek.
+ // Include those dependent weeks in the visible before and after review.
+ const affectedStaff=new Set([...affected.values()].map(x=>x.staffId))
+ for(const t of s.timesheets.filter(t=>affectedStaff.has(t.staffId)&&!['superseded','rejected'].includes(t.status)))for(const area of t.workSegments?.length?t.workSegments:[t])for(const part of (area.rateBasis??priced(s,t.staffId,{...t,...area})).segments){
+  if(part.date<dayAfter(candidate.from,-1))continue
+  const week=workweek(s,t.staffId,part.date);affected.set(t.staffId+'|'+week,{staffId:t.staffId,week})
  }
  const periods=s.periods.filter(p=>p.end>=candidate.from).map(p=>({id:p.id,revision:p.revision,start:p.start,end:p.end,status:p.status})).sort((a,b)=>a.id.localeCompare(b.id))
  const calculations=[...affected.values()].sort((a,b)=>a.staffId.localeCompare(b.staffId)||a.week.localeCompare(b.week)).map(({staffId,week})=>({staffId,week,before:policyClassification(s,staffId,week),after:policyClassification(next,staffId,week)}))
