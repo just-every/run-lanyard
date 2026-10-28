@@ -4285,6 +4285,10 @@
       "sha256": "fa611c7552983063334486f627e3f3d544827229629266808c08a96fcc1b25d3",
       "executable": false
     },
+    "tests/report-delivery-archive.mjs": {
+      "sha256": "e1d928cfcc75f28316f7495c13f766dfbff0445f1f9068a8e786f76df3b5cb79",
+      "executable": false
+    },
     "tests/report-delivery-journey.mjs": {
       "sha256": "1c649a2fa16dd9ce4e78197c4967e80981162de5f5055bfa600529fc5fbda051",
       "executable": false
