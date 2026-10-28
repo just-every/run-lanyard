@@ -18359,7 +18359,7 @@
     {
       "file": "CONTRACT.md",
       "line": 351,
-      "text": "Judged from the code and tests at commit `2b4aa42d25122df7ca5e209893d8182fb367eb07` (28 October 2026). POLICY-002\u2019s interim owner boundary is rechecked by the named native HTTP and Settings journeys; ct\u2019s 27 October approval with riders grants no completion, and POLICY-002 remains partial. The final candidate and exact-SHA execution receipts are supplied in the fleet report. BASE-001 retains its named 26 October live hosted installation evidence. Other clauses retain their existing evidence and gaps.",
+      "text": "Judged from the code and tests at commit `2b4aa42d25122df7ca5e209893d8182fb367eb07` (28 October 2026).",
       "to": "section",
       "section": "Status"
     },
@@ -18403,8 +18403,13 @@
       "file": "docs/CLAIMS.md",
       "line": 37,
       "text": "| LEAVE-003 | Paid sick and safe leave jurisdiction presets | done |",
-      "to": "generated",
-      "note": "Legacy capability inventory row is now generated from the source clause."
+      "to": "changelog"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 351,
+      "text": "POLICY-002\u2019s interim owner boundary is rechecked by the named native HTTP and Settings journeys; ct\u2019s 27 October approval with riders grants no completion, and POLICY-002 remains partial. The final candidate and exact-SHA execution receipts are supplied in the fleet report. BASE-001 retains its named 26 October live hosted installation evidence. Other clauses retain their existing evidence and gaps.",
+      "to": "changelog"
     }
   ]
 }

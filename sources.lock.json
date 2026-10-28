@@ -362,7 +362,7 @@
       "executable": false
     },
     "CHANGELOG.md": {
-      "sha256": "acc56d73ccb8fcd86a9554df55192961d025a2425e9c82df4da9b20295af27cd",
+      "sha256": "9f5487ad4095b1c5b230fd8c60bbda0fb8e491ee82a8fbd43e91e34137e2c40d",
       "executable": false
     },
     "CLAUDE.md": {
@@ -410,7 +410,7 @@
       "executable": false
     },
     "docs/contract/COVERAGE.json": {
-      "sha256": "4f61d650c1e4caee68a4f098c2d04b579963ebad164185158ac86f310205d826",
+      "sha256": "a2773e50bbd6ec86d57d86fd955aa9936c969f0cadef0089cf02cb5df26d7d39",
       "executable": false
     },
     "docs/contract/DONE-AUDIT.md": {
