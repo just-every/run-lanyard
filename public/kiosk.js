@@ -17,7 +17,16 @@
   form.querySelectorAll('[name=photoFailure] option').forEach((option,i)=>option.textContent=t(['Take a still now','Camera permission denied','Camera unavailable or failed','I decline a photo'][i]))
   document.querySelector('[data-kiosk-video]').setAttribute('aria-label',t('Punch camera preview'))
  }
- const request=async(path,body)=>{const r=await fetch('/api/lanyard/kiosk/'+path,{method:body?'POST':'GET',headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const value=await r.json();if(!r.ok)throw Object.assign(new Error(value.error||'Kiosk request failed'),{status:r.status});return value}
+ const request=async(path,body)=>{
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),20000)
+  try{
+   const r=await fetch('/api/lanyard/kiosk/'+path,{method:body?'POST':'GET',headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined,signal:controller.signal})
+   let value;try{value=await r.json()}catch{}
+   if(!r.ok)throw Object.assign(new Error(value?.error||'Kiosk request failed'),{status:r.status})
+   if(!value||typeof value!=='object')throw new Error('The response could not be confirmed. Retry the saved original.')
+   return value
+  }finally{clearTimeout(timeout)}
+ }
  const clear=()=>{lastState=null;pending.textContent='';document.querySelector('#kiosk-current').textContent='';document.querySelector('#kiosk-events')?.replaceChildren();document.querySelector('#kiosk-questions').replaceChildren();form.querySelector('[name=job]').replaceChildren(new Option(t('Choose a job'),''))}
  const vault=work=>window.LanyardClock.withState(key,current.open,work)
  const render=state=>{
@@ -57,9 +66,26 @@
    status.textContent=e.status===401?t('Verify your personal PIN to use this clock.'):errorText(e.message)
   }
  }
- async function sync(){if(busy||!current)return;busy=true;if(lastState)render(lastState)
-  try{await vault(async(state,save)=>{for(const e of state.events){if(state.revoked||e.status==='rejected')break;try{await request('capture',{...e.capture,photo:e.photo,photoConsent:e.photoConsent,photoFailure:e.photoFailure});current=await request('state');state.base=current.open;state.events=state.events.filter(x=>x!==e);await save()}catch(error){if(!error.status){status.textContent=t('Offline. Original captures remain saved on this device.');break}e.status='rejected';e.error=error.message;if([401,403].includes(error.status))state.revoked=true;await save();status.textContent=t('Capture retained for manager review.')+' '+errorText(error.message);break}}render(state)})}
-  catch(e){status.textContent=errorText(e.message)}finally{busy=false;if(lastState)render(lastState)}
+ async function sync(){if(busy||!current)return;busy=true;status.textContent='';if(lastState)render(lastState)
+  try{await vault(async(state,save)=>{
+   for(const e of state.events){
+    if(state.revoked||e.status==='rejected')break
+    try{
+     const accepted=await request('capture',{...e.capture,photo:e.photo,photoConsent:e.photoConsent,photoFailure:e.photoFailure})
+     if(accepted.ok!==true)throw new Error('The response did not confirm the capture. Retry the saved original.')
+     current=await request('state');state.base=current.open;state.events=state.events.filter(x=>x!==e);await save();status.textContent=''
+    }catch(error){
+     if(!error.status||error.status>=500||[408,429].includes(error.status)){
+      status.textContent=t('Original captures remain saved. Retry when the connection is available.');break
+     }
+     e.status='rejected';e.error=error.message
+     for(const later of state.events.slice(state.events.indexOf(e)+1)){later.status='rejected';later.error='An earlier capture was refused. Owner review is required before applying dependent time.'}
+     if([401,403].includes(error.status))state.revoked=true
+     await save();status.textContent=t('Capture retained for manager review.')+' '+errorText(error.message);break
+    }
+   }
+   render(state)
+  })}catch(e){status.textContent=errorText(e.message)}finally{busy=false;if(lastState)render(lastState)}
  }
  login.addEventListener('submit',async event=>{event.preventDefault();try{await request('signin',Object.fromEntries(new FormData(login)));login.reset();status.textContent='';await load()}catch(e){status.textContent=errorText(e.message)}})
  form.addEventListener('submit',async event=>{event.preventDefault();if(!current||busy)return;busy=true;if(lastState)render(lastState)

@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "da7b8908c2e3c1bfd1c09f52f751ca21dd46d1586a0b21548d8cb0dac488fd99",
+      "sha256": "27d5cc16f6cbebc6f357d38614dc146410642ac15f2a48245e61857ed9552f70",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "785b60861bbbc03bb166cdda3ddb3595c27d986d514801af5db3bdd7b739f500",
+      "sha256": "5a6273d8c6b3af4bf2f8d5c3ca145dc719ae80871a3746e890905a0efb422d9c",
       "executable": false
     },
     "DEMO.md": {
@@ -415,6 +415,10 @@
     },
     "docs/HOLIDAYS.md": {
       "sha256": "2c37a748053f962fc3ebb2227508bd8cca23bba969459db7642255e2f767a2ce",
+      "executable": false
+    },
+    "docs/LOCALIZATION.md": {
+      "sha256": "1da1845db085f42dadb2d1cc7a39a0943bc43da5f712418d871ff9061e0a2b1d",
       "executable": false
     },
     "docs/MINORS.md": {
@@ -722,7 +726,7 @@
       "executable": false
     },
     "public/kiosk.js": {
-      "sha256": "ba8c0aec862f4a76898a4159c32d87ef7c31a0768d0984b12e73a48b13555e76",
+      "sha256": "447e378a5fe3d50d18d7ff38714009318b3a7a536b1ff5f8726b3bb802a1a3c5",
       "executable": false
     },
     "public/labor-cost-settings.js": {
@@ -1850,7 +1854,7 @@
       "executable": false
     },
     "src/lanyard/staff-catalog.json": {
-      "sha256": "530398835ffb9c083cdf29b3f6e17fb62837e09b4cccb8b75c176550c864bbb1",
+      "sha256": "adf7015ca63811deab33333d362f89b03939a17a0552f56b7f9c229bfc5cfcb5",
       "executable": false
     },
     "src/lanyard/ui/aca.ts": {
@@ -4034,7 +4038,7 @@
       "executable": false
     },
     "tests/access-chat-kiosk-journey.mjs": {
-      "sha256": "f7e52c15248974df5dec409c8fa46d910abeb43507736b18d9ff0c5f69e5e450",
+      "sha256": "0c1ed5df3ee2b64fa5004e26549a71c54e1fc5fce683b0d4b668bdb495e7b139",
       "executable": false
     },
     "tests/ai-schedule-journey.mjs": {
@@ -4159,6 +4163,10 @@
     },
     "tests/installation-process.mjs": {
       "sha256": "cd8b86642836c8ec9e2663ba27e46c23bd4cbded4f51461881379b6c1024e4be",
+      "executable": false
+    },
+    "tests/language-journey.mjs": {
+      "sha256": "116c800d43cc3a72e02ecdbef2e0ce2cac6900d243d6b8e70806be0beeea9885",
       "executable": false
     },
     "tests/lanyard.test.mjs": {

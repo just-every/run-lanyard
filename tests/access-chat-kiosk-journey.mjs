@@ -232,8 +232,23 @@ export async function kioskOffline(){
   const enrolled=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Offline counter',photo:true,consent:true}},h.owner)
   const context=await browser.newContext({viewport:{width:1440,height:1000},ignoreHTTPSErrors:true}),[name,...value]=enrolled.cookie.split('=')
   await context.addCookies([{name,value:value.join('='),url:h.origin,secure:true}])
-  let disconnected=true;const sent=[]
-  await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path==='/api/lanyard/kiosk/capture'){if(disconnected)return route.abort('internetdisconnected');sent.push(route.request().postDataJSON().input.commandId)}if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js'))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
+  let disconnected=true,interruption='',qualificationRefusal=false;const sent=[],retried=[]
+  await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path==='/api/lanyard/kiosk/capture'){
+   if(disconnected)return route.abort('internetdisconnected')
+   const capture=route.request().postDataJSON()
+   if(capture.name==='clock.transfer'&&interruption){
+    const failure=interruption;interruption='';retried.push(capture)
+    if(failure==='lost'){const response=await route.fetch();assert.equal(response.status(),200);return route.abort('connectionreset')}
+    return route.fulfill({status:Number(failure),contentType:'application/json',body:JSON.stringify({error:'Temporarily unavailable'})})
+   }
+   sent.push(capture.input.commandId)
+   if(qualificationRefusal&&capture.name==='clock.transfer'){
+    const before=await retained(h),response=await route.fetch()
+    assert.equal(response.status(),409);assert.match(await response.text(),/Not qualified for job/)
+    assert.deepEqual(await retained(h),before,'a refused offline job change writes no business data, receipt or command')
+    return route.fulfill({response})
+   }
+  }if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js'))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
   let page=await context.newPage();await page.goto(h.origin+'/app/kiosk');await page.locator('[name=email]').fill(alex.email);await page.locator('[name=pin]').fill('123456');await page.getByRole('button',{name:'Verify employee'}).click();await page.getByRole('heading',{name:'Your clock',exact:true}).waitFor()
   const start=Date.parse(f.start),at=n=>new Date(start+n*60000),capture=async(n,label,count)=>{await page.clock.setFixedTime(at(n));await page.locator('[name=photoConsent]').check();await page.getByRole('button',{name:label,exact:true}).click();await page.waitForFunction(n=>document.querySelector('#kiosk-pending').textContent.startsWith(n+' saved'),count)}
   let savedDevice=enrolled.value.id
@@ -257,7 +272,23 @@ export async function kioskOffline(){
   const allOriginals=(await saved()).events.map(e=>e.capture)
   const encrypted=await page.evaluate(async()=>{const names=await indexedDB.databases(),name=names.find(d=>d.name.includes('kiosk:')).name,db=await new Promise((resolve,reject)=>{const r=indexedDB.open(name);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});try{const tx=db.transaction('vault'),get=k=>new Promise((resolve,reject)=>{const r=tx.objectStore('vault').get(k);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});const key=await get('key'),state=await get('state');return {extractable:key.extractable,plain:new TextDecoder().decode(state.data),bytes:state.data.byteLength}}finally{db.close()}})
   assert.equal(encrypted.extractable,false);assert.ok(encrypted.bytes>0);assert.equal(encrypted.plain.includes('capturedAt'),false);assert.equal((await h.state()).clocks.length,0)
-  disconnected=false;await page.getByRole('button',{name:'Retry saved captures'}).click();await page.waitForFunction(()=>document.querySelector('#kiosk-pending').textContent.startsWith('0 saved'))
+  disconnected=false
+  for(const failure of ['503','429','lost']){
+   interruption=failure
+   await page.getByRole('button',{name:'Retry saved captures'}).click()
+   await page.waitForFunction(()=>/remain saved|retained for manager review/.test(document.querySelector('#kiosk-status').textContent),undefined,{timeout:10000})
+   assert.match(await page.locator('#kiosk-pending').innerText(),/^5 saved captures · 0 need review/)
+   assert.deepEqual((await saved()).events.map(e=>e.capture),allOriginals.slice(1),'uncertain responses retain the ordered originals for retry')
+   assert.equal((await h.state()).timesheets.length,0,'dependent clock-out never runs before a confirmed job change')
+   await shot('reconnect-pending')
+   await page.close();await h.restart();disconnected=true;page=await context.newPage()
+   await page.goto(h.origin+'/app/kiosk');await page.getByRole('heading',{name:'Your clock',exact:true}).waitFor()
+   await page.waitForFunction(()=>document.querySelector('#kiosk-pending').textContent.startsWith('5 saved'))
+   assert.deepEqual((await saved()).events.map(e=>e.capture),allOriginals.slice(1),'restart after an uncertain response keeps the same captures')
+   disconnected=false
+  }
+  assert.deepEqual(retried.map(({name,input})=>({name,input})),Array(3).fill(allOriginals[1]),'transient and lost responses retry the original identity and time')
+  await page.getByRole('button',{name:'Retry saved captures'}).click();await page.waitForFunction(()=>document.querySelector('#kiosk-pending').textContent.startsWith('0 saved'))
   let state=await h.state();assert.equal(state.timesheets.length,1);assert.equal(state.timesheets[0].minutes,450);assert.equal(state.clocks[0].breaks.length,1);assert.equal(state.kioskreceipts.length,6);assert.ok(state.kioskreceipts.every(r=>r.receivedAt>r.capturedAt&&r.photoId&&r.photoConsent));assert.equal((await h.db.prepare('SELECT count(*) AS n FROM l_kiosk_photos').first()).n,6)
   assert.deepEqual(sent,allOriginals.map(c=>c.input.commandId),'reconnect sends the original captures in their saved order')
   assert.deepEqual(state.kioskreceipts.sort((a,b)=>a.capturedAt.localeCompare(b.capturedAt)).map(r=>[r.name,r.commandId,r.capturedAt]),allOriginals.map(c=>[c.name,c.input.commandId,c.input.capturedAt]))
@@ -310,6 +341,32 @@ export async function kioskOffline(){
   const recovered=await h.state();assert.equal(recovered.clockissues.length,4);assert.equal(recovered.clocks.length,1);assert.equal(recovered.timesheets.length,1)
   assert.deepEqual(recovered.clockissues.filter(i=>deviceOriginals.some(c=>c.input.commandId===i.capture.input.commandId)).map(e=>e.capture).sort((a,b)=>a.input.capturedAt.localeCompare(b.input.capturedAt)),deviceOriginals);assert.deepEqual((await saved()).events.map(e=>e.capture),deviceOriginals)
   await page.goto(h.origin+'/app/kiosk');assert.equal((await page.locator('body').innerText()).includes('Kiosk is unavailable'),true)
+  // A job qualification removed while offline refuses that original and its dependent captures.
+  const changed=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Qualification review',photo:true,consent:true}},h.owner)
+  const [changedName,...changedValue]=changed.cookie.split('=');await context.addCookies([{name:changedName,value:changedValue.join('='),url:h.origin,secure:true}]);savedDevice=changed.value.id;await context.clearCookies({name:ownerName})
+  await page.goto(h.origin+'/app/kiosk');await page.locator('[name=email]').fill(alex.email);await page.locator('[name=pin]').fill('345678');await page.getByRole('button',{name:'Verify employee',exact:true}).click();await page.getByRole('heading',{name:'Your clock',exact:true}).waitFor()
+  disconnected=true;await capture(1440,'Clock in',1);await page.locator('[name=job]').selectOption(kitchen.id);await capture(1500,'Change job',2)
+  await capture(1560,'Start meal',3);await capture(1590,'End break',4);await capture(1680,'Clock out',5)
+  const beforeQualification=(await saved()).events.map(e=>e.capture),qualified=(await h.state()).workforce.find(p=>p.staffId===alex.id)
+  await h.cmd('workforce.save',{...pin(qualified),staffId:alex.id,jobs:[counter.id],skills:qualified.skills,certifications:qualified.certifications,sites:qualified.sites,preferences:qualified.preferences,minHours:qualified.minHours,maxHours:qualified.maxHours,classification:qualified.classification,employmentType:qualified.employmentType,startDate:qualified.startDate,rates:qualified.rates.filter(r=>!r.job||r.job===counter.id)})
+  const offset=sent.length;qualificationRefusal=true;disconnected=false
+  await page.getByRole('button',{name:'Retry saved captures',exact:true}).click()
+  await page.waitForFunction(()=>document.querySelector('#kiosk-pending').textContent.includes('4 need review'),undefined,{timeout:10000})
+  assert.deepEqual(sent.slice(offset),beforeQualification.slice(0,2).map(c=>c.input.commandId),'a refused job change stops meals and clock-out from replaying')
+  assert.deepEqual((await saved()).events.map(e=>[e.capture,e.status]),beforeQualification.slice(1).map(c=>[c,'rejected']))
+  assert.match(await current(),/^Clocked in/);assert.ok(!(await current()).includes('Kitchen'),'refused transfer does not appear as the current job')
+  assert.equal(await page.getByRole('button',{name:'Clock out',exact:true}).isDisabled(),true)
+  const refusedState=await h.state(),open=refusedState.clocks.find(c=>c.status==='open')
+  assert.deepEqual(open.transfers??[],[]);assert.deepEqual(open.breaks??[],[]);assert.equal(refusedState.timesheets.length,1);assert.equal(refusedState.batches.filter(b=>b.status==='exported').length,1)
+  await shot('qualification-review');await page.close();await h.restart();page=await context.newPage();await page.goto(h.origin+'/app/kiosk');await page.getByRole('heading',{name:'Your clock',exact:true}).waitFor()
+  await page.waitForFunction(()=>document.querySelector('#kiosk-pending').textContent.includes('4 need review'),undefined,{timeout:10000})
+  assert.deepEqual((await saved()).events.map(e=>e.capture),beforeQualification.slice(1),'restart retains refused and dependent originals')
+  await h.cmd('kiosk.revoke',{id:changed.value.id});await context.addCookies([{name:ownerName,value:ownerValue.join('='),url:h.origin}]);await page.goto(h.origin+'/app/time');const qualifiedRecovery=page.locator('[data-clock-recovery]');await qualifiedRecovery.waitFor()
+  const qualifiedNotice=await qualifiedRecovery.innerText();assert.match(qualifiedNotice,/4 unsynced punches/);assert.ok(!qualifiedNotice.includes('Alex'));assert.ok(!qualifiedNotice.includes('Kitchen'))
+  await qualifiedRecovery.getByRole('button',{name:'Submit unsynced punches for review',exact:true}).click();await page.waitForFunction(()=>document.querySelector('[data-clock-recovery]').textContent.includes('No punches were automatically applied'),undefined,{timeout:10000})
+  const reviewed=await h.state();assert.deepEqual(reviewed.clocks,refusedState.clocks);assert.deepEqual(reviewed.timesheets,refusedState.timesheets);assert.deepEqual(reviewed.batches,refusedState.batches)
+  assert.deepEqual(reviewed.clockissues.filter(i=>beforeQualification.slice(1).some(c=>c.input.commandId===i.capture.input.commandId)).map(i=>i.capture).sort((a,b)=>a.input.capturedAt.localeCompare(b.input.capturedAt)),beforeQualification.slice(1))
+  assert.deepEqual((await saved()).events.map(e=>e.capture),beforeQualification.slice(1))
   await context.close()
  }finally{await browser.close();await h.close()}
 }
