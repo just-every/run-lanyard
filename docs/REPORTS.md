@@ -62,7 +62,11 @@ the original cafe and date, complete replacement inputs and a reason. Approve
 that new review separately. Old approvals remain retained; reports use only the
 latest approved allocation. Stable payroll input identities make a later mapped
 export carry signed differences, including reductions. A draft payroll batch
-reviewed before the pool changed cannot be exported.
+reviewed before the pool changed cannot be exported. A later approved correction
+to the worked sources leaves the last approved pool amounts visible as incomplete.
+The employee estimate and tip-credit make-up amount stay unknown, and mapped
+payroll is refused until the owner approves a refreshed pool correction. Later
+profile or rate changes do not reprice an already approved allocation.
 
 Approved allocations appear separately from original declared tips in reports.
 A pooled declaration is replaced by the allocation in tip-credit checks, rather

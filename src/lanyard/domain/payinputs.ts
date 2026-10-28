@@ -1,3 +1,4 @@
+import {tipPoolCurrent} from './tip-pools'
 // Employer-approved non-work inputs stay separate from punches and leave banks.
 import {type Context,type Row,keys,text,need,integer,staff,get,exact,put,canonical} from './model'
 import {date,dayAfter} from './aca'
@@ -24,10 +25,13 @@ const exports=(c:Context)=>c.s.batches.filter(b=>['exported','acknowledged'].inc
 export function payrollInputLines(c:Context){
  const past=exports(c)
  return c.s.payinputs.flatMap(r=>{
-  const start=instantAt(r.date,'12:00',c.s.timezone),source={...r,start},person=staff(c,r.staffId)
+  if(r.tipPoolId)need(tipPoolCurrent(c.s,get(c.s,'tippools',r.tipPoolId)),'Approved tip pool sources changed; review its correction before payroll',409)
+  const start=instantAt(r.date,'12:00',c.s.timezone),source={...r,start}
   if(heldByPeriod(c.s,source))return []
   const before=past.filter((l:any)=>l.payInputId===r.id),minutes=r.minutes-before.reduce((n:number,l:any)=>n+l.minutes,0),costCents=r.amountCents-before.reduce((n:number,l:any)=>n+l.costCents,0)
-  return minutes||costCents?[{payInputId:r.id,revision:r.revision,staffId:r.staffId,site:r.site,payrollId:person.payroll_id,start,end:start,date:r.date,minutes,costCents,payCode:r.kind==='PTO'?'PTO':'tips',sourceReference:r.reference,approval:{by:r.by,at:r.at,reason:r.reason}}]:[]
+  if(!minutes&&!costCents)return []
+  const person=staff(c,r.staffId)
+  return [{payInputId:r.id,revision:r.revision,staffId:r.staffId,site:r.site,payrollId:person.payroll_id,start,end:start,date:r.date,minutes,costCents,payCode:r.kind==='PTO'?'PTO':'tips',sourceReference:r.reference,approval:{by:r.by,at:r.at,reason:r.reason}}]
  })
 }
 export function makeUpLines(c:Context){
@@ -37,7 +41,7 @@ export function makeUpLines(c:Context){
  return [...rows.entries()].flatMap(([makeupKey,r])=>{
   const costCents=r.makeUpCents===null?null:r.makeUpCents-past.filter((l:any)=>l.makeupKey===makeupKey).reduce((n:number,l:any)=>n+l.costCents,0)
   if(costCents===0)return []
-  need(costCents!==null,'Tip make-up source has a missing retained rate',409)
+  need(costCents!==null,r.poolReviewRequired?'Approved tip pool sources changed; review its correction before payroll':'Tip make-up source has a missing retained rate',409)
   need(!c.s.timesheets.some(t=>t.staffId===r.staffId&&!['approved','superseded','rejected'].includes(t.status)&&workweek(c.s,t.staffId,localDate(t.start,c.s.timezone))===r.week),'Tip make-up workweek has unapproved time',409)
   need(!c.s.clocks.some(t=>t.staffId===r.staffId&&!t.end&&workweek(c.s,t.staffId,localDate(t.start,c.s.timezone))===r.week),'Tip make-up workweek has an open punch',409)
   need(dayAfter(r.week,6)<localDate(c.now,c.s.timezone),'Close the workweek before exporting tip make-up',409)

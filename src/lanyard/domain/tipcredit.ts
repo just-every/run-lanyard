@@ -1,4 +1,4 @@
-import {approvedTipPools,pooledDeclarations} from './tip-pools'
+import {approvedTipPools,pooledDeclarations,tipPoolCurrent} from './tip-pools'
 // TIPS-002: tip credit and minimum-wage make-up checks. The owner (payroll administrator until
 // TEAM-001/ACCESS-003) records a cafe's tip-credit setup from an inclusive venue date: its US state,
 // the minimum wage that applies there (employer-entered, at least the federal $7.25; Lanyard keeps
@@ -48,7 +48,7 @@ export function tipCredit(c:Context,name:string,p:Record<string,any>) {
 export function tipChecks(s:State,a:Actor,weeks:string[]) {
  if(!s.tipcredits.length)return []
  const pooled=pooledDeclarations(s),rows=new Map<string,any>(),job=(id:string)=>s.jobs.find(j=>j.id===id)?.name??(id||'No job')
- const row=(staffId:string,week:string)=>{const k=staffId+'|'+week;if(!rows.has(k))rows.set(k,{week,staffId,tippedMinutes:0,requiredCents:0,cashWageCents:0,tipsCents:0,declaredTipsCents:0,allocatedTipsCents:0,rateMissing:false,sites:new Map<string,any>(),nonTipped:new Map<string,any>(),sources:[],tipSources:[]});return rows.get(k)}
+ const row=(staffId:string,week:string)=>{const k=staffId+'|'+week;if(!rows.has(k))rows.set(k,{week,staffId,tippedMinutes:0,requiredCents:0,cashWageCents:0,tipsCents:0,declaredTipsCents:0,allocatedTipsCents:0,poolReviewRequired:false,rateMissing:false,sites:new Map<string,any>(),nonTipped:new Map<string,any>(),sources:[],tipSources:[]});return rows.get(k)}
  for(const t of s.timesheets) {
   if(t.status!=='approved')continue
   let tipWeek:string|null=null;const touched=new Set<string>()
@@ -69,12 +69,12 @@ export function tipChecks(s:State,a:Actor,weeks:string[]) {
  }
  for(const pool of approvedTipPools(s))for(const a of pool.allocations){
   const week=workweek(s,a.staffId,pool.date),r=rows.get(a.staffId+'|'+week)
-  if(r&&weeks.includes(week)&&setupOn(s,pool.site,pool.date)?.tippedJobs.includes(a.job)){r.tipsCents+=a.cents;r.allocatedTipsCents+=a.cents;r.tipSources.push({poolId:pool.id,revision:pool.revision,start:pool.date,timesheetId:'',cents:a.cents})}
+  if(r&&weeks.includes(week)&&setupOn(s,pool.site,pool.date)?.tippedJobs.includes(a.job)){r.poolReviewRequired||=!tipPoolCurrent(s,pool);r.tipsCents+=a.cents;r.allocatedTipsCents+=a.cents;r.tipSources.push({poolId:pool.id,revision:pool.revision,start:pool.date,timesheetId:'',cents:a.cents})}
  }
  return [...rows.values()].filter(r=>r.tippedMinutes>0&&(a.role==='owner'||mayReadPerson(s,a,r.staffId))).map(r=>{const person=s.staff.find(p=>p.id===r.staffId)
   const order=(x:any,y:any)=>x.start.localeCompare(y.start)||x.timesheetId.localeCompare(y.timesheetId)
   return {...r,sources:r.sources.sort(order),tipSources:r.tipSources.sort(order),name:person?.name??'Former staff',payrollId:person?.payroll_id??null,sites:[...r.sites.values()],nonTipped:[...r.nonTipped.values()],nonTippedMinutes:[...r.nonTipped.values()].reduce((n:number,x:any)=>n+x.minutes,0),
-   makeUpCents:r.rateMissing?null:Math.max(0,r.requiredCents-r.cashWageCents-r.tipsCents)}
+   makeUpCents:r.rateMissing||r.poolReviewRequired?null:Math.max(0,r.requiredCents-r.cashWageCents-r.tipsCents)}
  }).sort((x,y)=>y.week.localeCompare(x.week)||x.name.localeCompare(y.name))
 }
 const usd=(v:number|null)=>v===null?'':(v/100).toFixed(2)
@@ -82,5 +82,5 @@ const cell=(v:unknown)=>{let t=String(v??'');if(/^[\s]*[=+\-@\t\r]/.test(t))t="'
 /** The make-up pay inputs as a file for the payroll provider; Lanyard does not pay them. */
 export function tipCsv(rows:any[]) {
  const pools=rows.some(r=>r.allocatedTipsCents>0)
- return 'week_start,payroll_id,name,tipped_minutes,minimum_wage_due_usd,cash_wage_usd,declared_tips_usd,make_up_pay_input_usd,non_tipped_minutes'+(pools?',allocated_tips_usd':'')+'\r\n'+rows.map(r=>[r.week,r.payrollId,r.name,r.tippedMinutes,usd(r.requiredCents),usd(r.cashWageCents),usd(r.declaredTipsCents),r.rateMissing?'rate missing':usd(r.makeUpCents),r.nonTippedMinutes,...(pools?[usd(r.allocatedTipsCents)]:[])].map(cell).join(',')).join('\r\n')+'\r\n'
+ return 'week_start,payroll_id,name,tipped_minutes,minimum_wage_due_usd,cash_wage_usd,declared_tips_usd,make_up_pay_input_usd,non_tipped_minutes'+(pools?',allocated_tips_usd':'')+'\r\n'+rows.map(r=>[r.week,r.payrollId,r.name,r.tippedMinutes,usd(r.requiredCents),usd(r.cashWageCents),usd(r.declaredTipsCents),r.poolReviewRequired?'pool review required':r.rateMissing?'rate missing':usd(r.makeUpCents),r.nonTippedMinutes,...(pools?[usd(r.allocatedTipsCents)]:[])].map(cell).join(',')).join('\r\n')+'\r\n'
 }
