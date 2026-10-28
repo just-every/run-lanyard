@@ -17,6 +17,7 @@ export async function policyClassifications(){
  for(const [preset,hours,ot,dt,rate]of cases){const h=await harness();try{
   await h.cmd('settings.save',{timezone:'UTC'});const alex=await person(h,'Alex',rate),policies=[]
   for(const site of ['East','West'])policies.push(await save(h,site,preset))
+  if(preset==='NV'){const {reviewNevadaWorker}=await import('./policy-regional-journey.mjs');for(const site of ['East','West'])await reviewNevadaWorker(h,alex,site);for(let i=0;i<policies.length;i++)policies[i]=(await h.state()).policies.find(p=>p.id===policies[i].id)}
   const shifts=hours.map((v,i)=>spec(alex.id,days(start,i),v,i%2?'West':'East'))
   await h.cmd('availability.save',{staffId:alex.id,start:start+'T00:00:00Z',end:days(start,7)+'T00:00:00Z'})
   const draft=await h.cmd('roster.prepare',{week:start,shifts})
@@ -25,7 +26,7 @@ export async function policyClassifications(){
   const report=await h.cmd('policy.review',{staffId:alex.id,week:start})
   assert.deepEqual([report.overtimeMinutes,report.doubleMinutes],[ot,dt],preset+' actual classification')
   assert.equal(report.regularMinutes+ot+dt,hours.reduce((a,b)=>a+b,0)*60)
-  assert.ok(report.parts.every(p=>p.rules.every(r=>r.version===policies[0].presetVersion&&r.source.startsWith('https://')&&r.id&&r.revision===1)))
+  assert.ok(report.parts.every(p=>p.rules.every(r=>r.version===policies[0].presetVersion&&r.source.startsWith('https://')&&r.id&&r.revision===policies[0].revision)))
   if(preset==='IL'){assert.equal(report.weeklyRestReviews.length,1);assert.ok(draft.policyWarnings.some(w=>w.message.includes('Seventh consecutive workday')))}
   assert.equal(report.estimateCents,Math.round((hours.reduce((a,b)=>a+b,0)*60+ot*.5+dt)*Math.round(Number(rate??'20.00')*100)/60))
   if(shifts.length>1)assert.deepEqual([...new Set(report.parts.map(p=>p.site))].sort(),['East','West'])
@@ -122,7 +123,8 @@ async function policyBreakClassifications(){
   {preset:'IL',hours:7.5,breaks:[['meal',300,20]],meal:false,rest:false,premium:0},
  ]
  for(const sample of cases){const h=await harness();try{
-  await h.cmd('settings.save',{timezone:'UTC'});const alex=await person(h),policy=await save(h,'East',sample.preset)
+  await h.cmd('settings.save',{timezone:'UTC'});const alex=await person(h);let policy=await save(h,'East',sample.preset)
+  if(sample.preset==='NV'){const {reviewNevadaWorker}=await import('./policy-regional-journey.mjs');policy=await reviewNevadaWorker(h,alex)}
   const shift=spec(alex.id,start,sample.hours),at=m=>new Date(Date.parse(shift.start)+m*60000).toISOString()
   const draft=await h.cmd('roster.prepare',{week:start,shifts:[shift]})
   assert.ok(draft.policyWarnings.some(w=>w.message.includes(sample.preset+' break review')),sample.preset+' warns before publication')

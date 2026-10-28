@@ -23,7 +23,7 @@ export async function policyWorkerCommand(c:Context,name:string,p:Record<string,
  const normalWorkdayMinutes=old.preset==='WA'?integer(Number(p.normalWorkdayMinutes??workerCoverage(old,staffId)?.normalWorkdayMinutes??0),'normal workday minutes',0,1440):0
  need(p.normalWorkdayMinutes===undefined||old.preset==='WA','Reviewed normal workday applies only to Washington')
  const hasExemption=coverageKinds.some(k=>status[k]==='reviewed-not-applicable')
- const legalBasis=text(p.legalBasis,'applicability legal basis',500,!hasExemption&&!normalWorkdayMinutes),evidenceReference=text(p.evidenceReference,'employer evidence reference',300,!hasExemption&&!normalWorkdayMinutes),reviewReason=text(p.reviewReason,'review reason',500)
+ const legalBasis=text(p.legalBasis,'applicability legal basis',500,!hasExemption&&!normalWorkdayMinutes&&!(old.preset==='NV'&&old.presetVersion==='2026-10-28')),evidenceReference=text(p.evidenceReference,'employer evidence reference',300,!hasExemption&&!normalWorkdayMinutes&&!(old.preset==='NV'&&old.presetVersion==='2026-10-28')),reviewReason=text(p.reviewReason,'review reason',500)
  const profile={staffId,preset:old.preset,...status,...(old.preset==='WA'?{normalWorkdayMinutes}:{}),legalBasis,evidenceReference,reviewReason,by:c.a.id,staffRevision:person.version,label:'Employer-reviewed applicability; Lanyard does not determine legal exemption'}
  const {versions,...prior}=old
  const candidate={...prior,from,coverage:[...(old.coverage??[]).filter((r:any)=>r.staffId!==staffId),profile].sort((a,b)=>a.staffId.localeCompare(b.staffId)),reviewReason,by:c.a.id,at:c.now,versions:[...(versions??[]),prior]}

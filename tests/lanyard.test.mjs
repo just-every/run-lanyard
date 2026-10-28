@@ -2051,13 +2051,13 @@ test('POLICY-001: regional alternate workweeks preserve enrollment, overtime and
 
 test('POLICY-001: alternate schedule evidence, recalculation and application through Settings at 1440 and 390',async()=>{const {policyAlternateSettingsBrowser}=await import('./policy-alternate-settings-journey.mjs');await policyAlternateSettingsBrowser()})
 
-test('POLICY-001: California employer workdays require current reviewed adoption and preserve closed history',async()=>{const {policyWorkdayApi}=await import('./policy-workday-journey.mjs');await policyWorkdayApi()})
+test('POLICY-001: California and Nevada workdays require current reviewed adoption and preserve closed history',async()=>{const {policyWorkdayApi}=await import('./policy-workday-journey.mjs');await policyWorkdayApi()})
 
 test('POLICY-001: California workdays carry prior-week daily context without replaying payroll minutes',async()=>{const {policyWorkdayBoundaryApi}=await import('./policy-workday-journey.mjs');await policyWorkdayBoundaryApi()})
 
-test('POLICY-001: California workday recuts retain approved rates and exact whole payable minutes',async()=>{const {policyWorkdayAllocationApi}=await import('./policy-workday-journey.mjs');await policyWorkdayAllocationApi()})
+test('POLICY-001: California and Nevada workday recuts retain approved rates and exact whole payable minutes',async()=>{const {policyWorkdayAllocationApi}=await import('./policy-workday-journey.mjs');await policyWorkdayAllocationApi()})
 
-test('POLICY-001: California employer workday boundaries follow venue daylight-saving transitions',async()=>{const {policyWorkdayDstApi}=await import('./policy-workday-journey.mjs');await policyWorkdayDstApi()})
+test('POLICY-001: California and Nevada workday boundaries follow elapsed and venue daylight-saving transitions',async()=>{const {policyWorkdayDstApi}=await import('./policy-workday-journey.mjs');await policyWorkdayDstApi()})
 
 test('POLICY-001: California workday rests combine split cafe service and retain unknown boundary timing',async()=>{const {policyRestDaysApi}=await import('./policy-rest-days-journey.mjs');await policyRestDaysApi()})
 

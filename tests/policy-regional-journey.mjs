@@ -42,9 +42,9 @@ export async function policyRegionalConfigurationApi(){
   const manager=await h.person('RegionalManager','manager')
   const inactive=await h.cmd('staff.save',{name:'Inactive regional member',email:'inactive-regional@venue.example',payrollId:'SYNTHETIC-LANYARD-REGIONAL',role:'staff',active:false,site:'East'})
    const p=await person(h,`Regional${preset}`),alternate=regionalExample(preset,[p.id])
-   const prior=await h.cmd('policy.save',{site:'East',preset,from,reviewReason:'Reviewed ordinary state overtime'})
+   const prior=await h.cmd('policy.save',{site:'East',preset,from,presetVersion:'2026-10-26',reviewReason:'Reviewed ordinary state overtime'})
    await workFour(h,p,[10,10,10,10])
-   const change={...pin(prior),site:'East',preset,from,alternate,reviewReason:'Reviewed employer evidence and employee enrollment'}
+   const change={...pin(prior),site:'East',preset,from,presetVersion:'2026-10-26',alternate,reviewReason:'Reviewed employer evidence and employee enrollment'}
    await h.cmd('policy.preview',change,manager.cookie,403)
    const commonInvalid=[{...alternate,employerAttested:false},{...alternate,reviewer:''},
     {...alternate,staffIds:[]},{...alternate,staffIds:[p.id,p.id]},{...alternate,staffIds:[inactive.id]},
@@ -67,9 +67,9 @@ export async function policyRegionalConfigurationApi(){
    assert.equal(saved.alternate.enrollment[0].staffId,p.id)
    assert.equal(saved.alternate.enrollment[0].site,'East')
    assert.equal(saved.alternate.kind,alternate.kind)
-   saved=await h.cmd('policy.save',{...pin(saved),site:'East',preset,from,minimumRestMinutes:30,reviewReason:'Reviewed rest requirement while retaining regional enrollment'})
+   saved=await h.cmd('policy.save',{...pin(saved),site:'East',preset,from,presetVersion:'2026-10-26',minimumRestMinutes:30,reviewReason:'Reviewed rest requirement while retaining regional enrollment'})
    assert.deepEqual(saved.alternate.staffIds,[p.id],'ordinary policy edits retain reviewed enrollment')
-   const removed=await apply(h,{...pin(saved),site:'East',preset,from:'2026-10-19',alternate:null,reviewReason:'Reviewed future removal without rewriting past actual hours'})
+   const removed=await apply(h,{...pin(saved),site:'East',preset,from:'2026-10-19',presetVersion:'2026-10-26',alternate:null,reviewReason:'Reviewed future removal without rewriting past actual hours'})
    assert.equal(removed.alternate,null)
    assert.ok(removed.versions.some(v=>v.alternate?.staffIds.includes(p.id)))
    assert.equal((await h.cmd('policy.review',{staffId:p.id,week})).overtimeMinutes,0,'historical actual hours retain their earlier approved schedule')
@@ -79,6 +79,7 @@ export async function policyRegionalConfigurationApi(){
 }
 
 export async function policyRegionalClassificationApi(){
+ await nevadaOrdinaryBoundaries()
  const h=await harness()
  try{
   await h.cmd('settings.save',{timezone:'UTC'})
@@ -87,7 +88,7 @@ export async function policyRegionalClassificationApi(){
    const alternate=regionalExample(preset,[regular.id,deviation.id,extended.id])
    for(const site of ['East','West']){
     const prior=(await h.state()).policies.find(p=>p.site===site)
-    await apply(h,{...(prior?pin(prior):{}),site,preset,from,alternate,reviewReason:'Reviewed regional schedule and explicit enrollment at both worked cafes'})
+    await apply(h,{...(prior?pin(prior):{}),site,preset,from,presetVersion:'2026-10-26',alternate,reviewReason:'Reviewed regional schedule and explicit enrollment at both worked cafes'})
    }
    await workFour(h,regular,[10,10,10,10],true)
    await workFour(h,deviation,[12,10,8,10])
@@ -107,9 +108,53 @@ export async function policyRegionalClassificationApi(){
    const ordinary=await h.cmd('policy.review',{staffId:unenrolled.id,week})
    assert.deepEqual([ordinary.regularMinutes,ordinary.overtimeMinutes],[1920,480],'the site schedule never enrolls another employee implicitly')
    const west=(await h.state()).policies.find(p=>p.site==='West')
-   await apply(h,{...pin(west),site:'West',preset,from,alternate:null,reviewReason:'Reviewed ordinary daily overtime at the second cafe'})
+   await apply(h,{...pin(west),site:'West',preset,from,presetVersion:'2026-10-26',alternate:null,reviewReason:'Reviewed ordinary daily overtime at the second cafe'})
    const protective=await h.cmd('policy.review',{staffId:regular.id,week})
    assert.equal(protective.parts.filter(p=>p.date===week).reduce((n,p)=>n+p.overtimeMinutes,0),120,'the strongest rule of every worked cafe protects the shared day')
   }
+ }finally{await h.close()}
+}
+
+// Employer review is a native, digest-bound decision, never inferred from wage.
+export async function reviewNevadaWorker(h,p,site='East',overrides={}){
+ const policy=(await h.state()).policies.find(r=>r.site===site)
+ const change={...pin(policy),site,from:policy.from,staffId:p.id,
+  ...Object.fromEntries(['federalOvertime','stateWeekly','stateDaily','stateConsecutive','stateSeventh','meal','rest','weeklyRest'].map(k=>[k,'covered'])),
+  legalBasis:'Employer reviewed ordinary nonexempt work under NRS 608.018',
+  evidenceReference:'synthetic-lanyard-1 ordinary worker applicability record',reviewReason:'Reviewed ordinary nonexempt applicability at this worked cafe',...overrides}
+ const preview=await h.cmd('policy.worker.preview',change)
+ return h.cmd('policy.worker.save',{...change,reviewDigest:preview.digest})
+}
+
+async function nevadaOrdinaryBoundaries(){
+ const h=await harness({now:'2026-10-28T12:30:00Z'})
+ try{
+  await h.cmd('settings.save',{timezone:'UTC'})
+  for(const site of ['East','West'])await h.cmd('policy.save',{site,preset:'NV',from:'2026-01-01',reviewReason:'Reviewed NRS 608.0126 and NRS 608.018 ordinary workdays'})
+  // Independent expectations: eight hours is regular; the next retained minute
+  // is daily overtime below USD 18, but not at or above that rate.
+  for(const [name,rate,hours,expected]of [['Below','17.99',8,0],['NextMinute','17.99',8+1/60,1],['At','18.00',9,0],['Above','18.01',9,0],['Weekly','16.00',9,840]]){
+   const p=await person(h,'Nevada'+name),current=(await h.state()).staff.find(x=>x.id===p.id)
+   await h.cmd('staff.save',{...pin(current),name:p.name,email:p.email,payrollId:p.payrollId,role:'staff',active:true,site:'East',hourlyRate:rate})
+   for(const site of ['East','West'])await reviewNevadaWorker(h,p,site)
+   if(name==='Weekly')for(let d=0;d<6;d++)await approve(h,p,`2026-10-${12+d}`,9,d%2?'West':'East')
+   else await approve(h,p,week,hours)
+   const r=await h.cmd('policy.review',{staffId:p.id,week})
+   assert.equal(r.overtimeMinutes,expected,name+' source-backed daily and once-only weekly overtime')
+   assert.equal(r.classificationIncomplete,false)
+   assert.equal(r.regularMinutes+r.overtimeMinutes,r.minutes)
+   assert.equal(r.estimateCents,Math.round((r.minutes+expected/2)*Math.round(Number(rate)*100)/60))
+   assert.ok(r.parts.every(p=>p.workdayEnd&&Date.parse(p.workdayEnd)-Date.parse(p.workdayStart)===86400000))
+   assert.ok(r.parts.every(p=>p.rules.some(r=>r.workdaySource.includes('NRS608Sec0126')&&r.overtimeSource.includes('NRS608Sec018'))))
+  }
+  const unknown=await person(h,'NevadaUnreviewed');await approve(h,unknown,week,9)
+  let r=await h.cmd('policy.review',{staffId:unknown.id,week})
+  assert.equal(r.classificationIncomplete,true);assert.equal(r.estimateCents,null);assert.equal(r.breakPremiumEstimateCents,null)
+  await reviewNevadaWorker(h,unknown)
+  r=await h.cmd('policy.review',{staffId:unknown.id,week});assert.equal(r.estimateCents,15200)
+  const before=await h.state()
+  await reviewNevadaWorker(h,unknown,'East',{stateDaily:'reviewed-not-applicable',legalBasis:'Employer exception needs separate supported treatment'})
+  r=await h.cmd('policy.review',{staffId:unknown.id,week});assert.equal(r.classificationIncomplete,true);assert.equal(r.estimateCents,null)
+  assert.deepEqual((await h.state()).timesheets,before.timesheets)
  }finally{await h.close()}
 }
