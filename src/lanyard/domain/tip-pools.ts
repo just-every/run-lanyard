@@ -6,7 +6,9 @@ import {localDate} from './settings'
 import {tipPieces} from './tip-work'
 
 export const approvedTipPools=(s:State)=>s.tippools.filter(p=>p.status==='approved'&&!s.tippools.some(n=>n.status==='approved'&&n.corrects===p.id))
-export const tipPoolCurrent=(s:State,p:Row)=>p.sources.every((ref:any)=>s.timesheets.some(t=>t.id===ref.timeId&&t.status==='approved'&&t.revision===ref.revision))
+const poolSources=(s:State,p:Record<string,any>)=>s.timesheets.filter(t=>t.status==='approved'&&p.participants.includes(t.staffId)).flatMap(t=>tipPieces(s,t).filter(x=>x.date===p.date&&x.site===p.site&&p.jobs.includes(x.job)&&x.minutes>0).map(x=>({timeId:t.id,revision:t.revision,staffId:t.staffId,job:x.job,minutes:x.minutes}))).sort((a,b)=>canonical(a).localeCompare(canonical(b)))
+// Compare the complete eligible work set: additions change the denominator too.
+export const tipPoolCurrent=(s:State,p:Row)=>canonical(poolSources(s,p))===canonical(p.sources)
 export const pooledDeclarations=(s:State)=>new Set(approvedTipPools(s).flatMap(p=>p.declarations.map((d:any)=>d.timeId)))
 const unique=(value:unknown,label:string)=>{
  need(Array.isArray(value)&&value.length>0&&value.length<=100,`Choose 1–100 ${label}`)
@@ -20,7 +22,7 @@ function review(s:State,p:Record<string,any>,ownerEmail:string) {
   need(person?.role==='staff'&&person.email.toLowerCase()!==ownerEmail.toLowerCase()&&profile?.classification==='hourly employee','Only active ordinary hourly employees may participate; owner and manager roles are excluded',409)
   return {id,revision:person.version,profileRevision:profile.revision}
  })
- const sources=s.timesheets.filter(t=>t.status==='approved'&&participants.includes(t.staffId)).flatMap(t=>tipPieces(s,t).filter(x=>x.date===on&&x.site===site&&jobs.includes(x.job)&&x.minutes>0).map(x=>({timeId:t.id,revision:t.revision,staffId:t.staffId,job:x.job,minutes:x.minutes}))).sort((a,b)=>canonical(a).localeCompare(canonical(b)))
+ const sources=poolSources(s,{date:on,site,jobs,participants})
  need(participants.every(id=>sources.some(x=>x.staffId===id)),'Every eligible person needs approved work in an eligible job at this cafe on this date',409)
  need(!s.timesheets.some(t=>participants.includes(t.staffId)&&['submitted','returned'].includes(t.status)&&tipPieces(s,t).some(x=>x.site===site&&x.date===on)),'Decide pending time and corrections before approving a pool',409)
  need(!s.clocks.some(k=>participants.includes(k.staffId)&&!k.end&&localDate(k.start,s.timezone)<=on),'Resolve open punches before approving a pool',409)
