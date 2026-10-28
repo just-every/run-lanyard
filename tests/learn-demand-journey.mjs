@@ -5,8 +5,8 @@ import {chromium} from '@playwright/test'
 import {harness} from './harness.mjs'
 const pin=r=>({id:r.id,revision:r.revision})
 const plus=(date,n)=>new Date(Date.parse(date+'T12:00:00Z')+n*86400000).toISOString().slice(0,10)
-export async function learnFixture(h) {
- const today=new Date().toISOString().slice(0,10),stamp=(date,time='12:00')=>({'x-test-now':String(Date.parse(date+'T'+time+':00Z'))})
+export async function learnFixture(h,seasonal=false) {
+ const today='2026-10-28',stamp=(date,time='12:00')=>({'x-test-now':String(Date.parse(date+'T'+time+':00Z'))})
  const cmd=(n,p,c=h.owner,status=200,when=stamp(today))=>h.cmd(n,p,c,status,when)
  const get=(path,c=h.owner)=>h.send(path,undefined,c,stamp(today))
  await cmd('settings.save',{timezone:'UTC'})
@@ -16,6 +16,7 @@ export async function learnFixture(h) {
  const window=Array.from({length:7},(_,i)=>plus(today,-1-i)),rows=['date,hour,site,sales']
  for(const d of window){rows.push(`${plus(d,-7)},10,Ocean Beach,100`,`${plus(d,-14)},10,Ocean Beach,100`);if(d!==window[3])rows.push(`${d},10,Ocean Beach,130`)}
  const csv=rows.join('\n'),pre=await cmd('sales.preview',{csv,site:''});await cmd('sales.import',{csv,site:'',fingerprint:pre.fingerprint})
+ if(seasonal)await cmd('demandrule.save',{site:'Ocean Beach',seasonalityMode:'reviewed',seasonality:'9|125\n10|125',seasonalityReason:'Employer reviewed autumn trading',roles:'Barista|100|1'})
  for(const d of [...window].reverse()){
   const when=stamp(plus(d,-1)),f=(await h.send(`/api/lanyard/demand?site=Ocean%20Beach&date=${d}`,undefined,h.owner,when)).value
   assert.equal(f.live.status,'complete',d);await cmd('demand.save',{site:'Ocean Beach',date:d,digest:f.live.digest},h.owner,200,when)
@@ -127,9 +128,9 @@ export async function learnApi(h) {
  return {window}
 }
 export async function learnBrowser() {
- const h=await harness(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const h=await harness(),browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try{
-  const f=await learnFixture(h),e=(await f.read()).value
+  const f=await learnFixture(h,true),e=(await f.read()).value,seasonal=(await h.state()).demandrules[0].seasonality
   const key=await h.cmd('agent.create',{label:'Measured forecast assistant',scopes:['comparison.read'],cafes:['Ocean Beach'],comparisonConsent:true})
   const agentHeaders={...f.stamp(f.today),authorization:`Bearer ${key.token}`}
   await h.send(`/api/lanyard/agent/demand?site=Ocean%20Beach&date=${f.today}`,undefined,'',agentHeaders)
@@ -156,16 +157,48 @@ export async function learnBrowser() {
    const decide=page.locator('form[action*="name=learn.decide"]')
    await decide.locator('[name=reason]').fill('Sales run higher on every comparable day')
    await Promise.all([page.waitForNavigation(),decide.getByRole('button',{name:'Decide'}).click()])
-   assert.equal((await h.state()).demandrules[0].growthPercent,30)
+   assert.equal((await h.state()).demandrules[0].growthPercent,30);assert.deepEqual((await h.state()).demandrules[0].seasonality,seasonal)
    await page.locator('#learning summary',{hasText:'Proposals and decisions'}).click()
    assert.ok((await page.locator('#learning').innerText()).includes('approved'));await shot('approved')
    const revert=page.locator('form[action*="name=learn.revert"]');await revert.locator('[name=reason]').fill('Back to baseline')
    await Promise.all([page.waitForNavigation(),revert.getByRole('button',{name:/Revert/}).click()])
-   assert.equal((await h.state()).demandrules[0].growthPercent,0);assert.deepEqual(errors,[])
+   assert.equal((await h.state()).demandrules[0].growthPercent,0);assert.deepEqual((await h.state()).demandrules[0].seasonality,seasonal);assert.deepEqual(errors,[])
    await page.locator('#learning summary',{hasText:'Proposals and decisions'}).click();await shot('reverted')
    // Each width starts from an open proposal again.
    const next=(await f.read()).value;await f.cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:next.digest}).catch(()=>{})
    await context.close()
   }
  }finally{await browser.close();await h.close()}
+}
+
+export async function learnSeasonality(h) {
+ const f=await learnFixture(h,true),{cmd,read,priya}=f,before=await h.state(),seasonal=before.demandrules[0].seasonality
+ let e=(await read()).value
+ assert.equal(e.proposal.to,30)
+ assert.ok(e.days.every(d=>d.sources.some(x=>x.includes('employer-reviewed seasonality: Employer reviewed autumn trading'))))
+ let p=await cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:e.digest},priya.cookie)
+ p=await cmd('learn.decide',{...pin(p),decision:'approved',reason:'Reviewed seasonal forecast errors'},priya.cookie)
+ assert.equal((await h.state()).demandrules[0].growthPercent,30)
+ assert.deepEqual((await h.state()).demandrules[0].seasonality,seasonal)
+ await h.restart()
+ assert.deepEqual((await h.state()).demandrules[0].seasonality,seasonal)
+ p=await cmd('learn.revert',{...pin(p),reason:'Restore growth while keeping seasonal review'},priya.cookie)
+ assert.equal((await h.state()).demandrules[0].growthPercent,0)
+ assert.deepEqual((await h.state()).demandrules[0].seasonality,seasonal)
+ e=(await read()).value
+ let declined=await cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:e.digest},priya.cookie)
+ declined=await cmd('learn.decide',{...pin(declined),decision:'declined',reason:'Keep current seasonal baseline'},priya.cookie)
+ assert.equal(declined.status,'declined');assert.deepEqual((await h.state()).demandrules[0].seasonality,seasonal)
+ e=(await read()).value
+ let stale=await cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:e.digest},priya.cookie)
+ const rule=(await h.state()).demandrules[0]
+ await cmd('demandrule.save',{site:'Ocean Beach',revision:rule.revision,roles:'Barista|100|1',seasonalityMode:'reviewed',seasonality:'9|125\n10|150',seasonalityReason:'Employer corrected October assumption'},priya.cookie)
+ const corrected=(await h.state()).demandrules[0]
+ await cmd('learn.decide',{...pin(stale),decision:'approved',reason:'Attempt against an older seasonal review'},priya.cookie,409)
+ await cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:e.digest},priya.cookie,409)
+ assert.deepEqual((await h.state()).demandrules[0],corrected)
+ stale=await cmd('learn.decide',{...pin(stale),decision:'declined',reason:'Seasonal evidence changed'},priya.cookie)
+ assert.equal(stale.status,'declined')
+ const after=await h.state()
+ for(const field of ['demandforecasts','sales','rosters','shifts','clocks','timesheets','forecasts'])assert.deepEqual(after[field],before[field],field)
 }
