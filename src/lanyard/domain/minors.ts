@@ -102,3 +102,9 @@ export function minorTime(s:State,t:Record<string,any>,shiftId?:string|null){
  const skip=[shiftId,clock?.shiftId,t.segmentPlan?.shiftId].filter(Boolean)
  return [...new Set((segments.length?segments:[whole]).flatMap((part:any)=>minorIssues(s,t.staffId,{...whole,...part,minorWhole:whole},undefined,skip)))]
 }
+
+/** Preserve the evaluated outcome at approval; later document edits cannot relabel it. */
+export function minorAssessment(s:State,t:Record<string,any>,at:string){
+ const exceptions=minorTime(s,t),record=s.minors.find(r=>r.staffId===t.staffId)
+ return {exceptions,...(record?{minorCheck:{jurisdiction:record.state,ruleVersion:RULE_VERSION,source:record.source,recordId:record.id,recordRevision:record.revision,evaluatedAt:at,outcome:exceptions.length?'exceptions':'no-recorded-exceptions',boundary:'Recorded native checks, not issuing-authority validation or complete legal compliance.'}}:{})}
+}

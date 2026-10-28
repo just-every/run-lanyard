@@ -32,7 +32,7 @@ function revise(c:Context,r:Row,action:string,reason:string,apply:(x:Row)=>Row|n
  need(r.start>c.now,'This shift has already started',409);need(!r.callout||r.callout.coveredBy,'This shift is called out; resolve its cover first',409)
  const rows=c.s.shifts.filter(x=>x.rosterId===roster.id&&x.status==='published')
  put(c,'rosters',{...roster,status:'superseded'},roster)
- const next=put(c,'rosters',{week:roster.week,timezone:roster.timezone,status:'published',preparedBy:c.a.id,preparedAt:c.now,publishedBy:c.a.id,publishedByName:actorName(c),publishedAt:c.now,change:{lineage:lineageOf(r),action,reason,by:c.a.id,byName:actorName(c),at:c.now}})
+ const next=put(c,'rosters',{week:roster.week,timezone:roster.timezone,priorRosterId:roster.id,status:'published',preparedBy:c.a.id,preparedAt:c.now,publishedBy:c.a.id,publishedByName:actorName(c),publishedAt:c.now,change:{lineage:lineageOf(r),action,reason,by:c.a.id,byName:actorName(c),at:c.now}})
  const moved=new Map<string,Row>();let changed:Row|null=null
  for(const x of rows) {
   put(c,'shifts',{...x,status:'superseded'},x)

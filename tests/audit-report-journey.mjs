@@ -99,6 +99,8 @@ export async function auditApi(h){
  assert.deepEqual([roundingRow.facts.capturedMinutes,roundingRow.facts.minutes,roundingRow.facts.netMinutes],[481,495,14])
  await auditBoundary(h,f)
  await auditQuarter(h)
+ await auditMinorChecks(h)
+ await auditScheduleChanges(h)
  await auditDelegation(h,f)
  const level=await h.cmd('access.level.save',{name:'Synthetic report reader',site:'Austin',permissions:['reports.view']})
  await h.cmd('access.grant',{staffId:f.morgan.id,levelId:level.id,site:'Austin'})
@@ -411,7 +413,7 @@ async function auditQuarter(h){
   assert.deepEqual(kind('breaks').map(x=>x.facts.premiums),Array.from({length:5},()=>[{code:'meal premium',minutes:60}]))
   assert.deepEqual(kind('minor-exception').map(x=>[x.sourceId,x.jurisdiction]).sort(),expected.map(x=>[x.id,p.state]).sort())
   assert.equal(kind('schedule').length,4)
-  assert.equal(kind('schedule').filter(x=>x.facts.reason==='Quarter coverage adjustment').length,1)
+  assert.equal(kind('schedule').filter(x=>x.facts.reason==='Quarter coverage adjustment').length,p.site==='Chicago'?1:0,'unchanged cafes do not inherit another shift’s change reason')
   assert.deepEqual(kind('schedule').map(x=>x.facts.postings.map(y=>y.id)).flat().sort(),postings.get(p.site).map(x=>x.id).sort())
   const leave=kind('sick-leave'),work=leave.filter(x=>x.facts.kind==='work')
   assert.deepEqual(work.map(x=>[x.sourceId,x.sourceRevision]).sort(),expected.map(x=>[x.id,x.revision]).sort())
@@ -423,8 +425,90 @@ async function auditQuarter(h){
   for(const privateValue of [other.id,other.email,'synthetic-lanyard-quarter','birthDate','hourlyRate','payrollId'])assert.ok(!JSON.stringify(r.rows).includes(privateValue),privateValue)
   const csv=await h.send('/api/lanyard/audit.csv?'+q,undefined,h.owner);assert.equal(csv.status,200);assert.equal(csv.text.split('\r\n').filter(x=>x.startsWith('"source"')).length,r.rows.length)
   assert.match(r.retention,/not enforced/);assert.match(r.auditorAccess,/No auditor grant/)
+  const reader=await h.person(p.site+'QuarterReader'),business=await h.cmd('organization.business.save',{name:p.site+' quarter business'})
+  await h.cmd('organization.location.save',{name:p.site+' quarter location',site:p.site,businessId:business.id,timezone:'UTC'})
+  const grant=await h.cmd('access.audit.grant',{staffId:reader.id,businessId:business.id,site:p.site,employeeIds:[p.id],jurisdictions:['unassigned',p.state],classes:['schedule','breaks','punch-edit','minor-exception'],from:'2026-07-01',through:'2026-09-30',purpose:'Reconcile the recorded quarter sources',endsAt:'2026-12-31T23:59:59Z',wages:false,consent:true})
+  for(const jurisdiction of ['unassigned',p.state]){
+   const params=new URLSearchParams({site:p.site,from:'2026-07-01',through:'2026-09-30',jurisdiction,grantId:grant.id})
+   const scoped=await h.send('/api/lanyard/audit?'+params,undefined,reader.cookie)
+   assert.equal(scoped.status,200,scoped.text)
+   const expectedRows=r.rows.filter(row=>grant.classes.includes(row.category)&&row.jurisdiction===jurisdiction)
+   assert.deepEqual(scoped.value.rows,expectedRows)
+   assert.equal(scoped.value.rows.length,jurisdiction==='unassigned'?10:5)
+   const file=await h.send('/api/lanyard/audit.csv?'+params,undefined,reader.cookie)
+   assert.equal(file.status,200,file.text);assert.equal(file.text.split('\r\n').filter(x=>x.startsWith('"source"')).length,expectedRows.length)
+   assert.ok(!file.text.includes(other.id)&&!file.text.includes('illness'))
+  }
+  await h.cmd('access.audit.revoke',{...pin(grant),reason:'Quarter reconciliation complete'})
+  for(const suffix of ['', '.csv'])assert.equal((await h.send('/api/lanyard/audit'+suffix+'?'+new URLSearchParams({site:p.site,from:'2026-07-01',through:'2026-09-30',jurisdiction:p.state,grantId:grant.id}),undefined,reader.cookie)).status,403)
  }
  for(const key of ['timesheets','shifts','rosters','postings','minors','sickuses','sickpolicies'])assert.deepEqual((await h.state())[key],before[key])
+}
+async function auditScheduleChanges(h){
+ const person=await h.person('CancellationSubject'),other=await h.person('UnchangedColleague'),reader=await h.person('CancellationAuditor')
+ const site='California cancellation audit',clock={'x-test-now':String(Date.parse('2026-09-01T12:00:00Z'))}
+ for(const p of [person,other])await h.cmd('availability.save',{staffId:p.id,start:'2026-08-31T00:00:00Z',end:'2026-09-07T00:00:00Z'})
+ const draft=await h.cmd('roster.prepare',{week:'2026-08-31',shifts:[person,other].map((p,i)=>({staffId:p.id,site,start:`2026-09-0${i+2}T16:00:00Z`,end:`2026-09-0${i+2}T20:00:00Z`,breakMinutes:0}))},h.owner,200,clock)
+ await h.cmd('roster.publish',pin(draft),h.owner,200,clock)
+ const shift=(await h.state()).shifts.find(r=>r.rosterId===draft.id&&r.staffId===person.id)
+ const confirmation=await h.cmd('shift.confirm',pin(shift),person.cookie,200,clock)
+ const canceled=await h.cmd('shift.cancel',{...pin(confirmation),reason:'Service canceled by the customer'},h.owner,200,clock)
+ const business=await h.cmd('organization.business.save',{name:'Cancellation audit business'})
+ await h.cmd('organization.location.save',{name:'Cancellation audit site',site,businessId:business.id,timezone:'UTC'})
+ const grant=await h.cmd('access.audit.grant',{staffId:reader.id,businessId:business.id,site,employeeIds:[person.id],jurisdictions:['unassigned'],classes:['schedule'],from:'2026-07-01',through:'2026-09-30',purpose:'Reconcile the cancellation and original posting',endsAt:'2026-12-31T23:59:59Z',wages:false,consent:true})
+ const query=new URLSearchParams({site,from:grant.from,through:grant.through,jurisdiction:'unassigned',grantId:grant.id})
+ const report=await h.send('/api/lanyard/audit?'+query,undefined,reader.cookie)
+ assert.equal(report.status,200,report.text)
+ assert.deepEqual(report.value.rows.map(r=>[r.sourceKind,r.sourceId,r.sourceRevision]).sort(),[['shifts',shift.id,4],['rosters',canceled.roster.id,1]].sort())
+ const cancellation=report.value.rows.find(r=>r.sourceKind==='rosters')
+ assert.deepEqual([cancellation.facts.action,cancellation.facts.reason,cancellation.facts.previousSource],['canceled','Service canceled by the customer',{kind:'shifts',id:shift.id,revision:4}])
+ assert.deepEqual(report.value.rows.find(r=>r.sourceKind==='shifts').facts.confirmations,[{at:'2026-09-01T12:00:00.000Z'}])
+ assert.ok(!JSON.stringify(report.value.rows).includes(other.id),'a cancellation cannot disclose another employee')
+ const csv=await h.send('/api/lanyard/audit.csv?'+query,undefined,reader.cookie)
+ assert.equal(csv.status,200,csv.text);assert.ok(csv.text.includes(canceled.roster.id)&&csv.text.includes('Service canceled by the customer'))
+ const ownerQuery=new URLSearchParams({site,from:grant.from,through:grant.through,jurisdiction:'all'})
+ const ownerReport=(await h.send('/api/lanyard/audit?'+ownerQuery,undefined,h.owner)).value
+ assert.ok(ownerReport.rows.filter(r=>r.staffId===other.id).every(r=>r.facts.reason===''),'unchanged shifts do not borrow a cancellation reason')
+ const packet=await h.cmd('audit.retain',{site,from:grant.from,through:grant.through,jurisdiction:'all',sourceVersion:ownerReport.sourceVersion,reason:'Preserve the cancellation lineage',consent:true})
+ const review=await h.cmd('privacy.records.review',{sourceKind:'auditpackets',sourceId:packet.id})
+ assert.ok(review.unresolved.some(r=>r.sourceKind==='shifts'&&r.sourceId===shift.id))
+ assert.ok(review.unresolved.some(r=>r.sourceKind==='rosters'&&r.sourceId===canceled.roster.id))
+ await h.restart()
+ assert.deepEqual((await h.send('/api/lanyard/audit?'+query,undefined,reader.cookie)).value.rows,report.value.rows)
+ await h.cmd('access.audit.revoke',{...pin(grant),reason:'Cancellation audit complete'})
+ assert.equal((await h.send('/api/lanyard/audit?'+query,undefined,reader.cookie)).status,403)
+ return ownerQuery
+}
+async function auditMinorChecks(h){
+ const person=await h.person('ReviewedMinor'),reader=await h.person('MinorAuditReader')
+ const minorInput={staffId:person.id,birthDate:'2009-01-01',state:'CA',permit:'synthetic-lanyard-reviewed-permit',permitThrough:'2026-12-31',calendarFrom:'2026-07-01',calendarThrough:'2026-10-31',schoolDays:[],schoolStart:'08:00',schoolEnd:'15:00',authorizations:[{kind:'permit',reference:'synthetic-lanyard-reviewed-permit',from:'2026-07-01',through:'2026-10-31',site:'California reviewed checks',permitKind:'individual-work-permit',dailyMinutes:480,weeklyMinutes:2880,startMinute:300,endMinute:1440}]}
+ const minor=await h.cmd('minor.save',minorInput)
+ const draft=await h.cmd('time.prepare',{staffId:person.id,site:'California reviewed checks',start:'2026-09-16T16:00:00Z',end:'2026-09-16T20:00:00Z',breakMinutes:0,reason:'Reviewed lawful-hours source'})
+ const approved=await h.cmd('time.approve',pin(draft))
+ const business=await h.cmd('organization.business.save',{name:'Reviewed minor business'})
+ await h.cmd('organization.location.save',{name:'Reviewed minor location',site:'California reviewed checks',businessId:business.id,timezone:'UTC'})
+ const grant=await h.cmd('access.audit.grant',{staffId:reader.id,businessId:business.id,site:'California reviewed checks',employeeIds:[person.id],jurisdictions:['CA'],classes:['minor-exception'],from:'2026-07-01',through:'2026-09-30',purpose:'Reconcile retained minor checks',endsAt:'2026-12-31T23:59:59Z',wages:false,consent:true})
+ const query=new URLSearchParams({site:grant.site,from:grant.from,through:grant.through,jurisdiction:'CA',grantId:grant.id})
+ const read=async()=>{const r=await h.send('/api/lanyard/audit?'+query,undefined,reader.cookie);assert.equal(r.status,200,r.text);return r.value.rows}
+ const original=await read()
+ assert.equal(original.length,1,'passing minor checks must appear alongside exception outcomes')
+ assert.deepEqual(original.map(r=>[r.sourceId,r.sourceRevision,r.facts.check.outcome,r.facts.exceptions]),[[approved.id,approved.revision,'no-recorded-exceptions',[]]])
+ assert.deepEqual([original[0].facts.check.recordId,original[0].facts.check.recordRevision,original[0].facts.check.evaluatedAt],[minor.id,minor.revision,'2026-10-27T12:00:00.000Z'])
+ // Later private evidence cannot rewrite the outcome previously retained on approved time.
+ await h.cmd('minor.save',{...minorInput,...pin(minor),permitThrough:'2026-09-01',authorizations:[]})
+ await h.restart();assert.deepEqual(await read(),original)
+ const csv=await h.send('/api/lanyard/audit.csv?'+query,undefined,reader.cookie)
+ assert.equal(csv.status,200,csv.text);assert.ok(csv.text.includes(approved.id)&&csv.text.includes('no-recorded-exceptions'))
+ for(const privateValue of ['birthDate','2009-01-01','synthetic-lanyard-reviewed-permit','hourlyRate',person.email])assert.ok(!csv.text.includes(privateValue),privateValue)
+ const correction=await h.cmd('time.prepare',{staffId:person.id,site:grant.site,start:approved.start,end:approved.end,breakMinutes:0,corrects:approved.id,reason:'Re-evaluate the corrected source'})
+ const changed=await h.cmd('time.approve',pin(correction))
+ const rows=await read()
+ assert.deepEqual(rows.map(r=>[r.sourceId,r.sourceRevision,r.facts.check.outcome]).sort(),[[approved.id,3,'no-recorded-exceptions'],[changed.id,changed.revision,'exceptions']].sort())
+ assert.ok(rows.find(r=>r.sourceId===changed.id).facts.exceptions.some(e=>e.includes('expired')))
+ assert.equal(rows.find(r=>r.sourceId===approved.id).facts.check.recordRevision,1)
+ await h.cmd('access.audit.revoke',{...pin(grant),reason:'Minor audit complete'})
+ assert.equal((await h.send('/api/lanyard/audit.csv?'+query,undefined,reader.cookie)).status,403)
+ return new URLSearchParams({site:grant.site,from:grant.from,through:grant.through,jurisdiction:'CA'})
 }
 export async function auditBrowser(){
  const browser=await chromium.launch({headless:true,...(process.env.CLOUD_CHROMIUM?{executablePath:'/usr/bin/chromium',args:['--no-sandbox']}:{} )})
@@ -457,6 +541,12 @@ export async function auditBrowser(){
      await page.locator('tbody tr').filter({hasText:'Employee corrected closing time'}).first().scrollIntoViewIfNeeded();await page.screenshot({path:join(process.env.AUDIT_SCREENS,`audit-edits-${width}.png`)})
      await page.locator('tbody tr').filter({hasText:'Whole workweek across cafes'}).first().scrollIntoViewIfNeeded();await page.screenshot({path:join(process.env.AUDIT_SCREENS,`audit-workweek-${width}.png`)})}}
    assert.deepEqual(errors,[])
+   for(const [name,params,visible] of [['checks',await auditMinorChecks(h),'no-recorded-exceptions'],['cancellations',await auditScheduleChanges(h),'Service canceled by the customer']]){
+    await page.setViewportSize({width:1440,height:1000})
+    await page.goto(h.origin+'/app/audit?'+params,{waitUntil:'networkidle'})
+    assert.ok((await page.locator('table').innerText()).includes(visible))
+    for(const width of [1440,390]){await page.setViewportSize({width,height:1000});if(process.env.AUDIT_SCREENS){await page.screenshot({path:join(process.env.AUDIT_SCREENS,`audit-${name}-${width}.png`),fullPage:true})}}
+   }
    const auditor=await h.person('ScreenAuditor')
    const business=await h.cmd('organization.business.save',{name:'Screen audit business'})
    await h.cmd('organization.location.save',{name:'Screen audit cafe',businessId:business.id,site:'Austin',timezone:'UTC'})
@@ -485,4 +575,62 @@ export async function auditBrowser(){
    assert.deepEqual(errors,[])
   }finally{await context.close()}
  }finally{await h.close();await browser.close()}
+}
+
+// Full-quarter preservation proof also runs from the existing archive journey.
+// All sources enter through native commands; only corruption probes touch SQL.
+export async function auditLargeQuarter(h){
+ const packets=[]
+ const state=async()=>{const response=await h.send('/api/lanyard/state',undefined,h.owner,{'x-test-now':String(Date.parse('2026-10-27T12:00:00Z'))});assert.equal(response.status,200,response.text);return response.value}
+ for(const site of ['Chicago retained quarter','California retained quarter']){
+  const people=[await h.person(site.startsWith('Chicago')?'ChicagoQuarterOne':'CaliforniaQuarterOne'),await h.person(site.startsWith('Chicago')?'ChicagoQuarterTwo':'CaliforniaQuarterTwo')]
+  const expected=[]
+  for(let day=0;day<92;day++){
+   const on=new Date(Date.UTC(2026,6,1+day)).toISOString().slice(0,10)
+   for(const person of people){
+    let record=await h.cmd('time.prepare',{staffId:person.id,site,start:on+'T08:00:00Z',end:on+'T16:00:00Z',breakMinutes:0,reason:'Quarter reconciliation source'})
+    for(let edit=0;edit<2;edit++)record=await h.cmd('time.edit',{...pin(record),start:record.start,end:on+`T15:${String(55-edit).padStart(2,'0')}:00Z`,breakMinutes:0,reason:`Review ${edit+1}: `+'核对出勤记录与原始依据'.repeat(40)})
+    expected.push([record.id,record.revision])
+   }
+  }
+  const filter={site,from:'2026-07-01',through:'2026-09-30',jurisdiction:'all'},query=new URLSearchParams(filter)
+  const report=await h.send('/api/lanyard/audit?'+query,undefined,h.owner),csv=await h.send('/api/lanyard/audit.csv?'+query,undefined,h.owner)
+  assert.equal(report.status,200,report.text);assert.equal(csv.status,200,csv.text)
+  assert.equal(report.value.rows.length,368)
+  for(const category of ['breaks','punch-edit'])assert.deepEqual(report.value.rows.filter(r=>r.category===category).map(r=>[r.sourceId,r.sourceRevision]).sort(),[...expected].sort())
+  const input={...filter,sourceVersion:report.value.sourceVersion,reason:'Preserve the complete reviewed quarter',consent:true}
+  const beforeSave=await state(),countParts=async()=>Number((await h.db.prepare("SELECT count(*) AS n FROM l_records WHERE kind='auditpayloads'").first()).n),beforeParts=await countParts()
+  await h.db.exec("CREATE TRIGGER synthetic_audit_failure BEFORE INSERT ON l_commands WHEN instr(NEW.result,'lanyard.audit.chunks.v1')>0 BEGIN SELECT RAISE(ABORT,'synthetic-lanyard-storage-refusal'); END")
+  try{await h.cmd('audit.retain',input,h.owner,409)}finally{await h.db.exec('DROP TRIGGER synthetic_audit_failure')}
+  assert.deepEqual(await state(),beforeSave,'a failed receipt rolls back the manifest, parts, sources and activity together')
+  assert.equal(await countParts(),beforeParts,'failed preservation leaves no orphaned payload parts')
+  const summary=await h.cmd('audit.retain',input)
+  assert.equal(summary.report,undefined,'large command receipts contain a manifest rather than duplicate payload bytes')
+  assert.ok(summary.storage.bytes>1500000,'fixture exceeds the old single-record copy limit')
+  await h.cmd('audit.retain',input,h.owner,409)
+  const path='/api/lanyard/audit-packets/'+summary.id
+  for(const suffix of ['', '.csv'])assert.equal((await h.send(path+suffix,undefined,people[0].cookie)).status,403)
+  const original=await h.send(path,undefined,h.owner)
+  assert.equal(original.status,200,original.text);assert.deepEqual(original.value.report,report.value);assert.equal(original.value.csv,csv.text)
+  assert.equal(original.value.csvSha256,createHash('sha256').update(csv.text).digest('hex'))
+  const review=await h.cmd('privacy.records.review',{sourceKind:'auditpackets',sourceId:summary.id})
+  assert.deepEqual([...new Set(review.unresolved.filter(r=>r.sourceKind==='timesheets').map(r=>r.sourceId))].sort(),expected.map(r=>r[0]).sort(),'chunked copies retain every source duty reference')
+  const before=await state(),partId=summary.storage.parts[0].id
+  const part=await h.db.prepare("SELECT data FROM l_records WHERE kind='auditpayloads' AND id=?").bind(partId).first()
+  for(const data of [null,JSON.stringify({...JSON.parse(part.data),data:'synthetic-lanyard-damaged'}),JSON.stringify({...JSON.parse(part.data),packetId:'synthetic-lanyard-other-packet'})]){
+   if(data===null)await h.db.prepare("DELETE FROM l_records WHERE kind='auditpayloads' AND id=?").bind(partId).run()
+   else await h.db.prepare("UPDATE l_records SET data=? WHERE kind='auditpayloads' AND id=?").bind(data,partId).run()
+   for(const suffix of ['', '.csv'])assert.equal((await h.send(path+suffix,undefined,h.owner)).status,409,'missing or damaged parts never produce a partial download')
+   await h.db.prepare("INSERT INTO l_records(kind,id,revision,data) VALUES('auditpayloads',?,1,?) ON CONFLICT(kind,id) DO UPDATE SET data=excluded.data").bind(partId,part.data).run()
+  }
+  assert.deepEqual((await state()).timesheets,before.timesheets,'retaining a quarter leaves worked sources unchanged')
+  const source=before.timesheets.find(r=>r.id===expected[0][0])
+  await h.cmd('time.edit',{...pin(source),start:source.start,end:source.start.slice(0,10)+'T14:00:00Z',breakMinutes:0,reason:'Later quarter correction'})
+  assert.deepEqual((await h.send(path,undefined,h.owner)).value,original.value,'later corrections do not rewrite the retained quarter')
+  await h.restart()
+  assert.deepEqual((await h.send(path,undefined,h.owner)).value,original.value,'every part and authorization survives restart')
+  assert.equal((await h.send(path+'.csv',undefined,h.owner)).text,csv.text)
+  packets.push(original.value)
+ }
+ return packets
 }

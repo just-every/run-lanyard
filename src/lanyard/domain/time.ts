@@ -1,4 +1,4 @@
-import {minorClock,minorTime} from './minors'
+import {minorClock,minorTime,minorAssessment} from './minors'
 import {differentialBasis,differentialRules} from './differentials'
 // Gauge time's submitted -> approved revision flow, adapted to hours only;
 // Glove field capture preserves device time and command identity on retries.
@@ -36,8 +36,8 @@ export function approve(c:Context,submitted:Row) {
  const rated:Row={...r,job,site,segmentPlan:plan,workSegments,rateBasis:workSegments.length?segmentBasis(r.staffId,workSegments):retained(rateBasis(c.s,r.staffId,{...r,job,site}),job)}
  rated.differentialContext=old?.differentialContext??{role:c.s.staff.find(x=>x.id===r.staffId)?.position??'',tag:(c.s.shifts.find(x=>x.id===rated.segmentPlan?.shiftId)??c.s.shifts.find(x=>x.staffId===r.staffId&&x.status==='published'&&x.start<r.end&&x.end>r.start))?.label??''}
  const rules=differentialRules(c.s,rated)
- const minorFlags=minorTime(c.s,rated)
- const approved={...rated,exceptions:[...new Set([...(rated.exceptions??[]).filter((x:string)=>!x.startsWith('Minor work rule ')),...minorFlags])],differentialRules:rules,differentialBasis:differentialBasis(c.s,rated,rules),holidayBasis:holidayBasis(c.s,rated),status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now}
+ const minor=minorAssessment(c.s,rated,c.now)
+ const approved={...rated,...minor,exceptions:[...new Set([...(rated.exceptions??[]).filter((x:string)=>!x.startsWith('Minor work rule ')),...minor.exceptions])],differentialRules:rules,differentialBasis:differentialBasis(c.s,rated,rules),holidayBasis:holidayBasis(c.s,rated),status:'approved',exportMinutes:r.minutes-exported,approvedBy:c.a.id,approvedAt:c.now}
  // A bulk caller may catch a refusal: finish every check and calculation before changing either revision.
  if(old)put(c,'timesheets',{...old,status:'superseded',supersededBy:r.id},old)
  return put(c,'timesheets',approved,r)
