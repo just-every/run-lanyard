@@ -2,7 +2,10 @@
 import {parseContract} from '../src/base/seed-contract.mjs'
 import {readFileSync} from 'node:fs'
 const ids=process.argv.slice(3)
-const contract=parseContract(readFileSync('CONTRACT.md','utf8'))
+const source=readFileSync('CONTRACT.md','utf8')
+// A status flip can leave summary views stale until the shared writer runs.
+const input=process.argv[2]==='write'?source.replace(/^\| (Published|Target and push further|All) \|.*$/gm,''):source
+const contract=parseContract(input)
 for(const id of ids)if(!contract.clauses.some(c=>c.id===id))throw Error('Unknown clause '+id)
 process.argv=process.argv.slice(0,3)
 await import('../src/base/contract-docs.mjs')

@@ -2,7 +2,7 @@
   "schema": 1,
   "seed": "product",
   "old": {
-    "commit": "2d8a2bd198f19cc4d4c816988b68784405c8f832",
+    "commit": "7c608197152dd0e047eaa6c631945e4690ba6fab",
     "files": [
       "CONTRACT.md",
       "ACCEPTANCE.md",
@@ -2722,361 +2722,6 @@
       "to": "clause",
       "ids": [
         "LEAVE-002"
-      ]
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "**LEAVE-003 \u2014 Paid sick and safe leave jurisdiction presets.**",
-      "to": "clause",
-      "ids": [
-        "LEAVE-003"
-      ]
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Lanyard ships maintained paid sick and safe leave presets for California, Colorado, Illinois (Paid Leave for All Workers Act), New York State, Oregon, Washington, New York City, Chicago, Seattle, San Francisco, Los Angeles and Philadelphia.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Each preset records accrual on hours worked, caps, carryover, waiting period, usage increment, permitted reasons and balance fields with its effective date and cited source.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Accrual runs on approved worked hours at each employee's work location; balances flow to LEAVE-001 and pay codes to PAY-001.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Any other jurisdiction is labeled employer-configured, unmaintained.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "The current paid-tier preset engine uses whole paid minutes, fractional accrual retained in 1/840-minute units and January 1 year boundaries; pending or superseded time never accrues.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Work-area location and current approved payable minutes determine the bank, including cross-site work; approved leave is paid non-work service and does not accrue again.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Corrections rebuild balances from current approved sources, preserve earlier payroll bytes and export only signed paid-use differences.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Paid-service source references deduplicate ACA-001 credits.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Unlisted places are explicitly employer-configured, unmaintained.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Interim conservative privacy default: the employee reads their own bank and permitted-purpose request, and the owner alone reads all balances/purposes, approves/corrects use and downloads balance/source files; managers see only the ordinary absence window labelled Paid leave.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "No medical details are requested.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "This owner-only administration is approved by ct on 23 October 2026 at 14:25Z; TEAM-001/ACCESS-003 and PRIVACY-001 inherit it before extending readers.",
-      "to": "rulings",
-      "ids": [
-        "RL-2"
-      ]
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "The owner selects New York and NYC 40-hour or 100+ employee 56-hour paid tiers and Seattle standalone tiers 1, 2 and 3 explicitly.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Separate combined PTO presets retain the same tier accrual rates and carry 40, 56 or 108 hours respectively, with no annual use cap; employer-approved PTO use shares the same bank and signed payroll source.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "The owner chooses the tier and reviews applicability against the cited Seattle source.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "For California and its San Francisco/Los Angeles presets the site policy records at least the longest normal workday of its covered employees: five such days set a use floor where a use cap exists, and ten set the bank and carry floor, without reducing any higher hour-based and local entitlement.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Defaulting legacy policies to eight hours preserves their prior hour floors; employers must review longer days.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "The owner can also select accrued unpaid base tiers for small employers in New York State, NYC, Oregon and Philadelphia.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Requests retain the effective rule\u2019s paid status: unpaid use consumes protected time, costs zero, appears in balance files with its code and an explicit paid flag, and is excluded from paid payroll, earnings and ACA paid service even after a later paid policy version.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "NYC domestic workers and Philadelphia chain establishments must use the applicable paid tier, not the small-employer unpaid preset; applicability remains employer-reviewed.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "An additional NYC_UPFRONT policy at the same cafe provides 32 immediately available unpaid hours from 22 February 2026, independently of approved-work accrual; its unused hours do not carry to the next January grant.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Employment start and current cafe or approved work determine availability, with approved use retaining its grant history.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "A separate NY_PRENATAL policy at the same cafe provides 20 paid hours without accrual from 1 January 2025.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Its 52-week period is 364 elapsed days from the first approved use; January does not replenish that period, and a duration correction retains its first-use date.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "The rolling bank uses the existing annualUsed report field for the active 52-week period.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Expanded categories include preventive care; applicable closures, exclusions, bereavement and evacuation; Oregon parental leave, hazardous conditions and blood donation; Washington immigration proceedings; and NYC childcare, public disasters and housing or benefits proceedings.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Complete employer and employee eligibility and coverage variants remain unproved.",
-      "to": "changelog"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "The NYC small-employer unpaid preset is its accrued base bank; the owner must also add the distinct NYC_UPFRONT policy for the same cafe to provide its separate 32-hour supplemental bank.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Complete jurisdiction reason catalogs and employee-specific eligibility remain unproved.",
-      "to": "changelog"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "LEAVE-001 and PAY-001 provider balance and code mapping remains with those clauses.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Employer-size reviews now refuse a 40-hour New York tier at 100 employees, and refuse unpaid tiers when employer counts, income, NYC domestic-worker coverage, Portland presence or Philadelphia chain establishments require paid time.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "These financial review fields remain owner-only.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Oregon donations are disabled unless the effective employer policy explicitly allows them.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "The owner prepares exact minutes and a named recipient; the donor explicitly consents through their own session, then a separate owner approves on the effective venue date after checking current approved balances and the retained policy revision.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "A donation debits and credits the same Oregon bank, does not accrue or consume annual absence use, creates no absence or paid service, and is never itself a payroll line.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "The recipient still requests a permitted absence and receives pay only on approved use.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Transfers retain consent and approval history through restart and archive transfer.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "The donor may withdraw before approval.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "No automatic transfer, reversal or deletion occurs.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "This conservative donation consent and approval default awaits ct approval.",
-      "to": "rulings",
-      "ids": [
-        "RL-2"
-      ]
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "San Francisco also exposes organ or tissue donation as a permitted purpose. ct policy ruling (27 October 2026): APPROVE WITH RIDERS; LEAVE-003 remains PARTIAL.",
-      "to": "rulings",
-      "ids": [
-        "RL-2"
-      ]
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Reaffirm the approved private-administration default: employees read their own balances and permitted-purpose requests; only the live native owner administers all balances, purposes, approvals, corrections and balance or source downloads through the interim door.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Ordinary managers receive only the generic absence window labelled Paid leave, without private balances or purposes, and no medical details are requested.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "Owner-only administration is too narrow for the contracted multi-location operations buyer: separately scoped private leave administration must follow under TEAM-001 and ACCESS-003, preserving the privacy and retention duties of PRIVACY-001.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "This ruling approves neither statutory applicability nor legal compliance and does not decide the separate Oregon donation policy.",
-      "to": "docs",
-      "path": "docs/contract/MECHANISMS.md"
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "**Acceptance evidence:**",
-      "to": "clause",
-      "ids": [
-        "LEAVE-003"
-      ]
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "For each listed preset accrue leave from approved hours for an employee working there, cross a cap and a year boundary, take a partial-day absence and export the balance and pay code.",
-      "to": "clause",
-      "ids": [
-        "LEAVE-003"
-      ]
-    },
-    {
-      "file": "CONTRACT.md",
-      "line": 81,
-      "text": "An employee splitting time between two jurisdictions accrues under each site's preset, and an unlisted city shows the unmaintained label.",
-      "to": "clause",
-      "ids": [
-        "LEAVE-003"
       ]
     },
     {
@@ -13876,13 +13521,6 @@
     },
     {
       "file": "CONTRACT.md",
-      "line": 351,
-      "text": "Judged from the code and tests at commit `b39699337563287f4afab986e3e2c91413657c27` (27 October 2026). POLICY-002\u2019s interim owner boundary is rechecked by the named native HTTP and Settings journeys; ct\u2019s 27 October approval with riders grants no completion, and POLICY-002 remains partial. The final candidate and exact-SHA execution receipts are supplied in the fleet report. BASE-001 retains its named 26 October live hosted installation evidence. Other clauses retain their existing evidence and gaps.",
-      "to": "section",
-      "section": "Status"
-    },
-    {
-      "file": "CONTRACT.md",
       "line": 376,
       "cell": "gap",
       "text": "None.",
@@ -17307,13 +16945,6 @@
     },
     {
       "file": "ACCEPTANCE.md",
-      "line": 276,
-      "text": "Status totals: 61 done, 34 partial, 32 missing; 127 clauses. Payroll disbursement/tax and POS settlement stay with their named providers; broader HR stays with Willow. Engineering dependencies do not remove acceptance work.",
-      "to": "generated",
-      "note": "The contract generator writes this status or count."
-    },
-    {
-      "file": "ACCEPTANCE.md",
       "line": 281,
       "text": "The complete PRIVACY-001 default and the two source riders above apply to the following existing receiving clauses, without introducing any acceptance point.",
       "to": "copy",
@@ -17558,12 +17189,6 @@
       "file": "docs/CLAIMS.md",
       "line": 36,
       "text": "| LEAVE-002 | Time-off blackout dates limits and team leave calendar | done |",
-      "to": "changelog"
-    },
-    {
-      "file": "docs/CLAIMS.md",
-      "line": 37,
-      "text": "| LEAVE-003 | Paid sick and safe leave jurisdiction presets | partial |",
       "to": "changelog"
     },
     {
@@ -18144,53 +17769,6 @@
     },
     {
       "file": "CONTRACT.md",
-      "line": 391,
-      "text": "**Gap \u2014 LEAVE-003:** employee-specific eligibility, statutory exclusions and complete jurisdiction reason applicability remain unproved. Employer coverage reviews record supplied facts, not independent verification or legal compliance. The separate Oregon donation consent and approval policy still awaits its own ruling. **Gap \u2014 TEAM-001 and ACCESS-003:** private leave administration, separately granted purpose access, current employee and site scope, independent self-approval refusal and immediate revocation remain unproved. **Gap \u2014 PRIVACY-001:** applicable retention, holds and employee-rights treatment remain required. **Gap \u2014 LEAVE-001 and PAY-001:** provider balance authority and code mapping remain with those clauses; native files do not establish provider acceptance.",
-      "to": "gap",
-      "cell": "gap",
-      "ids": [
-        "LEAVE-003",
-        "LEAVE-004",
-        "LEAVE-005",
-        "LEAVE-006",
-        "TEAM-001",
-        "TEAM-002",
-        "TEAM-003",
-        "ACCESS-003",
-        "PRIVACY-001",
-        "PRIVACY-002",
-        "PRIVACY-003",
-        "LEAVE-001",
-        "PAY-001"
-      ]
-    },
-    {
-      "file": "ACCEPTANCE.md",
-      "line": 73,
-      "text": "**LEAVE-003 \u2014 Paid sick and safe leave jurisdiction presets.**",
-      "to": "clause",
-      "ids": [
-        "LEAVE-003",
-        "LEAVE-004",
-        "LEAVE-005",
-        "LEAVE-006"
-      ]
-    },
-    {
-      "file": "ACCEPTANCE.md",
-      "line": 73,
-      "text": "**Status: partial.**",
-      "to": "generated",
-      "note": "The generator now writes this status label."
-    },
-    {
-      "file": "ACCEPTANCE.md",
-      "line": 73,
-      "text": "For each listed preset accrue leave from approved hours for an employee working there, cross a cap and a year boundary, take a partial-day absence and export the balance and pay code. An employee splitting time between two jurisdictions accrues under each site's preset, and an unlisted city shows the unmaintained label. ct policy ruling (27 October 2026): APPROVE WITH RIDERS; LEAVE-003 remains PARTIAL. Reaffirm the approved private-administration default: employees read their own balances and permitted-purpose requests; only the live native owner administers all balances, purposes, approvals, corrections and balance or source downloads through the interim door. Ordinary managers receive only the generic absence window labelled Paid leave, without private balances or purposes, and no medical details are requested. Owner-only administration is too narrow for the contracted multi-location operations buyer: separately scoped private leave administration must follow under TEAM-001 and ACCESS-003, preserving the privacy and retention duties of PRIVACY-001. This ruling approves neither statutory applicability nor legal compliance and does not decide the separate Oregon donation policy. **Proven:** `tests/sick-journey.mjs` sickApi proves all 12 jurisdictions, four additional paid tiers and three combined Seattle PTO tiers through accrual and caps and carryover, partial use and mapped signed payroll, source and balance CSV, cross-site and current corrections, waiting, increment and use-cap refusal, unlisted labeling and ACA deduplication; New York and NYC 40-hour and Seattle tiers 1 and 2, California and local five and ten normal-day floors and retained effective versions, preventive care, jury and witness paid use, owner-only private payroll and CSV, agent fencing and recursive estimate-off correction-history wage redaction. sickBrowser proves policy and day-floor entry, own requests, owner approval, payroll, earnings and tooltips at 1440/390. `tests/sick-journey.mjs` (sickUnpaid, invoked by the existing sickApi registration in `tests/lanyard.test.mjs`): New York State, NYC, Oregon and Philadelphia unpaid base tiers accrue approved work through the annual cap and year boundary, support partial-day use and owner-only review and corrections, export balances and the selected code with an explicit paid flag, and contribute no paid payroll hours, earnings or ACA service; a later paid version does not reclassify retained unpaid use; historical use and worked-accrual CSV sources keep their effective preset, paid flag and code while the balance summary reflects the current policy. (sickSupplement, invoked by sickApi): a distinct NYC 32-hour bank coexists at the same cafe, requires no accrued work, starts no earlier than 22 February 2026, resets without carryover, excludes pre-employment requests, exhausts and refuses further use, retains corrections and survives restart. (sickPrenatal, invoked by sickApi): a separate immediately available paid bank, no January replenishment within its 52-week period, reset after 364 days from first use, exact mapped wages and signed correction, exhaustion and refusal. (sickReasons, invoked by sickApi): supported categories through request, approval and correction, and unlisted-purpose refusal without a new row across the extended state and city catalogs. `tests/archive.test.mjs` (public CLI archive round trip): separate banks, private paid status, retained correction versions, signed payroll files and restored balances survive archive transfer with fresh native sign-in. (sickBrowser): existing policy, request and approval forms select and label unpaid time at 1440 and 390, with payroll, earnings and account tooltips. Owner-only private purpose and balance administration was approved by ct on 23 October 2026 at 14:25Z. `tests/sick-journey.mjs` (sickEmployerCoverage), registered as \u201cemployer coverage refuses unpaid and undersized tiers and preserves private effective reviews\u201d: both sides of employer thresholds, missing and blank chain-review refusal with explicit zero accepted, private fields, unauthorized changes and retained effective facts. (sickDonations), registered as \u201cOregon donations need donor consent and owner approval and retain balanced sources without creating pay\u201d: disabled-policy refusal, consent and authority fences, current-source revalidation, balanced transfer, duplicate refusal, permitted recipient use, wages, source CSV and restart; unused staff erasure remains allowed, but pending and approved donation recipients cannot be erased and both bank sides survive restart. (sickReasons): San Francisco organ or tissue donation. (sickBrowser): employer review and named donation preparation, donor consent and owner approval at 1440 and 390. `tests/archive.test.mjs` (public CLI archive round trip): approved donation facts, consent and balanced sources restored. **Existing evidence:** `tests/sick-journey.mjs` (sickApi): all 12 jurisdictions, four additional paid employer-size presets and three combined Seattle PTO tiers accrue approved work through caps and year boundaries; California and local five and ten normal-day use and bank floors and retained effective versions; preventive care, jury and witness paid use and corrections; partial-day use and export, signed reversals, source balance CSV, cross-location and current-revision accrual, waiting and increment and use-cap refusal, unlisted label and ACA deduplication; private payroll and CSV owner-only, agent preparation fencing and recursive estimate-off wage redaction including retained correction versions. `tests/sick-journey.mjs` (sickBrowser): policy and day floor, own request, owner review, mapped payroll, earnings and tooltips at 1440/390. `tests/sick-journey.mjs` (sickUnpaid, invoked by the existing sickApi registration in `tests/lanyard.test.mjs`): New York State, NYC, Oregon and Philadelphia unpaid base tiers accrue approved work through the annual cap and year boundary, support partial-day use and owner-only review and corrections, export balances and the selected code with an explicit paid flag, and contribute no paid payroll hours, earnings or ACA service; a later paid version does not reclassify retained unpaid use; historical use and worked-accrual CSV sources keep their effective preset, paid flag and code while the balance summary reflects the current policy. (sickSupplement, invoked by sickApi): a distinct NYC 32-hour bank coexists at the same cafe, requires no accrued work, starts no earlier than 22 February 2026, resets without carryover, excludes pre-employment requests, exhausts and refuses further use, retains corrections and survives restart. (sickPrenatal, invoked by sickApi): a separate immediately available paid bank, no January replenishment within its 52-week period, reset after 364 days from first use, exact mapped wages and signed correction, exhaustion and refusal. (sickReasons, invoked by sickApi): supported categories through request, approval and correction, and unlisted-purpose refusal without a new row across the extended state and city catalogs. `tests/archive.test.mjs` (public CLI archive round trip): separate banks, private paid status, retained correction versions, signed payroll files and restored balances survive archive transfer with fresh native sign-in. (sickBrowser): existing policy, request and approval forms select and label unpaid time at 1440 and 390, with payroll, earnings and account tooltips. `tests/sick-journey.mjs` (sickEmployerCoverage), registered as \u201cemployer coverage refuses unpaid and undersized tiers and preserves private effective reviews\u201d: both sides of employer thresholds, missing and blank chain-review refusal with explicit zero accepted, private fields, unauthorized changes and retained effective facts. (sickDonations), registered as \u201cOregon donations need donor consent and owner approval and retain balanced sources without creating pay\u201d: disabled-policy refusal, consent and authority fences, current-source revalidation, balanced transfer, duplicate refusal, permitted recipient use, wages, source CSV and restart; unused staff erasure remains allowed, but pending and approved donation recipients cannot be erased and both bank sides survive restart. (sickReasons): San Francisco organ or tissue donation. (sickBrowser): employer review and named donation preparation, donor consent and owner approval at 1440 and 390. `tests/archive.test.mjs` (public CLI archive round trip): approved donation facts, consent and balanced sources restored. sickUnpaid also proves that a later effective policy revision preserves prior-year carry, renews annual accrual and retains approved use through the native time and balance doors. **Remaining gap:** **Gap \u2014 LEAVE-003:** employee-specific eligibility, statutory exclusions and complete jurisdiction reason applicability remain unproved. Employer coverage reviews record supplied facts, not independent verification or legal compliance. The separate Oregon donation consent and approval policy still awaits its own ruling. **Gap \u2014 TEAM-001 and ACCESS-003:** private leave administration, separately granted purpose access, current employee and site scope, independent self-approval refusal and immediate revocation remain unproved. **Gap \u2014 PRIVACY-001:** applicable retention, holds and employee-rights treatment remain required. **Gap \u2014 LEAVE-001 and PAY-001:** provider balance authority and code mapping remain with those clauses; native files do not establish provider acceptance.",
-      "to": "changelog"
-    },
-    {
-      "file": "CONTRACT.md",
       "line": 438,
       "cell": "gap",
       "text": "**Gap \u2014 REPORT-002:** The owner-authorized immutable-copy workflow exists, but complete auditor delivery and preset-required retention enforcement remain unproved. Owner-issued named API grants prove supported classes with explicit scopes and separate wage review; delegated grant administration and private-source classes remain open. The existing audit screen serves permitted records without operational state. Retention review minimums and independent holds are implemented, while disposition remains unsupported. Complete Chicago and California quarter proof, delivered notice and consent, enforced predictive-scheduling outcomes and payroll transfer, complete minor-check coverage beyond recorded approval-time outcomes, legacy minor sources without snapshots, complete sick-leave eligibility and legacy in-place edits made before history capture remain open. Complete selected quarters are preserved in bounded authenticated parts without shortening the period. Legacy schedule cancellations without retained predecessor lineage remain incomplete. Untagged source jurisdictions remain unassigned. Private leave and policy previews retain their existing owner boundary.",
@@ -18220,6 +17798,613 @@
       "line": 170,
       "text": "Run a quarter at a Chicago and a California site with schedule changes, premiums, missed meals, a minor and edited punches. Produce each report for an auditor-scoped reader, reconcile counts to the source records and confirm unrelated wage and personal data are excluded. Additional CT rider: Preserve an owner-authorized exact report and verify original JSON, CSV, source revisions, digests and authorization after correction, restart and supported archive restore. The delegated authority assertions belong to TEAM-001 and ACCESS-003; retention, holds and disposition assertions belong to PRIVACY-001. **Existing evidence:** `src/lanyard/domain/audit-report.ts`; `src/lanyard/ui/audit-report.ts`; `tests/audit-report-journey.mjs` (auditApi, registered in `tests/lanyard.test.mjs` as REPORT-002 audit records): explicit source sets and revisions, rounding minutes, break premiums, make-up inputs, retained minor exceptions and private-leave sources, preview boundaries, redaction, live-reader refusals, unchanged sources and audited CSV; append-only manager edits and changed employee resubmissions with notes and restart, unchanged rounded confirmations, stale and wrong-state refusals, owner whole-workweek context across cafes and date boundaries, manager exclusions, Chicago and California quarter-range source reconciliation; (auditBrowser, registered as REPORT-002 native audit filters): native filtering, desktop assertions, account tooltip and report proof at 1440 and 390; retainAuditProof in `tests/audit-report-journey.mjs`: owner authorization, exact reviewed revision, digests, correction isolation and restart; `tests/archive.test.mjs` (public CLI archive round trip): original retained JSON and CSV survive supported restore.  `tests/audit-report-journey.mjs` (auditDelegation and auditRetentionMatrix, inside auditApi): bounded named-reader JSON and CSV, exact records and exclusions, separate wage authority, scoped refusal, operational and form-error denial, attributed API reads and the existing scoped reader screen, expiry, revocation, six independently expected review dates, longest overlap, unresolved applicability and independent source and copy holds. `tests/audit-report-journey.mjs` (auditLargeQuarter, invoked by the public CLI archive round trip): complete two-site quarter JSON and original CSV in bounded parts, atomic refusal without orphaned parts, every source duty, authorized reads, correction isolation, restart and supported archive restore. auditMinorChecks and auditScheduleChanges, inside auditApi: retained approval-time minor outcomes including no recorded exceptions, unchanged historical checks after private document correction, fresh corrected evaluations, named-reader exclusions and revocation, cancellation source lineage and confirmations without borrowed reasons or unrelated employees. **Remaining gap:** **Gap \u2014 REPORT-002:** The owner-authorized immutable-copy workflow exists, but complete auditor delivery and preset-required retention enforcement remain unproved. Owner-issued named API grants prove supported classes with explicit scopes and separate wage review; delegated grant administration and private-source classes remain open. The existing audit screen serves permitted records without operational state. Retention review minimums and independent holds are implemented, while disposition remains unsupported. Complete Chicago and California quarter proof, delivered notice and consent, enforced predictive-scheduling outcomes and payroll transfer, complete minor-check coverage beyond recorded approval-time outcomes, legacy minor sources without snapshots, complete sick-leave eligibility and legacy in-place edits made before history capture remain open. Complete selected quarters are preserved in bounded authenticated parts without shortening the period. Legacy schedule cancellations without retained predecessor lineage remain incomplete. Untagged source jurisdictions remain unassigned. Private leave and policy previews retain their existing owner boundary.",
       "to": "changelog"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "**LEAVE-003 \u2014 Paid sick and safe leave jurisdiction presets.**",
+      "to": "clause",
+      "ids": [
+        "LEAVE-003"
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Lanyard ships maintained paid sick and safe leave presets for California, Colorado, Illinois (Paid Leave for All Workers Act), New York State, Oregon, Washington, New York City, Chicago, Seattle, San Francisco, Los Angeles and Philadelphia.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Each preset records accrual on hours worked, caps, carryover, waiting period, usage increment, permitted reasons and balance fields with its effective date and cited source.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Accrual runs on approved worked hours at each employee's work location; balances flow to LEAVE-001 and pay codes to PAY-001.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Any other jurisdiction is labeled employer-configured, unmaintained.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "The current paid-tier preset engine uses whole paid minutes, fractional accrual retained in 1/840-minute units and January 1 year boundaries; pending or superseded time never accrues.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Work-area location and current approved payable minutes determine the bank, including cross-site work; approved leave is paid non-work service and does not accrue again.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Corrections rebuild balances from current approved sources, preserve earlier payroll bytes and export only signed paid-use differences.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Paid-service source references deduplicate ACA-001 credits.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Unlisted places are explicitly employer-configured, unmaintained.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Interim conservative privacy default: the employee reads their own bank and permitted-purpose request, and the owner alone reads all balances/purposes, approves/corrects use and downloads balance/source files; managers see only the ordinary absence window labelled Paid leave.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "No medical details are requested.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "This owner-only administration is approved by ct on 23 October 2026 at 14:25Z; TEAM-001/ACCESS-003 and PRIVACY-001 inherit it before extending readers.",
+      "to": "rulings",
+      "ids": [
+        "RL-2"
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "The owner selects New York and NYC 40-hour or 100+ employee 56-hour paid tiers and Seattle standalone tiers 1, 2 and 3 explicitly.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Separate combined PTO presets retain the same tier accrual rates and carry 40, 56 or 108 hours respectively, with no annual use cap; employer-approved PTO use shares the same bank and signed payroll source.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "The owner chooses the tier and reviews applicability against the cited Seattle source.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "For California and its San Francisco/Los Angeles presets the site policy records at least the longest normal workday of its covered employees: five such days set a use floor where a use cap exists, and ten set the bank and carry floor, without reducing any higher hour-based and local entitlement.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Defaulting legacy policies to eight hours preserves their prior hour floors; employers must review longer days.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "The owner can also select accrued unpaid base tiers for small employers in New York State, NYC, Oregon and Philadelphia.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Requests retain the effective rule\u2019s paid status: unpaid use consumes protected time, costs zero, appears in balance files with its code and an explicit paid flag, and is excluded from paid payroll, earnings and ACA paid service even after a later paid policy version.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "NYC domestic workers and Philadelphia chain establishments must use the applicable paid tier, not the small-employer unpaid preset; applicability remains employer-reviewed.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "An additional NYC_UPFRONT policy at the same cafe provides 32 immediately available unpaid hours from 22 February 2026, independently of approved-work accrual; its unused hours do not carry to the next January grant.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Employment start and current cafe or approved work determine availability, with approved use retaining its grant history.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "A separate NY_PRENATAL policy at the same cafe provides 20 paid hours without accrual from 1 January 2025.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Its 52-week period is 364 elapsed days from the first approved use; January does not replenish that period, and a duration correction retains its first-use date.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "The rolling bank uses the existing annualUsed report field for the active 52-week period.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Expanded categories include preventive care; applicable closures, exclusions, bereavement and evacuation; Oregon parental leave, hazardous conditions and blood donation; Washington immigration proceedings; and NYC childcare, public disasters and housing or benefits proceedings.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Native eligibility uses approved workplace service and effective employer reviews; app roles, salaries, titles and payroll mappings never establish an exemption.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "The NYC small-employer unpaid preset is its accrued base bank; the owner must also add the distinct NYC_UPFRONT policy for the same cafe to provide its separate 32-hour supplemental bank.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Covered-family and purpose guidance is retained with the preset; unlisted or not-yet-effective purposes are refused without creating an absence.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "LEAVE-001 and PAY-001 provider balance and code mapping remains with those clauses.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Employer-size reviews now refuse a 40-hour New York tier at 100 employees, and refuse unpaid tiers when employer counts, income, NYC domestic-worker coverage, Portland presence or Philadelphia chain establishments require paid time.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "These financial review fields remain owner-only.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Oregon donations are disabled unless the effective employer policy explicitly allows them.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "The owner prepares exact minutes and a named recipient; the donor explicitly consents through their own session, then a separate owner approves on the effective venue date after checking current approved balances and the retained policy revision.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "A donation debits and credits the same Oregon bank, does not accrue or consume annual absence use, creates no absence or paid service, and is never itself a payroll line.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "The recipient still requests a permitted absence and receives pay only on approved use.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Transfers retain consent and approval history through restart and archive transfer.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "The donor may withdraw before approval.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "No automatic transfer, reversal or deletion occurs.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "The donation consent and independent approval default is approved by ct ruling RL-103 (28 October 2026), including current balances, exact effective policy and attributable donor assent; native bank minutes establish neither provider acceptance nor legal applicability.",
+      "to": "rulings",
+      "ids": [
+        "RL-103"
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "San Francisco also exposes organ or tissue donation as a permitted purpose.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Effective-dated purpose guidance describes covered family, safe-leave and proceeding categories without collecting medical or family details.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Washington\u2019s immigration and emergency-closure purposes also apply to Seattle; tier-three Seattle policies include any health or safety workplace closure.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Later statutory purposes cannot be backdated through a new preset.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "ct policy ruling (27 October 2026): APPROVE WITH RIDERS; the then-unproved outcomes kept LEAVE-003 PARTIAL.",
+      "to": "changelog"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Reaffirm the approved private-administration default: employees read their own balances and permitted-purpose requests; only the live native owner administers all balances, purposes, approvals, corrections and balance or source downloads through the interim door.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Ordinary managers receive only the generic absence window labelled Paid leave, without private balances or purposes, and no medical details are requested.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Owner-only administration is too narrow for the contracted multi-location operations buyer: separately scoped private leave administration must follow under TEAM-001 and ACCESS-003, preserving the privacy and retention duties of PRIVACY-001.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "This ruling approves neither statutory applicability nor legal compliance and does not decide the separate Oregon donation policy.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Employee coverage reviews are private, attributed and effective-dated under the existing owner administration ruling, with a jurisdiction-specific classification, legal basis, evidence reference and reason.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "They cannot rewrite approved sources; excluded or unresolved future use is refused while earlier earned minutes and paid bytes remain.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Covered employment can be reviewed again.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Native approved work establishes California\u2019s thirty days across maintained California locations, Chicago\u2019s eighty hours within 120 days and Philadelphia\u2019s forty hours; occasional San Francisco work uses 56 hours and Seattle more than 240 hours.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "California and Washington state floors survive local-only waivers and pre-qualification.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Seattle qualification rebuilds the earlier covered work at its local tier without duplicating use; the retained use and source download identify the state-floor basis where applicable.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Documented prior qualifying service can be recorded explicitly, never inferred.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "Seattle lower tiers require reviewed full-time equivalents, and NYC\u2019s unpaid income review distinguishes its at-least-one-million paid boundary from New York State\u2019s above-one-million boundary.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "These are employer-recorded inputs, not independent legal verification; unmaintained alternative arrangements remain explicitly employer-configured.",
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md",
+      "also": [
+        {
+          "to": "clause",
+          "ids": [
+            "LEAVE-003"
+          ]
+        }
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "**Acceptance evidence:**",
+      "to": "clause",
+      "ids": [
+        "LEAVE-003"
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "For each listed preset accrue leave from approved hours for an employee working there, cross a cap and a year boundary, take a partial-day absence and export the balance and pay code.",
+      "to": "clause",
+      "ids": [
+        "LEAVE-003"
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 81,
+      "text": "An employee splitting time between two jurisdictions accrues under each site's preset, and an unlisted city shows the unmaintained label.",
+      "to": "clause",
+      "ids": [
+        "LEAVE-003"
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 351,
+      "text": "Judged from the code and tests at commit `2b4aa42d25122df7ca5e209893d8182fb367eb07` (28 October 2026). POLICY-002\u2019s interim owner boundary is rechecked by the named native HTTP and Settings journeys; ct\u2019s 27 October approval with riders grants no completion, and POLICY-002 remains partial. The final candidate and exact-SHA execution receipts are supplied in the fleet report. BASE-001 retains its named 26 October live hosted installation evidence. Other clauses retain their existing evidence and gaps.",
+      "to": "section",
+      "section": "Status"
+    },
+    {
+      "file": "ACCEPTANCE.md",
+      "line": 73,
+      "text": "**LEAVE-003 \u2014 Paid sick and safe leave jurisdiction presets.**",
+      "to": "clause",
+      "ids": [
+        "LEAVE-003"
+      ]
+    },
+    {
+      "file": "ACCEPTANCE.md",
+      "line": 73,
+      "text": "**Status: done.**",
+      "to": "generated",
+      "note": "The source Status table and shared generator own the status label."
+    },
+    {
+      "file": "ACCEPTANCE.md",
+      "line": 73,
+      "text": "For each listed preset accrue leave from approved hours for an employee working there, cross a cap and a year boundary, take a partial-day absence and export the balance and pay code. An employee splitting time between two jurisdictions accrues under each site's preset, and an unlisted city shows the unmaintained label. ct policy ruling (27 October 2026): APPROVE WITH RIDERS; LEAVE-003 remains PARTIAL. Reaffirm the approved private-administration default: employees read their own balances and permitted-purpose requests; only the live native owner administers all balances, purposes, approvals, corrections and balance or source downloads through the interim door. Ordinary managers receive only the generic absence window labelled Paid leave, without private balances or purposes, and no medical details are requested. Owner-only administration is too narrow for the contracted multi-location operations buyer: separately scoped private leave administration must follow under TEAM-001 and ACCESS-003, preserving the privacy and retention duties of PRIVACY-001. This ruling approves neither statutory applicability nor legal compliance and does not decide the separate Oregon donation policy. **Proven:** `tests/sick-journey.mjs` sickApi proves all 12 jurisdictions, four additional paid tiers and three combined Seattle PTO tiers through accrual and caps and carryover, partial use and mapped signed payroll, source and balance CSV, cross-site and current corrections, waiting, increment and use-cap refusal, unlisted labeling and ACA deduplication; New York and NYC 40-hour and Seattle tiers 1 and 2, California and local five and ten normal-day floors and retained effective versions, preventive care, jury and witness paid use, owner-only private payroll and CSV, agent fencing and recursive estimate-off correction-history wage redaction. sickBrowser proves policy and day-floor entry, own requests, owner approval, payroll, earnings and tooltips at 1440/390. `tests/sick-journey.mjs` (sickUnpaid, invoked by the existing sickApi registration in `tests/lanyard.test.mjs`): New York State, NYC, Oregon and Philadelphia unpaid base tiers accrue approved work through the annual cap and year boundary, support partial-day use and owner-only review and corrections, export balances and the selected code with an explicit paid flag, and contribute no paid payroll hours, earnings or ACA service; a later paid version does not reclassify retained unpaid use; historical use and worked-accrual CSV sources keep their effective preset, paid flag and code while the balance summary reflects the current policy. (sickSupplement, invoked by sickApi): a distinct NYC 32-hour bank coexists at the same cafe, requires no accrued work, starts no earlier than 22 February 2026, resets without carryover, excludes pre-employment requests, exhausts and refuses further use, retains corrections and survives restart. (sickPrenatal, invoked by sickApi): a separate immediately available paid bank, no January replenishment within its 52-week period, reset after 364 days from first use, exact mapped wages and signed correction, exhaustion and refusal. (sickReasons, invoked by sickApi): supported categories through request, approval and correction, and unlisted-purpose refusal without a new row across the extended state and city catalogs. `tests/archive.test.mjs` (public CLI archive round trip): separate banks, private paid status, retained correction versions, signed payroll files and restored balances survive archive transfer with fresh native sign-in. (sickBrowser): existing policy, request and approval forms select and label unpaid time at 1440 and 390, with payroll, earnings and account tooltips. Owner-only private purpose and balance administration was approved by ct on 23 October 2026 at 14:25Z. `tests/sick-journey.mjs` (sickEmployerCoverage), registered as \u201cemployer coverage refuses unpaid and undersized tiers and preserves private effective reviews\u201d: both sides of employer thresholds, missing and blank chain-review refusal with explicit zero accepted, private fields, unauthorized changes and retained effective facts. (sickDonations), registered as \u201cOregon donations need donor consent and owner approval and retain balanced sources without creating pay\u201d: disabled-policy refusal, consent and authority fences, current-source revalidation, balanced transfer, duplicate refusal, permitted recipient use, wages, source CSV and restart; unused staff erasure remains allowed, but pending and approved donation recipients cannot be erased and both bank sides survive restart. (sickReasons): San Francisco organ or tissue donation. (sickBrowser): employer review and named donation preparation, donor consent and owner approval at 1440 and 390. `tests/archive.test.mjs` (public CLI archive round trip): approved donation facts, consent and balanced sources restored. **Existing evidence:** `tests/sick-journey.mjs` (sickApi): all 12 jurisdictions, four additional paid employer-size presets and three combined Seattle PTO tiers accrue approved work through caps and year boundaries; California and local five and ten normal-day use and bank floors and retained effective versions; preventive care, jury and witness paid use and corrections; partial-day use and export, signed reversals, source balance CSV, cross-location and current-revision accrual, waiting and increment and use-cap refusal, unlisted label and ACA deduplication; private payroll and CSV owner-only, agent preparation fencing and recursive estimate-off wage redaction including retained correction versions. `tests/sick-journey.mjs` (sickBrowser): policy and day floor, own request, owner review, mapped payroll, earnings and tooltips at 1440/390. `tests/sick-journey.mjs` (sickUnpaid, invoked by the existing sickApi registration in `tests/lanyard.test.mjs`): New York State, NYC, Oregon and Philadelphia unpaid base tiers accrue approved work through the annual cap and year boundary, support partial-day use and owner-only review and corrections, export balances and the selected code with an explicit paid flag, and contribute no paid payroll hours, earnings or ACA service; a later paid version does not reclassify retained unpaid use; historical use and worked-accrual CSV sources keep their effective preset, paid flag and code while the balance summary reflects the current policy. (sickSupplement, invoked by sickApi): a distinct NYC 32-hour bank coexists at the same cafe, requires no accrued work, starts no earlier than 22 February 2026, resets without carryover, excludes pre-employment requests, exhausts and refuses further use, retains corrections and survives restart. (sickPrenatal, invoked by sickApi): a separate immediately available paid bank, no January replenishment within its 52-week period, reset after 364 days from first use, exact mapped wages and signed correction, exhaustion and refusal. (sickReasons, invoked by sickApi): supported categories through request, approval and correction, and unlisted-purpose refusal without a new row across the extended state and city catalogs. `tests/archive.test.mjs` (public CLI archive round trip): separate banks, private paid status, retained correction versions, signed payroll files and restored balances survive archive transfer with fresh native sign-in. (sickBrowser): existing policy, request and approval forms select and label unpaid time at 1440 and 390, with payroll, earnings and account tooltips. `tests/sick-journey.mjs` (sickEmployerCoverage), registered as \u201cemployer coverage refuses unpaid and undersized tiers and preserves private effective reviews\u201d: both sides of employer thresholds, missing and blank chain-review refusal with explicit zero accepted, private fields, unauthorized changes and retained effective facts. (sickDonations), registered as \u201cOregon donations need donor consent and owner approval and retain balanced sources without creating pay\u201d: disabled-policy refusal, consent and authority fences, current-source revalidation, balanced transfer, duplicate refusal, permitted recipient use, wages, source CSV and restart; unused staff erasure remains allowed, but pending and approved donation recipients cannot be erased and both bank sides survive restart. (sickReasons): San Francisco organ or tissue donation. (sickBrowser): employer review and named donation preparation, donor consent and owner approval at 1440 and 390. `tests/archive.test.mjs` (public CLI archive round trip): approved donation facts, consent and balanced sources restored. `tests/sick-eligibility-journey.mjs` (sickEligibilityJourney and sickQualifyingJourney), invoked by the existing employer-coverage registration: native requests, approvals and balance downloads across all twelve jurisdictions; explicit exclusions and covered returns, refusal without writes, retained earned sources, native service thresholds and current employee projection, local state floors and Seattle recalculation, stale review refusal and restart. `tests/sick-journey.mjs` (sickReasons): jurisdiction catalogs and pre-effective-purpose refusal without writes; (sickBrowser): Settings employee review and private purpose guidance at the release widths. `tests/archive.test.mjs` (public CLI archive round trip): effective employee reviews and continued future-use refusal after fresh sign-in and restore. sickUnpaid also proves that a later effective policy revision preserves prior-year carry, renews annual accrual and retains approved use through the native time and balance doors.",
+      "to": "changelog"
+    },
+    {
+      "file": "ACCEPTANCE.md",
+      "line": 276,
+      "text": "Status totals: 62 done, 33 partial, 32 missing; 127 clauses.",
+      "to": "generated",
+      "note": "Summary totals are generated from source statuses."
+    },
+    {
+      "file": "ACCEPTANCE.md",
+      "line": 276,
+      "text": "Payroll disbursement/tax and POS settlement stay with their named providers; broader HR stays with Willow. Engineering dependencies do not remove acceptance work.",
+      "to": "section",
+      "section": "Boundaries"
+    },
+    {
+      "file": "docs/CLAIMS.md",
+      "line": 37,
+      "text": "| LEAVE-003 | Paid sick and safe leave jurisdiction presets | done |",
+      "to": "generated",
+      "note": "Legacy capability inventory row is now generated from the source clause."
     }
   ]
 }

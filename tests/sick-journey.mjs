@@ -1,15 +1,17 @@
+import {sickEligibilityJourney} from './sick-eligibility-journey.mjs'
 import assert from 'node:assert/strict'
 import {readFile,mkdir} from 'node:fs/promises'
 import {join} from 'node:path'
 import {chromium} from '@playwright/test'
 import {harness} from './harness.mjs'
 import {pin,local} from './workforce-journey.mjs'
-const coverage={NY40:{employeeCount:5},NYC40:{employeeCount:5},NY40_UNPAID:{employeeCount:4,incomeAboveMillion:'no'},NYC40_UNPAID:{employeeCount:4,incomeAboveMillion:'no',domesticWorkers:'no'},OR_UNPAID:{employeeCount:9,portland:'no'},PHILADELPHIA_UNPAID:{employeeCount:9,chainLocations:14}}
+const coverage={SEATTLE1:{fullTimeEquivalents:49.5},SEATTLE2:{fullTimeEquivalents:249.5},SEATTLE_PTO1:{fullTimeEquivalents:49.5},SEATTLE_PTO2:{fullTimeEquivalents:249.5},NY40:{employeeCount:5},NYC40:{employeeCount:5},NY40_UNPAID:{employeeCount:4,incomeAboveMillion:'no'},NYC40_UNPAID:{employeeCount:4,incomeAtLeastMillion:'no',domesticWorkers:'no'},OR_UNPAID:{employeeCount:9,portland:'no'},PHILADELPHIA_UNPAID:{employeeCount:9,chainLocations:14}}
 const add=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10)
 export async function sickFixture(h,preset='CA',count=2,workedHours=48,options={}){
  const alex=await h.person('Alex'),ben=await h.person('Ben'),morgan=await h.person('Morgan','manager')
  for(const p of [alex,ben,morgan])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site:'Ocean Beach',position:'Service',hourlyRate:'20.00',startDate:'2020-01-01'})
- const policy=await h.cmd('sickpolicy.save',{site:'Ocean Beach',from:'2025-01-01',preset,code:'SICK-'+preset,...coverage[preset],...(options.donations?{donations:'yes'}:{}),...(options.normalDayMinutes?{normalDayMinutes:options.normalDayMinutes}:{})})
+ let policy=await h.cmd('sickpolicy.save',{site:'Ocean Beach',from:'2025-01-01',preset,code:'SICK-'+preset,...coverage[preset],...(options.donations?{donations:'yes'}:{}),...(options.normalDayMinutes?{normalDayMinutes:options.normalDayMinutes}:{})})
+ if(['CA','LA'].includes(preset))policy=await h.cmd('sickworker.save',{...pin(policy),staffId:alex.id,from:'2025-01-01',classification:'covered',qualifiedFrom:'2020-12-31',legalBasis:'Thirty qualifying California workdays already completed in continuous employment',evidenceReference:'synthetic-lanyard-140 prior employment record',reviewReason:'Review prior service before importing current worked hours'},h.owner,200,{'x-test-now':String(Date.parse('2025-01-01T12:00:00Z'))})
  const entries=[]
  for(let i=0;i<count;i++){
   const start=local(add('2025-01-01',i*(options.spacingDays??7)),'00:00'),end=new Date(Date.parse(start)+workedHours*3600000).toISOString()
@@ -21,7 +23,7 @@ export async function sickFixture(h,preset='CA',count=2,workedHours=48,options={
 }
 export async function sickApi(){
  const cases=[['CA',4800,4800],['CO',2880,2880],['IL',2400,2400],['NY',3360,3360],['NY40',2400,2400],['OR',2400,2400],['WA',3744,2400],['NYC',3360,3360],['NYC40',2400,2400],['CHICAGO',2400,2400],['SEATTLE',4992,4320],['SEATTLE1',3744,2400],['SEATTLE2',3744,3360],['SEATTLE_PTO1',5616,2400],['SEATTLE_PTO2',5616,3360],['SEATTLE_PTO3',7488,6480],['SF',4800,4800],['LA',4800,4800],['PHILADELPHIA',2400,2400]]
- for(const [preset,earned,carried]of cases){const h=await harness();try{
+ for(const [preset,earned,carried]of cases){const h=await harness({now:'2026-10-27T12:00:00Z'});try{
   const combined=preset.startsWith('SEATTLE_PTO'),count=combined?78:52
   const f=await sickFixture(h,preset,count,48,combined?{spacingDays:4}:{}),{alex,ben,morgan,policy,entries,request}=f
   const report=async on=>{const r=await h.send('/api/lanyard/sick-balances?asOf='+on,undefined,h.owner);assert.equal(r.status,200,r.text);return r.value.find(x=>x.staffId===alex.id&&x.policyId===policy.id)}
@@ -57,7 +59,7 @@ export async function sickApi(){
    assert.equal((await h.send('/api/lanyard/aca/'+plan.id,undefined,h.owner)).value.rows[0].paidLeaveMinutes,0)
    // The California catalog includes the state-floor purposes, with no medical
    // free text. Correcting each reviewed use keeps the balance probe independent.
-   for(const [i,purpose]of ['preventive care','jury duty','court witness'].entries()){
+   for(const [i,purpose]of ['preventive care','jury duty','court witness','victim proceeding'].entries()){
     const day=add('2026-01-20',i),u=await h.cmd('sick.request',{...request,start:local(day,'09:00'),end:local(day,'10:00'),minutes:60,purpose},alex.cookie)
     const decided=await h.cmd('sick.decide',{...pin(u),decision:'approved',reference:'synthetic-lanyard-70-'+i})
     assert.equal(decided.purpose,purpose);assert.equal(decided.minutes,60)
@@ -116,11 +118,13 @@ export async function sickBrowser(){
  const account=page.locator('summary[aria-label="Account"]');await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'});await shot('sick-tooltip')
  await as(f.alex.cookie);await page.goto(h.origin+'/app/time?week=2026-01-05',{waitUntil:'networkidle'});assert.ok((await page.locator('#earnings').innerText()).includes('Paid sick / safe leave (approved)'));assert.ok((await page.locator('#earnings').innerText()).includes('$40.00'));await page.locator('#earnings').scrollIntoViewIfNeeded();await shot('sick-earnings')
  await page.goto(h.origin+'/app/time?week=2026-01-12',{waitUntil:'networkidle'});assert.ok((await page.locator('#earnings').innerText()).includes('$20.00'));assert.ok((await page.locator(`[data-policy-id="${prenatal.id}"]`).innerText()).includes('next bank available 2027-01-11'));await page.locator(`[data-policy-id="${prenatal.id}"]`).scrollIntoViewIfNeeded();await shot('sick-prenatal-balance')
+ await as(h.owner);await page.goto(h.origin+'/app/settings',{waitUntil:'networkidle'});const eligibility=page.locator('#sick-eligibility');await eligibility.getByText('Ocean Beach · CA · employee eligibility',{exact:true}).click();const review=eligibility.locator('details[open] form');await review.getByLabel('Employee',{exact:true}).selectOption(f.alex.id);await review.getByLabel('Review effective from',{exact:true}).fill('2026-10-27');await review.getByLabel('Reviewed classification').selectOption('covered');await review.getByLabel('Qualifying workplace service completed (optional)').fill('2020-12-31');await review.getByLabel('Applicability legal basis').fill('Reviewed California employment and qualifying service');await review.getByLabel('Employer evidence reference').fill('synthetic-lanyard-170');await review.getByLabel('Review reason',{exact:true}).fill('Retain documented service without inferring an exemption from role or pay');await Promise.all([page.waitForResponse(r=>r.url().includes('name=sickworker.save')),review.getByRole('button',{name:'Save eligibility review',exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0,(await page.locator('.notice.error').allTextContents()).join('; '));const coverage=(await h.state()).sickpolicies.find(p=>p.id===f.policy.id).workerCoverage.find(w=>w.staffId===f.alex.id);assert.equal(coverage.evidenceReference,'synthetic-lanyard-170');await eligibility.getByText('Ocean Beach · CA · employee eligibility',{exact:true}).click();await eligibility.locator('details[open]').scrollIntoViewIfNeeded();await shot('sick-employee-eligibility')
+ await as(f.alex.cookie);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'});const guidance=page.locator(`[data-policy-id="${f.policy.id}"]`);await guidance.getByText('Permitted purpose guidance',{exact:true}).click();assert.ok((await guidance.innerText()).includes('designated person'));assert.ok((await guidance.innerText()).includes('victim proceeding'));await guidance.scrollIntoViewIfNeeded();await shot('sick-purpose-guidance')
  }finally{await context.close();await h.close()}}}finally{await browser.close()}
 }
 
 async function sickDayFloors(){
- const h=await harness()
+ const h=await harness({now:'2026-10-27T12:00:00Z'})
  try{
   const {alex,policy}=await sickFixture(h,'CA',78,48,{normalDayMinutes:600,spacingDays:4})
   assert.deepEqual([policy.annualUse,policy.bankCap,policy.carry],[3000,6000,6000],'five and ten ten-hour normal days exceed the hour floors')
@@ -197,7 +201,8 @@ export async function sickUnpaid(){
 export async function sickReasons(){
  const health=['illness','care','safe','preventive care']
  const cases=[
-  ['SF',[...health,'jury duty','court witness','organ or tissue donation']],
+  ['LA',[...health,'jury duty','court witness','victim proceeding']],
+  ['SF',[...health,'jury duty','court witness','victim proceeding','organ or tissue donation']],
   ['CO',[...health,'public health closure','bereavement','school or care closure','evacuation']],
   ['NY40',health],['NY',health],
   ['OR',[...health,'bereavement','parental leave','public health closure','public health exclusion','evacuation','hazardous air or heat','blood donation']],
@@ -205,16 +210,22 @@ export async function sickReasons(){
   ['NYC40',[...health,'public health closure','childcare','public disaster','housing or benefits proceeding']],
   ['NYC',[...health,'public health closure','childcare','public disaster','housing or benefits proceeding']],
   ['CHICAGO',[...health,'public health closure','public health exclusion']],
-  ...['SEATTLE1','SEATTLE2','SEATTLE'].map(id=>[id,[...health,'public health closure','school or care closure']]),
-  ...['SEATTLE_PTO1','SEATTLE_PTO2','SEATTLE_PTO3'].map(id=>[id,[...health,'public health closure','school or care closure','employer-approved PTO']]),
+  ...['SEATTLE1','SEATTLE2','SEATTLE'].map(id=>[id,[...health,'public health closure','emergency closure','immigration proceeding','school or care closure',...(id==='SEATTLE'?['business safety closure']:[])]]),
+  ...['SEATTLE_PTO1','SEATTLE_PTO2','SEATTLE_PTO3'].map(id=>[id,[...health,'public health closure','emergency closure','immigration proceeding','school or care closure',...(id==='SEATTLE_PTO3'?['business safety closure']:[]),'employer-approved PTO']]),
   ['PHILADELPHIA',health]
  ]
- for(const [preset,reasons] of cases){const h=await harness();try{
+ for(const [preset,reasons] of cases){const h=await harness({now:'2026-10-27T12:00:00Z'});try{
   const {alex,policy,request}=await sickFixture(h,preset)
   for(const [i,purpose] of reasons.entries()){
-   const day=add('2026-01-09',i),use=await h.cmd('sick.request',{...request,start:local(day,'09:00'),end:local(day,'10:00'),minutes:60,purpose},alex.cookie)
+   const day=add('2026-03-09',i),use=await h.cmd('sick.request',{...request,start:local(day,'09:00'),end:local(day,'10:00'),minutes:60,purpose},alex.cookie)
    const approved=await h.cmd('sick.decide',{...pin(use),decision:'approved',reference:'synthetic-lanyard-90-'+i});assert.equal(approved.purpose,purpose);assert.equal(approved.minutes,60)
    await h.cmd('sick.correct',{...pin(approved),minutes:0,reason:'Reviewed category cancellation'})
+  }
+  const dated=policy.purposeRules&&Object.entries(policy.purposeRules).find(([,rule])=>rule.from)
+  if(dated){
+   const [purpose,rule]=dated,day=add(rule.from,-1),before=(await h.state()).sickuses.length
+   await h.cmd('sick.request',{...request,start:local(day,'09:00'),end:local(day,'10:00'),minutes:60,purpose},alex.cookie,400)
+   assert.equal((await h.state()).sickuses.length,before,'a future statutory purpose cannot be backdated into an absence')
   }
   const before=(await h.state()).sickuses.length
   await h.cmd('sick.request',{...request,start:local('2026-02-10','09:00'),end:local('2026-02-10','10:00'),minutes:60,purpose:'Unlisted category'},alex.cookie,400)
@@ -282,10 +293,12 @@ export async function sickPrenatal(){
 }
 
 export async function sickEmployerCoverage(){
- const h=await harness()
+ const h=await harness({now:'2026-10-27T12:00:00Z'})
  try{
   const morgan=await h.person('CoverageManager','manager'),alex=await h.person('CoverageAlex')
   const bad=[
+   ['SEATTLE1',{fullTimeEquivalents:50}],['SEATTLE_PTO1',{fullTimeEquivalents:50}],['SEATTLE2',{fullTimeEquivalents:250}],['SEATTLE_PTO2',{fullTimeEquivalents:250}],['SEATTLE1',{}],
+   ['NYC40_UNPAID',{employeeCount:4,incomeAtLeastMillion:'yes',domesticWorkers:'no'}],
    ['NY40',{employeeCount:100}],['NYC40',{employeeCount:100}],
    ['NY40_UNPAID',{employeeCount:5,incomeAboveMillion:'no'}],['NY40_UNPAID',{employeeCount:4,incomeAboveMillion:'yes'}],
    ['NYC40_UNPAID',{employeeCount:4,incomeAboveMillion:'no',domesticWorkers:'yes'}],
@@ -303,7 +316,7 @@ export async function sickEmployerCoverage(){
   for(const [i,[preset,facts]] of good.entries()){
    const input={site:'Covered '+i,from:'2025-01-01',preset,code:'SICK',...facts},p=await h.cmd('sickpolicy.save',input)
    assert.equal(p.paid,!preset.endsWith('_UNPAID'))
-   if(p.coverage)assert.equal(p.coverage.employeeCount,facts.employeeCount)
+   if(p.coverage)assert.deepEqual(p.coverage,Object.fromEntries(Object.entries(facts).map(([key,value])=>[key,value==='yes'?true:value==='no'?false:value])),'the exact employer coverage review is retained')
    await h.cmd('sickpolicy.save',{...pin(p),...input,from:'2026-01-01'},morgan.cookie,403)
    await h.cmd('sickpolicy.save',{...pin(p),...input,from:'2026-01-01'},alex.cookie,403)
   }
@@ -311,6 +324,7 @@ export async function sickEmployerCoverage(){
   const next=await h.cmd('sickpolicy.save',input);assert.equal(next.paid,true);assert.equal(next.versions[0].coverage.employeeCount,9)
   assert.ok((await h.state(morgan.cookie)).sickpolicies.every(p=>p.coverage===undefined),'employer financial coverage review remains private')
  }finally{await h.close()}
+ await sickEligibilityJourney()
 }
 
 export async function sickDonations(){
@@ -373,7 +387,7 @@ export async function sickDonationErasure(){
  const h=await harness({now:'2026-01-09T12:00:00Z'})
  try{
   const {alex,policy}=await sickFixture(h,'OR',2,48,{donations:true})
-  const create=name=>h.cmd('staff.save',{name,email:name.toLowerCase()+'@venue.example',payrollId:name,role:'staff',active:true,site:policy.site})
+  const create=name=>h.cmd('staff.save',{name,email:name.toLowerCase()+'@venue.example',payrollId:name,role:'staff',active:true,site:policy.site,startDate:'2020-01-01'})
   const unused=await create('Unused'),recipient=await create('Recipient')
   assert.deepEqual(await h.cmd('staff.erase',pin(unused)),{id:unused.id,erased:true},'a genuinely unused person can still be erased')
   const draft=await h.cmd('sicktransfer.prepare',{policyId:policy.id,donorId:alex.id,recipientId:recipient.id,date:'2026-01-09',minutes:60})

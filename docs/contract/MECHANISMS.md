@@ -2123,3 +2123,37 @@ Offer-timing and objective-weight proposals, FAIR-001 attribution and connected-
 ## PAY-011
 
 The provider IIF time layout uses the !TIMEACT header block and one TIMEACT row per employee, date, payroll item, customer:job and service item. Employee, payroll item, class and job mappings remain required; an unmapped item refuses the export.
+
+## Leave eligibility and effective purpose details (28 October 2026)
+
+These details belong to LEAVE-003; Oregon donation remains LEAVE-006 under RL-103.
+
+Native eligibility uses approved workplace service and effective employer reviews; app roles, salaries, titles and payroll mappings never establish an exemption.
+
+Covered-family and purpose guidance is retained with the preset; unlisted or not-yet-effective purposes are refused without creating an absence.
+
+The donation consent and independent approval default is approved by ct ruling RL-103 (28 October 2026), including current balances, exact effective policy and attributable donor assent; native bank minutes establish neither provider acceptance nor legal applicability.
+
+Effective-dated purpose guidance describes covered family, safe-leave and proceeding categories without collecting medical or family details.
+
+Washington’s immigration and emergency-closure purposes also apply to Seattle; tier-three Seattle policies include any health or safety workplace closure.
+
+Later statutory purposes cannot be backdated through a new preset.
+
+Employee coverage reviews are private, attributed and effective-dated under the existing owner administration ruling, with a jurisdiction-specific classification, legal basis, evidence reference and reason.
+
+They cannot rewrite approved sources; excluded or unresolved future use is refused while earlier earned minutes and paid bytes remain.
+
+Covered employment can be reviewed again.
+
+Native approved work establishes California’s thirty days across maintained California locations, Chicago’s eighty hours within 120 days and Philadelphia’s forty hours; occasional San Francisco work uses 56 hours and Seattle more than 240 hours.
+
+California and Washington state floors survive local-only waivers and pre-qualification.
+
+Seattle qualification rebuilds the earlier covered work at its local tier without duplicating use; the retained use and source download identify the state-floor basis where applicable.
+
+Documented prior qualifying service can be recorded explicitly, never inferred.
+
+Seattle lower tiers require reviewed full-time equivalents, and NYC’s unpaid income review distinguishes its at-least-one-million paid boundary from New York State’s above-one-million boundary.
+
+These are employer-recorded inputs, not independent legal verification; unmaintained alternative arrangements remain explicitly employer-configured.

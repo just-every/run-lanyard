@@ -24,7 +24,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 16 | Staff swap and pick up shifts from phones after skills, hours and overtime checks. | `COVER-001` done; `COVER-002` done; `PEOPLE-002` done; `COST-002` done | done |
 | 17 | Coverage agent finds qualified people without overtime and asks in their own language. | `COVERAGE-001` partial; `NOTICE-001` missing; `LANG-001` missing | partial |
 | 18 | Coverage closes only at a clock-in. | `COVER-003` done; `CLOCK-004` done | done |
-| 19 | Call-out changes reach payroll drafts and paid sick leave balances. | `COVERAGE-001` partial; `LEAVE-003` partial; `PAY-001` partial | partial |
+| 19 | Call-out changes reach payroll drafts and paid sick leave balances. | `COVERAGE-001` partial; `LEAVE-003` done; `PAY-001` partial | partial |
 | 20 | Extra hours that cost no overtime, under budget at all three cafes. | `COST-001` partial; `COST-002` done; `TEAM-001` partial | partial |
 | 21 | Square card tips split over actual hours; everyone sees their own share. | `POS-001` missing; `TIPS-001` partial; `EARN-001` done | partial |
 | 22 | Payroll agent clears six exceptions before noon cutoff. | `CUTOFF-001` partial | partial |
