@@ -119,16 +119,16 @@ export async function costApi(){
  }finally{await h.close()}
 }
 
-export async function costBrowser(){
+export async function costBrowser(width=1440){
  const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
- try{for(const width of [1440,390]){
+ try{
   const h=await harness({now:'2026-10-26T12:00:00Z'}),f=await fixture(h),context=await browser.newContext({viewport:{width,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse('2026-10-26T12:00:00Z'))}})
   try{
    await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
    await context.route('**/*',async route=>{const p=new URL(route.request().url()).pathname;if(p.startsWith('/fonts/')||p.startsWith('/brand/')||/\.(css|js)$/.test(p))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',p.slice(1))),contentType:p.endsWith('.css')?'text/css':p.endsWith('.js')?'application/javascript':p.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
    const [name,...value]=h.owner.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
    await h.cmd('payroll.input.save',{staffId:f.alex.id,date:f.week,kind:'PTO',minutes:120,amountCents:4000,reference:'synthetic-lanyard-20',reason:'Approved paid hours for cost review'})
-   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message))
+   const page=await context.newPage(),errors=[];page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message))
    const shot=async label=>{await iconTooltips(page);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);if(process.env.COST_SCREENS){await mkdir(process.env.COST_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.COST_SCREENS,`${label}-${width}.png`)})}}
    await page.goto(h.origin+`/app/schedule?site=East&week=${f.week}`,{waitUntil:'networkidle'})
    const card=page.locator('#labor-cost');assert.match(await card.innerText(),/Worked estimate/);assert.match(await card.innerText(),/\$1,116\.38/);assert.match(await card.innerText(),/Approved paid non-work: 2\.0 hours/);assert.match(await card.innerText(),/\$1,162\.38/)
@@ -138,11 +138,110 @@ export async function costBrowser(){
    await card.getByRole('link',{name:'Configure burden estimate',exact:true}).click();await page.waitForLoadState('networkidle')
    const settings=page.locator('#labor-burden');await settings.getByLabel('Employer burden %',{exact:true}).fill('12.5');await settings.getByLabel('Additional burden per hour (USD cents)').focus()
    await settings.getByRole('status').getByText('Saved',{exact:true}).waitFor({state:'visible'});assert.equal((await f.read()).burden.percent,12.5);assert.equal((await f.read()).jobs.find(j=>j.job===f.bar.id).budgetCents,80000);await settings.scrollIntoViewIfNeeded();await shot('cost-settings')
+   await costSettingsEditor(h,f,page,settings,shot)
    const next=days(f.week,7),template=await h.cmd('template.save',{week:f.week,name:'Next service week'})
    await h.cmd('forecast.save',{week:next,site:'East',days:Array(7).fill(100),budgetPercent:10});await h.cmd('template.apply',{id:template.id,week:next})
    await page.goto(h.origin+`/app/schedule?site=East&week=${next}&view=draft`,{waitUntil:'networkidle'})
    const review=page.locator('[data-saved-review]');assert.match(await review.innerText(),/exceeds the forecast labor budget/);await review.scrollIntoViewIfNeeded();await shot('cost-template-warning')
    assert.deepEqual(errors,[])
   }finally{await context.close();await h.close()}
- }}finally{await browser.close()}
+ }finally{await browser.close()}
+}
+
+async function costSettingsEditor(h,f,page,settings,shot){
+ const form=page.locator('[data-job-budgets]'),caps=form.locator('[data-job-cap]'),status=form.getByRole('status')
+ const snapshot=async()=>{const s=await h.state();return Object.fromEntries(['timesheets','clocks','batches','claims','payinputs','sickuses','holidaypay','shifts','rosters'].map(k=>[k,s[k]]))}
+ const original=await snapshot(),forecast=async()=>(await h.state()).forecasts.find(x=>x.week===f.week&&x.site==='East')
+ const before=await forecast(),expectedDays=[0,null,20000,null,null,null,null]
+ assert.equal(await caps.count(),1)
+ await caps.first().getByLabel('Weekly cap (USD cents)',{exact:true}).fill('110000')
+ await caps.first().locator('[name=dailyCents]').nth(0).fill('0')
+ await caps.first().locator('[name=dailyCents]').nth(2).fill('20000')
+ await form.getByRole('button',{name:'Add job cap',exact:true}).click()
+ await caps.nth(1).getByLabel('Job',{exact:true}).selectOption(f.counter.id)
+ await caps.nth(1).getByLabel('Weekly cap (USD cents)',{exact:true}).fill('15000')
+ await form.getByRole('button',{name:'Save job caps',exact:true}).click()
+ await status.getByText('Job caps saved',{exact:true}).waitFor().catch(async e=>{throw new Error(e.message+' · '+await status.innerText())})
+ const expected=[{job:f.bar.id,weeklyCents:110000,days:expectedDays},{job:f.counter.id,weeklyCents:15000,days:Array(7).fill(null)}]
+ assert.deepEqual((await forecast()).jobBudgets,expected)
+ assert.deepEqual([(await forecast()).days,(await forecast()).budgetPercent,(await forecast()).burdenPercent,(await forecast()).burdenPerHourCents],[before.days,before.budgetPercent,12.5,100])
+ await page.reload({waitUntil:'networkidle'})
+ assert.equal(await caps.count(),2)
+ assert.equal(await caps.first().locator('[name=dailyCents]').nth(0).inputValue(),'0')
+ assert.equal(await caps.first().locator('[name=dailyCents]').nth(1).inputValue(),'')
+ await form.scrollIntoViewIfNeeded();await shot('cost-settings-job-caps')
+ let r=await f.read(),bar=r.jobs.find(j=>j.job===f.bar.id),counter=r.jobs.find(j=>j.job===f.counter.id)
+ assert.deepEqual([bar.scheduled.totalCents,bar.actual.totalCents,bar.overBudget,bar.actualOverBudget],[88700,94525,false,false])
+ assert.deepEqual([bar.days[0].budgetCents,bar.days[0].scheduled.totalCents,bar.days[0].overBudget,bar.days[0].actual.totalCents,bar.days[0].actualOverBudget],[0,18800,true,18800,true])
+ assert.deepEqual([bar.days[1].budgetCents,bar.days[1].overBudget,bar.days[2].scheduled.totalCents,bar.days[2].budgetCents,bar.days[2].overBudget],[null,null,23300,20000,true])
+ assert.deepEqual([counter.scheduled.totalCents,counter.budgetCents,counter.overBudget],[17000,15000,true])
+ // Review a real draft through the schedule door; caps and warnings reconcile.
+ await h.cmd('roster.prepare',{week:f.week,shifts:[...Array.from({length:5},(_,i)=>f.shift(i)),f.shift(5,8,f.ben)]})
+ const warnings=(await h.state()).scheduleReviews.find(x=>x.week===f.week).warnings.filter(x=>x.kind==='job budget')
+ assert.deepEqual(warnings.map(x=>[x.site,x.date??null,x.message]).sort(),[
+  ['East',f.week,'Barista scheduled labor exceeds its daily job budget on '+f.week+'.'],
+  ['East',days(f.week,2),'Barista scheduled labor exceeds its daily job budget on '+days(f.week,2)+'.'],
+  ['East',null,'Counter scheduled labor exceeds its weekly job budget.']
+ ].sort())
+ await page.goto(h.origin+`/app/schedule?site=East&week=${f.week}&view=draft`,{waitUntil:'networkidle'})
+ const review=page.locator('[data-saved-review]');assert.match(await review.innerText(),/Counter scheduled labor exceeds its weekly job budget/);assert.match(await review.innerText(),/Barista scheduled labor exceeds its daily job budget/)
+ await review.scrollIntoViewIfNeeded();await shot('cost-edited-cap-warnings')
+ // The draft is a fixture action; only Settings saves are checked for source preservation.
+ const afterDraft=await snapshot()
+ assert.deepEqual({...afterDraft,shifts:original.shifts,rosters:original.rosters},original)
+ await page.goto(h.origin+`/app/settings?site=East&week=${f.week}`,{waitUntil:'networkidle'})
+ // Failed transport retains the draft and can be retried without resetting it.
+ await caps.nth(1).getByLabel('Weekly cap (USD cents)',{exact:true}).fill('18000')
+ await page.route('**/api/lanyard/command',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Service temporarily unavailable'})}),{times:1})
+ const unchanged=await h.state()
+ await form.getByRole('button',{name:'Save job caps',exact:true}).click()
+ await status.getByText(/Service temporarily unavailable/).waitFor()
+ assert.equal((await h.state()).version,unchanged.version)
+ assert.equal(await caps.nth(1).getByLabel('Weekly cap (USD cents)',{exact:true}).inputValue(),'18000')
+ assert.equal(await form.getByRole('link',{name:'Reload saved cost settings'}).isVisible(),true)
+ await form.getByRole('button',{name:'Retry job cap save',exact:true}).click()
+ await status.getByText('Job caps saved',{exact:true}).waitFor().catch(async e=>{throw new Error(e.message+' · '+await status.innerText())})
+ assert.equal((await forecast()).jobBudgets[1].weeklyCents,18000)
+ // A newer forecast cannot be overwritten by this stale browser form.
+ const current=await forecast(),changed=await h.cmd('forecast.save',{week:f.week,site:'East',days:[2000,1000,1000,1000,1000,1000,1000],budgetPercent:15,burdenPercent:9,burdenPerHourCents:75,revision:current.revision})
+ await caps.first().getByLabel('Weekly cap (USD cents)',{exact:true}).fill('1')
+ const staleBefore=await h.state()
+ const refused=page.waitForResponse(response=>response.url().endsWith('/api/lanyard/command')&&response.request().method()==='POST')
+ await form.getByRole('button',{name:'Save job caps',exact:true}).click()
+ assert.equal((await refused).status(),409)
+ await status.getByText(/reload before saving/).waitFor()
+ assert.equal((await h.state()).version,staleBefore.version)
+ assert.deepEqual(await forecast(),changed)
+ assert.equal(await caps.first().getByLabel('Weekly cap (USD cents)',{exact:true}).inputValue(),'1')
+ assert.equal(await form.getByRole('button',{name:'Retry job cap save',exact:true}).isDisabled(),true)
+ await form.scrollIntoViewIfNeeded();await shot('cost-stale-cap-recovery')
+ await form.getByRole('link',{name:'Reload saved cost settings'}).click();await page.waitForLoadState('networkidle')
+ assert.equal(await caps.first().getByLabel('Weekly cap (USD cents)',{exact:true}).inputValue(),'110000')
+ assert.equal(await settings.getByLabel('Employer burden %',{exact:true}).inputValue(),'9')
+ await caps.nth(1).getByRole('button',{name:'Remove job cap',exact:true}).click()
+ await caps.first().locator('[name=dailyCents]').nth(0).fill('')
+ await form.getByRole('button',{name:'Save job caps',exact:true}).click();await status.getByText('Job caps saved',{exact:true}).waitFor().catch(async e=>{throw new Error(e.message+' · '+await status.innerText())})
+ assert.deepEqual((await forecast()).jobBudgets,[{...expected[0],days:[null,null,20000,null,null,null,null]}])
+ assert.deepEqual([(await forecast()).days,(await forecast()).budgetPercent,(await forecast()).burdenPercent,(await forecast()).burdenPerHourCents],[changed.days,15,9,75])
+ await caps.first().getByRole('button',{name:'Remove job cap',exact:true}).click()
+ await form.getByRole('button',{name:'Save job caps',exact:true}).click();await status.getByText('Job caps saved',{exact:true}).waitFor().catch(async e=>{throw new Error(e.message+' · '+await status.innerText())})
+ assert.deepEqual((await forecast()).jobBudgets,[])
+ await h.restart();await page.reload({waitUntil:'networkidle'});assert.equal(await caps.count(),0)
+ assert.deepEqual((await forecast()).jobBudgets,[])
+ r=await f.read();assert.ok(r.jobs.every(j=>j.budgetCents===null&&j.days.every(d=>d.budgetCents===null)))
+ assert.deepEqual(await snapshot(),afterDraft,'cost Settings never rewrite time, payroll or schedule sources')
+ assert.equal((await f.read(f.manager.cookie)).paidNonWork,null,'paid-source privacy is unchanged')
+ for(const cookie of [f.manager.cookie,f.alex.cookie,f.foreign.cookie]){
+  const view=await h.send(`/app/settings?site=East&week=${f.week}`,undefined,cookie)
+  assert.ok(!view.text.includes('data-job-budgets'),'the native Settings editor remains owner-only')
+ }
+ // Add the unassigned-job cap through the same editor and persist it on restart.
+ await form.getByRole('button',{name:'Add job cap',exact:true}).click()
+ await caps.first().getByLabel('Job',{exact:true}).selectOption('__unassigned__')
+ await caps.first().getByLabel('Weekly cap (USD cents)',{exact:true}).fill('0')
+ await form.getByRole('button',{name:'Save job caps',exact:true}).click();await status.getByText('Job caps saved',{exact:true}).waitFor().catch(async e=>{throw new Error(e.message+' · '+await status.innerText())})
+ await h.restart();await page.reload({waitUntil:'networkidle'})
+ assert.equal(await caps.first().getByLabel('Weekly cap (USD cents)',{exact:true}).inputValue(),'0')
+ assert.deepEqual((await forecast()).jobBudgets,[{job:'',weeklyCents:0,days:Array(7).fill(null)}])
+ await form.scrollIntoViewIfNeeded();await shot('cost-restarted-job-caps')
 }
