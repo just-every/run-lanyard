@@ -4,3 +4,5 @@ Target edition: 17 October 2026. This replaces the former first-release exclusio
 
 Run touched product journeys with `pnpm run test:lanyard` and archive journeys with `pnpm run test:archive`. The existing CI remains the complete verification wall. Screens for implementation rounds use realistic US multi-site data at 1440px and 390px plus supported native devices; no UI behavior is changed by this documentation round.
 
+
+Build/deploy never run tests; verification runs them explicitly.

@@ -88,10 +88,19 @@
     {
       "file": "CONTRACT.md",
       "line": 17,
-      "text": "Deactivation revokes existing staff access immediately; a manager cannot approve their own time or leave.",
+      "text": "Deactivation revokes existing staff access immediately;",
       "to": "base",
       "ids": [
         "BASE-ROLE-001"
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 17,
+      "text": "a manager cannot approve their own time or leave.",
+      "to": "clause",
+      "ids": [
+        "ACCESS-001"
       ]
     },
     {
@@ -1111,7 +1120,14 @@
     {
       "file": "CONTRACT.md",
       "line": 47,
-      "text": "Build/deploy never run tests and development credentials cannot enter hosted output.",
+      "text": "Build/deploy never run tests",
+      "to": "docs",
+      "path": "docs/verify.md"
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 47,
+      "text": "and development credentials cannot enter hosted output.",
       "to": "base",
       "ids": [
         "BASE-SECRET-001"
@@ -1764,10 +1780,19 @@
     {
       "file": "CONTRACT.md",
       "line": 63,
-      "text": "Changing or revoking a level takes effect at the next request and is audited with before and after permissions.",
+      "text": "Changing or revoking a level takes effect at the next request",
       "to": "base",
       "ids": [
         "BASE-ROLE-001"
+      ]
+    },
+    {
+      "file": "CONTRACT.md",
+      "line": 63,
+      "text": "and is audited with before and after permissions.",
+      "to": "clause",
+      "ids": [
+        "ACCESS-003"
       ]
     },
     {
