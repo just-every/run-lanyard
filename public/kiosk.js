@@ -2,7 +2,16 @@
  const status=document.querySelector('#kiosk-status'),login=document.querySelector('#kiosk-signin'),panel=document.querySelector('#kiosk-person'),form=document.querySelector('#kiosk-clock'),pending=document.querySelector('#kiosk-pending')
  let current=null,key=null,busy=false
  const words={en:['Your clock','Clock in','Start meal','End break','Change job','Clock out','Retry saved captures','Sign out for next employee'],es:['Tu reloj','Registrar entrada','Iniciar comida','Terminar descanso','Cambiar trabajo','Registrar salida','Reintentar registros guardados','Cerrar sesión para la siguiente persona']}
- const request=async(path,body)=>{const r=await fetch('/api/lanyard/kiosk/'+path,{method:body?'POST':'GET',headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const value=await r.json();if(!r.ok)throw Object.assign(new Error(value.error||'Kiosk request failed'),{status:r.status});return value}
+ const request=async(path,body)=>{
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),20000)
+  try{
+   const r=await fetch('/api/lanyard/kiosk/'+path,{method:body?'POST':'GET',headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined,signal:controller.signal})
+   let value;try{value=await r.json()}catch{}
+   if(!r.ok)throw Object.assign(new Error(value?.error||'Kiosk request failed'),{status:r.status})
+   if(!value||typeof value!=='object')throw new Error('The response could not be confirmed. Retry the saved original.')
+   return value
+  }finally{clearTimeout(timeout)}
+ }
  const clear=()=>{pending.textContent='';document.querySelector('#kiosk-current').textContent='';document.querySelector('#kiosk-events')?.replaceChildren()}
  const vault=work=>window.LanyardClock.withState(key,current.open,work)
  const render=state=>{
@@ -25,9 +34,22 @@
    await vault(async(state,save)=>{state.owner={actorId:current.actorId,staffId:current.staffId};state.client='kiosk';state.deviceId=current.deviceId;if(state.base&&Object.hasOwn(state.base,'open'))state.base=current.open;if(state.events.length&&state.sessionId&&state.sessionId!==current.sessionId){state.revoked=true;for(const e of state.events){e.status='rejected';e.error||='The original kiosk session was revoked. Owner review is required.'}}if(!state.events.length){state.base=current.open;state.sessionId=current.sessionId;state.revoked=false}else state.sessionId||=current.sessionId;await save();render(state);form.inert=false});await sync()
   }catch(e){if(e.status===401)login.hidden=false;status.textContent=e.status===401?'Verify your personal PIN to use this clock.':e.message}
  }
- async function sync(){if(busy||!current)return;busy=true
-  try{await vault(async(state,save)=>{for(const e of state.events){if(state.revoked||e.status==='rejected')break;try{await request('capture',{...e.capture,photo:e.photo,photoConsent:e.photoConsent,photoFailure:e.photoFailure});current=await request('state');state.base=current.open;state.events=state.events.filter(x=>x!==e);await save()}catch(error){if(!error.status)break;e.status='rejected';e.error=error.message;if([401,403].includes(error.status))state.revoked=true;await save();status.textContent=current.language==='es'?'El registro se conserva para revisión del encargado.':'Capture retained for manager review. '+error.message;break}}render(state)})}
-  catch(e){status.textContent=e.message}finally{busy=false}
+ async function sync(){if(busy||!current)return;busy=true;status.textContent='';document.querySelector('#kiosk-retry').disabled=true
+  try{await vault(async(state,save)=>{for(const e of state.events){if(state.revoked||e.status==='rejected')break;try{
+   const accepted=await request('capture',{...e.capture,photo:e.photo,photoConsent:e.photoConsent,photoFailure:e.photoFailure})
+   if(accepted.ok!==true)throw new Error('The response did not confirm the capture. Retry the saved original.')
+   current=await request('state');state.base=current.open;state.events=state.events.filter(x=>x!==e);await save();status.textContent=''
+  }catch(error){
+   if(!error.status||error.status>=500||[408,429].includes(error.status)){
+    status.textContent=current.language==='es'?'Los registros originales siguen guardados. Reintenta cuando haya conexión.':'Original captures remain saved. Retry when the connection is available.'
+    break
+   }
+   e.status='rejected';e.error=error.message
+   for(const later of state.events.slice(state.events.indexOf(e)+1)){later.status='rejected';later.error='An earlier capture was refused. Owner review is required before applying dependent time.'}
+   if([401,403].includes(error.status))state.revoked=true
+   await save();status.textContent=current.language==='es'?'El registro se conserva para revisión del encargado.':'Capture retained for manager review. '+error.message;break
+  }}render(state)})}
+  catch(e){status.textContent=e.message}finally{busy=false;document.querySelector('#kiosk-retry').disabled=false}
  }
  login.addEventListener('submit',async event=>{event.preventDefault();try{await request('signin',Object.fromEntries(new FormData(login)));login.reset();status.textContent='';await load()}catch(e){status.textContent=e.message}})
  form.addEventListener('submit',async event=>{event.preventDefault();if(!current||busy)return;busy=true
