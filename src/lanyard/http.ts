@@ -1,6 +1,6 @@
 import {auditRestricted} from './domain/audit-access'
 import {retainedAuditRead} from './domain/audit-retention'
-import {operationalReport,operationalCsv} from './domain/reports'
+import {operationalReport,operationalCsv,reportSites} from './domain/reports'
 import {auditRead} from './domain/audit-report'
 import {laborCostReport} from './domain/labor-cost'
 import {aiSource} from './domain/ai-schedules'
@@ -204,8 +204,16 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/agent/demand') return json(await agentDemandRead(env.DB,who,url.searchParams.get('site')??'',url.searchParams.get('date')??''))
       if (path === '/api/lanyard/agent/learning/proposals') return json(await agentLearnRead(env.DB,who,url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/agent/fairness/compare') return json(await comparisonRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
-      if(path==='/api/lanyard/reports'||path==='/api/lanyard/reports.csv') {
-       const report=operationalReport(await load(env.DB),who,url.searchParams,new Date().toISOString())
+      if(path==='/app/reports'||path==='/api/lanyard/reports'||path==='/api/lanyard/reports.csv') {
+       const source=await load(env.DB),params=new URLSearchParams(url.searchParams),now=new Date().toISOString()
+       if(path==='/app/reports'){
+        const today=localDate(now,source.timezone)
+        if(!params.has('site'))params.set('site',reportSites(source,who)[0]??'')
+        if(!params.has('through'))params.set('through',today)
+        if(!params.has('from'))params.set('from',new Date(Date.parse(today+'T00:00:00Z')-13*86400000).toISOString().slice(0,10))
+       }
+       const report=operationalReport(source,who,params,now)
+       if(path==='/app/reports')return renderApp(await state(request,env,who),path+url.search,{result:{operational:report}})
        if(!path.endsWith('.csv'))return json(report)
        await env.DB.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),who.id,who.role,'reports.download','operational',new Date().toISOString()).run()
        return new Response(operationalCsv(report),{headers:{...headers,'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="lanyard-operational.csv"'}})
