@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "69703bc29d731afc025b2047d5df0ccdc17089df63bd54732594c00d47c28a1c",
+      "sha256": "1c13bc0f622d82dc33e2cd872eef460a2f711f09a3aeedd41b50c0a441c4bcec",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "0214d2c8a8e4be60dd889f130af126e3b383dde5c3f9177e71996f1aeb6b1809",
+      "sha256": "a1dd93b66bb62e4097ee93454a841025a15b8324e3677f736f5ddc6778a3b8be",
       "executable": false
     },
     "DEMO.md": {
@@ -722,7 +722,7 @@
       "executable": false
     },
     "public/kiosk.js": {
-      "sha256": "cc9b66c9c4b451f752f0d2cb23451887b596b3a395007d7376b580987165e438",
+      "sha256": "d06024ac20b096bbbe364dbb8012d142ea2013f62a95fcef2ddef56582735a8e",
       "executable": false
     },
     "public/labor-cost-settings.js": {
@@ -4014,7 +4014,7 @@
       "executable": false
     },
     "tests/access-chat-kiosk-journey.mjs": {
-      "sha256": "f7e52c15248974df5dec409c8fa46d910abeb43507736b18d9ff0c5f69e5e450",
+      "sha256": "0c1ed5df3ee2b64fa5004e26549a71c54e1fc5fce683b0d4b668bdb495e7b139",
       "executable": false
     },
     "tests/ai-schedule-journey.mjs": {
