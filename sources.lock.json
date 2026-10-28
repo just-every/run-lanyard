@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "c00fead1e50e3dfeaa71257473be9d7730df9170d769d2fd2cf2d72467521dca",
+      "sha256": "3c35356e775097f055576e1b0fb4c99d1d42f29eca7c2153fd4cfcb394992f0e",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "8f3516526dfe27361a9b58f52d1834af2d810718640f6445ea1b2313f9064c4a",
+      "sha256": "b7f5a3b958a19e8d6b95ac24870b857c37549bdd30f59d90e38ded339a53c5e7",
       "executable": false
     },
     "DEMO.md": {
@@ -406,7 +406,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "634d7742a5defe4bf91d593bfe00ac5b783bddb27c6affecfa91604298ed5008",
+      "sha256": "730484a6dfbb1c511e61dab53f4f3f609ad3a6874989d4e0f6d278aba988e203",
       "executable": false
     },
     "docs/GETTING-STARTED.md": {
@@ -442,7 +442,7 @@
       "executable": false
     },
     "docs/SCHEDULE.md": {
-      "sha256": "3bc79f408da86551fcdfbfbfcddaa892ebc3a7b42599e3cd373ab1f2f14b70b6",
+      "sha256": "427528bc92713feb47dd64861f63b01d6554a55d5a7be916cf4e635c2b5c8c40",
       "executable": false
     },
     "docs/SOURCES.md": {
@@ -1282,7 +1282,7 @@
       "executable": false
     },
     "src/lanyard/calendar.ts": {
-      "sha256": "686e50c51b2e9719af553656aed2d481bd834af3c6a059c74ff11bae48c5cd74",
+      "sha256": "164e82a340cf798532dc6c0147be106010c42601d844568aba961b0bd85dbb2d",
       "executable": false
     },
     "src/lanyard/clockbrowsers.ts": {
@@ -1818,7 +1818,7 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "8f41aa2d44950d88db2fb5b037650b13f8a3085053cf48ac5f6344b5ca9adb95",
+      "sha256": "72b9dcbc25df275dd3633a04d655c4b62911e14728c25e788d71c389a6b0a4f5",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
@@ -4050,7 +4050,7 @@
       "executable": false
     },
     "tests/archive.test.mjs": {
-      "sha256": "52b84d2ffcce6a7f00b0934812e8b54c59524490656aa9b217585ec03b83567d",
+      "sha256": "84c25a2a37112c866c250cf19ff1c3d4c33368a6767be146d4ad5a8888c031d9",
       "executable": false
     },
     "tests/audit-report-journey.mjs": {
@@ -4078,7 +4078,7 @@
       "executable": false
     },
     "tests/calendar-journey.mjs": {
-      "sha256": "9fe00b1db14c70164c50bf72f6152516d6ca33bab948b596d60de32810a37334",
+      "sha256": "c7c2bc59b827d2c87bb3f8a3f78114a4562609aa973161487ad7284db13f7702",
       "executable": false
     },
     "tests/chat-membership-journey.mjs": {
