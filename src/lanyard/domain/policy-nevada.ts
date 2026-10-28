@@ -9,6 +9,38 @@ export const NEVADA_OVERTIME_SOURCE='https://www.leg.state.nv.us/NRS/NRS-608.htm
 export const nevadaWorkday=(rule:any)=>rule?.preset==='NV'&&rule.presetVersion===NEVADA_VERSION
 const enrolled=(rule:any,id:string)=>rule?.alternate?.kind==='NV_4X10'&&rule.alternate.staffIds.includes(id)
 
+type Part={date:string;site:string;start:string;end:string;minutes:number;timeId:string;intervalStart?:string;intervalEnd?:string;[key:string]:any}
+
+/** Unapproved earlier work can change both the first-work anchor and the daily
+ * hours. Compare the possible workdays without adding that work to paid time.
+ * Once the timelines converge, unrelated old pending work holds nothing back.
+ * An open punch has no established end, so its context remains unresolved. */
+export function nevadaPendingReview(s:State,staffId:string,parts:Part[],classified:Part[],ruleOn:(site:string,on:string)=>any,through:string,week:string){
+ const selected=classified.filter(p=>p.date>=week&&p.date<=through&&p.workdayTreatment)
+ if(!selected.length)return false
+ const unresolved=[...s.timesheets.filter(t=>t.staffId===staffId&&['submitted','returned'].includes(t.status)),...s.clocks.filter(k=>k.staffId===staffId&&k.status==='open')]
+ if(!unresolved.length)return false
+ const limit=Date.parse(instantAt(dayAfter(through),'00:00',s.timezone)),ids=new Set(parts.map(p=>p.timeId))
+ const extra=unresolved.filter(r=>!ids.has(r.id)).flatMap(r=>{
+  const end=Math.min(Date.parse(r.end??new Date(limit).toISOString()),limit),result:Part[]=[]
+  for(let start=Date.parse(r.start);start<end;){
+   const date=localDate(new Date(start).toISOString(),s.timezone),finish=Math.min(end,Date.parse(instantAt(dayAfter(date),'00:00',s.timezone)))
+   result.push({date,site:r.site??s.staff.find(p=>p.id===staffId)?.site??'',start:new Date(start).toISOString(),end:new Date(finish).toISOString(),minutes:0,timeId:r.id});start=finish
+  }
+  return result
+ })
+ const possible=nevadaWorkdayParts(s,staffId,[...parts,...extra],ruleOn,through),pending=new Set(unresolved.map(r=>r.id))
+ const bySource=new Map<string,typeof possible>(),pendingStart=new Map<string,number>()
+ for(const p of possible){
+  const key=p.timeId+'|'+p.date;bySource.set(key,[...(bySource.get(key)??[]),p])
+  if(pending.has(p.timeId)&&p.workdayKey)pendingStart.set(p.workdayKey,Math.min(pendingStart.get(p.workdayKey)??Infinity,Date.parse(p.intervalStart??p.start)))
+ }
+ return selected.some(p=>(bySource.get(p.timeId+'|'+p.date)??[]).some(q=>
+  Date.parse(q.intervalStart??q.start)<Date.parse(p.intervalEnd??p.end)&&Date.parse(q.intervalEnd??q.end)>Date.parse(p.intervalStart??p.start)&&
+  (q.workdayStart!==p.workdayStart||(pendingStart.get(q.workdayKey)??Infinity)<Date.parse(q.intervalEnd??q.end))
+ ))
+}
+
 /** NRS 608.0126 starts a workday when work begins, for 24 elapsed hours.
  * NRS 608.018 applies the eight-hour daily limit below 1.5 times the USD 12
  * minimum wage. This release covers reviewed ordinary nonexempt work only;

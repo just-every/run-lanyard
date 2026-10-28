@@ -2053,7 +2053,7 @@ test('POLICY-001: alternate schedule evidence, recalculation and application thr
 
 test('POLICY-001: California and Nevada workdays require current reviewed adoption and preserve closed history',async()=>{const {policyWorkdayApi}=await import('./policy-workday-journey.mjs');await policyWorkdayApi()})
 
-test('POLICY-001: California workdays carry prior-week daily context without replaying payroll minutes',async()=>{const {policyWorkdayBoundaryApi}=await import('./policy-workday-journey.mjs');await policyWorkdayBoundaryApi()})
+test('POLICY-001: California and Nevada workdays reconcile prior-week context before once-only classified payroll',async()=>{const {policyWorkdayBoundaryApi}=await import('./policy-workday-journey.mjs');await policyWorkdayBoundaryApi()})
 
 test('POLICY-001: California and Nevada workday recuts retain approved rates and exact whole payable minutes',async()=>{const {policyWorkdayAllocationApi}=await import('./policy-workday-journey.mjs');await policyWorkdayAllocationApi()})
 

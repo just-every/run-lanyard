@@ -78,6 +78,8 @@ export async function policyWorkdayApi(){
 }
 
 export async function policyWorkdayBoundaryApi(){
+ await nevadaPendingContext()
+ await nevadaOpenContext()
  const h=await harness()
  try{
   await h.cmd('settings.save',{timezone:'UTC'})
@@ -185,6 +187,63 @@ async function nevadaAdoption(){
   await h.cmd('policy.preview',{...pin(west),site:'West',preset:'NV',from:'2026-09-29',presetVersion:'2026-10-28',reviewReason:'Refused closed-period reclassification'},h.owner,409)
   assert.equal((await report(h,p,'2026-09-28')).overtimeMinutes,60,'closed history keeps the retained older version')
   await h.restart();assert.deepEqual(await report(h,p),current,'restarting preserves exact workday classifications')
+ }finally{await h.close()}
+}
+
+async function nevadaPendingContext(){
+ const h=await harness({now:'2026-10-28T12:30:00Z'})
+ try{
+  const p=await nevadaFixture(h)
+  // Unrelated old pending work must not hold a later, complete workday.
+  await h.cmd('time.prepare',{staffId:p.id,site:'East',start:'2026-09-07T08:00:00Z',end:'2026-09-07T09:00:00Z',breakMinutes:0,reason:'Unrelated earlier time awaiting review'})
+  const current=await approve(h,p,week+'T00:00:00Z',week+'T06:00:00Z',{site:'West'})
+  const retainedCurrent=(await h.state()).timesheets.find(t=>t.id===current.id)
+  const template=await h.cmd('payroll.template.save',{approved:true,name:'Reviewed ordinary Nevada workday',classification:'policy',header:true,
+   columns:[{field:'employee',header:'Worker'},{field:'code',header:'Earning'},{field:'minutes',header:'Minutes'},{field:'amount',header:'USD'}],groupBy:[],
+   employees:{[p.id]:{id:'synthetic-lanyard-1',workflow:'W-2'}},codes:{regular:'REG',overtime:'OT','double time':'DT'},jobs:{},locations:{East:'EAST',West:'WEST'}})
+  const prepared=await h.cmd('payroll.prepare',{ids:[current.id],templateId:template.id})
+  assert.deepEqual(prepared.classificationLines.map(l=>[l.earningCode,l.minutes,l.costCents]),[['regular',360,9600]])
+  let pending=await h.cmd('time.prepare',{staffId:p.id,site:'East',start:'2026-10-11T16:00:00Z',end:'2026-10-11T22:00:00Z',breakMinutes:0,reason:'Prior-workweek service awaiting employee confirmation'})
+  const held=async()=>{
+   const review=await report(h,p),own=(await h.send(`/api/lanyard/state?week=${week}`,undefined,p.cookie)).value.ownEarnings
+   assert.equal(review.classificationIncomplete,true);assert.equal(review.estimateCents,null);assert.equal(review.breakPremiumEstimateCents,null)
+   assert.ok(review.coverage.issues.some(i=>i.includes('unapproved time or an open punch')))
+   assert.equal(own.policyReviewRequired,true);assert.equal(own.estimateCents,null);assert.equal(own.regularCostCents,null)
+   const before=await h.state()
+   await h.cmd('payroll.prepare',{ids:[current.id],templateId:template.id},h.owner,409)
+   await h.cmd('payroll.export',pin(prepared),h.owner,409)
+   assert.equal((await h.state()).version,before.version,'unsafe preparation and stale export write neither batches, claims nor audit')
+  }
+  await held()
+  pending=await h.cmd('time.return',{...pin(pending),reason:'Confirm prior service before the workday calculation'})
+  await held()
+  pending=await h.cmd('time.resubmit',{...pin(pending),note:'Original service times confirmed'},p.cookie)
+  await h.cmd('time.approve',pin(pending))
+  const complete=await report(h,p)
+  assert.deepEqual([complete.classificationIncomplete,complete.minutes,complete.regularMinutes,complete.overtimeMinutes,complete.estimateCents],[false,360,120,240,12800])
+  assert.ok(complete.parts.every(p=>p.timeId===current.id),'prior-workweek service establishes the workday without replaying paid time')
+  const batch=await h.cmd('payroll.prepare',{ids:[current.id],templateId:template.id})
+  assert.deepEqual(batch.classificationLines.map(l=>[l.earningCode,l.minutes,l.costCents]),[['regular',120,3200],['overtime',240,9600]])
+  const sent=await h.cmd('payroll.export',pin(batch))
+  assert.match(sent.csv,/REG,120,32\.00/);assert.match(sent.csv,/OT,240,96\.00/)
+  const before=await h.state();await h.cmd('payroll.export',pin(batch),h.owner,409)
+  assert.equal((await h.state()).version,before.version,'classified workday minutes export only once')
+  await h.restart();assert.deepEqual(await report(h,p),complete)
+  assert.deepEqual((await h.state()).timesheets.find(t=>t.id===current.id),retainedCurrent,'context reconciliation preserves the approved current source')
+ }finally{await h.close()}
+}
+
+async function nevadaOpenContext(){
+ const h=await harness({now:'2026-10-28T12:30:00Z'})
+ try{
+  const p=await nevadaFixture(h)
+  await h.cmd('clock.in',{commandId:'synthetic-lanyard-1',capturedAt:'2026-10-11T16:00:00Z'},p.cookie)
+  await approve(h,p,week+'T00:00:00Z',week+'T06:00:00Z',{site:'West'})
+  assert.equal((await report(h,p)).estimateCents,null,'an earlier open punch cannot establish a complete workday')
+  const closed=await h.cmd('clock.out',{commandId:'synthetic-lanyard-2',capturedAt:'2026-10-11T22:00:00Z',breakMinutes:0},p.cookie)
+  assert.equal((await report(h,p)).estimateCents,null,'closing alone leaves the original work unapproved')
+  await h.cmd('time.approve',pin(closed.timesheet))
+  assert.deepEqual([(await report(h,p)).overtimeMinutes,(await report(h,p)).estimateCents],[240,12800])
  }finally{await h.close()}
 }
 

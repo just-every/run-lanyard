@@ -116,7 +116,7 @@ async function openPunchProjection(){
 }
 
 export async function policyCostBrowser(){
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try{for(const width of [1440,390]){
   const h=await harness(),f=await fixture(h),context=await browser.newContext({viewport:{width,height:1000},extraHTTPHeaders:f.head})
   try{
@@ -163,6 +163,13 @@ async function nevadaProjection(){
   let a=(await h.send(path,undefined,h.owner)).value.alerts.find(a=>a.staffId===p.id)
   assert.deepEqual([a.actualMinutes,a.scheduledMinutes,a.projectedMinutes,a.overtimeMinutes,a.doubleMinutes,a.premiumCents],[120,240,360,240,0,3200])
   assert.ok(a.policy.parts.every(p=>p.workdayStart==='2026-10-11T16:00:00.000Z'))
+  const prior=(await h.state()).timesheets.find(t=>t.staffId===p.id&&t.start==='2026-10-11T16:00:00.000Z')
+  const correction=await h.cmd('time.prepare',{staffId:p.id,site:'East',start:prior.start,end:'2026-10-11T23:00:00Z',breakMinutes:0,corrects:prior.id,reason:'Prior-workweek service correction awaiting approval'})
+  a=(await h.send(path,undefined,h.owner)).value.alerts.find(a=>a.staffId===p.id)
+  assert.equal(a.policy.classificationIncomplete,true);assert.equal(a.premiumCents,null,'unreviewed prior work withholds the projected money amount')
+  await h.cmd('time.approve',pin(correction))
+  a=(await h.send(path,undefined,h.owner)).value.alerts.find(a=>a.staffId===p.id)
+  assert.deepEqual([a.projectedMinutes,a.overtimeMinutes,a.premiumCents],[360,300,4000],'approved prior correction restores risk without replaying its paid time')
   const before=await h.state(),{reviewNevadaWorker}=await import('./policy-regional-journey.mjs')
   await reviewNevadaWorker(h,p,'West',{stateDaily:'reviewed-not-applicable',legalBasis:'Unknown ordinary workday applicability must withhold risk amounts'})
   a=(await h.send(path,undefined,h.owner)).value.alerts.find(a=>a.staffId===p.id)
@@ -172,11 +179,11 @@ async function nevadaProjection(){
 }
 
 async function nevadaCostBrowser(){
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try{for(const width of [1440,390]){
   const h=await harness({now:nowNevada}),context=await browser.newContext({viewport:{width,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse(nowNevada))}})
   try{
-   await nevadaProjectionFixture(h)
+   const {p}=await nevadaProjectionFixture(h)
    await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'x-test-now':String(Date.parse(nowNevada)),'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
    const {browserAssets}=await import('./policy-settings-journey.mjs');await browserAssets(context)
    const [name,...value]=h.owner.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
@@ -192,6 +199,11 @@ async function nevadaCostBrowser(){
    }
    await shot('nevada-workday-risk')
    const account=page.locator('summary[aria-label="Account"]');await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'})
+   const prior=(await h.state()).timesheets.find(t=>t.staffId===p.id&&t.start==='2026-10-11T16:00:00.000Z')
+   await h.cmd('time.prepare',{staffId:p.id,site:'East',start:prior.start,end:'2026-10-11T23:00:00Z',breakMinutes:0,corrects:prior.id,reason:'Prior service correction needs review before estimating risk'})
+   await page.reload({waitUntil:'networkidle'});await card.getByText('Policy and estimate inputs',{exact:true}).click()
+   if(width===1440){assert.match(await card.innerText(),/Policy inputs require review before a premium amount can be estimated/);assert.doesNotMatch(await card.innerText(),/\$32\.00/)}
+   await card.scrollIntoViewIfNeeded();await shot('nevada-workday-risk-unresolved')
    await page.goto(h.origin+'/app/settings?site=West&preset=NV',{waitUntil:'networkidle'})
    const editor=page.locator('[data-policy-editor]');await editor.getByLabel('Review reason',{exact:true}).fill('Review Nevada first-work anchors and retained ordinary service rates')
    await editor.getByRole('button',{name:'Preview policy changes',exact:true}).click();await page.waitForLoadState('networkidle')
@@ -201,6 +213,7 @@ async function nevadaCostBrowser(){
     assert.match(await preview.innerText(),/2026-10-11T16:00:00.000Z/)
     assert.match(await preview.innerText(),/2026-10-12T16:00:00.000Z/)
     assert.match(await preview.innerText(),/NRS608Sec0126/)
+    assert.match(await preview.innerText(),/unapproved time or an open punch/)
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
     assert.deepEqual(errors,[])
    }

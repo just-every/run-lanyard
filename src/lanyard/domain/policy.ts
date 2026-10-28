@@ -1,4 +1,4 @@
-import {nevadaWorkdayParts,nevadaWorkday,NEVADA_SOURCE,NEVADA_OVERTIME_SOURCE} from './policy-nevada'
+import {nevadaWorkdayParts,nevadaPendingReview,nevadaWorkday,NEVADA_SOURCE,NEVADA_OVERTIME_SOURCE} from './policy-nevada'
 import {workdayParts} from './policy-workday'
 import {regionalLimits} from './policy-alternate-regional'
 // POLICY-001: versioned overtime core. Meal timing and statutory premium payroll
@@ -29,7 +29,8 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
   return areas.flatMap((area:any)=>{const basis=area.rateBasis??priced(s,staffId,{...t,...area});return basis.segments.map((p:any)=>({date:p.date,minutes:p.minutes,cents:p.cents,rateReference:{from:p.from,profileId:p.profileId,profileRevision:p.profileRevision,jobRevision:basis.jobRevision},site:basis.site??t.site??s.staff.find(x=>x.id===staffId)?.site??'',timeId:t.id,revision:t.revision,start:area.start??t.start,end:area.end??t.end,area:area.area??'',job:area.job??t.job??''}))})
  }).sort((a:any,b:any)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start)||a.timeId.localeCompare(b.timeId))
  const key=(p:any)=>p.workdayKey??staffId+'|'+p.date+'|00:00',on=(p:any)=>p.workdayDate??p.date
- const allParts=nevadaWorkdayParts(s,staffId,workdayParts(s,staffId,retainedParts,((site,on)=>policyOn(s,site,on))),((site,on)=>policyOn(s,site,on)),dayAfter(week,6)).sort((a,b)=>a.date.localeCompare(b.date)||(a.intervalStart??a.start).localeCompare(b.intervalStart??b.start)||a.timeId.localeCompare(b.timeId))
+ const workdays=workdayParts(s,staffId,retainedParts,((site,on)=>policyOn(s,site,on)))
+ const allParts=nevadaWorkdayParts(s,staffId,workdays,((site,on)=>policyOn(s,site,on)),dayAfter(week,6)).sort((a,b)=>a.date.localeCompare(b.date)||(a.intervalStart??a.start).localeCompare(b.intervalStart??b.start)||a.timeId.localeCompare(b.timeId))
  const consecutive=consecutiveWork(s,allParts,rows,((site,on)=>{const r=policyOn(s,site,on);return r&&!covered(r,staffId,'stateConsecutive')?{...r,consecutiveMinutes:0}:r}))
  const parts=allParts.filter((p:any)=>workweek(s,staffId,p.date)===week)
  const selectedDays=new Set(parts.map(key)),context=allParts.filter(p=>selectedDays.has(key(p))),prior=context.filter(p=>workweek(s,staffId,p.date)<week)
@@ -40,6 +41,7 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
  const anchors=new Set(context.map(p=>{const r=policyOn(s,p.site,p.date);return r?.preset==='CA'?r.workdayStart??'00:00':'00:00'}))
  const workdayReviewIssues=anchors.size>1?['Employer workday anchors differ across the workweek; review all affected sites and effective dates']:[]
  if(context.some((p:any)=>p.nevadaReviewRequired))workdayReviewIssues.push('Nevada consecutive 24-hour treatment requires evidenced ordinary nonexempt applicability at every worked site and effective version; mixed workday or alternate-schedule evidence remains unresolved')
+ if(nevadaPendingReview(s,staffId,workdays,allParts,((site,on)=>policyOn(s,site,on)),dayAfter(week,6),week))workdayReviewIssues.push('Nevada workday context includes earlier unapproved time or an open punch; resolve the original work before estimating amounts or classified export')
  const classify=(useConsecutive:boolean)=>{let regularWeek=0;daily.clear();for(const q of prior)daily.set(key(q),(daily.get(key(q))??0)+q.minutes);return parts.map((p:any)=>{
   const own=policyOn(s,p.site,p.date),dayRules=[...rules.entries()].filter(([key])=>key.startsWith((p.workdayKey??staffId+'|'+p.date+'|00:00')+'|')).map(([,r])=>r)
   // Nevada's current general minimum wage is USD 12; daily overtime applies
