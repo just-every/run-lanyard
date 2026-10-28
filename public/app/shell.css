@@ -102,7 +102,7 @@ details:not(.menu):not(.card):not(.shift)[open]>summary::before{transform:rotate
 table.list{width:100%;border-collapse:collapse;font-size:14px}
 table.list th{text-align:left;font-weight:600;font-size:13px;color:var(--muted);background:var(--head);padding:10px 12px;border-bottom:1px solid var(--rule);white-space:nowrap}
 table.list td{padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:middle}
-table.list td small{display:block;color:var(--muted);font-size:12px}
+table.list td small{display:block;color:var(--muted);font-size:13px}
 table.list .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 table.list tr.band th{background:var(--band);color:var(--sea-ink);font-size:14px;font-weight:700}
 table.list tr.band th span{float:right;font-weight:600}
@@ -118,11 +118,11 @@ html.rer-themed .lanyard-app .row-actions form{margin:0}
 code{font-family:var(--font-mono);font-size:.88em}
 html.rer-themed .lanyard-app pre{font:13px/1.6 var(--font-mono);white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;padding:14px;background:var(--head);border:1px solid var(--rule);border-radius:var(--r-input);margin:8px 0 12px}
 
-.status{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:var(--r-pill);font:600 12px/1 var(--font-sans);white-space:nowrap;background:var(--neutral);color:var(--body)}
+.status{display:inline-flex;align-items:center;min-height:24px;padding:0 10px;border-radius:var(--r-pill);font:600 13px/1 var(--font-sans);white-space:nowrap;background:var(--neutral);color:var(--body)}
 .status.positive{background:var(--sea-pale);color:var(--sea-ink)}
 .status.negative{background:var(--alert-wash);color:var(--claret)}
 .notice{padding:12px 16px;margin:0 0 14px;border-radius:var(--r-input);background:var(--sea-pale);color:var(--sea-ink);font-weight:500}
-.notice.error{background:var(--alert-wash);color:var(--claret);border-left:3px solid var(--claret)}
+.notice.error{background:var(--alert-wash);color:var(--claret);border:1px solid var(--claret)}
 .banner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;margin:0 0 14px;border:1px solid var(--shift-line);border-radius:var(--r-card);background:var(--tint)}
 .banner p{margin:0}
 .banner.warn{border-color:var(--alert-line);background:var(--alert-wash)}
@@ -168,4 +168,4 @@ html.rer-themed .lanyard-app .banner form{margin:0}
  .banner{display:grid}
 }
 
-#control-tooltip{position:fixed;z-index:1000;max-width:calc(100vw - 16px);padding:6px 9px;border-radius:4px;background:#222;color:white;font:500 12px/1.4 sans-serif;pointer-events:none;box-shadow:0 2px 6px #0003}#control-tooltip[hidden]{display:none}
+#control-tooltip{position:fixed;z-index:1000;max-width:calc(100vw - 16px);padding:6px 9px;border-radius:4px;background:#222;color:white;font:500 13px/1.4 sans-serif;pointer-events:none;box-shadow:0 2px 6px #0003}#control-tooltip[hidden]{display:none}

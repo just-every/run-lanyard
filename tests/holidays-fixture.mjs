@@ -16,7 +16,7 @@ export async function holidayFixture(h,approve=true) {
  const next=await h.cmd('roster.prepare',{week:'2025-12-01',shifts:[companyShift,spec(foreign,'2025-12-01'),spec(alex,'2025-12-02')]});await h.cmd('roster.publish',pin(next))
  const after=spec(alex,'2025-11-28'),pendingAfter=approve?await h.cmd('time.prepare',{staffId:alex.id,start:after.start,end:after.end,breakMinutes:0,reason:'Awaiting supervisor review'}):null
  const approved=[];let pendingHeld=false
- const enter=async(x,extra={})=>{const {site,job,...time}=x;const t=await h.cmd('time.prepare',{...time,reason:'Employer-reviewed paper time',...extra});return h.cmd('time.approve',pin(t),manager.cookie)}
+ const enter=async(x,extra={})=>{const {site,job,...time}=x;const t=await h.cmd('time.prepare',{...time,reason:'Employer-reviewed paper time',...extra});return h.cmd('time.approve',pin(t),x.staffId===foreign.id?h.owner:manager.cookie)}
  if(approve){for(const x of shifts.filter(x=>!(x.staffId===ben.id&&x.start===spec(ben,'2025-11-28').start))){const t=x.staffId===alex.id&&x.start===after.start?await h.cmd('time.approve',pin(pendingAfter),manager.cookie):await enter(x);approved.push(t);if(x.staffId===alex.id&&x.start===thanksgiving.start){await h.cmd('payroll.prepare',{ids:[t.id]},h.owner,409);pendingHeld=true}};approved.push(await enter(companyShift));approved.push(await enter(spec(alex,'2025-12-02')));approved.push(await enter(spec(foreign,'2025-12-01')))}
  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
  return {alex,ben,cy,foreign,manager,counter,kitchen,profile,company,rule,thanksgiving,companyShift,approved,enter,spec,pendingHeld}
