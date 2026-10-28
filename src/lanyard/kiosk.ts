@@ -4,6 +4,7 @@ import {load,actor} from './domain/storage'
 import {need,keys,text,keyed,sha} from './domain/model'
 import {restricted} from './domain/access'
 import {networkOf} from './clockbrowsers'
+import {startOf} from './domain/transfers'
 import {kioskPage} from './ui/kiosk'
 const DEVICE='__Host-lanyard-kiosk',SESSION='__Host-lanyard-kiosk-person'
 const cookie=(name:string,token:string,age:number)=>`${name}=${token}; Path=/; Max-Age=${age}; HttpOnly; Secure; SameSite=Strict`
@@ -35,6 +36,12 @@ async function session(request:Request,env:Bindings,d:any){
  const hash=await sha(token(request,SESSION)),v=await env.DB.prepare(`SELECT k.*,p.version AS current_pin,s.email,s.version AS current_staff,s.active,s.erased_at,s.site,o.status AS operator_status FROM l_kiosk_sessions k JOIN l_kiosk_pins p ON p.staff_id=k.staff_id JOIN l_staff s ON s.id=k.staff_id JOIN oa_operators o ON o.id=k.operator_id WHERE k.token_hash=? AND k.device_id=? AND k.revoked_at IS NULL AND k.expires_at>?`).bind(hash,d.id,Date.now()).first<any>()
  need(v&&v.current_pin===v.pin_version&&v.current_staff===v.staff_version&&v.active&&!v.erased_at&&v.operator_status==='active'&&v.site===d.site,'Kiosk employee session expired or revoked',401)
  const a=await actor(env.DB,{userId:v.operator_id,email:v.email,isOwner:false});return {a:{...a,role:'staff' as const},hash}
+}
+/** Recovery identifies expired authority without exposing employee facts or usable credentials. */
+export async function revokedKioskSessions(env:Bindings,a:Actor,site:string){
+ if(!['owner','manager'].includes(a.role))return []
+ const rows=await env.DB.prepare(`SELECT k.token_hash,d.site FROM l_kiosk_sessions k JOIN l_kiosk_devices d ON d.id=k.device_id JOIN l_staff s ON s.id=k.staff_id JOIN l_kiosk_pins p ON p.staff_id=s.id JOIN oa_operators o ON o.id=k.operator_id WHERE k.revoked_at IS NOT NULL OR k.expires_at<=? OR d.revoked_at IS NOT NULL OR d.locked=1 OR s.active=0 OR s.erased_at IS NOT NULL OR s.version<>k.staff_version OR p.version<>k.pin_version OR s.site<>d.site OR o.status<>'active'`).bind(Date.now()).all<{token_hash:string;site:string}>()
+ return Promise.all(rows.results.filter(r=>a.role==='owner'||r.site===site).map(r=>sha(r.token_hash)))
 }
 export async function kioskResponse(request:Request,env:Bindings):Promise<Response|null>{
  const path=new URL(request.url).pathname;if(path!=='/app/kiosk'&&!path.startsWith('/api/lanyard/kiosk/'))return null
@@ -68,7 +75,10 @@ export async function kioskResponse(request:Request,env:Bindings):Promise<Respon
    await env.DB.prepare('UPDATE l_kiosk_sessions SET revoked_at=? WHERE token_hash=?').bind(new Date().toISOString(),current.hash).run();const response=json({signedOut:true});response.headers.set('set-cookie',cookie(SESSION,'',0));return response
   }
   const s=await load(env.DB),policy=s.photopolicies.find(p=>p.site===d.site),photoRequired=Boolean(d.photo||policy?.kiosk),photoBreaks=Boolean(d.photo||policy?.kiosk&&policy.breaks),language=s.clocklanguages.find(x=>x.staffId===current.a.staffId)?.language??'en'
-  if(path==='/api/lanyard/kiosk/state'&&request.method==='GET')return json({actorId:current.a.id,staffId:current.a.staffId,deviceId:d.id,language,photoRequired,photoEnrollmentNeeded:photoRequired&&!d.photo_consent,photoBreaks,photoTransfers:Boolean(d.photo),site:d.site,jobs:s.jobs.filter(j=>!s.workforce.find(w=>w.staffId===current.a.staffId)?.jobs.length||s.workforce.find(w=>w.staffId===current.a.staffId)?.jobs.includes(j.id)).map(j=>({id:j.id,name:j.name})),clocks:s.clocks.filter(k=>k.staffId===current.a.staffId),receipts:s.kioskreceipts.filter(k=>k.staffId===current.a.staffId)})
+  if(path==='/api/lanyard/kiosk/state'&&request.method==='GET'){
+   const open=s.clocks.find(k=>k.staffId===current.a.staffId&&k.status==='open')
+   return json({actorId:current.a.id,staffId:current.a.staffId,deviceId:d.id,sessionId:await sha(current.hash),open:open?{start:open.start,status:open.status,breaks:open.breaks??[],transfers:open.transfers??[],...startOf(s,open)}:null,language,photoRequired,photoEnrollmentNeeded:photoRequired&&!d.photo_consent,photoBreaks,photoTransfers:Boolean(d.photo),site:d.site,jobs:s.jobs.filter(j=>!s.workforce.find(w=>w.staffId===current.a.staffId)?.jobs.length||s.workforce.find(w=>w.staffId===current.a.staffId)?.jobs.includes(j.id)).map(j=>({id:j.id,name:j.name})),clocks:s.clocks.filter(k=>k.staffId===current.a.staffId),receipts:s.kioskreceipts.filter(k=>k.staffId===current.a.staffId)})
+  }
   if(path==='/api/lanyard/kiosk/capture'&&request.method==='POST'){
    keys(p,['name','input','photo','photoConsent','photoFailure']);need(['clock.in','clock.out','clock.breakStart','clock.breakEnd','clock.transfer'].includes(p.name),'Kiosk may capture time only',403)
    need(!p.input?.site||p.input.site===d.site,'Device is not approved for this cafe',403)

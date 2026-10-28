@@ -1939,7 +1939,7 @@ test('LEARN-001: a manager reviews the held-out comparison and approves then rev
 test('ACCESS-003: site-scoped draft and swap permissions, grant ceilings, live revocation, contact refusal and wage exclusion',()=>run(async h=>{const {accessApi}=await import('./access-chat-kiosk-journey.mjs');await accessApi(h)}))
 test('CHAT-001: operational announcements and handovers, acknowledgments, search, attachments and current membership',()=>run(async h=>{const {chatApi}=await import('./access-chat-kiosk-journey.mjs');await chatApi(h)}))
 test('CLOCK-001: device and employee verification, consecutive users, private photo receipts, timed breaks and revocation',()=>run(async h=>{const {kioskApi}=await import('./access-chat-kiosk-journey.mjs');await kioskApi(h)}))
-test('ACCESS-003 CHAT-001 CLOCK-001: native access forms, message acknowledgments and Spanish kiosk at 1440 and 390',async()=>{const {surfaceBrowser,kioskOffline}=await import('./access-chat-kiosk-journey.mjs');await surfaceBrowser();await kioskOffline()})
+test('ACCESS-003 CHAT-001 CLOCK-001: native access forms, message acknowledgments, Spanish kiosk and encrypted multi-job replay with revoked-original recovery',async()=>{const {surfaceBrowser,kioskOffline}=await import('./access-chat-kiosk-journey.mjs');await surfaceBrowser();await kioskOffline()})
 
 test('CLOCK-001: kiosk job changes retain qualified job rates and split payroll once; PIN and employee changes revoke active device sessions',()=>run(async h=>{const {kioskSegmentApi}=await import('./access-chat-kiosk-journey.mjs');await kioskSegmentApi(h)}))
 
