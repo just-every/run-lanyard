@@ -219,7 +219,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
        const source=await load(env.DB),params=new URLSearchParams(url.searchParams),now=new Date().toISOString()
        if(path==='/app/reports'){
         const today=localDate(now,source.timezone)
-        if(!params.has('site'))params.set('site',reportSites(source,who)[0]??'')
+        if(!params.has('site')&&params.get('scope')!=='all')params.set('site',reportSites(source,who)[0]??'')
         if(!params.has('through'))params.set('through',today)
         if(!params.has('from'))params.set('from',new Date(Date.parse(today+'T00:00:00Z')-13*86400000).toISOString().slice(0,10))
        }

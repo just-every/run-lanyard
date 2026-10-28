@@ -105,6 +105,7 @@ export async function reportsApi(){
   assert.equal(await sourceRecords(),beforeRefusal)
   assert.equal((await h.db.prepare("SELECT count(*) n FROM l_events WHERE action='reports.download'").first()).n,auditCount)
  }finally{await h.close()}
+ const {reportsPoolApi}=await import('./report-pool-journey.mjs');await reportsPoolApi()
  const {reportsDeliveryApi}=await import('./report-delivery-journey.mjs');await reportsDeliveryApi()
  const {reportsDeliveryArchive}=await import('./report-delivery-archive.mjs');await reportsDeliveryArchive()
 }
@@ -246,5 +247,6 @@ export async function reportsBrowser(){
    assert.deepEqual(errors,[])
   }finally{await context.close()}
   const {reportsDeliveryBrowser}=await import('./report-delivery-journey.mjs');await reportsDeliveryBrowser(browser)
+  const {reportsPoolBrowser}=await import('./report-pool-journey.mjs');await reportsPoolBrowser(browser)
  }finally{await h.close();await browser.close()}
 }

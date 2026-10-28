@@ -1,3 +1,4 @@
+import {approvedTipPools,tipPoolCurrent} from './tip-pools'
 import {differentialEstimate} from './differentials'
 // EARN-001: own approved hours use POLICY-001's complete workweek classification
 // and retained rates. Pay groups keep their period windows. Break-review estimates
@@ -49,6 +50,8 @@ export function earningsOf(staffId:string,week:string,tz:string,shifts:any[],tim
  const uses=state.sickuses.filter(u=>u.staffId===staffId&&u.status==='approved'&&u.paid!==false&&inside(u.date)),diff=differentialEstimate(state,staffId,range.start,range.end),holiday=holidayEstimate(state,staffId,range.start,range.end,new Date().toISOString()),extra=premiumEstimate(state,staffId,range.start,range.end)
  // Only totals cross the employee boundary: no rule records, source facts,
  // retained rate references, policy revisions or another person's records.
+ const poolReviewRequired=approvedTipPools(state).some(p=>inside(p.date)&&p.participants.includes(staffId)&&!tipPoolCurrent(state,p))
+ const tips={reviewRequired:poolReviewRequired,costCents:settings.estimates&&!poolReviewRequired?state.payinputs.filter(r=>r.staffId===staffId&&r.kind==='tips'&&r.tipPoolId&&inside(r.date)).reduce((n,r)=>n+r.amountCents,0):null}
  const paidLeave={minutes:uses.reduce((n,u)=>n+u.minutes,0),costCents:priced?uses.reduce((n,u)=>n+(u.costCents??0),0):null}
  const differential={minutes:diff.minutes,costCents:priced?diff.costCents:null}
  const jurisdiction={minutes:extra.minutes,costCents:priced?extra.costCents:null}
@@ -57,8 +60,8 @@ export function earningsOf(staffId:string,week:string,tz:string,shifts:any[],tim
   requestedWeek:week,week:range.start,end:range.end,payDate:range.payDate,statementUrl:settings.statementUrl,
   scheduledMinutes:minutes(shifts.filter(t=>eligible(t)&&t.status==='published')),regularMinutes,overtimeMinutes,doubleMinutes,pendingMinutes:minutes(pending),
   policyReviewRequired:reports.some(r=>r.classificationIncomplete),approvedIds:approved.map(t=>t.id),pendingIds:pending.map(t=>t.id),estimates:settings.estimates,rateCents:priced?rateCents:null,
-  regularCostCents,overtimeCostCents,doubleCostCents,paidLeave,differential,jurisdiction,holiday:premium,
-  estimateCents:workedCostCents===null||premium.costCents===null||diff.costCents===null?null:workedCostCents+premium.costCents+extra.costCents+diff.costCents+paidLeave.costCents!,
+  regularCostCents,overtimeCostCents,doubleCostCents,paidLeave,tips,differential,jurisdiction,holiday:premium,
+  estimateCents:workedCostCents===null||premium.costCents===null||diff.costCents===null||tips.costCents===null?null:workedCostCents+premium.costCents+extra.costCents+diff.costCents+paidLeave.costCents!+tips.costCents!,
  }
 }
 export type EarningsEstimate=ReturnType<typeof earningsOf>

@@ -1,3 +1,4 @@
+import {approvedTipPools,tipPoolCurrent} from './tip-pools'
 // Operational reads use current source revisions and never imply provider settlement.
 import {type Actor,type State,manager,need,instant} from './model'
 import {date,dayAfter,mayReadPerson} from './aca'
@@ -9,14 +10,14 @@ import {laborCosts} from './labor-cost'
 export const reportKinds=['schedule','attendance','breaks','PTO','worked','labor','tips','payroll'] as const
 export function reportSites(s:State,a:Actor) {
  manager(a)
- return a.role==='owner'?[...new Set([...s.staff.map(p=>p.site??''),...s.shifts.map(x=>siteOf(s,x)),...s.forecasts.map(f=>f.site??''),...s.sales.map(r=>r.site)])].sort():[s.staff.find(p=>p.id===a.staffId)?.site??'']
+ return a.role==='owner'?[...new Set([...s.locations.map(l=>l.site),...s.staff.map(p=>p.site??''),...s.shifts.map(x=>siteOf(s,x)),...s.forecasts.map(f=>f.site??''),...s.sales.map(r=>r.site)])].sort():[s.staff.find(p=>p.id===a.staffId)?.site??'']
 }
 export type ReportRow={kind:string;date:string;site:string;job:string;staffId:string;sourceId:string;revision:number;status:string;minutes:number|null;overtimeMinutes:number|null;amountCents:number|null;incomplete:boolean;detail:string}
 export function operationalReport(s:State,a:Actor,q:URLSearchParams,now:string) {
  manager(a)
  const from=date(q.get('from'),'period start'),through=date(q.get('through'),'period end'),asOf=instant(now)
  need(from<=through&&Date.parse(through)-Date.parse(from)<=92*86400000,'Choose a period of at most 93 days')
- const home=s.staff.find(p=>p.id===a.staffId)?.site??'',site=q.has('site')?q.get('site')!:a.role==='owner'?null:home,job=q.get('job'),staffId=q.get('person'),kind=q.get('kind')??'all'
+ const home=s.staff.find(p=>p.id===a.staffId)?.site??'',site=q.get('scope')==='all'?null:q.has('site')?q.get('site')!:a.role==='owner'?null:home,job=q.get('job'),staffId=q.get('person'),kind=q.get('kind')??'all'
  need(a.role==='owner'||site===home,'Not found',404)
  need(!staffId||mayReadPerson(s,a,staffId),'Not found',404)
  need(kind==='all'||reportKinds.some(k=>k===kind),'Unknown report kind')
@@ -39,7 +40,7 @@ export function operationalReport(s:State,a:Actor,q:URLSearchParams,now:string) 
   add(row('attendance',issue,localDate(captured,s.timezone),{status:'unresolved offline punch',incomplete:true,detail:'Device capture requires manager reconciliation; excluded from approved totals.'}))
  }
  const start=new Date(from+'T00:00:00Z'),day=start.getUTCDay();start.setUTCDate(start.getUTCDate()-((day+6)%7))
- const sites=[...new Set([...s.staff.map(p=>p.site??''),...s.shifts.map(x=>siteOf(s,x)),...s.forecasts.map(f=>f.site??''),...s.sales.map(r=>r.site)])].filter(v=>site===null||v===site)
+ const sites=reportSites(s,a).filter(v=>site===null||v===site)
  for(let week=start.toISOString().slice(0,10);week<=through;week=dayAfter(week,7))for(const cafe of sites) {
   const cost=laborCosts(s,week,cafe,asOf,false,a)
   for(const f of cost.facts.approved) {
@@ -55,9 +56,10 @@ export function operationalReport(s:State,a:Actor,q:URLSearchParams,now:string) 
    add(row('tips',time,t.date,{sourceId:t.sourceId,revision:t.revision,amountCents:t.cents,status:'declared',detail:'Declared at clock-out; not an approved pool allocation.'}))
   }
  }
+ for(const pool of approvedTipPools(s))for(const allocation of pool.allocations)add(row('tips',{...pool,staffId:allocation.staffId,job:allocation.job},pool.date,{status:'pool approved',amountCents:allocation.cents,incomplete:!tipPoolCurrent(s,pool),detail:JSON.stringify({label:tipPoolCurrent(s,pool)?'Owner-approved native pool allocation; employer-reviewed eligibility, no POS or provider readback.':'Approved pool sources changed; fresh owner review required. Amount is the last approved allocation.',poolId:pool.id,rootId:pool.rootId,corrects:pool.corrects,totalCents:pool.participants.every((id:string)=>mayReadPerson(s,a,id))?pool.totalCents:null,minutes:allocation.minutes,approvedAt:pool.approvedAt,sources:pool.sources.filter((v:any)=>v.staffId===allocation.staffId&&v.job===allocation.job).map((v:any)=>({id:v.timeId,revision:v.revision,minutes:v.minutes}))})}))
  // Existing payroll inputs and paid-leave purposes are owner-only. Reports keep that boundary.
  if(a.role==='owner') {
-  for(const r of s.payinputs)add(row(r.kind==='tips'?'tips':'PTO',r,r.date,{status:'employer approved',minutes:r.minutes,amountCents:r.amountCents,detail:'Employer-approved source; no provider readback.'}))
+  for(const r of s.payinputs.filter(r=>!r.tipPoolId))add(row(r.kind==='tips'?'tips':'PTO',r,r.date,{status:'employer approved',minutes:r.minutes,amountCents:r.amountCents,detail:'Employer-approved source; no provider readback.'}))
   for(const r of [...s.sickuses.filter(r=>r.status==='approved'),...s.holidaypay])add(row('PTO',r,r.date,{minutes:r.minutes,amountCents:r.costCents??null,incomplete:r.costCents==null,detail:'Approved paid non-work source; no private purpose disclosed.'}))
   for(const b of s.batches.filter(b=>['exported','acknowledged'].includes(b.status)))for(const l of b.classificationLines??b.lines??[]) {
    const on=l.date??(l.start?localDate(l.start,s.timezone):'')
