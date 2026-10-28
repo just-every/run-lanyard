@@ -1,0 +1,12 @@
+/* Operational reports keep source details readable at both release widths. */
+.report-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end}
+.report-filters button{justify-self:start}
+.report-sources td{overflow-wrap:anywhere}
+.report-sources code{font-size:13px}
+.report-sources p,.report-totals p{margin:4px 0}
+@media(max-width:760px){
+ .report-filters{grid-template-columns:1fr}
+ .report-totals tr,.report-sources tr{grid-template-columns:1fr}
+ .report-totals th{display:block;padding:0;text-align:left}
+ .report-totals td[data-label]::before,.report-sources td[data-label]::before{font-size:13px}
+}

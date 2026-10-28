@@ -6,7 +6,11 @@ import {siteOf} from './team'
 import {attendanceFact} from './attendance'
 import {laborCosts} from './labor-cost'
 
-const kinds=['schedule','attendance','breaks','PTO','worked','labor','tips','payroll']
+export const reportKinds=['schedule','attendance','breaks','PTO','worked','labor','tips','payroll'] as const
+export function reportSites(s:State,a:Actor) {
+ manager(a)
+ return a.role==='owner'?[...new Set([...s.staff.map(p=>p.site??''),...s.shifts.map(x=>siteOf(s,x)),...s.forecasts.map(f=>f.site??''),...s.sales.map(r=>r.site)])].sort():[s.staff.find(p=>p.id===a.staffId)?.site??'']
+}
 export type ReportRow={kind:string;date:string;site:string;job:string;staffId:string;sourceId:string;revision:number;status:string;minutes:number|null;overtimeMinutes:number|null;amountCents:number|null;incomplete:boolean;detail:string}
 export function operationalReport(s:State,a:Actor,q:URLSearchParams,now:string) {
  manager(a)
@@ -15,7 +19,7 @@ export function operationalReport(s:State,a:Actor,q:URLSearchParams,now:string) 
  const home=s.staff.find(p=>p.id===a.staffId)?.site??'',site=q.has('site')?q.get('site')!:a.role==='owner'?null:home,job=q.get('job'),staffId=q.get('person'),kind=q.get('kind')??'all'
  need(a.role==='owner'||site===home,'Not found',404)
  need(!staffId||mayReadPerson(s,a,staffId),'Not found',404)
- need(kind==='all'||kinds.includes(kind),'Unknown report kind')
+ need(kind==='all'||reportKinds.some(k=>k===kind),'Unknown report kind')
  const rows:ReportRow[]=[],within=(d:string)=>d>=from&&d<=through
  const visible=(r:{site:string;staffId:string;job:string})=>(site===null||r.site===site)&&(!job||r.job===job)&&(!staffId||r.staffId===staffId)&&(!r.staffId||mayReadPerson(s,a,r.staffId))
  const add=(r:ReportRow)=>{if(within(r.date)&&visible(r)&&(kind==='all'||kind===r.kind))rows.push(r)}
@@ -61,8 +65,8 @@ export function operationalReport(s:State,a:Actor,q:URLSearchParams,now:string) 
   }
  }
  rows.sort((x,y)=>x.date.localeCompare(y.date)||x.kind.localeCompare(y.kind)||x.sourceId.localeCompare(y.sourceId))
- const totals=kinds.map(kind=>{const own=rows.filter(r=>r.kind===kind);return {kind,rows:own.length,minutes:own.reduce((n,r)=>n+(r.minutes??0),0),overtimeMinutes:own.reduce((n,r)=>n+(r.overtimeMinutes??0),0),knownAmountCents:own.filter(r=>r.status!=='declared').reduce((n,r)=>n+(r.amountCents??0),0),...(kind==='tips'?{declaredAmountCents:own.filter(r=>r.status==='declared').reduce((n,r)=>n+(r.amountCents??0),0)}:{}),incomplete:!own.length||own.some(r=>r.incomplete)}})
- return {from,through,site,job,person:staffId,kind,asOf,stateRevision:s.version,rows,totals,limitations:['POS and provider-applied payroll reconciliation are unavailable.','Email digests and revocable report links are not implemented.','PTO and payroll-input reports retain owner-only authority.','Device captures not yet received by this installation cannot be observed.','Rows from different report kinds are not additive.']}
+ const totals=reportKinds.map(kind=>{const own=rows.filter(r=>r.kind===kind);return {kind,rows:own.length,minutes:own.reduce((n,r)=>n+(r.minutes??0),0),overtimeMinutes:own.reduce((n,r)=>n+(r.overtimeMinutes??0),0),knownAmountCents:own.filter(r=>r.status!=='declared').reduce((n,r)=>n+(r.amountCents??0),0),...(kind==='tips'?{declaredAmountCents:own.filter(r=>r.status==='declared').reduce((n,r)=>n+(r.amountCents??0),0)}:{}),incomplete:!own.length||own.some(r=>r.incomplete)}})
+ return {from,through,site,job,person:staffId,kind,asOf,timezone:s.timezone,stateRevision:s.version,rows,totals,choices:{sites:reportSites(s,a),jobs:s.jobs.map(j=>({id:j.id,name:j.name})),people:s.staff.filter(p=>mayReadPerson(s,a,p.id)).map(p=>({id:p.id,name:p.name}))},limitations:['POS and provider-applied payroll reconciliation are unavailable.','Email digests and revocable report links are not implemented.','PTO and payroll-input reports retain owner-only authority.','Device captures not yet received by this installation cannot be observed.','Rows from different report kinds are not additive.']}
 }
 export function operationalCsv(report:ReturnType<typeof operationalReport>) {
  const columns=['kind','date','site','job','staffId','sourceId','revision','status','minutes','overtimeMinutes','amountCents','incomplete','detail'] as const

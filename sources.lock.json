@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "9b87cd335d2bfab6861a57e372ff134168c0a123d6da71db4b4f9c1f91ea69d9",
+      "sha256": "c052ae7db4278e6e2e9d4016f795607e59ff133ab3aa98cfa40ad94ebcf4e8c5",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "df6003dd8c2003123e11cc6420157b521764c3a0c080b6db9dd00ec131f57ba6",
+      "sha256": "10145067b5a7c1c1be7a2ace2079505bffb65f69f29bbac5f9982f04c87f226b",
       "executable": false
     },
     "DEMO.md": {
@@ -607,6 +607,10 @@
     },
     "public/app/editor.css": {
       "sha256": "2c2e5983bfded721f64a0b0aa7cddcfcf49f3cb588d697757404644e27973738",
+      "executable": false
+    },
+    "public/app/reports.css": {
+      "sha256": "4346f106509033d6461514186e98ddbf3f9f526687665b4eb08e55f88b64738d",
       "executable": false
     },
     "public/app/schedule.css": {
@@ -1622,7 +1626,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy-nevada.ts": {
-      "sha256": "045ccaadced5dd26b75afcd8b768c2fe30f22ec7d9aa709aab1b75b32e5d158c",
+      "sha256": "a7933676844f69b32d7ba474aa47641d52b5ac1cf1db3a78ff04cb1470d38e44",
       "executable": false
     },
     "src/lanyard/domain/policy-newyork.ts": {
@@ -1650,7 +1654,7 @@
       "executable": false
     },
     "src/lanyard/domain/policy.ts": {
-      "sha256": "d0e32d4520504a534a727f3006ce55e4c09b4ed1235a7cd7cedd61b4c3dbd5f8",
+      "sha256": "416bb987285c7d9c5ed0aaf24cde93255367e95c613b42f989eaec37958e4575",
       "executable": false
     },
     "src/lanyard/domain/postings.ts": {
@@ -1678,7 +1682,7 @@
       "executable": false
     },
     "src/lanyard/domain/reports.ts": {
-      "sha256": "29113696c80da0c61585dd87a002b33a40603f0f31eb829f95a715edac0e4677",
+      "sha256": "18ebb093515463d59079cac02988ba442057f32626a736e8d20e14e4a6e743a9",
       "executable": false
     },
     "src/lanyard/domain/review.ts": {
@@ -1782,7 +1786,7 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "52176b15a438dd756a5d570f5197518cdca180bc82ad89e33cd5c8d667d3a882",
+      "sha256": "da2d35eabb246ab61de291ef6d7897062ede38520af61963645f7386ec3f15c6",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
@@ -1950,7 +1954,7 @@
       "executable": false
     },
     "src/lanyard/ui/index.ts": {
-      "sha256": "8c5d3a94584ef35907fb8383f1df815d9f73bd98fa4ce11a182ba0e8bcf2a924",
+      "sha256": "d546864c40aa9fb0040816e869ad335b3937d991afef3cbeb511e3d4c8cd4688",
       "executable": false
     },
     "src/lanyard/ui/intervals.ts": {
@@ -2022,7 +2026,7 @@
       "executable": false
     },
     "src/lanyard/ui/payroll.ts": {
-      "sha256": "b1fe7ca1385e89aaa6dd3c0ac8e38f6ceb542e756608628a00a957d670696d72",
+      "sha256": "dfe4c4f58fc826ace54311af1ca4dc6cc9dda5aeceef3a0ac4538e278fe87217",
       "executable": false
     },
     "src/lanyard/ui/payschedules.ts": {
@@ -2077,6 +2081,10 @@
       "sha256": "4f5dec6f844dbea1d74eb8f2acbfb66b52528d4369a51dd1e4a1cab3c12a3636",
       "executable": false
     },
+    "src/lanyard/ui/reports.ts": {
+      "sha256": "5f45a6da88ead6c8fc51a5588cf616159a7e2c75a2639e94bd6cbbae9cf94648",
+      "executable": false
+    },
     "src/lanyard/ui/review.ts": {
       "sha256": "36e5bc8de4bf7213126f88ccee71733237fe58f34d7ebe3959aa300441eb74d4",
       "executable": false
@@ -2106,7 +2114,7 @@
       "executable": false
     },
     "src/lanyard/ui/shell.ts": {
-      "sha256": "371a111cdb154a17299c6fbbad0d3975165d545ab0caff8fb971b439fb0529d3",
+      "sha256": "0192a72b0c8591297644cd02f957830ac881edd9c1409b735887be2aff371232",
       "executable": false
     },
     "src/lanyard/ui/shiftwork.ts": {
@@ -4118,7 +4126,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "b4856096fa061bb9bdec202f41de5e5c724d0a26c53d943c903928469ea1d147",
+      "sha256": "e03433417564898f6dd58dd888c09784b7f790723c5d8dd2ff6e9b04f4c4c272",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -4242,7 +4250,7 @@
       "executable": false
     },
     "tests/policy-workday-journey.mjs": {
-      "sha256": "10b0f0a2a21414d5840632964200f75309ba984f561c8147b1ea16aac9a31fb6",
+      "sha256": "0a9135707d9942b0f9b705264d916545f81d68376b267a29414a77d9d2eb1887",
       "executable": false
     },
     "tests/premiums-api.mjs": {
@@ -4266,7 +4274,7 @@
       "executable": false
     },
     "tests/reports-journey.mjs": {
-      "sha256": "319542bcb16706e4ef739936d845edee35952f3db9fdd9306b9b1214414f5351",
+      "sha256": "61a370ae3a65ab31de0ba16b776b3c417fe619bb4e47de2243ca6260b9909583",
       "executable": false
     },
     "tests/runtime.mjs": {
