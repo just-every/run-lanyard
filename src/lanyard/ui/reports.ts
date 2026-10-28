@@ -13,6 +13,10 @@ function details(row:ReportRow) {
   const d=JSON.parse(row.detail)
   return `Late: ${minutes(d.lateMinutes)} · Alert: ${d.alert??'None'} · Clock source: ${d.clockId??'Unknown'}`
  }
+ if(row.kind==='tips'&&row.status==='pool approved'){
+  const d=JSON.parse(row.detail)
+  return `${d.label} Pool total: ${money(d.totalCents)} · eligible work: ${minutes(d.minutes)}. Time sources: ${d.sources.map((v:any)=>v.id+' · revision '+v.revision).join('; ')}.${d.corrects?' Corrects pool '+d.corrects+'.':''}`
+ }
  if(row.kind==='payroll'){
   const d=JSON.parse(row.detail)
   return `${d.label} Time source: ${d.timeId??'None'} · source revision ${d.sourceRevision??'Unknown'} · pay input: ${d.payInputId??'None'}`
@@ -20,16 +24,16 @@ function details(row:ReportRow) {
  return row.detail||'No additional source details.'
 }
 export function reportsPage(s:any,r:ReturnType<typeof operationalReport>,now:number) {
- const query=new URLSearchParams({site:r.site??'',from:r.from,through:r.through,kind:r.kind,job:r.job??'',person:r.person??''})
+ const query=new URLSearchParams({...(r.site===null?{scope:'all'}:{site:r.site}),from:r.from,through:r.through,kind:r.kind,job:r.job??'',person:r.person??''})
  const select=(name:string,label:string,chosen:string,options:{id:string;name:string}[])=>`<label>${h(label)}<select name="${name}" aria-label="${h(label)}">${options.map(v=>`<option value="${h(v.id)}"${v.id===chosen?' selected':''}>${h(v.name)}</option>`).join('')}</select></label>`
- const filter=`<form method="get" action="/app/reports" class="report-filters">${select('site','Cafe',r.site??'',r.choices.sites.map(id=>({id,name:id||'Unassigned cafe'})))}${field('from','From',r.from,'date','required')}${field('through','Through (inclusive)',r.through,'date','required')}${select('kind','Report kind',r.kind,[{id:'all',name:'All report kinds'},...reportKinds.map(id=>({id,name:labels[id]}))])}${select('job','Job',r.job??'',[{id:'',name:'All jobs'},...r.choices.jobs])}${select('person','Person',r.person??'',[{id:'',name:'All permitted people'},...r.choices.people])}<button class="button secondary">Show report</button></form><p>Choose up to 93 inclusive dates in ${h(r.timezone)}. Job and person filters exclude whole-cafe labor summaries because those budgets and sales are not allocated to a person or job.</p>`
+ const filter=`<form method="get" action="/app/reports" class="report-filters">${s.actor.role==='owner'?select('scope','Site scope',r.site===null?'all':'site',[{id:'site',name:'One cafe'},{id:'all',name:'All cafes'}]):''}${select('site','Cafe',r.site??'',r.choices.sites.map(id=>({id,name:id||'Unassigned cafe'})))}${field('from','From',r.from,'date','required')}${field('through','Through (inclusive)',r.through,'date','required')}${select('kind','Report kind',r.kind,[{id:'all',name:'All report kinds'},...reportKinds.map(id=>({id,name:labels[id]}))])}${select('job','Job',r.job??'',[{id:'',name:'All jobs'},...r.choices.jobs])}${select('person','Person',r.person??'',[{id:'',name:'All permitted people'},...r.choices.people])}<button class="button secondary">Show report</button></form><p>Choose up to 93 inclusive dates in ${h(r.timezone)}. Job and person filters exclude whole-cafe labor summaries because those budgets and sales are not allocated to a person or job.</p>`
  const kinds=reportKinds.filter(kind=>r.kind==='all'||r.kind===kind)
  const totals=kinds.map(kind=>{
   const t=r.totals.find(t=>t.kind===kind)!,own=r.rows.filter(row=>row.kind===kind)
   const amount=['worked','labor','PTO','tips','payroll'].includes(kind)
   return `<tr data-total-kind="${kind}"><th scope="row">${h(labels[kind])}</th><td data-label="Records">${t.rows}</td><td data-label="Known minutes">${own.some(row=>row.minutes!==null)?minutes(t.minutes):'Unknown'}</td><td data-label="Overtime">${kind==='worked'||kind==='labor'?own.some(row=>row.overtimeMinutes!==null)?minutes(t.overtimeMinutes):'Unknown':'Not applicable'}</td><td data-label="Known source amount">${amount?own.some(row=>row.status!=='declared'&&row.amountCents!==null)?money(t.knownAmountCents):'Unknown':'Not applicable'}${kind==='tips'?`<p>Declared separately: ${money(own.some(row=>row.status==='declared')?t.declaredAmountCents??0:null)}</p>`:''}</td><td data-label="Coverage">${!t.rows?'Unknown · no matching sources':t.incomplete?'Incomplete · inspect sources':'Recorded sources available'}</td></tr>`
  }).join('')
- const summary=`<p>Rows from different report kinds are not additive. Known subtotals do not fill missing values or establish wages paid. Declared tips are separate from employer-approved tip inputs; approved pool allocations are unavailable.</p><table class="list stack report-totals"><thead><tr><th>Report kind</th><th>Records</th><th>Known minutes</th><th>Overtime</th><th>Known source amount</th><th>Coverage</th></tr></thead><tbody>${totals}</tbody></table>`
+ const summary=`<p>Rows from different report kinds are not additive. Known subtotals do not fill missing values or establish wages paid. Declared tips are separate from employer-approved tip inputs; approved pool allocations retain their reviewed work and source revisions.</p><table class="list stack report-totals"><thead><tr><th>Report kind</th><th>Records</th><th>Known minutes</th><th>Overtime</th><th>Known source amount</th><th>Coverage</th></tr></thead><tbody>${totals}</tbody></table>`
  const sources=r.rows.length?`<table class="list stack report-sources"><thead><tr><th>Date and report</th><th>Person and job</th><th>Source and revision</th><th>Reported values</th><th>Coverage and details</th></tr></thead><tbody>${r.rows.map(row=>{
   const person=r.choices.people.find(p=>p.id===row.staffId)?.name??row.staffId
   const job=r.choices.jobs.find(j=>j.id===row.job)?.name??row.job

@@ -149,6 +149,7 @@ export async function nevadaFixture(h,{legacy=false,review=true,rate='16.00'}={}
 }
 
 async function nevadaAdoption(){
+ await nevadaClosedPayroll()
  const h=await harness({now:'2026-10-28T12:30:00Z'})
  try{
   const p=await nevadaFixture(h,{legacy:true}),manager=await h.person('NevadaReviewer','manager')
@@ -184,6 +185,49 @@ async function nevadaAdoption(){
   await h.cmd('policy.preview',{...pin(west),site:'West',preset:'NV',from:'2026-09-29',presetVersion:'2026-10-28',reviewReason:'Refused closed-period reclassification'},h.owner,409)
   assert.equal((await report(h,p,'2026-09-28')).overtimeMinutes,60,'closed history keeps the retained older version')
   await h.restart();assert.deepEqual(await report(h,p),current,'restarting preserves exact workday classifications')
+ }finally{await h.close()}
+}
+
+async function nevadaClosedPayroll(){
+ const h=await harness({now:'2026-10-28T12:30:00Z'})
+ try{
+  const p=await nevadaFixture(h,{legacy:true})
+  await approve(h,p,'2026-10-11T16:00:00Z','2026-10-11T22:00:00Z')
+  const template=await h.cmd('payroll.template.save',{approved:true,name:'Reviewed Nevada payroll',classification:'policy',header:true,columns:[{field:'employee',header:'Worker'},{field:'code',header:'Earning'},{field:'minutes',header:'Minutes'},{field:'amount',header:'Amount'}],groupBy:[],employees:{[p.id]:{id:'synthetic-lanyard-1',workflow:'W-2'}},codes:{regular:'REG',overtime:'OT','double time':'DT'},jobs:{},locations:{East:'EAST',West:'WEST'}})
+  let period=await h.cmd('period.save',{start:'2026-10-05',end:'2026-10-11'});period=await lock(h,p,period)
+  const first=await h.cmd('payroll.prepare',{templateId:template.id}),sent=await h.cmd('payroll.export',pin(first))
+  await h.cmd('period.close',{...pin(period),reference:'synthetic-lanyard-1 closed Sunday payroll'})
+  const prior=await report(h,p,'2026-10-05'),retained=await h.state()
+  assert.deepEqual([prior.classificationIncomplete,prior.estimateCents],[false,9600])
+  const boundary=await approve(h,p,week+'T00:00:00Z',week+'T06:00:00Z',{site:'West'})
+  for(const site of ['East','West']){
+   const old=(await h.state()).policies.find(r=>r.site===site)
+   const change={...pin(old),site,preset:'NV',presetVersion:'2026-10-28',from:week,reviewReason:'Reviewed Monday release after closed Sunday payroll'}
+   const preview=await h.cmd('policy.preview',change)
+   await h.cmd('policy.save',{...change,reviewDigest:preview.digest})
+  }
+  assert.deepEqual(await report(h,p,'2026-10-05'),prior,'Monday adoption cannot recut the closed legacy Sunday')
+  const mixed=await report(h,p)
+  assert.equal(mixed.classificationIncomplete,true,'new-release work still refuses unresolved mixed-version context')
+  assert.equal(mixed.estimateCents,null)
+  const before=await h.state()
+  await h.cmd('payroll.prepare',{ids:[boundary.id],templateId:template.id},h.owner,409)
+  assert.equal((await h.state()).version,before.version,'unsafe classification creates neither a batch nor claims')
+  const later=await approve(h,p,'2026-10-19T08:00:00Z','2026-10-19T17:00:00Z')
+  const draft=await h.cmd('payroll.prepare',{ids:[later.id],templateId:template.id})
+  assert.ok(draft.classificationLines.every(l=>l.timeId===later.id),'reconciliation never replays closed Sunday time')
+  assert.deepEqual(draft.classificationLines.map(l=>[l.earningCode,l.minutes,l.costCents]),[['regular',480,12800],['overtime',60,2400]])
+  const exported=await h.cmd('payroll.export',pin(draft))
+  assert.equal(exported.csv,'Worker,Earning,Minutes,Amount\r\nsynthetic-lanyard-1,OT,60,24.00\r\nsynthetic-lanyard-1,REG,480,128.00\r\n')
+  const after=await h.state()
+  assert.deepEqual(after.batches.find(b=>b.id===sent.id),retained.batches.find(b=>b.id===sent.id))
+  assert.deepEqual(after.periods,retained.periods)
+  for(const t of retained.timesheets)assert.deepEqual(after.timesheets.find(x=>x.id===t.id),t)
+  await h.restart()
+  assert.deepEqual(await report(h,p,'2026-10-05'),prior,'restart retains historical classification and later export')
+  const restarted=await h.state()
+  assert.equal(restarted.batches.find(b=>b.id===exported.id).csv,exported.csv)
+  assert.equal(restarted.batches.find(b=>b.id===sent.id).csv,sent.csv)
  }finally{await h.close()}
 }
 

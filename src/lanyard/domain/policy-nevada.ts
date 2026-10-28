@@ -15,7 +15,7 @@ const enrolled=(rule:any,id:string)=>rule?.alternate?.kind==='NV_4X10'&&rule.alt
  * it grants no alternate-schedule exception or legal applicability decision.
  * Recut each retained venue-date allocation with exact integer remainders so
  * neither a break deduction nor a rate is priced or rounded a second time. */
-export function nevadaWorkdayParts<T extends {date:string;site:string;start:string;end:string;minutes:number;intervalStart?:string;intervalEnd?:string}>(s:State,staffId:string,parts:T[],ruleOn:(site:string,on:string)=>any):(T&Record<string,any>)[]{
+export function nevadaWorkdayParts<T extends {date:string;site:string;start:string;end:string;minutes:number;intervalStart?:string;intervalEnd?:string}>(s:State,staffId:string,parts:T[],ruleOn:(site:string,on:string)=>any,through:string):(T&Record<string,any>)[]{
  const intervals=parts.map(p=>({p,begin:Math.max(Date.parse(p.intervalStart??p.start),Date.parse(instantAt(p.date,'00:00',s.timezone))),end:Math.min(Date.parse(p.intervalEnd??p.end),Date.parse(instantAt(dayAfter(p.date),'00:00',s.timezone)))})).sort((a,b)=>a.begin-b.begin||a.end-b.end)
  if(!intervals.some(({p})=>nevadaWorkday(ruleOn(p.site,p.date))&&!enrolled(ruleOn(p.site,p.date),staffId)))return parts
  let anchor=-Infinity
@@ -31,7 +31,9 @@ export function nevadaWorkdayParts<T extends {date:string;site:string;start:stri
   for(const c of [...chunks].sort((a,b)=>a.remainder===b.remainder?a.start-b.start:a.remainder>b.remainder?-1:1))if(left-->0)c.minutes++
   return chunks.map(c=>({...p,original:p,minutes:c.minutes,nevadaAnchor:c.anchor,intervalStart:new Date(c.start).toISOString(),intervalEnd:new Date(c.end).toISOString()}))
  })
- const active=new Set(slices.filter(p=>nevadaWorkday(ruleOn(p.site,p.date))&&!enrolled(ruleOn(p.site,p.date),staffId)).map(p=>p.nevadaAnchor))
+ // Later releases can consume earlier work as context, but a future venue
+ // date cannot activate recutting of an otherwise legacy review workweek.
+ const active=new Set(slices.filter(p=>p.date<=through&&nevadaWorkday(ruleOn(p.site,p.date))&&!enrolled(ruleOn(p.site,p.date),staffId)).map(p=>p.nevadaAnchor))
  const groups=new Map<T,typeof slices>()
  for(const p of slices)groups.set(p.original,[...(groups.get(p.original)??[]),p])
  return parts.flatMap<any>(original=>{

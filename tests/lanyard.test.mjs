@@ -538,7 +538,7 @@ test('SCHEDULE-006: after a week is published, a moved shift, an approved swap a
   // Alex's Monday, read by Alex and the manager: published, moved with its reason and previous time, acknowledged, carried into the latest revision.
   const monNow = (await current()).find(x => x.staffId === alex.id), mine = await history(monNow.id, alex.cookie)
   assert.deepEqual(mine.map(e => e.action), ['created', 'moved', 'acknowledged', 'republished'])
-  assert.deepEqual([mine[0].by, mine[0].reason, mine[1].by, mine[1].reason, mine[1].from.start, mine[1].start, mine[1].notice, mine[2].by], ['Priya', 'First schedule', 'Priya', 'Delivery moved to 10am', at(0, 16).replace('Z', '.000Z'), at(0, 17).replace('Z', '.000Z'), 'not sent: in-app schedule only until NOTICE-001', 'Alex'])
+  assert.deepEqual([mine[0].by, mine[0].reason, mine[1].by, mine[1].reason, mine[1].from.start, mine[1].start, mine[1].notice, mine[2].by], ['Priya', 'First schedule', 'Priya', 'Delivery moved to 10am', at(0, 16).replace('Z', '.000Z'), at(0, 17).replace('Z', '.000Z'), 'In Lanyard: available; not acknowledged; external delivery not attempted', 'Alex'])
   assert.deepEqual((await history(monNow.id, priya.cookie)).length, 4)
   // Tuesday: both people in the swap read it (Cy's consent is her acknowledgment); Alex, never on it, cannot.
   const tueNow = (await current()).find(x => x.start === at(1, 16).replace('Z', '.000Z'))
@@ -555,7 +555,7 @@ test('SCHEDULE-006: after a week is published, a moved shift, an approved swap a
   // The change log exports with reasons and notice states; employees cannot export it.
   const log = await h.send(`/api/lanyard/weeks/${week}/changes.csv`, undefined, priya.cookie)
   assert.match(log.text, /^at_utc,shift_line,action,employee,previous_employee,start_utc,end_utc,site,by,reason,notice\r\n/)
-  for (const row of [/,moved,Alex,Alex,.*,Ocean Beach,Priya,Delivery moved to 10am,not sent: in-app schedule only until NOTICE-001\r\n/, /,swapped,Cy,Ben,.*,Priya,,not sent/, /,canceled,,Cy,.*,Priya,Closed for a private event,not sent/, /,acknowledged,Alex,,.*,Alex,,\r\n/]) assert.match(log.text, row)
+  for (const row of [/,moved,Alex,Alex,.*,Ocean Beach,Priya,Delivery moved to 10am,In Lanyard: available; not acknowledged; external delivery not attempted\r\n/, /,swapped,Cy,Ben,.*,Priya,,In Lanyard: available; not acknowledged; external delivery not attempted/, /,canceled,,Cy,.*,Priya,Closed for a private event,In Lanyard: available; not acknowledged; external delivery not attempted/, /,acknowledged,Alex,,.*,Alex,,\r\n/]) assert.match(log.text, row)
   assert.equal((await h.send(`/api/lanyard/weeks/${week}/changes.csv`, undefined, alex.cookie)).status, 403)
   // The schedule shows the changes to the manager and to the employee.
   const page = (await h.send(`/app/schedule?week=${week}`, undefined, priya.cookie)).text
@@ -1927,6 +1927,8 @@ test('TIME-009: managers compare taken and required meals and paid rests and fil
 
 test('LEARN-001: retained pre-service manual forecasts reconcile to corrected daily and complete hourly sales; missing outcomes and no-show signals stay unknown under native cafe scope without policy or schedule writes',()=>run(async h=>{const {learningApi}=await import('./learning-journey.mjs');await learningApi(h)}))
 
+test('native schedule notices atomically follow assignments, isolate recipients and retain explicit acknowledgment across restart',()=>run(async h=>{const {scheduleNoticesApi}=await import('./notices-journey.mjs');await scheduleNoticesApi(h)},{now:'2026-11-02T12:00:00.000Z'}))
+test('employees review schedule changes, cancellations and distinct notice acknowledgments in their native inbox',async()=>{const {scheduleNoticesBrowser}=await import('./notices-journey.mjs');await scheduleNoticesBrowser()})
 test('durable in-Lanyard reminders survive cron replay and restart, withdraw on resolution and escalate once',()=>run(async h=>{const {noticesApi}=await import('./notices-journey.mjs');await noticesApi(h)}))
 test('reminder inbox and manager settings work on Schedule and Time at 1440 and 390',async()=>{const {noticesBrowser}=await import('./notices-journey.mjs');await noticesBrowser()})
 test('reminders follow a changed revision, a missed meal, a closed offer and owner-only escalation',()=>run(async h=>{const {noticesCases}=await import('./notices-journey.mjs');await noticesCases(h)}))
