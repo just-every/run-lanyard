@@ -8,10 +8,10 @@ The primary journey: move the crew in, build and publish the week, fill changes,
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 60 | 45 | 32 | 137 |
+| Core | 52 | 52 | 33 | 137 |
 | Agent surface | 0 | 0 | 7 | 7 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 60 | 45 | 39 | 144 |
+| Full target | 52 | 52 | 40 | 144 |
 
 Judged from the code and tests at commit `b39699337563287f4afab986e3e2c91413657c27` (27 October 2026). Field proof register: 33 rows; 0 passed, 0 failed, 33 not run.
 
@@ -29,12 +29,12 @@ Core · published · **done** · Cites BASE-ACCESS-001, BASE-ACCESS-002, BASE-AC
 1. Sign in as owner, manager and two staff through native invitation/confirmation routes; use the app and HTTP commands, attempt cross-person reads, self-approval, signed-out and cross-origin mutations, then deactivate a signed-in employee.
 2. Unauthorized attempts fail without writes.
 
-**Evidence.** `src/lanyard/http.ts`; `src/lanyard/credentials.ts`; `src/lanyard/domain/storage.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "native access, owner-only grants, staff isolation, CSRF and immediate revocation"; `tests/lanyard.test.mjs` — "staff cannot change the sign-in email to another person’s staff identity"
 **Gap.** None.
 
 #### PEOPLE-001 — Staff lifecycle and payroll identities
 
-Core · published · **done** · Cites BASE-INPUT-001, BASE-SIGNIN-001, BASE-ROLE-001, BASE-MAIL-001
+Core · published · **partial** · Cites BASE-INPUT-001, BASE-SIGNIN-001, BASE-ROLE-001, BASE-MAIL-001
 
 **Requirement.** The owner adds, edits, activates, invites and deactivates employees with a unique email and payroll identifier and an explicit staff or manager role; staff without email use PEOPLE-003. Stale revisions cannot overwrite newer people records. Invitation and activation remain separate actions; removing access retains employment history.
 
@@ -42,8 +42,8 @@ Core · published · **done** · Cites BASE-INPUT-001, BASE-SIGNIN-001, BASE-ROL
 1. In People, create and invite staff, reject duplicate email/payroll IDs, edit the exact revision and deactivate a signed-in person.
 2. Their prior shifts and hours remain while their private requests are denied.
 
-**Evidence.** `src/lanyard/domain/people.ts`; `src/lanyard/credentials.ts`; `tests/lanyard.test.mjs`
-**Gap.** None.
+**Evidence.** `tests/lanyard.test.mjs` — "native access, owner-only grants, staff isolation, CSRF and immediate revocation"; `tests/lanyard.test.mjs` — "staff CSV dry run, exact reviewed apply, original journal, undo and native edit preservation; AUDIT-001 import actions keep actor, role, subject and time"
+**Gap.** Missing a workforce lifecycle journey that rejects duplicate email/payroll identities and then reads the person's retained shifts/hours after deactivation. The cited native-access and import journeys show sign-in, deactivation and edited imported staff, but do not perform this complete lifecycle.
 
 #### MOVE-001 — Reviewed Staff CSV move-in
 
@@ -55,12 +55,12 @@ Core · published · **done** · Cites BASE-ROLE-001
 1. Paste Staff CSV in Move in, preview and inspect it, reject changed bytes at apply, apply the reviewed input, read its originals/journal, edit one imported person and undo.
 2. Only untouched rows disappear and nobody is invited automatically.
 
-**Evidence.** `src/lanyard/movein/index.ts`; `src/lanyard/movein/targets.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "staff CSV dry run, exact reviewed apply, original journal, undo and native edit preservation; AUDIT-001 import actions keep actor, role, subject and time"
 **Gap.** None.
 
 #### ROSTER-001 — Availability and explicit leave decisions
 
-Core · published · **done** · Cites BASE-ROLE-001 · Rules D-1, D-2
+Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-1, D-2
 
 **Requirement.** Staff record availability and request dated time off; managers approve or reject the exact pending request. Pending requests do not silently become approved absence. Self-approval and approval that collides with an already published shift are refused; the manager resolves coverage explicitly.
 
@@ -68,12 +68,12 @@ Core · published · **done** · Cites BASE-ROLE-001 · Rules D-1, D-2
 1. Through staff and manager app/command doors record availability, request overlapping leave, reject self-approval, approve a valid request and attempt a published-shift conflict.
 2. Inspect the decision author and retained state.
 
-**Evidence.** `src/lanyard/domain/people.ts`; `tests/lanyard.test.mjs`
-**Gap.** None.
+**Evidence.** `tests/lanyard.test.mjs` — "availability, approved leave, conflicts, exact roster publication and personal confirmation"
+**Gap.** Missing a leave-decision journey that attempts the published-shift conflict and reads the decision actor and retained absence. The cited availability/leave journey shows approval and a roster conflict after leave, not the inverse leave conflict after publication.
 
 #### ROSTER-002 — Conflict-checked revision publication
 
-Core · published · **done** · Cites BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-012, BASE-ROLE-001 · Rules D-1, D-2
+Core · published · **partial** · Cites BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-012, BASE-ROLE-001 · Rules D-1, D-2
 
 **Requirement.** Managers and delegated agents prepare and publish an exact weekly roster revision. Publication rechecks active staff, availability, approved leave and overlapping assignments together. Republishing supersedes the previous week without deleting work history. An agent publication carries commitment; the company's policy decides whether it runs or is held for a person.
 
@@ -82,12 +82,12 @@ Core · published · **done** · Cites BASE-AGENT-006, BASE-AGENT-007, BASE-AGEN
 2. Prepare a valid week, attempt stale approval, publish as a manager and inspect superseded records and activity.
 3. A changed input requires fresh review.
 
-**Evidence.** `src/lanyard/domain/roster.ts`; `src/lanyard/domain/storage.ts`; `tests/lanyard.test.mjs`
-**Gap.** None.
+**Evidence.** `tests/lanyard.test.mjs` — "availability, approved leave, conflicts, exact roster publication and personal confirmation"; `tests/lanyard.test.mjs` — "SCHEDULE-006: after a week is published, a moved shift, an approved swap and a canceled shift each keep a history the manager and the affected employees read with who, when, why and the notice state; the first and latest revisions compare by person and site; the change log exports"
+**Gap.** Missing a roster-publication journey under both company policies. The cited publication/history journeys show native manager decisions and superseded records; the agent commitment-class decision is not implemented.
 
 #### ROSTER-003 — Personal published schedule confirmation
 
-Core · published · **done** · Rules D-1, D-2
+Core · published · **partial** · Rules D-1, D-2
 
 **Requirement.** Employees see their own current published shifts and confirm the exact shift revision. A confirmation records who and when, and cannot acknowledge a superseded shift or somebody else's assignment. Confirmation indicates the employee's response, not completed work. Seeing coworkers' shifts is ROSTER-004.
 
@@ -95,8 +95,8 @@ Core · published · **done** · Rules D-1, D-2
 1. Publish a roster, open it as each employee and confirm a personal shift.
 2. Attempt a foreign or stale confirmation; inspect the visible published assignment and confirmation separately from clock records.
 
-**Evidence.** `src/lanyard/domain/roster.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs`
-**Gap.** None.
+**Evidence.** `tests/lanyard.test.mjs` — "availability, approved leave, conflicts, exact roster publication and personal confirmation"; `tests/lanyard.test.mjs` — "SCHEDULE-006: after a week is published, a moved shift, an approved swap and a canceled shift each keep a history the manager and the affected employees read with who, when, why and the notice state; the first and latest revisions compare by person and site; the change log exports"
+**Gap.** Missing a personal-confirmation journey that tries both a foreign and superseded shift confirmation and reads the refusal without changing the assignment. The cited publication/history journeys confirm a personal current shift and read later history, but never try those two refusals.
 
 #### TIME-001 — Identity-bound phone capture and replay
 
@@ -108,12 +108,12 @@ Core · published · **done** · Rules D-1, D-2
 1. Use staff clock commands to start and stop a shift, replay both events, and reuse an identity with another time/person.
 2. Read one closed clock and one submitted timesheet with correct net minutes; an employee cannot approve it.
 
-**Evidence.** `src/lanyard/domain/time.ts`; `src/lanyard/domain/storage.ts`; `src/lanyard/ui/commands.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "CLOCK-002: ordered clock retries bind identity, retain conflicting captures for scoped review, respect revocation and use capture-date rounding"
 **Gap.** None.
 
 #### TIME-002 — Exact time approval and linked corrections
 
-Core · published · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-1, D-2
+Core · published · **partial** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-1, D-2
 
 **Requirement.** Managers review submitted hours, prepare reasoned missed time and approve the exact revision. A correction links to the latest approved source, retains the original and requires fresh approval; overlap and future-time checks apply. Employees never approve their own work and a pending correction prevents exporting its obsolete source. Approving many timesheets at once is TIME-008, under the same exact-revision rule.
 
@@ -121,8 +121,8 @@ Core · published · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-1
 1. Prepare missed time, approve it through a manager session, correct its break or duration, approve the correction and inspect retained superseded history.
 2. Reject self/stale approval and overlapping work; attempt payroll export while a correction awaits decision.
 
-**Evidence.** `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `tests/lanyard.test.mjs`
-**Gap.** None.
+**Evidence.** `tests/lanyard.test.mjs` — "TIME-003: a missed clock-out opens an exception the employee corrects with an attestation, another manager approves and a manager resolves with a reason the employee reads; a manager edit makes a pinned bulk approval skip it; employee confirmation and requests leave the unconfirmed state"; `tests/lanyard.test.mjs` — "AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta"
+**Gap.** Missing a correction journey that attempts payroll while its source has a pending correction and checks that no obsolete source exports. The cited correction/roster-to-payroll journeys show retained originals, reasoned approval and signed differences after approval; they do not attempt that dangerous pending interval.
 
 #### PAYROLL-001 — Reviewed once-only payroll files and signed adjustments
 
@@ -134,12 +134,12 @@ Core · published · **done** · Cites BASE-ROLE-001, BASE-INPUT-003, BASE-DATA-
 1. Prepare two competing batches through payroll commands, export one and reject the other.
 2. Download identical bytes twice through the authenticated CSV route, refuse staff access, then approve a negative correction and export only its delta while the old download stays unchanged.
 
-**Evidence.** `src/lanyard/domain/payroll.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta"
 **Gap.** None.
 
 #### PAYROLL-002 — Explicit manual provider acknowledgment
 
-Core · published · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-1, D-2
+Core · published · **partial** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-1, D-2
 
 **Requirement.** After downloading a payroll file, a manager records the provider reference against the exact exported batch. Lanyard labels this as a person-recorded acknowledgment. It does not imply a live transfer, provider readback, payroll application or wage payment; those states belong to SYNC-001 and the named connectors.
 
@@ -147,8 +147,8 @@ Core · published · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-1
 1. Export hours, record a provider reference through the payroll acknowledgment action, reload the batch and inspect its reference, actor and time.
 2. A draft cannot be acknowledged and a stale batch revision is refused.
 
-**Evidence.** `src/lanyard/domain/payroll.ts`; `tests/lanyard.test.mjs`
-**Gap.** None.
+**Evidence.** `tests/lanyard.test.mjs` — "AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta"
+**Gap.** Missing an acknowledgment journey that reloads and checks the saved provider reference, decision actor/time, draft refusal and stale-revision refusal. The roster-to-payroll journey records one reference and checks its audit actor/time, but does not read that saved reference or attempt the two refusals.
 
 #### AGENT-001 — Delegated workforce actions and reduced preparation context
 
@@ -160,7 +160,7 @@ Core · published · **partial** · Cites BASE-AGENT-004, BASE-AGENT-005, BASE-A
 1. Under the held company policy, issue a key, read its reduced context and prepare time; attempt a time decision and payroll transfer through both doors and see the pending policy decision without an effect.
 2. After the named person decides the saved revision, inspect the separate preparation and decision records; revoke the key and retry the same workforce action without a write.
 
-**Evidence.** `src/lanyard/credentials.ts`; `src/lanyard/http.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "agent prepares drafts but cannot approve through any human or agent door; key revocation is immediate"
 **Gap.** The cited preparation-key journey proves reduced context, human decisions and revocation. Missing: a company-policy journey for the same workforce decisions through both doors, including the all-autonomous policy; the current hard-coded preparation restriction does not prove it.
 
 #### ARCHIVE-001 — Complete installation archive with authority exclusions
@@ -173,7 +173,7 @@ Core · published · **done** · Cites BASE-DATA-001, BASE-BACKUP-001, BASE-DATA
 1. Use public rer export/import commands on an installation with staff, published shifts, corrected/exported hours and import history.
 2. Round-trip records and files, reject damaged/populated imports, inspect excluded authority and sign in anew as the archived owner; supply a later erasure journal to refuse resurrection.
 
-**Evidence.** `src/lanyard/archive-policy.mjs`; `tests/archive.test.mjs`; `OPERATIONS.json`
+**Evidence.** `tests/archive.test.mjs` — "ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRULE-003, CLOCK-005, CLOCK-003, PRIVACY-001, LEAVE-003 and TRADEOFF-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure"
 **Gap.** None.
 
 #### ERASE-001 — Unused identity erasure and restore fence
@@ -186,7 +186,7 @@ Core · published · **done** · Cites BASE-DATA-003, BASE-DATA-006, BASE-DATA-0
 1. Create an unused person, erase via its exact revision, inspect the state for removed name/email, refuse native/CSV recreation and refuse an older archive with the later fence.
 2. Attempt erasing invited or imported staff and require retention with deactivation available.
 
-**Evidence.** `src/lanyard/domain/people.ts`; `tests/lanyard.test.mjs`; `tests/archive.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "unused identity erasure removes personal values and fences recreation; used identities remain retained"; `tests/archive.test.mjs` — "ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRULE-003, CLOCK-005, CLOCK-003, PRIVACY-001, LEAVE-003 and TRADEOFF-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure"
 **Gap.** None.
 
 #### AUDIT-001 — Durable decisions and transactional history
@@ -200,7 +200,7 @@ Core · published · **done** · Cites BASE-OPS-005, BASE-AUDIT-001, BASE-AGENT-
 2. Cause a stale concurrent mutation and verify no orphan decision or source claim appears.
 3. Read the activity as the owner (all of it), the cafe's manager (everything about the cafe's people, nothing about another cafe), a second cafe's manager (only that cafe's person and setting) and an employee (only events on their own records, never roster publication or payroll); each event carries only actor, role, action, subject id and time.
 
-**Evidence.** `src/lanyard/domain/storage.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/domain/activity.ts`; `src/lanyard/movein/index.ts`; `tests/lanyard.test.mjs`; `tests/archive.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta"; `tests/lanyard.test.mjs` — "staff CSV dry run, exact reviewed apply, original journal, undo and native edit preservation; AUDIT-001 import actions keep actor, role, subject and time"; `tests/archive.test.mjs` — "ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRULE-003, CLOCK-005, CLOCK-003, PRIVACY-001, LEAVE-003 and TRADEOFF-001: public CLI archive round trip carries staff, schedules, corrected payroll and import history, excludes authority, refuses damaged or populated stores, keeps activity across restart and restore, and respects erasure"
 **Gap.** None.
 
 #### PUBLIC-001 — Public run site and installed Lobby
@@ -213,12 +213,12 @@ Core · published · **done** · Cites BASE-PUBLIC-001, BASE-DOCS-001, BASE-ACCE
 1. Build the run site, follow homepage to /run and /docs, then claim an installation through native setup and inspect the installed Lobby before and after first-run confirmation.
 2. Private product data remains session-protected.
 
-**Evidence.** `src/base/run-site.ts`; `src/site/pages.ts`; `src/site/docs.ts`; `src/base/lobby.ts`; `scripts/installer/local.mjs`; `tests/site/site.test.mjs`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "PUBLIC-001: installed Lobby follows the durable owner claim before first-run confirmation while private product data stays session-protected"; `tests/site/site.test.mjs` — "PUBLIC-001: the run site leads to installation and readable owner guides at 1440 and 390"
 **Gap.** None.
 
 #### BASE-001 — Maintained installation and operations commands
 
-Core · published · **done** · Cites BASE-INSTALL-001, BASE-OPS-002, BASE-DATA-001, BASE-SECRET-001
+Core · published · **partial** · Cites BASE-INSTALL-001, BASE-OPS-002, BASE-DATA-001, BASE-SECRET-001
 
 **Requirement.** The maintained Lanyard command guide covers its workforce setup, launch, diagnostics and explicit reset. Its archive restores the retained workforce owner under ARCHIVE-001, and reset cannot remove another workforce installation.
 
@@ -226,8 +226,8 @@ Core · published · **done** · Cites BASE-INSTALL-001, BASE-OPS-002, BASE-DATA
 1. From a fresh clone use documented command help and structural check, launch and sign in, build and verify, exercise backup/restore, then perform a provider-authorized deployment and health readback.
 2. Reset requires explicit confirmation and never removes another installation.
 
-**Evidence.** `tests/installation-journey.mjs` (fresh clones: install and update, help and check, native setup and sign-in, build, archive equality and restore sign-in, preview, reset confirmation and other-installation isolation at 1440 and 390); `tests/archive.test.mjs` (supported data, exclusions and erasure fences); `tests/runtime.mjs` (emitted Worker health); `.github/workflows/verify.yml` (clean-clone verification) ; `tests/hosted-installation-journey.mjs` (hostedInstallation: live RunEditRun deployment and health readback, real fleet QA email sign-in, private roster writes and reads, absent local dev identity, schedule and icon tooltips at 1440 and 390, owned-resource removal readback and temporary token revocation)
-**Gap.** None.
+**Evidence.** `tests/installation-journey.mjs` — "top-level installation command journey"; `tests/hosted-installation-journey.mjs` — "hostedInstallation"
+**Gap.** Missing an exact-candidate workforce installation journey covering the documented commands, isolated reset and retained-owner archive. The named installation and hosted journeys describe this flow, but Verify does not invoke those installation journeys on this candidate; prior hosted receipts cannot prove this SHA.
 
 ### Workforce records and schedule building
 
@@ -248,7 +248,7 @@ Core · target · **partial** · Cites BASE-ROLE-001, BASE-AUDIT-001
 
 #### TEAM-002 — Scoped private leave administration
 
-Core · target · **partial** · From TEAM-001 · Cites BASE-ROLE-001
+Core · target · **missing** · From TEAM-001 · Cites BASE-ROLE-001
 
 **Requirement.** A separately appointed leave administrator manages named employees and sites. Reading permitted purposes requires a separate grant; scheduling, ordinary leave approval and payroll permissions confer no private bank or purpose access. Ordinary managers see only generic absence. A person cannot approve their own leave. PRIVACY-001 to PRIVACY-003 govern custody.
 
@@ -282,7 +282,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001
 2. Apply a SCHEDULE-002 template that places an unqualified person and see the qualification conflict before publishing.
 3. A COVER-001 swap that hands a shift to an unqualified coworker is refused.
 
-**Evidence.** `src/lanyard/domain/workforce.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/domain/templates.ts`; `src/lanyard/domain/cover.ts`; `src/lanyard/domain/swaps.ts`; `src/lanyard/domain/openshifts.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `tests/lanyard.test.mjs`; `tests/workforce-journey.mjs`; `docs/WORKFORCE.md`
+**Evidence.** `tests/lanyard.test.mjs` — "PEOPLE-002: qualifications, expiring certificates, preferences, effective job rates, retained costs and inherited template/swap/pickup checks through HTTP"; `tests/lanyard.test.mjs` — "PEOPLE-002: retained rate costs in schedule/grid, interval reports and time review at 1440 and 390"
 **Gap.** None.
 
 #### PEOPLE-003 — Phone-number staff accounts and text invitations
@@ -308,7 +308,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-AUDIT-001, BASE-DATA-006
 1. As staff add two emergency contacts; as the site manager open a no-show alert for that person and call from the card.
 2. A manager at another site is refused and the attempt is audited.
 
-**Evidence.** `src/lanyard/domain/contacts.ts`; `src/lanyard/ui/contacts.ts`; `src/lanyard/http.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "CONTACT-001: staff keep their own emergency contacts; the cafe manager opens a no-show alert for that person and calls from the audited card; another cafe’s manager and a coworker are refused and both attempts are audited"
 **Gap.** None.
 
 #### ACCESS-002 — Manager single sign-on and required second factor
@@ -348,7 +348,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-INPUT-003, BASE-DATA-006
 1. As a site manager add a private note with an attachment and an employee-visible note to an employee; read them as a second-site manager, the employee and an agent key and see only what each may read.
 2. Edit one note and inspect its retained version, and refuse a stale edit; PRIVACY-001 carries the employee's record export and which notes it contains.
 
-**Evidence.** `src/lanyard/domain/journal.ts`; `src/lanyard/ui/journal.ts`; `src/lanyard/http.ts`; `migrations/core/0019_lanyard_note_files.sql`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "JOURNAL-001: a cafe manager keeps a private note with an attachment and a shared note on an employee; another cafe’s manager, the employee and an agent read only what each may; an edit keeps its version"
 **Gap.** None.
 
 #### SCHEDULE-001 — Editable visual schedules and publication review
@@ -361,7 +361,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-006, BASE-ACCESSIBI
 1. Build a realistic service week in the schedule UI, move and bulk-edit shifts, inspect warnings and the employee-facing change diff, publish it and verify employee views.
 2. Repeat core edits at 390px and reject stale publication.
 
-**Evidence.** `src/lanyard/domain/roster.ts`; `src/lanyard/domain/schedule-review.ts`; `src/lanyard/ui/schedule-editor.ts`; `src/lanyard/ui/schedule-review.ts`; `public/schedule-editor.js`; `tests/lanyard.test.mjs`; `tests/schedule-journey.mjs`; `tests/coverage.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "SCHEDULE-001: live review is read-only, persists conflicts and budgets, counts roles/sites/gaps and preserves duplicate diff rows"; `tests/lanyard.test.mjs` — "SCHEDULE-001: visual service-week editing, resize, copy, bulk assignment, undo and reviewed publish work at 1440 and 390"
 **Gap.** None.
 
 #### SCHEDULE-002 — Reusable templates recurring shifts and duplication
@@ -374,7 +374,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-006, BASE-MAIL-001 
 1. Save a week, duplicate it into a holiday week and apply a recurring pattern with an exception.
 2. Review conflicts for an employee now on leave, edit only one occurrence and publish after approval without altering previous weeks.
 
-**Evidence.** `src/lanyard/domain/templates.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/ui/templates.ts`; `tests/lanyard.test.mjs`; `tests/open-template-journey.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "SCHEDULE-002: a saved week is applied to a holiday week at the same wall times, a recurring shift skips its exception date, conflicts name the person now on leave, one occurrence is edited and published while earlier weeks stay unchanged"; `tests/lanyard.test.mjs` — "SCHEDULE-002 and COVER-002: position-only templates add to an empty week privately, retain draft slots, publish without assigned shifts and fill once; assigned edits preserve positions and archive superseded draft rows"; `tests/lanyard.test.mjs` — "SCHEDULE-002 and COVER-002: a manager saves, applies, reviews and publishes a position-only week, then fills an employee pickup at 1440 and 390"
 **Gap.** None.
 
 #### SCHEDULE-003 — Cross-site coverage and double-booking prevention
@@ -400,12 +400,12 @@ Core · target · **done** · Cites BASE-INPUT-003, BASE-ROLE-001, BASE-MAIL-001
 1. Staff open it on mobile, complete tasks and report a blocker; managers inspect handover and reconcile segment totals to worked time.
 2. A printed copy and the wall display of that week show none of the notes (SCHEDULE-005).
 
-**Evidence.** `src/lanyard/domain/shiftwork.ts`; `src/lanyard/domain/worksegments.ts`; `src/lanyard/domain/segmentpay.ts`; `src/lanyard/domain/shiftworkfiles.ts`; `src/lanyard/ui/shiftwork.ts`; `tests/lanyard.test.mjs`; `tests/shiftwork-api.mjs`; `tests/shiftwork-browser.mjs`; `tests/archive.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "SCHEDULE-004: native shift handover keeps revisioned notes/checklists and immutable blockers; reassignment, offers, cancellation and supersession fence instructions while authors retain their own responses"; `tests/lanyard.test.mjs` — "SCHEDULE-004 / SCHEDULE-007: blocker files, immutable job-area reconciliation, labor costs and once-only split payroll with signed corrections through native HTTP"; `tests/lanyard.test.mjs` — "SCHEDULE-004 / SCHEDULE-007: managers publish counter/kitchen handovers, staff complete tasks with blocker files and managers reconcile labor and export payroll at 1440 and 390"
 **Gap.** None.
 
 #### SCHEDULE-007 — Reconciled job and area segments
 
-Core · target · **partial** · From SCHEDULE-004 · Cites BASE-INPUT-003, BASE-ROLE-001, BASE-DATA-001, BASE-MAIL-001 · Rules D-1, D-2
+Core · target · **done** · From SCHEDULE-004 · Cites BASE-INPUT-003, BASE-ROLE-001, BASE-DATA-001, BASE-MAIL-001 · Rules D-1, D-2
 
 **Requirement.** Managers divide a shift into ordered job/area segments that cover its elapsed minutes. Every job remains qualification-checked on reassignment. Submission pins the instruction and area plan; payable minutes are allocated once over the retained areas and effective job rates. Approved labor, classifications and payroll reconcile to the enclosing timesheet. Corrections export signed per-job, per-area differences under its one claim. Allocation details are in the [handover details](docs/contract/MECHANISMS.md#schedule-004).
 
@@ -413,8 +413,8 @@ Core · target · **partial** · From SCHEDULE-004 · Cites BASE-INPUT-003, BASE
 1. Publish a shift split between counter and kitchen with a closing checklist.
 2. Submit and approve the segmented worked shift, reconcile the segment totals and retained rates to labor and payroll, then correct its duration and export only the signed per-area difference once.
 
-**Evidence.** `src/lanyard/domain/shiftwork.ts`; `src/lanyard/domain/worksegments.ts`; `src/lanyard/domain/segmentpay.ts`; `src/lanyard/domain/shiftworkfiles.ts`; `src/lanyard/ui/shiftwork.ts`; `tests/lanyard.test.mjs`; `tests/shiftwork-api.mjs`; `tests/shiftwork-browser.mjs`; `tests/archive.test.mjs`
-**Gap.** Missing complete segmented-work journey audit.
+**Evidence.** `tests/lanyard.test.mjs` — "SCHEDULE-004 / SCHEDULE-007: blocker files, immutable job-area reconciliation, labor costs and once-only split payroll with signed corrections through native HTTP"; `tests/lanyard.test.mjs` — "SCHEDULE-004 / SCHEDULE-007: managers publish counter/kitchen handovers, staff complete tasks with blocker files and managers reconcile labor and export payroll at 1440 and 390"
+**Gap.** None.
 
 #### LEAVE-001 — PTO balances and staffing-aware time off
 
@@ -439,7 +439,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001
 1. As staff submit a recurring pattern starting next month with one exception date, approve it as manager and schedule across the effective date.
 2. Shifts before the date follow the old pattern, a shift in an unavailable block is flagged, a preferred block ranks first in the call-out shortlist (COVER-003 keeps that order) and a still-pending change leaves conflicts unchanged.
 
-**Evidence.** `src/lanyard/domain/patterns.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/domain/cover.ts`; `src/lanyard/ui/patterns.ts`; `tests/lanyard.test.mjs`; `tests/availability-limit-journey.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "AVAIL-001: a staff weekly pattern waits for approval, lists the published shift it collides with, governs only from its first day, flags unavailable blocks, exception dates and the weekly maximum, and ranks a preferred teammate first for cover"; `tests/lanyard.test.mjs` — "AVAIL-001: staff saving and managers approving a lower weekly maximum see the affected published shift at 1440 and 390"
 **Gap.** None.
 
 #### LEAVE-002 — Time-off blackout dates limits and team leave calendar
@@ -451,7 +451,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D
 **Acceptance.**
 1. Configure a holiday blackout and a two-person limit for servers, submit three overlapping server requests and one inside the blackout, approve two, override the third with a reason and inspect the calendar and refusals as staff and as manager.
 
-**Evidence.** `src/lanyard/domain/leaverules.ts`; `src/lanyard/domain/people.ts`; `src/lanyard/ui/leave.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "LEAVE-002: a holiday blackout refuses requests, a two-server limit routes the third approval to an override with a reason, and the team leave calendar and allowed dates show it to managers and staff"
 **Gap.** None.
 
 #### LEAVE-003 — Paid sick and safe leave jurisdiction presets
@@ -530,7 +530,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001, BASE-MAIL-001 
 1. Publish a week, print site and employee PDFs, open the wall display, then change a shift.
 2. The PDFs carry the old revision, the display moves to the new revision and the posting record shows both times; wages and time-off reasons are absent from every output (SCHEDULE-004 keeps its private notes out).
 
-**Evidence.** `src/lanyard/domain/postings.ts`; `src/lanyard/print.ts`; `src/lanyard/pdf.ts`; `src/lanyard/ui/print.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "SCHEDULE-005: a manager prints cafe and employee PDFs stamped with the revision, opens the wall display, and a later change moves the wall and marks both copies superseded; pay and leave reasons never print"; `tests/lanyard.test.mjs` — "SCHEDULE-004 / SCHEDULE-007: blocker files, immutable job-area reconciliation, labor costs and once-only split payroll with signed corrections through native HTTP"
 **Gap.** None.
 
 #### SCHEDULE-006 — Schedule change history and revision compare
@@ -543,7 +543,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001, BASE-MAIL-001 
 1. Publish a week, then move one shift, approve a swap and cancel another.
 2. Open each shift's history as manager and as the affected employees, compare the first and latest week revisions and export the change log with reasons and notice states.
 
-**Evidence.** `src/lanyard/domain/history.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/http.ts`; `src/lanyard/ui/history.ts`; `tests/lanyard.test.mjs`; `tests/schedule-history-journey.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "SCHEDULE-006: after a week is published, a moved shift, an approved swap and a canceled shift each keep a history the manager and the affected employees read with who, when, why and the notice state; the first and latest revisions compare by person and site; the change log exports"; `tests/lanyard.test.mjs` — "SCHEDULE-006: repeated approved swaps retain every assignment, decision reason and acknowledgment for original and later assignees in history and CSV"; `tests/lanyard.test.mjs` — "SCHEDULE-006: managers and original assignees read both swaps and all acknowledgments at 1440 and 390"
 **Gap.** None.
 
 ### Coverage employee experience and follow-up
@@ -559,7 +559,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D
 2. Refuse an ineligible coworker, stale request and two competing approvals; retain the original assignee until completion.
 3. A coworker whose AVAIL-001 pattern marks the swapped shift unavailable is refused.
 
-**Evidence.** `src/lanyard/domain/swaps.ts`; `src/lanyard/domain/cover.ts`; `src/lanyard/ui/swaps.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "COVER-001: staff propose a two-person exchange, the coworker consents and a cafe manager approves; ineligible, unavailable, stale and competing swaps are refused and the original assignee keeps the shift until approval"
 **Gap.** None.
 
 #### COVER-002 — Open shifts offers and pickup
@@ -573,7 +573,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D
 2. Approve one, verify all other offers close and current assignments/notices (the in-app request records; delivered notices are NOTICE-001's) update exactly once.
 3. Apply a template with a position-only row and see it posted as an open shift.
 
-**Evidence.** `src/lanyard/domain/openshifts.ts`; `src/lanyard/domain/templates.ts`; `src/lanyard/domain/roster.ts`; `src/lanyard/ui/openshifts.ts`; `tests/lanyard.test.mjs`; `tests/open-template-journey.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "COVER-002: a manager posts an open shift that eligible staff see with their rate and request; approving one assigns it once and closes the rest; approved pickup and a pool; a template position-only row posts as an open shift"; `tests/lanyard.test.mjs` — "SCHEDULE-002 and COVER-002: position-only templates add to an empty week privately, retain draft slots, publish without assigned shifts and fill once; assigned edits preserve positions and archive superseded draft rows"; `tests/lanyard.test.mjs` — "SCHEDULE-002 and COVER-002: a manager saves, applies, reviews and publishes a position-only week, then fills an employee pickup at 1440 and 390"
 **Gap.** None.
 
 #### COVER-003 — Call-out replacement and verified coverage
@@ -587,7 +587,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D
 2. A nonresponsive replacement reopens an actionable coverage exception without fabricating attendance.
 3. A teammate whose AVAIL-001 pattern prefers the shift is contacted first.
 
-**Evidence.** `src/lanyard/domain/cover.ts`; `src/lanyard/domain/coverage.ts`; `src/lanyard/ui/callout.ts`; `src/lanyard/ui/grid.ts`; `tests/coverage.test.mjs`; `tests/legacy-coverage-journey.mjs`
+**Evidence.** `tests/coverage.test.mjs` — "COVER-003 / SCHEDULE-001: preferred in-app offers expire; exact approvals retain assignments and history through a scoped no-show reoffer until a real clock verifies coverage"
 **Gap.** None.
 
 #### COVER-004 — Offer order and access-to-hours priority
@@ -600,7 +600,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D
 1. Post an open shift with a two-tier offer, let tier one expire with one decline, have tier two accept and approve.
 2. Inspect the offer log, times and responses; at a San Jose site, hiring a new person for those hours is flagged until existing part-time staff have been offered them.
 
-**Evidence.** `src/lanyard/domain/offerorder.ts`; `src/lanyard/domain/openshifts.ts`; `src/lanyard/domain/cover.ts`; `src/lanyard/domain/people.ts`; `src/lanyard/ui/offerorder.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "COVER-004: a two-tier open shift by part-time priority: tier two waits, tier one declines and expires, tier two accepts and is approved; the offer log keeps times and answers; seniority and custom rankings; tiered call-out replacements; at an access-to-hours cafe a new hire is flagged until existing part-time staff are offered the hours"
 **Gap.** None.
 
 #### ROSTER-004 — Team schedule visibility for staff
@@ -613,7 +613,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D
 1. Publish a week for two roles at two sites; as staff open the team view and see coworkers' names and times for the permitted scope, then switch the site to role-only and hide one person.
 2. Requests for drafts, wages, contact details or another site's shifts return nothing.
 
-**Evidence.** `src/lanyard/domain/team.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/ui/team.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "ROSTER-004: staff see their cafe’s published team by name, position and times only; a manager narrows a cafe to own position and hides a person"
 **Gap.** None.
 
 #### NOTICE-001 — Delivered schedule notices and acknowledgment
@@ -640,7 +640,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001
 1. Configure a shift and payroll period, receive a reminder, leave a schedule change unacknowledged, miss a punch and cross the review deadline.
 2. Restart the scheduler, resolve each item and inspect one appropriate escalation with no obsolete follow-up.
 
-**Evidence.** `src/lanyard/domain/notices.ts`; `src/lanyard/domain/notice-subjects.ts`; `src/lanyard/scheduled.ts`; `wrangler.jsonc`; `src/lanyard/ui/notices.ts`; `tests/notices-journey.mjs`; `tests/lanyard.test.mjs` — owner and home-cafe manager configuration, other-cafe manager and employee refused, preparation agent refused and receiving nothing, audited configuration, shift/acknowledgment/open-offer/late/no-show/missed-punch reminders, timesheet-review and payroll-review cutoffs, deduplicating replay, real persisted Worker restart, one owner escalation, a note leaving the alert open, and confirmation, punch, reasoned resolution and period-lock withdrawal with no pay, wage or reason text: “durable in-Lanyard reminders survive cron replay and restart, withdraw on resolution and escalate once” (noticesApi); an unacknowledged changed revision withdrawn as superseded and re-asked, a BREAK-002 missed-meal exception reminded to managers and never its employee then withdrawn on resolution, a closed call-out offer withdrawing its expiry reminders, escalation only to the owner once per item, and the owner as only manager recording no higher manager: “reminders follow a changed revision, a missed meal, a closed offer and owner-only escalation” (noticesCases); inbox, in-Lanyard-only label, badge and saved manager settings at 1440 and 390: “reminder inbox and manager settings work on Schedule and Time at 1440 and 390” (noticesBrowser).
+**Evidence.** `tests/lanyard.test.mjs` — "durable in-Lanyard reminders survive cron replay and restart, withdraw on resolution and escalate once"; `tests/lanyard.test.mjs` — "reminder inbox and manager settings work on Schedule and Time at 1440 and 390"; `tests/lanyard.test.mjs` — "reminders follow a changed revision, a missed meal, a closed offer and owner-only escalation"
 **Gap.** None.
 
 #### NOTICE-003 — Reminder delivery under employee contact settings
@@ -691,7 +691,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001
 1. Clock out three employees and submit a low rating with a safety flag, an anonymous comment and a skip.
 2. The site manager sees the flag, resolves it with a reply the employee sees and the weekly report shows the trend; the anonymous author stays hidden, including from the stored records and history, which link it only through keyed digests, and the rating is absent from every ranking input.
 
-**Evidence.** `src/lanyard/domain/feedback.ts`; `src/lanyard/domain/activity.ts`; `src/lanyard/ui/feedback.ts`; `src/lanyard/ui/time.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "FEEDBACK-001: after clock-out a low rating with a safety flag, an anonymous comment and a skip reach the cafe manager, who resolves the flag with a reply the employee sees; the trend shows and the author stays hidden from pay, ranking and agents"
 **Gap.** None.
 
 #### LOG-001 — Manager logbook and shift handover log
@@ -704,7 +704,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001, BASE-MAIL-001
 1. Write closing and incident entries with five attachments of 10 MB each at one site, mention the opening manager, read and acknowledge as that manager, search last month by category and export the incident.
 2. A manager of another site cannot see it and an edit retains the original.
 
-**Evidence.** `src/lanyard/domain/logbook.ts`; `src/lanyard/domain/logfiles.ts`; `src/lanyard/domain/logformat.ts`; `tests/logbook-upgrade-journey.mjs`; `src/lanyard/archive-policy.mjs`; `tests/archive.test.mjs`; `src/lanyard/ui/logbook.ts`; `src/lanyard/http.ts`; `tests/logbook.test.mjs`
+**Evidence.** `tests/logbook.test.mjs` — "LOG-001: a cafe manager writes a closing entry and an incident with five 10 MB attachments, enforcing bounds and reader access, mentioning the opening manager and linking the shift and person; the opening manager reads and acknowledges it; a search by category and month finds the incident and it exports; another cafe’s manager and staff see nothing; a correction keeps the original"
 **Gap.** None.
 
 #### MOBILE-001 — Employee and manager mobile apps
@@ -769,15 +769,14 @@ Core · target · **partial** · Cites BASE-ROLE-001, BASE-INPUT-003 · Rules D-
 
 Core · target · **done** · Cites BASE-MAIL-001 · Rules D-1, D-2
 
-**Requirement.**  The [retained durable offline capture and reconnect reconciliation details](docs/contract/MECHANISMS.md#clock-002) define source fields, calculations and revision behavior.
+**Requirement.**  The [retained durable offline capture and reconnect reconciliation details](docs/contract/MECHANISMS.md#clock-002) define source fields, calculations and revision behavior. CLOCK-001 and MOBILE-001 carry this offline/restart/revocation and reasoned recovery journey for their own clients.
 
 **Acceptance.**
 1. Clock and time a meal offline, close/restart the client, reconnect and retry; inspect one ordered set, captured/received receipts and capture-date rounded worked time.
 2. Reject changed/reused identities, skewed captures and revoked access without losing the originals; on the same device sign in as a manager, see only the revoked-session count, explicitly submit for review and resolve with a reason without applying time automatically.
 3. Refuse staff and foreign-cafe recovery, and warn before sign-out discards local captures.
-4. CLOCK-001 and MOBILE-001 repeat the journey for their clients before shipping.
 
-**Evidence.** `public/clock-outbox.js`; `public/clock-recovery.js`; `src/lanyard/domain/offline.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/breaks.ts`; `src/lanyard/ui/offline.ts`; `tests/lanyard.test.mjs`; `tests/clock-offline-journey.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "CLOCK-002: ordered clock retries bind identity, retain conflicting captures for scoped review, respect revocation and use capture-date rounding"; `tests/lanyard.test.mjs` — "CLOCK-002: encrypted offline phone capture survives client restart and reconciles exactly once"
 **Gap.** None.
 
 #### CLOCK-003 — Geofenced mobile clocking with privacy controls
@@ -805,7 +804,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D
 1. Run a service shift with an on-time, late, absent and offline employee.
 2. Compare the live attendance board to actual punches, receive a late/no-show escalation, arrange coverage and resolve only from observed or approved time facts.
 
-**Evidence.** `src/lanyard/domain/attendance.ts`; `src/lanyard/domain/clocknets.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/http.ts`; `src/lanyard/ui/attendance.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "CLOCK-004: a running service shift with an on-time, late, absent and offline employee shows on the live board from received punches; the absent one turns late then no-show, a manager records handling it and finds cover, and only the cover’s clock-in closes the alert"
 **Gap.** None.
 
 #### CLOCK-005 — Punch photo verification
@@ -833,7 +832,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D
 1. Configure a break attestation, an injury question and a cash-tips declaration; clock out answering that a meal was missed and that an injury happened.
 2. A break exception and a safety follow-up open for the manager, the declaration is listed for managers (TIPS-001 takes it into the tip pool draft) and an edited question keeps earlier answers under their old wording.
 
-**Evidence.** `src/lanyard/domain/questions.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/ui/questions.ts`; `public/lanyard.js`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "CLOCK-006: an owner’s break, injury, cash-tip and fit-for-duty questions are asked in English and Spanish; a missed break opens a break exception, an injury a private safety follow-up for that cafe’s managers, the tip declaration is listed for managers, and an edited question keeps earlier answers under their old wording"
 **Gap.** None.
 
 #### CLOCK-007 — Browser time clock on approved networks
@@ -846,22 +845,22 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D
 1. Enroll a site's IP range, clock in from it and from an outside network.
 2. The first succeeds with the network recorded, the second is refused or flagged as configured, and changing the range takes effect on the next punch.
 
-**Evidence.** `src/lanyard/domain/clocknets.ts`; `src/lanyard/clockbrowsers.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/clocknets.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "CLOCK-007: a cafe’s web clock accepts punches from its approved IP range or an enrolled browser, records only the network, refuses or flags other networks as configured, and a range change applies on the next punch"
 **Gap.** None.
 
 #### CLOCK-008 — Mid-shift job and site transfers
 
 Core · target · **done** · Cites BASE-DATA-001, BASE-MAIL-001 · Rules D-1, D-2
 
-**Requirement.** A clocked-in employee switches job (for example server to bartender) or, where permitted, site from phone or kiosk without clocking out. Each segment keeps its own job, site, rate and pay codes, overtime still aggregates across the day and week, and a transfer to a job the person is not qualified for is refused. Transfers keep SCHEDULE-004's work-area reconciliation: on a punch whose shift has a pinned area plan, transfer segments and areas count each payable minute once within the enclosing timesheet, each segment keeps its retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area difference, once, under the enclosing timesheet's single payroll claim. The [retained mid-shift job and site transfers details](docs/contract/MECHANISMS.md#clock-008) define source fields, calculations and revision behavior.
+**Requirement.** A clocked-in employee switches job (for example server to bartender) or, where permitted, site from phone or kiosk without clocking out. Each segment keeps its own job, site, rate and pay codes, overtime still aggregates across the day and week, and a transfer to a job the person is not qualified for is refused. Transfers keep SCHEDULE-007's work-area reconciliation: on a punch whose shift has a pinned area plan, transfer segments and areas count each payable minute once within the enclosing timesheet, each segment keeps its retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area difference, once, under the enclosing timesheet's single payroll claim. The [retained mid-shift job and site transfers details](docs/contract/MECHANISMS.md#clock-008) define source fields, calculations and revision behavior.
 
 **Acceptance.**
 1. Clock in as server, transfer to bartender after three hours and clock out.
 2. The timesheet shows two segments with their rates and codes, the payroll export splits them, a transfer to an unqualified job is refused and the week's overtime counts both segments.
-3. A transfer on a shift with a pinned SCHEDULE-004 counter/kitchen plan reconciles to the enclosing worked time with each minute counted once at its segment's retained job rate, and a later correction exports only the signed per-job, per-area difference under the timesheet's one claim.
+3. A transfer on a shift with a pinned SCHEDULE-007 counter/kitchen plan reconciles to the enclosing worked time with each minute counted once at its segment's retained job rate, and a later correction exports only the signed per-job, per-area difference under the timesheet's one claim.
 4. A job change captured offline replays with its original time; a cafe change outside the person's eligible cafes or against a refusing network rule is refused, and a flagging rule marks the punch off-network while each cafe's interval labor counts only its own segment.
 
-**Evidence.** `src/lanyard/domain/transfers.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/worksegments.ts`; `src/lanyard/domain/segmentpay.ts`; `src/lanyard/domain/intervals.ts`; `src/lanyard/ui/transfers.ts`; `src/lanyard/ui/shiftwork.ts`; `public/clock-outbox.js`; `tests/lanyard.test.mjs`; `tests/transfer-journey.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "CLOCK-008: a phone job change splits the punch into qualified job segments with retained rates, refuses unqualified jobs and ineligible or off-network cafes, exports split payroll with signed per-job corrections and counts every segment toward weekly overtime through native HTTP"; `tests/lanyard.test.mjs` — "CLOCK-008: staff change job from the phone clock and managers approve the job segments with rates and pay codes and export split payroll at 1440 and 390"
 **Gap.** None.
 
 #### BREAK-001 — Timed meals breaks and exceptions
@@ -875,7 +874,7 @@ Core · target · **done** · Cites BASE-MAIL-001
 2. Review the exception and a reasoned correction, then reconcile net/pay-code hours and any premium input in payroll preview.
 3. A timesheet pinned for bulk approval that then gains a missed-break exception is skipped with the exception named (TIME-008).
 
-**Evidence.** `src/lanyard/domain/breaks.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/domain/approvals.ts`; `src/lanyard/ui/breaks.ts`; `public/lanyard.js`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "BREAK-001: timed rest and meal breaks pass the cafe policy; a short meal and rest open exceptions with premiums and an attestation, a waiver covers a short shift, a pinned timesheet that gains a missed meal is skipped by name, and a reasoned correction reconciles net and premium hours in payroll"
 **Gap.** None.
 
 #### BREAK-002 — Automatic meal deductions with employee attestation
@@ -888,7 +887,7 @@ Core · target · **done** · Cites BASE-DATA-006, BASE-MAIL-001
 1. Enable a 30-minute deduction, work a 7-hour shift without a meal punch and confirm at clock-out; work another and report the meal missed.
 2. The first deducts with the confirmation recorded, the second pays the full time with an exception, and a California site's refusal is POLICY-001's acceptance.
 
-**Evidence.** `src/lanyard/domain/mealrules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/mealrules.ts`; `public/lanyard.js`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "BREAK-002: a 30-minute automatic meal deduction is confirmed at clock-out, reversed with an exception when the meal is reported missed, and flagged when left unconfirmed"; `tests/lanyard.test.mjs` — "POLICY-001: reviewed policy settings, California deduction refusal, template warnings, swap rest and locked payroll fences"
 **Gap.** None.
 
 #### TIME-003 — Missed punches employee review and exception resolution
@@ -902,7 +901,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D
 2. A manager's edit to a timesheet another manager has pinned for bulk approval makes that approval skip it as changed (TIME-008), and the employee's confirmation moves manager-entered time out of the unconfirmed filter.
 3. A TIME-006 flagged early punch opens an exception that stays open until a manager resolves it.
 
-**Evidence.** `src/lanyard/domain/time.ts`; `src/lanyard/domain/approvals.ts`; `src/lanyard/ui/cases.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "TIME-003: a missed clock-out opens an exception the employee corrects with an attestation, another manager approves and a manager resolves with a reason the employee reads; a manager edit makes a pinned bulk approval skip it; employee confirmation and requests leave the unconfirmed state"
 **Gap.** None.
 
 #### TIME-004 — Payroll period locks and controlled reopening
@@ -915,7 +914,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D
 1. Approve and lock a period, deny an ordinary manager's edit/reopen, reopen with payroll authority and fresh signoff, then close after provider application.
 2. A later correction produces an explicit adjustment and cannot mutate the original paid period.
 
-**Evidence.** `src/lanyard/domain/periods.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/ui/periods.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "TIME-004: the owner defines a pay period, employees and a manager sign off and it locks; an ordinary manager cannot edit or reopen it; the owner reopens with a reason and fresh signoff, a reopened period holds its prepared payroll, and after the provider run closes it a correction is a linked adjustment that leaves the locked record unchanged"
 **Gap.** None.
 
 #### TIME-005 — Punch rounding and snap-to-schedule
@@ -928,7 +927,7 @@ Core · target · **done** · Cites BASE-MAIL-001 · Rules D-1, D-2
 1. Configure quarter-hour nearest rounding at one site and a 7-minute snap-to-schedule window at another; clock in at 8:52, 8:58, 9:04 and 9:09 at each.
 2. Approve and read captured and payable times side by side and the period neutrality report, try to save a round-down-only rule (refused) and change the rule effective next week without altering approved history.
 
-**Evidence.** `src/lanyard/domain/rounding.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/rounding.ts`; `src/lanyard/ui/time.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "TIME-005: quarter-hour rounding at one cafe and a 7-minute snap at another pay rounded time beside captured punches, report net minutes, refuse a round-down rule and never alter approved history"
 **Gap.** None.
 
 #### TIME-006 — Early clock-in window and unscheduled punches
@@ -942,7 +941,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D
 2. Approve the early time and correct the unscheduled punch with a reason; both captured times stay visible and only approved time is payable.
 3. Bulk approval (TIME-008) skips the flagged timesheets and names each exception.
 
-**Evidence.** `src/lanyard/domain/clockrules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/clockrules.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "TIME-006 and TIME-008: an early clock-in is refused with its opening time or flagged, a clock-in without a shift is refused, flagged pending approval or allowed for a listed position, and flagged time is skipped by bulk approval until a manager approves it"
 **Gap.** None.
 
 #### TIME-007 — Forgotten clock-out reminder cap and provisional close
@@ -956,7 +955,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001, BASE-MAIL-001 
 2. Correct the end time as the employee, approve as a manager and export; an unscheduled punch left open reaches the 12-hour cap with the same exception.
 3. A bulk approval (TIME-008) including the provisionally closed timesheet skips it with the exception named.
 
-**Evidence.** `src/lanyard/domain/closerules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/ui/closerules.ts`; `tests/lanyard.test.mjs`; `tests/provisional-labor-journey.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "TIME-007: a forgotten 9-to-5 clock-out is reminded at 5:15 and provisionally closed at 5:00, held from payroll and bulk approval until the employee corrects it; an unscheduled punch stops at the 12-hour cap"; `tests/lanyard.test.mjs` — "TIME-007: provisional job-segment labor stops at the scheduled end, stays reviewable and is replaced once on confirmation at 1440 and 390"
 **Gap.** None.
 
 #### TIME-008 — Bulk timesheet approval with pinned revisions
@@ -970,12 +969,12 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-INPUT-003, BASE-MAIL-001
 2. The result approves the rest and skips that one, the approver's own timesheet, a foreign-cafe timesheet and hand-entered time pinned outside the filter, each with its reason; audit shows one decision per approved revision and the skipped items are untouched.
 3. The break-exception skip is BREAK-001's acceptance and the edit skip TIME-003's.
 
-**Evidence.** `src/lanyard/domain/approvals.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/approvals.ts`; `tests/lanyard.test.mjs`; `tests/bulk-approval-journey.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "TIME-008: a manager filters a 60-person week to clean timesheets and approves the shown revisions at once; changed, own, foreign-cafe and unfiltered items are skipped with reasons"; `tests/lanyard.test.mjs` — "BREAK-001: timed rest and meal breaks pass the cafe policy; a short meal and rest open exceptions with premiums and an attestation, a waiver covers a short shift, a pinned timesheet that gains a missed meal is skipped by name, and a reasoned correction reconciles net and premium hours in payroll"
 **Gap.** None.
 
 #### TIME-009 — Timesheet approval review with schedule variance
 
-Core · target · **done** · Cites BASE-ROLE-001, BASE-INPUT-003, BASE-MAIL-001 · Rules D-1, D-2
+Core · target · **partial** · Cites BASE-ROLE-001, BASE-INPUT-003, BASE-MAIL-001 · Rules D-1, D-2
 
 **Requirement.** The approval screen shows per timesheet the scheduled, captured and payable times, variance minutes, breaks taken against required, punch photo and location where enabled, job and site, rounding effect, open exceptions, cost and the employee's running period and overtime totals, with filters for exceptions. Approvers act from the same row: approve, edit with a reason or send back to the employee. The review shows TIME-005 captured and payable time side by side. Owners and managers see the review on every waiting timesheet: the scheduled time is the punch's TIME-006 matched shift (none for unscheduled or hand-entered time); variance is in whole minutes, start and end against the scheduled times (positive is later) and worked minutes against the shift's net minutes; breaks taken are the recorded meal minutes against the greater of the cafe's applicable BREAK-002 deduction and BREAK-001 policy meal minutes, never their sum. The [retained timesheet approval review with schedule variance details](docs/contract/MECHANISMS.md#time-009) define source fields, calculations and revision behavior.
 
@@ -984,8 +983,8 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-INPUT-003, BASE-MAIL-001
 2. Each row shows the right variance, break, photo (CLOCK-005), location and cost; filtering to exceptions lists exactly those three, and an edit with a reason keeps the captured facts.
 3. The review shows each punch's TIME-005 captured and payable time.
 
-**Evidence.** `src/lanyard/domain/review.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/review.ts`; `tests/lanyard.test.mjs`; `tests/break-review-journey.mjs`
-**Gap.** None.
+**Evidence.** `tests/lanyard.test.mjs` — "TIME-009: the approval review shows scheduled, captured and payable times, variance, breaks, network, job, cost and the running week; filtering to exceptions lists the early, missed-meal and off-network rows; an edit keeps the captured facts and a send-back returns to the employee"; `tests/lanyard.test.mjs` — "TIME-009: policy meals, waiver thresholds, full paid-rest counts and unknown manual breaks reconcile beside automatic deductions through native HTTP"; `tests/lanyard.test.mjs` — "TIME-009: managers compare taken and required meals and paid rests and filter exceptions at 1440 and 390"
+**Gap.** Missing a complete approval-row journey with the required punch photo and geofenced location, plus the existing variance and correction outcomes, in the old cited evidence. The cited review/break journeys show variance, network location, meals, rests, edits and send-back; photo and geofence journeys are not in this clause's old Evidence set.
 
 #### POLICY-001 — US overtime meal and rest policy rules
 
@@ -1049,13 +1048,13 @@ Core · target · **partial** · Cites BASE-MAIL-001
 
 Core · target · **partial** · Cites BASE-ROLE-001, BASE-DATA-001, BASE-MAIL-001 · Rules D-1, D-2
 
-**Requirement.** Payroll administrators define effective-dated differentials by time of day, day of week, site, role or shift tag, as a USD amount per hour or a multiplier, with a stacking order. Approved hours split into differential segments, each with its pay code (PAY-001) and cost (COST-001); overtime classification follows the provider-confirmed regular-rate treatment. Differentials appear in the employee's EARN-001 estimate. Differentials subdivide SCHEDULE-004's reconciled work areas: they apply within each area's payable minutes approved from its pinned area plan (each minute once), price from that area's retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area, per-code difference, once, under the enclosing timesheet's single payroll claim. The [retained shift differentials details](docs/contract/MECHANISMS.md#payrule-001) define source fields, calculations and revision behavior.
+**Requirement.** Payroll administrators define effective-dated differentials by time of day, day of week, site, role or shift tag, as a USD amount per hour or a multiplier, with a stacking order. Approved hours split into differential segments, each with its pay code (PAY-001) and cost (COST-001); overtime classification follows the provider-confirmed regular-rate treatment. Differentials appear in the employee's EARN-001 estimate. Differentials subdivide SCHEDULE-007's reconciled work areas: they apply within each area's payable minutes approved from its pinned area plan (each minute once), price from that area's retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area, per-code difference, once, under the enclosing timesheet's single payroll claim. The [retained shift differentials details](docs/contract/MECHANISMS.md#payrule-001) define source fields, calculations and revision behavior.
 
 **Acceptance.**
 1. Configure a $1.50-per-hour night differential after 10 PM and a weekend multiplier; work an overnight Saturday shift crossing midnight.
 2. Read the split segments, codes and cost, change the rate effective next week without altering approved history and export the period with differential lines mapped.
 3. The employee's EARN-001 estimate includes the differential.
-4. On a SCHEDULE-004 counter/kitchen split shift crossing 10 PM, differential lines stay within each area's pinned payable minutes at its retained job rate, and a later correction exports only the signed per-area difference under the timesheet's one claim.
+4. On a SCHEDULE-007 counter/kitchen split shift crossing 10 PM, differential lines stay within each area's pinned payable minutes at its retained job rate, and a later correction exports only the signed per-area difference under the timesheet's one claim.
 
 **Evidence.** `tests/differentials-journey.mjs` (differentialApi): night/weekend midnight segments, stacking, codes/cost, effective updates, retained counter/kitchen rates, signed per-area corrections and one claim; own estimate and no coworker/agent wage access. `tests/differentials-journey.mjs` (differentialBrowser): owner setup, mapped payroll, own estimate and icon tooltips at 1440/390.
 **Gap.** Provider-confirmed regular-rate treatment and differential overtime classification remain unproved; current lines are additional straight-time inputs only.
@@ -1064,7 +1063,7 @@ Core · target · **partial** · Cites BASE-ROLE-001, BASE-DATA-001, BASE-MAIL-0
 
 Core · target · **done** · Cites BASE-DATA-001, BASE-MAIL-001 · Rules D-1, D-2
 
-**Requirement.** Owners keep a company holiday calendar seeded with US federal holidays and editable per site, and set holiday rules: a multiplier or added rate for hours worked on a holiday, holiday pay for eligible employees who do not work, and eligibility such as working the scheduled shifts before and after. Scheduling shows holiday cost and approved holiday hours carry their own pay codes. Holiday premiums appear in the employee's EARN-001 estimate. Holiday premiums keep SCHEDULE-004's work-area reconciliation: on a segmented timesheet they apply within each area's payable minutes approved from its pinned area plan (each minute once) at that area's retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area, per-code difference, once, under the enclosing timesheet's single payroll claim. The [retained holiday calendar and holiday premiums details](docs/contract/MECHANISMS.md#payrule-002) define source fields, calculations and revision behavior.
+**Requirement.** Owners keep a company holiday calendar seeded with US federal holidays and editable per site, and set holiday rules: a multiplier or added rate for hours worked on a holiday, holiday pay for eligible employees who do not work, and eligibility such as working the scheduled shifts before and after. Scheduling shows holiday cost and approved holiday hours carry their own pay codes. Holiday premiums appear in the employee's EARN-001 estimate. Holiday premiums keep SCHEDULE-007's work-area reconciliation: on a segmented timesheet they apply within each area's payable minutes approved from its pinned area plan (each minute once) at that area's retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area, per-code difference, once, under the enclosing timesheet's single payroll claim. The [retained holiday calendar and holiday premiums details](docs/contract/MECHANISMS.md#payrule-002) define source fields, calculations and revision behavior.
 
 **Acceptance.**
 1. Seed the federal calendar, add a company holiday at one site, schedule and work Thanksgiving and the company holiday, then approve.
@@ -1072,22 +1071,22 @@ Core · target · **done** · Cites BASE-DATA-001, BASE-MAIL-001 · Rules D-1, D
 3. The employee's EARN-001 estimate includes the holiday premium.
 4. A worked holiday shift split between counter and kitchen (SCHEDULE-004) carries its premium lines per area within the pinned payable minutes at each area's retained job rate, and a later correction exports only the signed per-area difference under the timesheet's one claim.
 
-**Evidence.** `src/lanyard/domain/holiday-calendar.ts`; `src/lanyard/domain/holidays.ts`; `src/lanyard/domain/holiday-pay.ts`; `src/lanyard/ui/holidays.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/domain/earnings.ts`; `tests/lanyard.test.mjs`; `tests/holidays-api.mjs`; `tests/holidays-journey.mjs`; `tests/archive.test.mjs`; `docs/HOLIDAYS.md`
+**Evidence.** `tests/lanyard.test.mjs` — "PAYRULE-002: federal and site holidays, eligibility, retained area premiums, earnings, non-work service and once-only signed payroll corrections"; `tests/lanyard.test.mjs` — "PAYRULE-002: owners configure holidays, inspect eligibility, approve non-work pay and view area payroll, schedule costs and employee estimates at 1440 and 390"
 **Gap.** None.
 
 #### PAYRULE-003 — Reporting-time call-in split-shift and spread-of-hours premiums
 
 Core · target · **done** · Cites BASE-DATA-001, BASE-MAIL-001 · Rules D-1, D-2
 
-**Requirement.** Jurisdiction presets and employer rules produce premium-pay inputs when an employee reports for a shift that is canceled or cut short (California reporting-time pay, New York call-in pay), works a split shift (California) or exceeds a 10-hour spread of hours (New York), each with the triggering facts, rule version and pay code. Premiums are reviewed payroll inputs, not final pay calculations. These premiums appear in the employee's EARN-001 estimate. Premium inputs keep SCHEDULE-004's work-area reconciliation: on a segmented timesheet they read the per-area payable minutes approved from its pinned area plan and each area's retained effective-dated job-rate basis without re-splitting, repricing or counting a minute twice, and a later correction exports only the signed difference per job, area and code, once, under the enclosing timesheet's single payroll claim. The [retained reporting-time call-in split-shift and spread-of-hours premiums details](docs/contract/MECHANISMS.md#payrule-003) define source fields, calculations and revision behavior.
+**Requirement.** Jurisdiction presets and employer rules produce premium-pay inputs when an employee reports for a shift that is canceled or cut short (California reporting-time pay, New York call-in pay), works a split shift (California) or exceeds a 10-hour spread of hours (New York), each with the triggering facts, rule version and pay code. Premiums are reviewed payroll inputs, not final pay calculations. These premiums appear in the employee's EARN-001 estimate. Premium inputs keep SCHEDULE-007's work-area reconciliation: on a segmented timesheet they read the per-area payable minutes approved from its pinned area plan and each area's retained effective-dated job-rate basis without re-splitting, repricing or counting a minute twice, and a later correction exports only the signed difference per job, area and code, once, under the enclosing timesheet's single payroll claim. The [retained reporting-time call-in split-shift and spread-of-hours premiums details](docs/contract/MECHANISMS.md#payrule-003) define source fields, calculations and revision behavior.
 
 **Acceptance.**
 1. At a California site send an employee home an hour into a scheduled 8-hour shift and schedule a split shift; at a New York site work a 7 AM to 6 PM day with a long unpaid break and cancel a shift after arrival.
 2. Each premium input appears with its fact trace and code, a manager disputes one with a reason and approved inputs export in the period.
 3. The employee's EARN-001 estimate includes the premium.
-4. On a SCHEDULE-004 counter/kitchen split day the premium input's fact trace shows the pinned per-area minutes and retained job rates with no minute counted twice, and a later correction exports only its signed difference under the timesheet's one claim.
+4. On a SCHEDULE-007 counter/kitchen split day the premium input's fact trace shows the pinned per-area minutes and retained job rates with no minute counted twice, and a later correction exports only its signed difference under the timesheet's one claim.
 
-**Evidence.** `src/lanyard/domain/premiums.ts`; `src/lanyard/domain/premium-commands.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/domain/earnings.ts`; `src/lanyard/ui/premiums.ts`; `tests/lanyard.test.mjs`; `tests/premiums-api.mjs`; `tests/premiums-journey.mjs`; `tests/archive.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "PAYRULE-003: CA reporting and split, NY call-in and spread inputs retain source/area rates, reasoned disputes, own estimates and once-only signed payroll corrections"; `tests/lanyard.test.mjs` — "PAYRULE-003: owners configure and review premium facts, managers dispute and approve inputs, payroll exports and staff read estimates at 1440 and 390"
 **Gap.** None.
 
 #### COST-001 — Scheduled versus actual labor cost and budgets
@@ -1114,7 +1113,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-006, BASE-MAIL-001
 1. Schedule an employee for 38 hours and let them clock 3 extra hours by Thursday.
 2. The scheduler receives an alert projecting 41 hours with the estimated premium and a substitute list, a pickup that adds overtime shows its cost before approval and approving a substitute clears the alert.
 
-**Evidence.** `src/lanyard/domain/overtime.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/http.ts`; `src/lanyard/ui/overtime.ts`; `src/lanyard/ui/openshifts.ts`; `src/lanyard/ui/swaps.ts`; `tests/lanyard.test.mjs` ; `tests/policy-cost-journey.mjs` (policyCostApi and policyCostBrowser: daily and double-time projections, source scope, substitutes, pickups, swaps and 1440 and 390 end states)
+**Evidence.** `tests/lanyard.test.mjs` — "COST-002: a 38-hour week with three extra hours clocked by Thursday alerts the cafe manager at 41 projected hours with the premium and a substitute; a pickup and a swap that add overtime show it before approval, and approving a substitute clears the alert"; `tests/lanyard.test.mjs` — "COST-002: policy daily and double-time risk prices actual and remaining work, substitutes and receiving pickup and swap employees"; `tests/lanyard.test.mjs` — "COST-002: policy estimates, cited inputs, tooltips and substitute end state at 1440 and 390"
 **Gap.** None.
 
 #### ACA-001 — ACA hours measurement for variable-hour employees
@@ -1125,9 +1124,9 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001, BASE-MAIL-001
 
 **Acceptance.**
 1. Configure a 12-month measurement period, load a year of approved hours for three variable-hour employees with one averaging over 30 hours a week, inspect the computed status for the stability period and the warning for another trending towards 30, and export the hours file for the filer.
-2. Also reconcile paid non-work credits and an overnight month boundary, retain a corrected source once, show unresolved time separately, replace rather than double-count a draft week, refuse staff/agent reads and other-cafe manager rows, and repeat configuration, inspection and download at 1440 and 390.
+2. Also reconcile paid non-work credits and an overnight month boundary, retain a corrected source once, show unresolved time separately, replace rather than double-count a draft week, refuse staff and reduced preparation-grant reads and other-cafe manager rows, and repeat configuration, inspection and download at 1440 and 390.
 
-**Evidence.** `src/lanyard/domain/aca.ts`; `src/lanyard/domain/aca-report.ts`; `src/lanyard/domain/schedule-review.ts`; `src/lanyard/ui/aca.ts`; `tests/lanyard.test.mjs`; `tests/aca-journey.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "ACA-001: a year of approved service for three variable-hour people, monthly and look-back status, paid leave, scoped projections and a traced filer export"; `tests/lanyard.test.mjs` — "ACA-001: owners configure plans and paid service, inspect source-backed status, download the filer file and see scheduler warnings at 1440 and 390"
 **Gap.** None.
 
 #### TIPS-001 — Tips pooling and reviewed payroll allocation
@@ -1148,7 +1147,7 @@ Core · target · **partial** · Cites BASE-ROLE-001
 
 #### TIPS-002 — Tip credit and minimum-wage make-up checks
 
-Core · target · **done** · Cites BASE-MAIL-001
+Core · target · **partial** · Cites BASE-MAIL-001
 
 **Requirement.** For employees paid a tipped cash wage, Lanyard checks each workweek, under the site's jurisdiction, that cash wage plus allocated or declared tips meets the applicable minimum wage and raises any shortfall as a make-up pay input. It records time on duties that do not produce tips so the employer can apply its reviewed dual-jobs treatment. Sites in jurisdictions that bar a tip credit (California, Washington, Oregon, Nevada, Minnesota, Alaska and Montana) refuse a tip-credit setup. The owner, acting as payroll administrator until TEAM-001/ACCESS-003, records each cafe's tip-credit setup from an inclusive venue date: its US state or DC, the minimum wage that applies at the cafe in USD per hour and the jobs whose work produces tips. The [retained tip credit and minimum-wage make-up checks details](docs/contract/MECHANISMS.md#tips-002) define source fields, calculations and revision behavior.
 
@@ -1157,8 +1156,8 @@ Core · target · **done** · Cites BASE-MAIL-001
 2. Record side work on a non-tipped duty and see it reported, and try to enable a tip credit at a California site (refused).
 3. Until TIPS-001 ships, the weeks' tips are CLOCK-006 cash-tip declarations; a later minimum wage checks only the weeks from its date, the six other barring states are refused too, another cafe's manager reads no row, staff are refused and the make-up pay inputs download as a recorded CSV.
 
-**Evidence.** `src/lanyard/domain/tipcredit.ts`; `src/lanyard/ui/tipcredit.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/http.ts`; `tests/lanyard.test.mjs`; `tests/tipcredit-journey.mjs`
-**Gap.** None.
+**Evidence.** `tests/lanyard.test.mjs` — "TIPS-002: a tipped server’s low-tip week raises a make-up pay input and the normal week none, side work on a non-tipped job is reported, a new minimum wage checks only later weeks, and tip-credit setups in California and the six other barring states are refused through native HTTP"; `tests/lanyard.test.mjs` — "TIPS-002: the owner is refused a California tip credit, sets one up for a Texas cafe and reads each week’s make-up pay input and non-tipped duty time with the cafe manager at 1440 and 390"
+**Gap.** Missing a low/high tip-allocation journey that feeds the TIPS-001 approved pool into the make-up check. The cited tip-credit journeys use CLOCK-006 cash declarations, show shortfall/no-shortfall, side work, effective minimum wages and barred-state refusals; approved pool allocation remains owed.
 
 #### REPORT-001 — Operational reports exports and scheduled delivery
 
@@ -1177,7 +1176,7 @@ Core · target · **partial** · Cites BASE-ROLE-001, BASE-DATA-001, BASE-MAIL-0
 
 Core · target · **partial** · Cites BASE-ROLE-001, BASE-AUDIT-001, BASE-DATA-001, BASE-MAIL-001
 
-**Requirement.** Owners produce jurisdiction-scoped reports for audits: schedule postings and changes with notice given, consent and predictability-pay records (POLICY-002), meal and rest compliance and premiums (BREAK-001), minor-hour checks (MINOR-001), sick leave accrual and use (LEAVE-003), rounding neutrality (TIME-005), tip-credit make-up (TIPS-002) and punch edits with reasons. Each traces to source revisions and is retained for the period its preset requires. CT REPORT-002 ruling, 27 October 2026: APPROVE WITH RIDERS; REPORT-002 remains PARTIAL. The live native owner may preserve the exact reviewed report with an explicit reason and affirmative owner authorization, retaining its original JSON, CSV, source revisions, integrity digests and authorization through later corrections, restart and supported installation archive restore. The [retained compliance and audit record reports details](docs/contract/MECHANISMS.md#report-002) define source fields, calculations and revision behavior.
+**Requirement.** Owners produce jurisdiction-scoped reports for audits: schedule postings and changes with notice given, consent and predictability-pay records (POLICY-002), meal and rest compliance and premiums (BREAK-001, POLICY-003), minor-hour checks (MINOR-001), sick leave accrual and use (LEAVE-003), rounding neutrality (TIME-005), tip-credit make-up (TIPS-002) and punch edits with reasons. Each traces to source revisions and is retained for the period its preset requires. CT REPORT-002 ruling, 27 October 2026: APPROVE WITH RIDERS; REPORT-002 remains PARTIAL. The live native owner may preserve the exact reviewed report with an explicit reason and affirmative owner authorization, retaining its original JSON, CSV, source revisions, integrity digests and authorization through later corrections, restart and supported installation archive restore. The [retained compliance and audit record reports details](docs/contract/MECHANISMS.md#report-002) define source fields, calculations and revision behavior.
 
 **Acceptance.**
 1. Run a quarter at a Chicago and a California site with schedule changes, premiums, missed meals, a minor and edited punches.
@@ -1197,7 +1196,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001
 **Acceptance.**
 1. With a day of hourly sales and scheduled and actual hours at two sites, compare sales per labor hour and labor percentage by interval with hand-calculated values, set a dinner target and see the exceeded intervals; missing sales hours show as incomplete, never zero.
 
-**Evidence.** `src/lanyard/domain/intervals.ts`; `src/lanyard/ui/intervals.ts`; `src/lanyard/http.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "REPORT-003: a day of hourly sales with scheduled and actual hours at two cafes gives labor percentage and sales per labor hour by interval and position matching hand figures; a dinner target flags the exceeded intervals; hours without sales are incomplete; each cafe reads only its own"
 **Gap.** None.
 
 #### DASH-001 — Manager daily operations dashboard
@@ -1210,7 +1209,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001
 1. Seed a live day with a late arrival, an open shift, three pending approvals, an overtime risk and a missed punch.
 2. The dashboard shows each with correct counts and links, a second-site manager sees only their site and resolving an item clears it.
 
-**Evidence.** `src/lanyard/domain/dashboard.ts`; `src/lanyard/ui/dashboard.ts`; `src/lanyard/http.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "DASH-001: a live Thursday with a late arrival, an open shift, three pending approvals, an overtime risk and a missed punch shows on the cafe manager’s dashboard with counts and links, labor against forecast sales and budget and the pay-period cutoff; another cafe’s manager sees only their cafe; resolving items clears them"
 **Gap.** None.
 
 #### EARN-001 — Employee hours and estimated earnings
@@ -1223,7 +1222,7 @@ Core · target · **done** · Cites BASE-MAIL-001
 1. As an employee with regular and overtime lines mid-period open the earnings view and reconcile hours and estimate to approved records, with a coworker's approved time absent.
 2. An unapproved punch shows as pending, turning estimates off hides the amount and the view links to the provider pay statement.
 
-**Evidence.** `src/lanyard/domain/earnings.ts`; `src/lanyard/ui/earnings.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` ; `tests/policy-earnings-journey.mjs` (policyEarningsApi and policyEarningsBrowser: retained rates, daily overtime, double time, period slices, correction, hidden estimates and 1440 and 390 end states)
+**Evidence.** `tests/lanyard.test.mjs` — "EARN-001: an employee reconciles their week’s scheduled, regular, overtime and pending hours and estimate to approved records; turning estimates off hides the amount; no coworker data"; `tests/lanyard.test.mjs` — "EARN-001: daily policy overtime, double time and retained rates reach only the employee estimate across period boundaries"; `tests/lanyard.test.mjs` — "EARN-001: policy estimate categories, hidden amounts and account tooltip at 1440 and 390"
 **Gap.** None.
 
 ### Connected payroll sales HR and automation
@@ -1232,12 +1231,12 @@ Core · target · **done** · Cites BASE-MAIL-001
 
 Core · target · **partial** · Cites BASE-DATA-001, BASE-MAIL-001 · Rules D-1, D-2
 
-**Requirement.** Payroll administrators map employee, employment type, job, location, PTO, sick leave, holiday, regular, overtime and double time, differentials, break premiums, scheduling premiums and tip codes before transfer. Approved hours and signed corrections carry effective policy and rate references and reconcile by period and employee. W-2 employees and supported 1099 contractor workflows are explicit; contractor exports cannot silently apply employee overtime or tax treatment. Providers without a live connector receive the same classified lines through PAY-002 templates and the named presets PAY-003 to PAY-008. Classification keeps SCHEDULE-004's work-area reconciliation and CLOCK-008's job segments: a segmented timesheet's classified lines carry the per-area payable minutes approved from its pinned area plan (each minute once, together equal to the enclosing timesheet's payable minutes) and each area's retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area difference, once, under the enclosing timesheet's single payroll claim. The [retained payroll-ready classified hours and pay codes details](docs/contract/MECHANISMS.md#pay-001) define source fields, calculations and revision behavior.
+**Requirement.** Payroll administrators map employee, employment type, job, location, PTO, sick leave, holiday, regular, overtime and double time, differentials, break premiums, scheduling premiums and tip codes before transfer. Approved hours and signed corrections carry effective policy and rate references and reconcile by period and employee. W-2 employees and supported 1099 contractor workflows are explicit; contractor exports cannot silently apply employee overtime or tax treatment. Providers without a live connector receive the same classified lines through PAY-002 templates and the named presets PAY-003 to PAY-008. Classification keeps SCHEDULE-007's work-area reconciliation and CLOCK-008's job segments: a segmented timesheet's classified lines carry the per-area payable minutes approved from its pinned area plan (each minute once, together equal to the enclosing timesheet's payable minutes) and each area's retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area difference, once, under the enclosing timesheet's single payroll claim. The [retained payroll-ready classified hours and pay codes details](docs/contract/MECHANISMS.md#pay-001) define source fields, calculations and revision behavior.
 
 **Acceptance.**
 1. Prepare a period with regular, overtime, PTO and tip lines and a late negative adjustment, resolve an unmapped pay code and review totals by W-2 and 1099 workflow.
 2. Export or transfer the exact approved revision and reconcile all classified minutes and amounts.
-3. Classify a SCHEDULE-004 counter and kitchen split shift: its lines keep each area's pinned payable minutes and retained job rate and sum once to the enclosing timesheet, and a later correction exports only the signed per-area difference under that timesheet's one claim.
+3. Classify a SCHEDULE-007 counter and kitchen split shift: its lines keep each area's pinned payable minutes and retained job rate and sum once to the enclosing timesheet, and a later correction exports only the signed per-area difference under that timesheet's one claim.
 4. Classify a CLOCK-008 counter-to-kitchen punch: each job segment's lines keep its own job, cafe, minutes and retained rate.
 5. A TIPS-002 make-up pay input exports under its own pay code.
 
@@ -1255,7 +1254,7 @@ Core · target · **done** · Cites BASE-DATA-001, BASE-MAIL-001 · Rules D-1, D
 2. Remove one mapping and see export refused; download the exported file twice and receive identical bytes.
 3. A template export keeps captured times and pays TIME-005 payable minutes.
 
-**Evidence.** `tests/paytemplates-journey.mjs` (classificationApi): custom employee and earning-code grouping over regular, overtime, double time, PTO and tip sources, exact reviewed revision and negative correction; (templatesApi): missing or changed mappings refuse export, separate workflows and formula-safe cells; (delimitedApi): TSV and custom delimiter, headers and column order, date and UTC time formats, payable-minute precision and identical hashed downloads; (workbookApi): XLSX text and numeric cells, immutable binary SHA-256 and signed corrections; (classifiedSegmentsApi): grouping by job and location; (templatesBrowser): classified Payroll review and explicit export at 1440 and 390, including CSV and XLSX labels and icon tooltips. Registered by the named PAY-001 and PAY-002 tests in `tests/lanyard.test.mjs`.
+**Evidence.** `tests/lanyard.test.mjs` — "PAY-001 and PAY-002: explicit employee workflows and mapped grouped files retain signed sources, exact revisions and once-only claims"; `tests/lanyard.test.mjs` — "PAY-002: reviewed mapped bytes export from Payroll at 1440 and 390"; `tests/lanyard.test.mjs` — "PAY-002: XLSX downloads retain literal identifiers, exact approved numbers, binary hashes and immutable signed corrections"; `tests/lanyard.test.mjs` — "PAY-002: TSV and custom-delimited files retain configured column order, dates, UTC times, payable precision and immutable downloads"
 **Gap.** None.
 
 #### PAY-003 — Paylocity import preset
@@ -1341,7 +1340,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-MAIL-001 · Rules D-1, D
 2. The overtime appears as a traced adjustment in the second period, and a biweekly group is unaffected.
 3. The employee's EARN-001 view shows the pay period and pay date from the pay schedule.
 
-**Evidence.** `src/lanyard/domain/payschedules.ts`; `src/lanyard/domain/periods.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/domain/earnings.ts`; `src/lanyard/ui/payschedules.ts`; `tests/lanyard.test.mjs`; `tests/payschedules-journey.mjs`; `tests/archive.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "PAY-009: independent pay groups recur on all four schedules; a whole Sunday workweek crossing the fifteenth carries traced once-only overtime to the second locked period and EARN-001 shows scheduled dates"; `tests/lanyard.test.mjs` — "PAY-009: the payroll administrator defines and opens a pay schedule, reviews the cross-period overtime adjustment and the employee reads the scheduled period and pay date at 1440 and 390"
 **Gap.** None.
 
 #### PAY-010 — Paychex Flex payroll import file preset
@@ -1545,12 +1544,12 @@ Core · target · **missing** · Cites BASE-ROLE-001 · Register R-20
 
 Core · target · **done** · Cites BASE-ROLE-001, BASE-INPUT-003, BASE-MAIL-001
 
-**Requirement.** Businesses whose POS has no connector enter daily or hourly sales, transactions, covers or other workload metrics per site, manually or by CSV upload with a reviewed preview, mapping and duplicate detection. Entered data is labeled manual, keeps edit history and feeds COST-001, REPORT-003 and DEMAND-001 exactly as connector data does. The owner enters and reads sales for every cafe and, until TEAM-001, a manager for their home cafe; staff and agent keys never read them. A value is one cafe, venue date (YYYY-MM-DD), hour (0–23) or the whole day, metric (sales, transactions, covers or a workload metric named in letters) and value: sales in dollars and cents, kept as whole cents, every other metric a whole number. The [retained manual and csv sales and metric entry details](docs/contract/MECHANISMS.md#sales-001) define source fields, calculations and revision behavior.
+**Requirement.** Businesses whose POS has no connector enter daily or hourly sales, transactions, covers or other workload metrics per site, manually or by CSV upload with a reviewed preview, mapping and duplicate detection. Entered data is labeled manual, keeps edit history and feeds COST-001, REPORT-003 and DEMAND-001 exactly as connector data does. The owner enters and reads sales for every cafe and, until TEAM-001, a manager for their home cafe; staff and reduced preparation grants do not include these sales reads. A value is one cafe, venue date (YYYY-MM-DD), hour (0–23) or the whole day, metric (sales, transactions, covers or a workload metric named in letters) and value: sales in dollars and cents, kept as whole cents, every other metric a whole number. The [retained manual and csv sales and metric entry details](docs/contract/MECHANISMS.md#sales-001) define source fields, calculations and revision behavior.
 
 **Acceptance.**
 1. Upload two weeks of hourly sales by CSV and enter one day manually; preview and reject a duplicate upload, correct a day and see labor percentage and sales per labor hour update with the manual label and edit history.
 
-**Evidence.** `src/lanyard/domain/sales.ts`; `src/lanyard/ui/sales.ts`; `src/lanyard/domain/dashboard.ts`; `src/lanyard/http.ts`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "SALES-001: two weeks of hourly sales by CSV and one day by hand, labelled Manual; a duplicate upload is refused at preview; a correction keeps the earlier value; labor percentage and sales per labor hour follow, on the cafe’s week and its dashboard; other cafes and staff read none"
 **Gap.** None.
 
 #### HR-001 — Willow and BambooHR roster and leave authority
@@ -1613,7 +1612,7 @@ Core · target · **done** · Cites BASE-AGENT-006, BASE-AGENT-007, BASE-ROLE-00
 3. Preference measures count shifts in AVAIL-001 preferred blocks and hours against preferred weekly hours.
 4. Measures are unchanged by FEEDBACK-001 ratings and flags.
 
-**Evidence.** `src/lanyard/domain/fairness.ts`; `src/lanyard/domain/fairness-policy.ts`; `src/lanyard/domain/fairness-measures.ts`; `src/lanyard/domain/fairness-equity.ts`; `src/lanyard/domain/fairness-optimizer.ts`; `src/lanyard/ui/fairness.ts`; `src/lanyard/ui/fairness-compare.ts`; `tests/fairness-fixture.mjs`; `tests/fairness-journey.mjs`; `tests/fairness-optimization-fixture.mjs`; `tests/fairness-optimization-journey.mjs`; `tests/lanyard.test.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "FAIR-001: eight-week source-backed preference gaps, preferred-block shifts, configurable inputs, unknown evidence, cafe authority and feedback independence through native HTTP"; `tests/lanyard.test.mjs` — "FAIR-001: a manager inspects preference gaps, downloads inputs, changes the window and sees unknown weeks at 1440 and 390"; `tests/lanyard.test.mjs` — "TRADEOFF-001: fixed-slot alternatives explain cost, fairness, coverage and unknown inputs without publishing or waiving hard constraints"; `tests/lanyard.test.mjs` — "TRADEOFF-001: a manager inspects explained alternatives, downloads facts and explicitly publishes the selected draft at 1440 and 390"
 **Gap.** None.
 
 #### AI-001 — Reviewed natural-language and image schedule preparation
@@ -1639,7 +1638,7 @@ Core · target · **done** · Cites BASE-MAIL-001
 1. Preview then authorize a rule for clean scheduled punches, process clean and exception-bearing timesheets and inspect which remain for human approval.
 2. Change a source after preview, pause the rule and verify no stale or out-of-policy approval reaches payroll.
 
-**Evidence.** `src/lanyard/domain/autorules.ts`; `src/lanyard/ui/autorules.ts`; `src/lanyard/http.ts`; `tests/lanyard.test.mjs`; `tests/autorules-workweek-journey.mjs`
+**Evidence.** `tests/lanyard.test.mjs` — "AUTO-001: the owner previews and authorizes a cafe rule that approves only clean schedule-matching punched time; exception-bearing, off-schedule, unattested, edited and managers’ time stays for a person; a stale preview is refused; a paused rule approves nothing and payroll carries only approved time"; `tests/lanyard.test.mjs` — "AUTO-001: Sunday workweeks keep 40-hour captured time eligible, hold 41 hours for human review and start a fresh Sunday independently of the prior week"; `tests/lanyard.test.mjs` — "AUTO-001: owner preview, authorization and next-workweek approval preserve the overtime hold on Payroll at 1440 and 390"
 **Gap.** None.
 
 #### LINK-001 — Scoped APIs webhooks and workflow automation
@@ -1769,7 +1768,7 @@ Core · target · **partial** · Cites BASE-DATA-002, BASE-DATA-006, BASE-MAIL-0
 1. Exercise the approved record-class retention matrix with independently expected dates, overlapping obligations, unknown applicability and two independent holds.
 2. Releasing one hold must not permit disposition while another applies.
 
-**Evidence.** `tests/lanyard.test.mjs` (PRIVACY-001: authorized former employee export, held history and explicit journal dispositions preserve employment facts): authorized scoped export, private-note exclusion, held-history refusal, journal attachment and version erasure, restricted payroll preservation and restart. `tests/privacy-journey.mjs` (privacyBrowser): erased journal text, absent file and edit controls and account tooltip at 1440 and 390. `tests/archive.test.mjs` (public CLI archive round trip): later note-erasure fence refuses an old archive; later restore retains held history and no erased note or file. `tests/photos-journey.mjs` (photoApi) and `tests/geofence-journey.mjs` (geofenceApi): employee privacy holds and longer review periods fence existing erasure doors.  `tests/audit-report-journey.mjs` (auditRetentionMatrix, inside auditApi): maintained minimum review dates, overlapping duties, unresolved applicability, independent holds and retained-copy inheritance; `tests/archive.test.mjs` (public CLI archive round trip): retained duties and independent copy holds after restore.
+**Evidence.** `tests/lanyard.test.mjs` (PRIVACY-001 / PRIVACY-002 / PRIVACY-003: authorized former employee export, held history and explicit journal dispositions preserve employment facts): authorized scoped export, private-note exclusion, held-history refusal, journal attachment and version erasure, restricted payroll preservation and restart. `tests/privacy-journey.mjs` (privacyBrowser): erased journal text, absent file and edit controls and account tooltip at 1440 and 390. `tests/archive.test.mjs` (public CLI archive round trip): later note-erasure fence refuses an old archive; later restore retains held history and no erased note or file. `tests/photos-journey.mjs` (photoApi) and `tests/geofence-journey.mjs` (geofenceApi): employee privacy holds and longer review periods fence existing erasure doors.  `tests/audit-report-journey.mjs` (auditRetentionMatrix, inside auditApi): maintained minimum review dates, overlapping duties, unresolved applicability, independent holds and retained-copy inheritance; `tests/archive.test.mjs` (public CLI archive round trip): retained duties and independent copy holds after restore.
 **Gap.** ct product workflow approval is conditional on its two source riders, now implemented and asserted in `tests/access-chat-kiosk-journey.mjs` (chatApi and kioskApi). `tests/lanyard.test.mjs` (PRIVACY-001 authorized former employee export) additionally asserts refusal without reviewed authorization, independent note and attachment holds, and absent erased text and files in saved results. Chat and logbook dispositions, import-original and connector dispositions, complete employee export coverage, and statutory minimums remain open. The public CLI archive round trip in `tests/archive.test.mjs` directly inspects restored notes, saved results and files for erased content. No automatic deletion or broader readers. **Gap — PRIVACY-001:** Six maintained minimum review presets, explicit reviewed anchors, longest overlapping duties and independent source and retained-copy holds are implemented. Complete statutory applicability and source-class coverage, required-period enforcement, complete employee-request handling; reviewed eligible disposition across local sources, retained copies and saved results; and corresponding restore fences remain unproved for this workflow. Legal applicability and provider or disconnected-copy handling require explicit review and receipts. Indefinite technical storage proves neither lawful indefinite retention nor completed employee-rights fulfillment.
 
 #### PRIVACY-002 — Employee access export and correction requests
@@ -1783,7 +1782,7 @@ Core · target · **partial** · From PRIVACY-001 · Cites BASE-DATA-002, BASE-D
 2. Fulfill a verified employee-scoped access request, record a correction without silently rewriting retained evidence.
 3. Name external copies and unsupported fulfillment explicitly.
 
-**Evidence.** `tests/lanyard.test.mjs` (PRIVACY-001: authorized former employee export, held history and explicit journal dispositions preserve employment facts): authorized scoped export, private-note exclusion, held-history refusal, journal attachment and version erasure, restricted payroll preservation and restart. `tests/privacy-journey.mjs` (privacyBrowser): erased journal text, absent file and edit controls and account tooltip at 1440 and 390. `tests/archive.test.mjs` (public CLI archive round trip): later note-erasure fence refuses an old archive; later restore retains held history and no erased note or file. `tests/photos-journey.mjs` (photoApi) and `tests/geofence-journey.mjs` (geofenceApi): employee privacy holds and longer review periods fence existing erasure doors.  `tests/audit-report-journey.mjs` (auditRetentionMatrix, inside auditApi): maintained minimum review dates, overlapping duties, unresolved applicability, independent holds and retained-copy inheritance; `tests/archive.test.mjs` (public CLI archive round trip): retained duties and independent copy holds after restore.
+**Evidence.** `tests/lanyard.test.mjs` (PRIVACY-001 / PRIVACY-002 / PRIVACY-003: authorized former employee export, held history and explicit journal dispositions preserve employment facts): authorized scoped export, private-note exclusion, held-history refusal, journal attachment and version erasure, restricted payroll preservation and restart. `tests/privacy-journey.mjs` (privacyBrowser): erased journal text, absent file and edit controls and account tooltip at 1440 and 390. `tests/archive.test.mjs` (public CLI archive round trip): later note-erasure fence refuses an old archive; later restore retains held history and no erased note or file. `tests/photos-journey.mjs` (photoApi) and `tests/geofence-journey.mjs` (geofenceApi): employee privacy holds and longer review periods fence existing erasure doors.  `tests/audit-report-journey.mjs` (auditRetentionMatrix, inside auditApi): maintained minimum review dates, overlapping duties, unresolved applicability, independent holds and retained-copy inheritance; `tests/archive.test.mjs` (public CLI archive round trip): retained duties and independent copy holds after restore.
 **Gap.** Existing owner export covers payroll and employee-visible notes. Missing complete employee/source-class access and correction fulfillment and separately reviewed statutory requests.
 
 #### PRIVACY-003 — Explicit workforce erasure and restore fences
@@ -1798,7 +1797,7 @@ Core · target · **partial** · From PRIVACY-001 · Cites BASE-DATA-002, BASE-D
 3. Refuse erasure of required or held facts, and erase eligible covered local derivatives only after separate reviewed authorization.
 4. Restore an older archive with the later fence and verify erased content remains absent.
 
-**Evidence.** `tests/lanyard.test.mjs` (PRIVACY-001: authorized former employee export, held history and explicit journal dispositions preserve employment facts): authorized scoped export, private-note exclusion, held-history refusal, journal attachment and version erasure, restricted payroll preservation and restart. `tests/privacy-journey.mjs` (privacyBrowser): erased journal text, absent file and edit controls and account tooltip at 1440 and 390. `tests/archive.test.mjs` (public CLI archive round trip): later note-erasure fence refuses an old archive; later restore retains held history and no erased note or file. `tests/photos-journey.mjs` (photoApi) and `tests/geofence-journey.mjs` (geofenceApi): employee privacy holds and longer review periods fence existing erasure doors.  `tests/audit-report-journey.mjs` (auditRetentionMatrix, inside auditApi): maintained minimum review dates, overlapping duties, unresolved applicability, independent holds and retained-copy inheritance; `tests/archive.test.mjs` (public CLI archive round trip): retained duties and independent copy holds after restore.
+**Evidence.** `tests/lanyard.test.mjs` (PRIVACY-001 / PRIVACY-002 / PRIVACY-003: authorized former employee export, held history and explicit journal dispositions preserve employment facts): authorized scoped export, private-note exclusion, held-history refusal, journal attachment and version erasure, restricted payroll preservation and restart. `tests/privacy-journey.mjs` (privacyBrowser): erased journal text, absent file and edit controls and account tooltip at 1440 and 390. `tests/archive.test.mjs` (public CLI archive round trip): later note-erasure fence refuses an old archive; later restore retains held history and no erased note or file. `tests/photos-journey.mjs` (photoApi) and `tests/geofence-journey.mjs` (geofenceApi): employee privacy holds and longer review periods fence existing erasure doors.  `tests/audit-report-journey.mjs` (auditRetentionMatrix, inside auditApi): maintained minimum review dates, overlapping duties, unresolved applicability, independent holds and retained-copy inheritance; `tests/archive.test.mjs` (public CLI archive round trip): retained duties and independent copy holds after restore.
 **Gap.** Existing journal/photo/location erasure and archive journeys cover selected doors. Missing logbook/chat/import/connector dispositions, complete retained-copy and saved-result coverage and corresponding restore fences.
 
 #### BOUNDARY-001 — Product ownership and US service boundaries

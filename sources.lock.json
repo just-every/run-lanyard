@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "7a5586a99a9b4baa9507f67acbb94a302344921f74ee0929bd6464f90890a47c",
+      "sha256": "4d4237918e871780c45e3488e218a7137f0d91b171e89acdc597c87abef3ac60",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "c134d379214dda5bc91af5f1973505a5e5dfa7010ad3ba986bdc4f3b4e9bf6ef",
+      "sha256": "37928fca18c804d1f2c8bbd7d45a4b28fc324ecfa724983919c135df9a65dc00",
       "executable": false
     },
     "DEMO.md": {
@@ -406,7 +406,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "de845e4ff09c9f4f61d92d2e833576fae5a6e9dda81f5d8f7d73c8b94dbde331",
+      "sha256": "42474c19f25f61c2e4c27a5e8722b41bb03d22fe9cbf1e59757b31242c119864",
       "executable": false
     },
     "docs/contract/COVERAGE.json": {
@@ -415,6 +415,10 @@
     },
     "docs/contract/ID-MAP.json": {
       "sha256": "ae67d3182be290197b7f984a63d4b735482348232768abc50e72c05a6a56132d",
+      "executable": false
+    },
+    "docs/contract/MECHANISMS.md": {
+      "sha256": "2e92409d4fd0fc8f3fa037baef184659a4b45ae981aa222508aab43f45096785",
       "executable": false
     },
     "docs/GETTING-STARTED.md": {
@@ -1110,7 +1114,7 @@
       "executable": false
     },
     "scripts/test-lanyard.mjs": {
-      "sha256": "1173294da8c96d5931738ba591c5d990fe188cb37a856437911db69d1936acac",
+      "sha256": "b24679cc6fae62d5a6d3f551b15d238c2e4b1a33ac6f600a452b8f93a65f65c7",
       "executable": false
     },
     "scripts/verify-app.mjs": {
@@ -4114,7 +4118,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "da2b846bd8838a37f5e110ab3b38a70e1eefc3842f6d3f0a08f49bfab459b8bd",
+      "sha256": "285f98f02f5f9c3039504536d6bcd838356a529db4290e26493fb9e650af44d3",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -4306,7 +4310,7 @@
       "executable": false
     },
     "tests/transfer-journey.mjs": {
-      "sha256": "37eda4e4f058b8ca6f96330438ec8f3ef328de874469af6976819c4f518ff958",
+      "sha256": "8e4a0b77cdc4f8c3fd94cf651a5c2c39f5496d00555fbdf76a1081d2fe7362a7",
       "executable": false
     },
     "tests/worker.ts": {

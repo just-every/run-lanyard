@@ -1871,9 +1871,9 @@ test('SCHEDULE-004: native shift handover keeps revisioned notes/checklists and 
 }))
 
 
-test('SCHEDULE-004: blocker files, immutable job-area reconciliation, labor costs and once-only split payroll with signed corrections through native HTTP',()=>run(async h=>{const {handoverApi}=await import('./shiftwork-api.mjs');await handoverApi(h)}))
+test('SCHEDULE-004 / SCHEDULE-007: blocker files, immutable job-area reconciliation, labor costs and once-only split payroll with signed corrections through native HTTP',()=>run(async h=>{const {handoverApi}=await import('./shiftwork-api.mjs');await handoverApi(h)}))
 
-test('SCHEDULE-004: managers publish counter/kitchen handovers, staff complete tasks with blocker files and managers reconcile labor and export payroll at 1440 and 390',async()=>{const {handoverBrowser}=await import('./shiftwork-browser.mjs');await handoverBrowser()})
+test('SCHEDULE-004 / SCHEDULE-007: managers publish counter/kitchen handovers, staff complete tasks with blocker files and managers reconcile labor and export payroll at 1440 and 390',async()=>{const {handoverBrowser}=await import('./shiftwork-browser.mjs');await handoverBrowser()})
 
 test('CLOCK-008: a phone job change splits the punch into qualified job segments with retained rates, refuses unqualified jobs and ineligible or off-network cafes, exports split payroll with signed per-job corrections and counts every segment toward weekly overtime through native HTTP',()=>run(async h=>{const {transferApi}=await import('./transfer-journey.mjs');await transferApi(h)}))
 
@@ -1960,7 +1960,7 @@ test('POLICY-001: preset releases require current reviewed open-period calculati
 test('EARN-001: daily policy overtime, double time and retained rates reach only the employee estimate across period boundaries',async()=>{const {policyEarningsApi}=await import('./policy-earnings-journey.mjs');await policyEarningsApi()})
 test('EARN-001: policy estimate categories, hidden amounts and account tooltip at 1440 and 390',async()=>{const {policyEarningsBrowser}=await import('./policy-earnings-journey.mjs');await policyEarningsBrowser()})
 
-test('PRIVACY-001: authorized former employee export, held history and explicit journal dispositions preserve employment facts',()=>run(async h=>{
+test('PRIVACY-001 / PRIVACY-002 / PRIVACY-003: authorized former employee export, held history and explicit journal dispositions preserve employment facts',()=>run(async h=>{
  const alex=await h.person('PrivacyAlex'),other=await h.person('PrivacyOther'),manager=await h.person('PrivacyManager','manager')
  const oldDate=new Date(Date.now()-30*86400000).toISOString().slice(0,10)
  const consent={consent:true,reason:'synthetic-lanyard-1 authorized former employee request'}
@@ -2020,7 +2020,7 @@ test('PRIVACY-001: authorized former employee export, held history and explicit 
  await h.cmd('note.save',{id:visible.id,revision:current.revision,staffId:alex.id,date:oldDate,category:'other',visibility:'employee',text:'Restore erased text'},h.owner,409)
 }))
 
-test('PRIVACY-001: erased journal content loses its file and edit controls at 1440 and 390',async()=>{const {privacyBrowser}=await import('./privacy-journey.mjs');await privacyBrowser()})
+test('PRIVACY-003: erased journal content loses its file and edit controls at 1440 and 390',async()=>{const {privacyBrowser}=await import('./privacy-journey.mjs');await privacyBrowser()})
 
 test('PAY-001 and PAY-002: explicit employee workflows and mapped grouped files retain signed sources, exact revisions and once-only claims',()=>run(async h=>{const {templatesApi}=await import('./paytemplates-journey.mjs');await templatesApi(h)}))
 test('PAY-002: reviewed mapped bytes export from Payroll at 1440 and 390',async()=>{const {templatesBrowser}=await import('./paytemplates-journey.mjs');await templatesBrowser()})
@@ -2030,19 +2030,19 @@ test('PAY-001: pinned work areas and clock-transfer jobs classify retained rates
 test('PAY-002: XLSX downloads retain literal identifiers, exact approved numbers, binary hashes and immutable signed corrections',()=>run(async h=>{const {workbookApi}=await import('./paytemplates-journey.mjs');await workbookApi(h)}))
 test('PAY-002: TSV and custom-delimited files retain configured column order, dates, UTC times, payable precision and immutable downloads',async()=>{const {delimitedApi}=await import('./paytemplates-journey.mjs');for(const format of ['tsv','delimited'])await run(h=>delimitedApi(h,format))})
 
-test('POLICY-001: adjacent cafe captures retain one break obligation without changing historical releases',async()=>{const {policyAdjacentApi}=await import('./policy-adjacent-journey.mjs');await policyAdjacentApi()})
+test('POLICY-003: adjacent cafe captures retain one break obligation without changing historical releases',async()=>{const {policyAdjacentApi}=await import('./policy-adjacent-journey.mjs');await policyAdjacentApi()})
 
 test('POLICY-001: Settings release preview and reviewed application at 1440 and 390',async()=>{const {policySettingsBrowser}=await import('./policy-settings-journey.mjs');await policySettingsBrowser()})
 
-test('POLICY-001: elected alternative workweeks require current evidence and reviewed recalculation',async()=>{const {policyAlternateApi}=await import('./policy-alternate-journey.mjs');await policyAlternateApi()})
-test('POLICY-001: elected days, extra workdays and unknown shortening aggregate across cafes',async()=>{const {policyAlternateClassificationApi}=await import('./policy-alternate-journey.mjs');await policyAlternateClassificationApi()})
+test('POLICY-004: elected alternative workweeks require current evidence and reviewed recalculation',async()=>{const {policyAlternateApi}=await import('./policy-alternate-journey.mjs');await policyAlternateApi()})
+test('POLICY-004: elected days, extra workdays and unknown shortening aggregate across cafes',async()=>{const {policyAlternateClassificationApi}=await import('./policy-alternate-journey.mjs');await policyAlternateClassificationApi()})
 
-test('POLICY-001: employer-reviewed applicability retains federal, state and cross-cafe obligations separately',async()=>{const {policyCoverageApi}=await import('./policy-coverage-journey.mjs');await policyCoverageApi()})
+test('POLICY-004: employer-reviewed applicability retains federal, state and cross-cafe obligations separately',async()=>{const {policyCoverageApi}=await import('./policy-coverage-journey.mjs');await policyCoverageApi()})
 
-test('POLICY-001: Alaska approved flex and Nevada mutual schedules require current evidence and reviewed adoption',async()=>{const {policyRegionalConfigurationApi}=await import('./policy-regional-journey.mjs');await policyRegionalConfigurationApi()})
-test('POLICY-001: regional alternate workweeks preserve enrollment, overtime and unresolved deviations across cafes',async()=>{const {policyRegionalClassificationApi}=await import('./policy-regional-journey.mjs');await policyRegionalClassificationApi()})
+test('POLICY-004: Alaska approved flex and Nevada mutual schedules require current evidence and reviewed adoption',async()=>{const {policyRegionalConfigurationApi}=await import('./policy-regional-journey.mjs');await policyRegionalConfigurationApi()})
+test('POLICY-004: regional alternate workweeks preserve enrollment, overtime and unresolved deviations across cafes',async()=>{const {policyRegionalClassificationApi}=await import('./policy-regional-journey.mjs');await policyRegionalClassificationApi()})
 
-test('POLICY-001: alternate schedule evidence, recalculation and application through Settings at 1440 and 390',async()=>{const {policyAlternateSettingsBrowser}=await import('./policy-alternate-settings-journey.mjs');await policyAlternateSettingsBrowser()})
+test('POLICY-004: alternate schedule evidence, recalculation and application through Settings at 1440 and 390',async()=>{const {policyAlternateSettingsBrowser}=await import('./policy-alternate-settings-journey.mjs');await policyAlternateSettingsBrowser()})
 
 test('POLICY-001: California employer workdays require current reviewed adoption and preserve closed history',async()=>{const {policyWorkdayApi}=await import('./policy-workday-journey.mjs');await policyWorkdayApi()})
 
@@ -2052,10 +2052,10 @@ test('POLICY-001: California workday recuts retain approved rates and exact whol
 
 test('POLICY-001: California employer workday boundaries follow venue daylight-saving transitions',async()=>{const {policyWorkdayDstApi}=await import('./policy-workday-journey.mjs');await policyWorkdayDstApi()})
 
-test('POLICY-001: California workday rests combine split cafe service and retain unknown boundary timing',async()=>{const {policyRestDaysApi}=await import('./policy-rest-days-journey.mjs');await policyRestDaysApi()})
+test('POLICY-003: California workday rests combine split cafe service and retain unknown boundary timing',async()=>{const {policyRestDaysApi}=await import('./policy-rest-days-journey.mjs');await policyRestDaysApi()})
 
-test('POLICY-001: Washington reviewed normal workdays govern additional meals without changing historical rules',async()=>{const {policyWashingtonApi}=await import('./policy-washington-journey.mjs');await policyWashingtonApi()})
-test('POLICY-001: Washington normal workday review and application through Settings at 1440 and 390',async()=>{const {policyWashingtonBrowser}=await import('./policy-washington-journey.mjs');await policyWashingtonBrowser()})
+test('POLICY-003: Washington reviewed normal workdays govern additional meals without changing historical rules',async()=>{const {policyWashingtonApi}=await import('./policy-washington-journey.mjs');await policyWashingtonApi()})
+test('POLICY-003: Washington normal workday review and application through Settings at 1440 and 390',async()=>{const {policyWashingtonBrowser}=await import('./policy-washington-journey.mjs');await policyWashingtonBrowser()})
 
 test('CHAT-001: reviewed group removal immediately fences history, files and commands without granting readers',async()=>{const {chatMembershipApi}=await import('./chat-membership-journey.mjs');await chatMembershipApi()})
 test('CHAT-001: listed owner removes a group member through the native form at 1440 and 390',async()=>{const {chatMembershipBrowser}=await import('./chat-membership-journey.mjs');await chatMembershipBrowser()})
@@ -2078,7 +2078,7 @@ test('TEAM-001: organization Settings creates two locations and a shared employe
 test('ACCESS-003: organization scopes and editable role defaults separate scheduling time approval and payroll authority',()=>run(async h=>{const {organizationAccessApi}=await import('./organization-journey.mjs');await organizationAccessApi(h)}))
 
 test('LEAVE-003: employer coverage refuses unpaid and undersized tiers and preserves private effective reviews',async()=>{const {sickEmployerCoverage}=await import('./sick-journey.mjs');await sickEmployerCoverage()})
-test('LEAVE-003: Oregon donations need donor consent and owner approval and retain balanced sources without creating pay',async()=>{const {sickDonations}=await import('./sick-journey.mjs');await sickDonations()})
+test('LEAVE-006: Oregon donations need donor consent and owner approval and retain balanced sources without creating pay',async()=>{const {sickDonations}=await import('./sick-journey.mjs');await sickDonations()})
 test('REPORT-001: filtered native reports and CSV reconcile approved revisions across two sites and retain incomplete offline sources without leaking wages',async()=>{const {reportsApi}=await import('./reports-journey.mjs');await reportsApi()})
 
 test('REPORT-002: audit records reconcile retained sources, preserve unknown coverage, refuse foreign readers and export without changing sources',()=>run(async h=>{const {auditApi}=await import('./audit-report-journey.mjs');await auditApi(h)},{now:'2026-10-27T12:00:00Z'}))

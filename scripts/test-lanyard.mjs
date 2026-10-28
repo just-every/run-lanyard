@@ -1,7 +1,7 @@
 // Keep the original full product command available; CI partitions only its
 // registrations, using complementary filters on the same public-door file.
 import {spawnSync} from 'node:child_process'
-const rules='POLICY-|PAYRULE-|PAY-009|MINOR-001|LEAVE-003|CLOCK-001|CLOCK-005|ACCESS-003|CHAT-001|CLOCK-002'
+const rules='POLICY-|PAYRULE-|PAY-009|MINOR-001|LEAVE-00[3-6]|CLOCK-001|CLOCK-005|ACCESS-003|CHAT-001|CLOCK-002'
 const planning='SCHEDULE-|COVER-|AVAIL-|FAIR-|TRADEOFF-|DEMAND-|LEARN-|ACA-'
 const shard=process.argv[2]
 const filters={

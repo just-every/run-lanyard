@@ -386,7 +386,7 @@ The donor may withdraw before approval.
 
 No automatic transfer, reversal or deletion occurs.
 
-This conservative donation consent and approval default awaits ct approval.
+RL-103 resolves this donation boundary; LEAVE-006 carries it without promotion.
 
 San Francisco also exposes organ or tissue donation as a permitted purpose. ct policy ruling (27 October 2026): APPROVE WITH RIDERS; LEAVE-003 remains PARTIAL.
 
@@ -750,7 +750,7 @@ Owner review adds a reason without modifying captured facts.
 
 An owner can hold a receipt and explicitly erase its coordinates after its retained policy period; no automatic deletion runs, and erasure fences older archives while retaining punch facts and flags.
 
-This conservative default awaits ct approval; TEAM-001, ACCESS-003, TIME-009 and PRIVACY-001 inherit approval before extending readers or dispositions.
+RL-102 resolves this location boundary. TEAM-001/ACCESS-003 still owe scoped readers; PRIVACY-001 to PRIVACY-003 govern dispositions.
 
 The native browser clock requests one fresh position only after notice acknowledgment and explicit consent at clock-in or clock-out; opening the clock, breaks, transfers and retries never request a position.
 
@@ -874,7 +874,7 @@ A clocked-in employee switches job (for example server to bartender) or, where p
 
 Each segment keeps its own job, site, rate and pay codes, overtime still aggregates across the day and week, and a transfer to a job the person is not qualified for is refused.
 
-Transfers keep SCHEDULE-004's work-area reconciliation: on a punch whose shift has a pinned area plan, transfer segments and areas count each payable minute once within the enclosing timesheet, each segment keeps its retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area difference, once, under the enclosing timesheet's single payroll claim.
+Transfers keep SCHEDULE-007's work-area reconciliation: on a punch whose shift has a pinned area plan, transfer segments and areas count each payable minute once within the enclosing timesheet, each segment keeps its retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area difference, once, under the enclosing timesheet's single payroll claim.
 
 Today the phone clock's **Change job** (`clock.transfer`: commandId, capturedAt, job and optional cafe) records the change on the person's own open punch through CLOCK-002's encrypted outbox under TIME-001's command identity, after the clock-in, the last change and any finished break, never during a break or after a TIME-007 provisional close.
 
@@ -932,7 +932,7 @@ Confirming the meal deducts it and records the answer; reporting it missed or in
 
 Excepted timesheets wait for a manager's single approval and TIME-008 bulk approval skips them.
 
-Jurisdiction presets that require recorded meal periods are POLICY-001's, which refuse this setting there.
+Jurisdiction presets that require recorded meal periods are POLICY-003's, which refuse this setting there.
 
 ## TIME-003
 
@@ -1206,7 +1206,7 @@ Approved hours split into differential segments, each with its pay code (PAY-001
 
 Differentials appear in the employee's EARN-001 estimate.
 
-Differentials subdivide SCHEDULE-004's reconciled work areas: they apply within each area's payable minutes approved from its pinned area plan (each minute once), price from that area's retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area, per-code difference, once, under the enclosing timesheet's single payroll claim.
+Differentials subdivide SCHEDULE-007's reconciled work areas: they apply within each area's payable minutes approved from its pinned area plan (each minute once), price from that area's retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area, per-code difference, once, under the enclosing timesheet's single payroll claim.
 
 The owner acts for payroll administration until TEAM-001/ACCESS-003.
 
@@ -1232,7 +1232,7 @@ Scheduling shows holiday cost and approved holiday hours carry their own pay cod
 
 Holiday premiums appear in the employee's EARN-001 estimate.
 
-Holiday premiums keep SCHEDULE-004's work-area reconciliation: on a segmented timesheet they apply within each area's payable minutes approved from its pinned area plan (each minute once) at that area's retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area, per-code difference, once, under the enclosing timesheet's single payroll claim.
+Holiday premiums keep SCHEDULE-007's work-area reconciliation: on a segmented timesheet they apply within each area's payable minutes approved from its pinned area plan (each minute once) at that area's retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area, per-code difference, once, under the enclosing timesheet's single payroll claim.
 
 The owner is the payroll administrator until TEAM-001/ACCESS-003 supply that role.
 
@@ -1266,7 +1266,7 @@ Premiums are reviewed payroll inputs, not final pay calculations.
 
 These premiums appear in the employee's EARN-001 estimate.
 
-Premium inputs keep SCHEDULE-004's work-area reconciliation: on a segmented timesheet they read the per-area payable minutes approved from its pinned area plan and each area's retained effective-dated job-rate basis without re-splitting, repricing or counting a minute twice, and a later correction exports only the signed difference per job, area and code, once, under the enclosing timesheet's single payroll claim.
+Premium inputs keep SCHEDULE-007's work-area reconciliation: on a segmented timesheet they read the per-area payable minutes approved from its pinned area plan and each area's retained effective-dated job-rate basis without re-splitting, repricing or counting a minute twice, and a later correction exports only the signed difference per job, area and code, once, under the enclosing timesheet's single payroll claim.
 
 The owner acts as payroll administrator until TEAM-001 adds that role; the owner or the person's cafe manager reviews inputs, never their own.
 
@@ -1352,7 +1352,7 @@ That minimum wage is employer-entered and at least the federal $7.25; Lanyard ke
 
 A later version starts on its own date, one saved for the same date replaces it, and each earlier week keeps the version in force on its dates; a setup in one of the seven barring states is refused and nothing is saved.
 
-Each PAY-009 workweek, Monday to Sunday on the venue calendar for unassigned people, a person with approved minutes in a tipped job at a cafe whose setup is in force is checked: each payable minute counts on its venue date under PEOPLE-002's allocation and in its SCHEDULE-004 or CLOCK-008 job segment; the minimum wage due and the cash wage are those tipped minutes at the cafe's minimum wage and at their retained job rates, each rounded half up to the cent per venue date and segment; tips are the CLOCK-006 cash tips declared on those punches, counted in the workweek of the punch's first tipped minute.
+Each PAY-009 workweek, Monday to Sunday on the venue calendar for unassigned people, a person with approved minutes in a tipped job at a cafe whose setup is in force is checked: each payable minute counts on its venue date under PEOPLE-002's allocation and in its SCHEDULE-007 or CLOCK-008 job segment; the minimum wage due and the cash wage are those tipped minutes at the cafe's minimum wage and at their retained job rates, each rounded half up to the cent per venue date and segment; tips are the CLOCK-006 cash tips declared on those punches, counted in the workweek of the punch's first tipped minute.
 
 A positive difference of the minimum wage due over cash wage plus tips is the make-up pay input, and a tipped minute with no rate on file leaves the week unchecked and says so.
 
@@ -1462,7 +1462,7 @@ W-2 employees and supported 1099 contractor workflows are explicit; contractor e
 
 Providers without a live connector receive the same classified lines through PAY-002 templates and the named presets PAY-003 to PAY-008.
 
-Classification keeps SCHEDULE-004's work-area reconciliation and CLOCK-008's job segments: a segmented timesheet's classified lines carry the per-area payable minutes approved from its pinned area plan (each minute once, together equal to the enclosing timesheet's payable minutes) and each area's retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area difference, once, under the enclosing timesheet's single payroll claim.
+Classification keeps SCHEDULE-007's work-area reconciliation and CLOCK-008's job segments: a segmented timesheet's classified lines carry the per-area payable minutes approved from its pinned area plan (each minute once, together equal to the enclosing timesheet's payable minutes) and each area's retained effective-dated job-rate basis, and a later correction exports only the signed per-job, per-area difference, once, under the enclosing timesheet's single payroll claim.
 
 Each CLOCK-008 job segment's overtime and other pay codes are classified under that segment's own job, cafe and retained rate.
 

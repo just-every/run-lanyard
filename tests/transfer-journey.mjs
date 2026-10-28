@@ -7,7 +7,7 @@ import {days,local} from './workforce-journey.mjs'
 import {handoverFixture,pin} from './shiftwork-fixture.mjs'
 const id=()=>crypto.randomUUID(),after=(iso,minutes)=>new Date(Date.parse(iso)+minutes*60000).toISOString()
 
-// CLOCK-008 through native HTTP: Alex works the counter shift (with SCHEDULE-004's pinned counter/kitchen plan),
+// CLOCK-008 through native HTTP: Alex works the counter shift (with SCHEDULE-007's pinned counter/kitchen plan),
 // changes to the kitchen three hours in, then on Tuesday moves to another cafe under its network rule.
 export async function transferApi(h) {
  const f=await handoverFixture(h),{alex,manager,counter,kitchen,week,start,end,shift}=f
