@@ -2119,3 +2119,7 @@ Only a human (the owner, or that cafe's manager until TEAM-001) approves, declin
 Every recording, decision and revert is audited with actor, role and reason, and no proposal changes an assumption before human approval.
 
 Offer-timing and objective-weight proposals, FAIR-001 attribution and connected-POS freshness are not built.
+
+## PAY-011
+
+The provider IIF time layout uses the !TIMEACT header block and one TIMEACT row per employee, date, payroll item, customer:job and service item. Employee, payroll item, class and job mappings remain required; an unmapped item refuses the export.

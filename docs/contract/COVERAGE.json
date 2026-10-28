@@ -3389,10 +3389,8 @@
       "file": "CONTRACT.md",
       "line": 87,
       "text": "A manager moves or reassigns one shift within its week (`shift.change`) or cancels it (`shift.cancel`), each with a reason, before it starts and while it is not waiting for call-out cover; that publishes a new revision of the week in which only that shift differs, the changed shift's ROSTER-003 confirmation starts empty, and open swaps and call-out offers on the unchanged shifts follow them.",
-      "to": "clause",
-      "ids": [
-        "SCHEDULE-006"
-      ]
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
     },
     {
       "file": "CONTRACT.md",
@@ -4387,9 +4385,9 @@
       "file": "CONTRACT.md",
       "line": 106,
       "text": "The conservative removal and voluntary-departure policy approved with riders by ct on 26 October 2026 applies as stated in the synchronized membership policy below.",
-      "to": "clause",
+      "to": "rulings",
       "ids": [
-        "CHAT-001"
+        "RL-6"
       ]
     },
     {
@@ -5394,10 +5392,8 @@
       "file": "CONTRACT.md",
       "line": 128,
       "text": "The board is read as of an instant (now on Time; any instant through `GET /api/lanyard/attendance?asOf=&site=`) and lists the published shifts that start on that venue date or are running then, at every cafe for the owner and, until TEAM-001 brings site scopes, at a manager's home cafe.",
-      "to": "clause",
-      "ids": [
-        "CLOCK-004"
-      ]
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
     },
     {
       "file": "CONTRACT.md",
@@ -10119,10 +10115,8 @@
       "file": "CONTRACT.md",
       "line": 208,
       "text": "QuickBooks Desktop Payroll Enhanced and Assisted customers get a maintained export-only preset that writes an IIF time-activity file (the `!TIMEACT` header block and one `TIMEACT` row per employee, date, payroll item, customer:job and service item) for import into QuickBooks Desktop's timesheets, with employee name, payroll-item, class and job mapping.",
-      "to": "clause",
-      "ids": [
-        "PAY-011"
-      ]
+      "to": "docs",
+      "path": "docs/contract/MECHANISMS.md"
     },
     {
       "file": "CONTRACT.md",

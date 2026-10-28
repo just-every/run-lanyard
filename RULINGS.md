@@ -144,3 +144,9 @@ Sources:
 Observed clauses and complete Status Gaps:
 
 - MINOR-001: CONTRACT.md:83; Status at line 392. Gap: Complete maintained state-rule coverage remains unproved: school-plus-work limits beyond Illinois, additional next-day, school-release, supervision, consent and variance variants, and authority-specific permit conditions. Owner-only document reviews retain employer assertions, not issuing-authority verification or live adult presence. ct review of the new owner-recorded consent, release, supervision and special-variance semantics is pending.
+
+### RL-6 — Operational conversation membership
+
+Date: 2026-10-26 · Ruler: ct · Governs: CHAT-001
+
+The conservative removal and voluntary-departure policy approved with riders by ct on 26 October 2026 applies to synchronized membership. It grants no additional readership and does not complete CHAT-001. Current membership governs retained history, files, search and commands; removing or transferring a member grants nobody else access.
