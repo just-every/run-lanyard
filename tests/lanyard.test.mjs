@@ -2094,3 +2094,6 @@ test('REPORT-002: audit records reconcile retained sources, preserve unknown cov
 test('REPORT-002: native audit filters, source links and download remain usable on desktop with phone proof',async()=>{const {auditBrowser}=await import('./audit-report-journey.mjs');await auditBrowser()})
 
 test('MOBILE-001 MOBILE-002: phone shift change, offline unsent state, current attendance, reasoned edits and scoped exact-revision approvals',async()=>{const {mobileJourney}=await import('./clock-offline-journey.mjs');await mobileJourney()})
+
+test('CAL-001: private calendar lifecycle preserves published event identities, DST instants and cancellations with live personal authority',async()=>{const {calendarApi}=await import('./calendar-journey.mjs');await calendarApi()})
+test('CAL-001: employee calendar Settings issue, replace, stale refusal and revoke through the browser',async()=>{const {calendarBrowser}=await import('./calendar-journey.mjs');await calendarBrowser()})

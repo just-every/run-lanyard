@@ -1,3 +1,4 @@
+import {calendarCommand,calendarFeed,calendarStatus} from './calendar'
 import {reportDeliveryCsv} from './report-delivery'
 import {auditRestricted} from './domain/audit-access'
 import {retainedAuditRead} from './domain/audit-retention'
@@ -50,6 +51,7 @@ async function state(request:Request,env: Bindings, who: Actor, withChat=false) 
 }
 
 async function execute(request: Request, env: Bindings, who: Actor, name: string, input: Record<string, unknown>) {
+  if(name.startsWith('calendar.'))return calendarCommand(env,who,name,input)
   if(name==='kiosk.pin')return kioskPin(env,who,input)
   if(name==='kiosk.enroll'||name==='kiosk.revoke')return kioskAdmin(env,who,name,input)
   if (name.startsWith('agent.') || name === 'staff.invite') return credentialCommand(request, env, who, name, input)
@@ -156,13 +158,15 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     if (request.method === 'POST' && !isAgent && (request.headers.get('origin') !== env.AUTH_ORIGIN || request.headers.get('sec-fetch-site') === 'cross-site')) fail('Cross-site request refused', 403)
     // The schedule was called the roster; old links keep working.
     if (path === '/app/roster' && request.method === 'GET') return new Response(null, { status: 301, headers: { ...headers, location: '/app/schedule' + url.search } })
+    const feed=path.match(/^\/api\/lanyard\/calendar\/([^/]+)\.ics$/)
+    if(feed&&request.method==='GET')return calendarFeed(request,env,feed[1])
     const kiosk=await kioskResponse(request,env);if(kiosk)return kiosk
     who = await principal(request, env, isAgent)
     auditOnly=auditRestricted(await load(env.DB),who)
     if(auditOnly&&(request.method!=='GET'||!['/app/audit','/api/lanyard/audit','/api/lanyard/audit.csv'].includes(path)))fail('Audit authority grants only report reads and downloads',403)
     if (request.method === 'GET') {
       const custom=await customMode(env,who)
-      if(custom&&!auditOnly&&!['/api/lanyard/intervals','/app/intervals','/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path)&&!/^\/api\/lanyard\/batches\/[\w-]+\.(csv|tsv|txt|xlsx|iif)$/.test(path))fail('This read is unavailable to custom levels',403)
+      if(custom&&!auditOnly&&!['/api/lanyard/intervals','/app/intervals','/app','/app/schedule','/app/time','/app/settings','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path)&&!/^\/api\/lanyard\/batches\/[\w-]+\.(csv|tsv|txt|xlsx|iif)$/.test(path))fail('This read is unavailable to custom levels',403)
       const retainedAudit=path.match(/^\/api\/lanyard\/audit-packets\/([\w-]+)(\.csv)?$/)
       if(retainedAudit){
        const packet=await retainedAuditRead(env.DB,who,retainedAudit[1],Boolean(retainedAudit[2]))
@@ -195,8 +199,10 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if(aiImage){const image=aiSource(await load(env.DB),who,aiImage[1]),binary=atob(image.data),bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));return new Response(bytes,{headers:{...headers,'content-type':image.type,'content-disposition':`inline; filename="${image.name.replace(/[^\w. -]/g,'_')}"`}})}
       if(path==='/api/lanyard/access')return json(await customAccessRead(env.DB,who))
       if(path==='/app/access')return renderApp(await state(request,env,who),path,{result:{access:await customAccessRead(env.DB,who)}})
+      if(path==='/api/lanyard/calendar'){if(url.search)fail('Calendar reads are personal',400);return json(await calendarStatus(env,who))}
       if (pages.has(path)) {
         const view:any=await state(request,env,who)
+        if(path==='/app/settings'&&who.staffId)view.calendar=await calendarStatus(env,who)
         if(path==='/app/schedule'&&!custom&&['owner','manager'].includes(who.role)) {
           const {weekModel}=await import('./ui/week'),w=weekModel(view,Date.now(),url.searchParams,true)
           const site=who.role==='manager'?view.staff.find((p:any)=>p.id===view.actor.staffId)?.site??'':w.site
@@ -290,6 +296,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         const result = await execute(request, env, who, name, input), { token, ...shown } = result as Record<string, unknown>
         if(name.startsWith('report.'))return new Response(null,{status:303,headers:{...headers,location:back}})
         if(name==='kiosk.enroll'){const response=new Response(null,{status:303,headers:{...headers,location:'/app/kiosk'}});response.headers.append('set-cookie',String((result as any).cookie));return response}
+        if(name.startsWith('calendar.')){const view:any=await state(request,env,who);view.calendar=await calendarStatus(env,who);return renderApp(view,back,{message:'Calendar saved.',result:{calendar:result}})}
         let displayed:any=name === 'import.preview' || name === 'sales.preview' ? { ...shown, csv: input.csv, mapping: input.mapping, site: input.site } : name.startsWith('clockbrowser.') ? shown : result
         if(name==='policy.worker.save') displayed={workerInput:input}
         if(name==='policy.worker.preview') displayed={workerInput:input,workerPreview:{review:(result as any).result??result,input}}
@@ -322,7 +329,9 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     const status = Number((error as any)?.status) || 500
     const message = status < 500 ? (error as Error).message : 'Could not save this change. Refresh and try again.'
     if (path === '/app/action' && who && !auditOnly) {
-      const page=await renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message, ...((policyInput||workerInput)?{result:{policyInput,workerInput}}:{}) })
+      const errorView:any=await state(request,env,who,back.startsWith('/app/chat'))
+      if(url.searchParams.get('name')?.startsWith('calendar.')&&who.staffId)errorView.calendar=await calendarStatus(env,who)
+      const page=await renderApp(errorView, back, { error: message, ...((policyInput||workerInput)?{result:{policyInput,workerInput}}:{}) })
       return url.searchParams.get('name')?.startsWith('report.')?new Response(page.body,{status,headers:page.headers}):page
     }
     if (pages.has(path) && status === 401) return new Response(null, { status: 303, headers: { ...headers, location: '/signin?returnTo=' + encodeURIComponent(path) } })
