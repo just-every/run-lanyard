@@ -10,6 +10,7 @@ export function payrollInputCommand(c:Context,name:string,p:Record<string,any>){
  need(c.a.role==='owner','Only the payroll administrator (the owner) approves payroll inputs',403)
  keys(p,['id','revision','staffId','date','kind','minutes','amountCents','reference','reason'])
  const old=p.id?get(c.s,'payinputs',p.id):undefined;if(old)exact(old,p)
+ need(!old?.tipPoolId,'Correct a pool allocation through its reviewed tip pool',409)
  const person=staff(c,p.staffId),on=date(p.date,'earning date');need(['PTO','tips'].includes(p.kind),'Choose PTO or tips')
  if(old)need(old.staffId===person.id&&old.date===on&&old.kind===p.kind,'Correct the original person, date and earning kind',409)
  const minutes=integer(p.minutes,'paid non-work minutes',0,1440),amountCents=integer(p.amountCents,'approved USD cents',0,99999999)
