@@ -103,6 +103,10 @@ function sitesFor(s:State,name:string,p:Record<string,any>):string[]{
 }
 /** Restricted delegates enter only implemented public doors. Unknown administrative commands deny. */
 export function authorizeCommand(c:Context,name:string,p:Record<string,any>){
+ if(c.a.role==='manager'&&!restricted(c.s,c.a)&&['time.prepare','time.approve','time.edit','time.return','time.resolve'].includes(name)){
+  const sites=sitesFor(c.s,name,p)
+  need(sites.length&&sites.every(site=>allowed(c.s,c.a,commandPermissions[name],site)),'Only a manager of this cafe can review time',403)
+ }
  if(!restricted(c.s,c.a)||name.startsWith('access.')||name.startsWith('chat.'))return
  if(personal.has(name)){if(p.staffId)need(p.staffId===c.a.staffId,'Only your own record',403);c.a={...c.a,nativeRole:c.a.role,role:'staff'};return}
  const permission=commandPermissions[name];need(permission,'This command is unavailable to custom levels',403)

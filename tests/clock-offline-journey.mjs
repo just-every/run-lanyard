@@ -164,3 +164,130 @@ export async function offlineJourney() {
  } finally {await browser.close();await h.close()}
 }
 if(process.argv[1]===new URL(import.meta.url).pathname)await offlineJourney()
+
+// MOBILE-001 and MOBILE-002: one phone workflow through current native-session doors.
+export async function mobileJourney() {
+ const initial='2026-10-28T16:00:00Z',h=await harness({now:initial})
+ const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
+ let now=initial,context
+ const pin=r=>({id:r.id,revision:r.revision})
+ try {
+  await h.cmd('settings.save',{timezone:'UTC'})
+  const people=[]
+  for(let n=1;n<=7;n++)people.push(await h.person(`synthetic-lanyard-${n}`,n===6?'manager':'staff'))
+  const [alex,ben,cy,dee,eve,manager,foreign]=people
+  for(const p of people)await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site:p===foreign?'Mission':'Ocean Beach',position:'Counter'})
+  for(const p of [alex,ben,foreign])await h.cmd('availability.save',{staffId:p.id,start:'2026-10-26T00:00:00Z',end:'2026-11-02T00:00:00Z'})
+  const draft=await h.cmd('roster.prepare',{week:'2026-10-26',shifts:[alex,foreign].map(p=>({staffId:p.id,site:p===foreign?'Mission':'Ocean Beach',start:'2026-10-28T17:00:00Z',end:'2026-10-28T20:00:00Z',breakMinutes:0}))})
+  assert.deepEqual(draft.conflicts,[]);await h.cmd('roster.publish',pin(draft))
+  await h.cmd('attendrule.save',{site:'Ocean Beach',graceMinutes:5,noShowMinutes:30})
+  const sheets=[]
+  for(const p of [alex,cy,dee,eve,foreign])sheets.push(await h.cmd('time.prepare',{staffId:p.id,start:'2026-10-26T14:00:00Z',end:'2026-10-26T16:00:00Z',breakMinutes:0,reason:'Recorded opening work'}))
+  const [clean,edit,bulk,stale,foreignTime]=sheets
+  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+  context=await browser.newContext({viewport:{width:390,height:1000}})
+  let holdEdit,releaseEdit,dropEdit=false,editRequests=0
+  await context.route('**/*',async route=>{
+   const request=route.request(),path=new URL(request.url()).pathname
+   if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js'))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}
+   if(path==='/app/action'&&request.url().includes('name=time.edit')){
+    editRequests++
+    if(holdEdit)await holdEdit
+    if(dropEdit){await route.fetch({headers:{...request.headers(),'x-test-now':String(Date.parse(now))}});return route.abort('internetdisconnected')}
+   }
+   await route.continue({headers:{...request.headers(),'x-test-now':String(Date.parse(now))}})
+  })
+  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message))
+  const sign=async p=>{await context.clearCookies();const [name,...value]=p.cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])}
+  const open=async path=>{await page.goto(h.origin+path,{waitUntil:'networkidle'});await page.clock.setFixedTime(new Date(now))}
+  const saved=async()=>{await page.locator('.notice[role=status]').filter({hasText:'Saved.'}).waitFor();assert.equal(await page.locator('.notice').evaluate(n=>n===document.activeElement),true)}
+  const screens=async label=>{
+   if(!process.env.MOBILE_SCREENS)return
+   await mkdir(process.env.MOBILE_SCREENS,{recursive:true})
+   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.screenshot({path:join(process.env.MOBILE_SCREENS,`${label}-${width}.png`),fullPage:true})}
+   await page.setViewportSize({width:390,height:1000})
+  }
+  await sign(alex);await open('/app/schedule?week=2026-10-26&day=wed')
+  await page.keyboard.press('Tab');assert.equal(await page.getByRole('link',{name:'Skip to content'}).evaluate(n=>n===document.activeElement),true)
+  await page.keyboard.press('Enter');assert.equal(await page.locator('#main').evaluate(n=>n===document.activeElement),true)
+  await page.getByText('Swap one of your shifts',{exact:true}).click()
+  const propose=page.locator('form[action*="name=swap.propose"]')
+  await propose.locator('[name=to]').selectOption(ben.id);await propose.getByLabel('Message (optional)').fill('Training cover')
+  await context.setOffline(true);await propose.getByRole('button',{name:'Propose swap'}).click()
+  await propose.getByRole('status').filter({hasText:'Offline. Not sent.'}).waitFor()
+  assert.equal(await propose.getByLabel('Message (optional)').inputValue(),'Training cover')
+  assert.equal((await h.state()).swaps.length,0)
+  await screens('employee-unsent')
+  await context.setOffline(false);await propose.getByRole('button',{name:'Propose swap'}).click();await saved()
+  await sign(ben);await open('/app/schedule?week=2026-10-26&day=wed');await page.getByRole('button',{name:'Agree',exact:true}).click();await saved()
+  await sign(manager);await open('/app/schedule?week=2026-10-26&day=wed')
+  await page.getByRole('button',{name:'Approve swap',exact:true}).click();await saved()
+  assert.equal((await h.state()).swaps[0].status,'approved')
+  await sign(ben);await open('/app/schedule?week=2026-10-26&day=wed')
+  const shift=page.locator('.wk-cell[data-day=wed] details.shift').first()
+  await shift.locator('summary').click();await shift.getByText('Confirmed ✓',{exact:true}).waitFor()
+  const current=(await h.state(ben.cookie)).shifts.find(x=>x.status==='published')
+  assert.equal(current.staffId,ben.id);assert.ok(current.confirmedAt)
+  now='2026-10-28T17:15:00Z'
+  await sign(manager);await open('/app/time?week=2026-10-26')
+  await page.locator('#attendance li').filter({hasText:ben.name}).filter({hasText:'Late'}).waitFor()
+  assert.ok(!(await page.locator('#attendance').innerText()).includes(foreign.name))
+  assert.ok(!(await page.locator('#approve').innerHTML()).includes(foreignTime.id))
+  const foreignBefore=await h.state()
+  for(const [name,input] of [['time.approve',pin(foreignTime)],['time.edit',{...pin(foreignTime),start:foreignTime.start,end:foreignTime.end,breakMinutes:0,reason:'Outside scope'}],['time.prepare',{staffId:foreign.id,start:'2026-10-27T14:00:00Z',end:'2026-10-27T16:00:00Z',breakMinutes:0,reason:'Outside scope'}]])await h.cmd(name,input,manager.cookie,403)
+  assert.equal((await h.state()).version,foreignBefore.version)
+  const beforeRefresh=await h.state()
+  await sign(ben)
+  const employee=await context.newPage();await employee.goto(h.origin+'/app/time?week=2026-10-26',{waitUntil:'networkidle'});await employee.clock.setFixedTime(new Date(now))
+  await employee.getByRole('button',{name:'Clock in',exact:true}).click()
+  await employee.getByRole('button',{name:'Clock out',exact:true}).waitFor()
+  await employee.waitForFunction(()=>document.querySelector('[data-clock-status]').textContent==='0 pending · 0 unresolved')
+  await employee.close();await sign(manager)
+  await page.getByRole('link',{name:'Refresh attendance',exact:true}).click()
+  await page.locator('#attendance li').filter({hasText:ben.name}).filter({hasText:'Present'}).waitFor()
+  assert.equal((await h.state()).clocks.length,beforeRefresh.clocks.length+1)
+  assert.equal(await page.locator('[data-attendance-status]').evaluate(n=>n===document.activeElement),true)
+  await screens('manager-attendance')
+  const row=t=>page.locator('#approve tr').filter({has:page.locator(`input[name=id][value="${t.id}"]`)})
+  await row(clean).getByRole('button',{name:'Approve',exact:true}).click();await saved()
+  assert.equal((await h.state()).timesheets.find(t=>t.id===clean.id).status,'approved')
+  await h.cmd('time.edit',{...pin(stale),start:stale.start,end:'2026-10-26T16:15:00Z',breakMinutes:0,reason:'New reviewed source'})
+  const beforeStale=await h.state()
+  await row(stale).getByRole('button',{name:'Approve',exact:true}).click()
+  await row(stale).getByRole('status').filter({hasText:/changed/i}).waitFor()
+  assert.equal((await h.state()).version,beforeStale.version,'stale mobile approval writes nothing')
+  assert.equal(await row(stale).getByRole('status').evaluate(n=>n===document.activeElement),true)
+  await row(stale).getByRole('link',{name:'Review current records'}).click();await page.waitForLoadState('networkidle')
+  await row(edit).getByText('Edit',{exact:true}).click()
+  let editForm=row(edit).locator('form[action*="name=time.edit"]')
+  await editForm.getByLabel('Work ends').fill('2026-10-26T16:30');await editForm.getByLabel('Reason',{exact:true}).fill('Checked closing log')
+  holdEdit=new Promise(resolve=>{releaseEdit=resolve})
+  await editForm.getByRole('button',{name:'Save edit'}).click()
+  await editForm.getByRole('status').filter({hasText:'Saving.'}).waitFor()
+  assert.equal(await editForm.getAttribute('aria-busy'),'true');assert.equal(await editForm.getByRole('button',{name:'Save edit'}).isDisabled(),true)
+  releaseEdit();holdEdit=null;await saved()
+  let stored=(await h.state()).timesheets.find(t=>t.id===edit.id)
+  assert.equal(stored.minutes,150);assert.equal(stored.captured.minutes,120);assert.equal(stored.edited.reason,'Checked closing log');assert.equal(editRequests,1)
+  // A response lost after the server saved must never be called unsent or retried automatically.
+  await row(edit).getByText('Edit',{exact:true}).click();editForm=row(edit).locator('form[action*="name=time.edit"]')
+  await editForm.getByLabel('Reason',{exact:true}).fill('Checked retained edit')
+  dropEdit=true;await editForm.getByRole('button',{name:'Save edit'}).click()
+  await editForm.getByRole('status').filter({hasText:'Save not confirmed.'}).waitFor()
+  assert.equal(await editForm.getByLabel('Reason',{exact:true}).inputValue(),'Checked retained edit')
+  assert.equal(await editForm.getByRole('button',{name:'Save edit'}).isDisabled(),true)
+  stored=(await h.state()).timesheets.find(t=>t.id===edit.id);assert.equal(stored.revision,3);assert.equal(editRequests,2)
+  dropEdit=false;await screens('manager-unconfirmed-save')
+  await editForm.getByRole('link',{name:'Review current records'}).click();await page.waitForLoadState('networkidle')
+  await page.getByText('Filter and approve many',{exact:true}).click()
+  await page.getByRole('button',{name:'Approve 3 shown',exact:true}).click();await saved()
+  await page.getByRole('status').filter({hasText:'Approved 3 · skipped 0'}).waitFor()
+  const end=await h.state()
+  for(const sheet of [clean,edit,bulk,stale])assert.equal(end.timesheets.find(t=>t.id===sheet.id).status,'approved')
+  assert.deepEqual(end.timesheets.find(t=>t.id===foreignTime.id),beforeStale.timesheets.find(t=>t.id===foreignTime.id))
+  assert.equal((await h.send('/api/lanyard/attendance?site=Mission',undefined,manager.cookie)).value.rows.length,0)
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+  const account=page.locator('summary[aria-label=Account]');await account.focus();await page.getByRole('tooltip',{name:'Account menu'}).waitFor()
+  await page.locator('h1').click();await screens('manager-approved')
+  assert.deepEqual(errors,[])
+ }finally{await context?.close();await browser.close();await h.close()}
+}

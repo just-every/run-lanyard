@@ -214,9 +214,9 @@ test('TIME-008: a manager filters a 60-person week to clean timesheets and appro
   }
   const sheets = []; for (const [i, p] of team.entries()) sheets.push(await clocked(p, 12 + (i % 7)))
   const own = await clocked(priya, 13), foreign = await clocked(lee, 13), cover = await clocked(morgan, 14)
-  // Priya filters Ocean Beach to clean time: 26 of the 59 waiting (not her own, not North Park, not the hand-entered time).
+  // Priya filters Ocean Beach to clean time: 26 of the 58 waiting at her cafe (not her own or the hand-entered time).
   const page = await h.send('/app/time?week=2026-10-12&cafe=Ocean%20Beach&state=clean', undefined, priya.cookie)
-  assert.match(page.text, /Approve 26 shown/); assert.match(page.text, /26 of 59 waiting/)
+  assert.match(page.text, /Approve 26 shown/); assert.match(page.text, /26 of 58 waiting/)
   const pins = JSON.parse(page.text.match(/name="items" value="([^"]+)"/)[1].replaceAll('&quot;', '"'))
   assert.deepEqual(pins.map(x => x.id).sort(), [...sheets, cover].map(t => t.id).sort())
   // Before she submits, Morgan decides one included timesheet on his own.
@@ -2083,3 +2083,5 @@ test('REPORT-001: filtered native reports and CSV reconcile approved revisions a
 
 test('REPORT-002: audit records reconcile retained sources, preserve unknown coverage, refuse foreign readers and export without changing sources',()=>run(async h=>{const {auditApi}=await import('./audit-report-journey.mjs');await auditApi(h)},{now:'2026-10-27T12:00:00Z'}))
 test('REPORT-002: native audit filters, source links and download remain usable on desktop with phone proof',async()=>{const {auditBrowser}=await import('./audit-report-journey.mjs');await auditBrowser()})
+
+test('MOBILE-001 MOBILE-002: phone shift change, offline unsent state, current attendance, reasoned edits and scoped exact-revision approvals',async()=>{const {mobileJourney}=await import('./clock-offline-journey.mjs');await mobileJourney()})
