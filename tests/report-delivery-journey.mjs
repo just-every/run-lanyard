@@ -2,6 +2,9 @@ import assert from 'node:assert/strict'
 import {harness} from './harness.mjs'
 import {fixture} from './cost-journey.mjs'
 import {pin} from './workforce-journey.mjs'
+import {mkdir,readFile} from 'node:fs/promises'
+import {join} from 'node:path'
+import {iconTooltips} from './browser-controls.mjs'
 
 export async function reportsDeliveryApi(){
  let outcome=202
@@ -89,5 +92,70 @@ export async function reportsDeliveryApi(){
   await tick('2026-11-02T12:00:00Z')
   assert.equal(h.mailbox.length,beforeStaleTick,'Authority changes require new owner approval before later sends')
   assert.ok((await h.state()).reportdeliveries.some(r=>r.scheduleId===newlyApproved.id&&r.due==='2026-11-02T12:00:00.000Z'&&r.status==='blocked'))
+ }finally{await h.close()}
+}
+
+export async function reportsDeliveryBrowser(browser){
+ const h=await harness({now:'2026-10-26T12:00:00Z',auth:{MAIL_PROVIDER:'sendgrid'}})
+ try{
+  const f=await fixture(h),{manager,alex}=f
+  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+  const context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse('2026-10-26T12:00:00Z'))}})
+  try{
+   await context.route('**/*',async route=>{
+    const p=new URL(route.request().url()).pathname
+    if(p.startsWith('/fonts/')||p.startsWith('/brand/')||/\.(css|js)$/.test(p))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',p.slice(1))),contentType:p.endsWith('.css')?'text/css':p.endsWith('.js')?'application/javascript':p.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}
+    await route.continue()
+   })
+   const signIn=async cookie=>{const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:h.origin}])}
+   await signIn(h.owner)
+   const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message))
+   await page.goto(h.origin+'/app/settings',{waitUntil:'networkidle'})
+   const card=page.locator('#report-delivery-settings')
+   await card.getByText('Create report schedule',{exact:true}).click()
+   const form=card.locator('form[data-report-schedule]').last()
+   await form.getByLabel('Report name',{exact:true}).fill('Approved service report')
+   await form.getByLabel('Recipient',{exact:true}).selectOption(manager.id)
+   await form.getByLabel('Report cafe',{exact:true}).selectOption('East')
+   await form.getByLabel('Scheduled report kind',{exact:true}).selectOption('worked')
+   await form.getByLabel('Report job',{exact:true}).selectOption(f.bar.id)
+   await form.getByLabel('Report person',{exact:true}).selectOption(alex.id)
+   await form.getByLabel('First run (venue time)',{exact:true}).fill('2026-10-26T12:15')
+   await form.getByRole('checkbox').check()
+   await form.getByRole('button',{name:'Approve report schedule',exact:true}).click();await page.waitForLoadState('networkidle')
+   const schedule=(await h.state()).reportschedules[0]
+   await page.reload({waitUntil:'networkidle'});assert.equal((await h.state()).reportschedules.length,1,'Refreshing the successful save cannot repeat it')
+   const tick=await (await h.mf.getWorker()).scheduled({scheduledTime:new Date('2026-10-26T12:15:00Z'),cron:'*/15 * * * *'});assert.equal(tick.outcome,'ok')
+   await page.reload({waitUntil:'networkidle'})
+   const receipt=(await h.state()).reportdeliveries[0]
+   assert.equal(receipt.status,'accepted');assert.match(await card.locator(`[data-report-delivery-id="${receipt.id}"]`).innerText(),/Provider accepted; mailbox delivery unconfirmed/)
+   await iconTooltips(page)
+   for(const width of [1440,390]){
+    await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    if(process.env.REPORT_SCREENS){await mkdir(process.env.REPORT_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.REPORT_SCREENS,`accepted-report-link-${width}.png`)})}
+   }
+   await page.setViewportSize({width:1440,height:1000})
+   const message=h.mailbox.findLast(m=>m.subject==='Your scheduled Lanyard report'),link=new URL(message.text.match(/https?:\/\/\S+/)[0]),path=link.pathname+link.search
+   await signIn(manager.cookie)
+   const download=page.waitForEvent('download')
+   await page.goto(h.origin+path).catch(error=>assert.match(error.message,/ERR_ABORTED|Download is starting/))
+   const downloaded=await download,csv=await readFile(await downloaded.path(),'utf8')
+   assert.equal(csv,(await h.send('/api/lanyard/reports.csv?'+new URLSearchParams(receipt.filter),undefined,manager.cookie)).text)
+   assert.ok(csv.includes(alex.id));assert.ok(!csv.includes(f.foreign.id))
+   await signIn(h.owner);await page.goto(h.origin+'/app/settings',{waitUntil:'networkidle'})
+   await card.getByRole('button',{name:'Revoke download link',exact:true}).click();await page.waitForLoadState('networkidle')
+   assert.match(await card.innerText(),/Link revoked/)
+   assert.equal((await h.send(path,undefined,manager.cookie)).status,404)
+   await card.getByText('Review and approve schedule',{exact:true}).click()
+   const edit=card.locator('form[data-report-schedule]').first()
+   await edit.getByLabel('Report name',{exact:true}).fill('Stale approval must not land')
+   await edit.getByRole('checkbox').check()
+   await h.cmd('report.schedule.pause',pin(schedule))
+   const [stale]=await Promise.all([page.waitForNavigation(),edit.getByRole('button',{name:'Approve updated schedule',exact:true}).click()])
+   assert.equal(stale.status(),409)
+   assert.match(await page.getByRole('alert').innerText(),/Revision changed; reload before deciding/)
+   const current=(await h.state()).reportschedules[0];assert.equal(current.label,'Approved service report');assert.equal(current.enabled,false)
+   assert.deepEqual(errors,[])
+  }finally{await context.close()}
  }finally{await h.close()}
 }

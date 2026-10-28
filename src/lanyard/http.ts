@@ -320,7 +320,10 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
   } catch (error) {
     const status = Number((error as any)?.status) || 500
     const message = status < 500 ? (error as Error).message : 'Could not save this change. Refresh and try again.'
-    if (path === '/app/action' && who && !auditOnly) return renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message, ...((policyInput||workerInput)?{result:{policyInput,workerInput}}:{}) })
+    if (path === '/app/action' && who && !auditOnly) {
+      const page=await renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message, ...((policyInput||workerInput)?{result:{policyInput,workerInput}}:{}) })
+      return url.searchParams.get('name')?.startsWith('report.')?new Response(page.body,{status,headers:page.headers}):page
+    }
     if (pages.has(path) && status === 401) return new Response(null, { status: 303, headers: { ...headers, location: '/signin?returnTo=' + encodeURIComponent(path) } })
     return json({ error: message }, status)
   }

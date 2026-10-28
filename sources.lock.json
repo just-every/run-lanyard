@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "93fafac30023e9ff26cd92efa1069a8aa5499634eb0f3d3341d22047fdc8bf73",
+      "sha256": "a222e2de80e5d5d5686fb10272e01b4ef125718930260f545e41876f6ce6d31b",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "a78579c6d0840b4b8cb14aa393428be05240c01c9a2cb9ad3baeea2bb29372c2",
+      "sha256": "5a052f48ebcefe13ece01522f47408f1f60aa52e53167d2be7a9cf85c79eb683",
       "executable": false
     },
     "DEMO.md": {
@@ -1790,7 +1790,7 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "c08b3fbace2edb9945f6ab29674b4d712e37550e67fead27cb7aa80c7b2715da",
+      "sha256": "74c447bcd956e5d7ae2ab74ec61924542a43ce65d070a6bc07fc7e3efcabcd54",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
@@ -2090,7 +2090,7 @@
       "executable": false
     },
     "src/lanyard/ui/report-schedules.ts": {
-      "sha256": "c05527957a24367bd7e9030625a1acc86dd8d9e01356e0ac191cb9c7fc87d893",
+      "sha256": "f92608cd9d94577478eccbd520615486d8634127b03da39057e520eea1d9bf5f",
       "executable": false
     },
     "src/lanyard/ui/reports.ts": {
@@ -4018,7 +4018,7 @@
       "executable": false
     },
     "tests/archive.test.mjs": {
-      "sha256": "14487a4d17f80365ffa0b3b8f114de3aa314f6bf0e888f77b5eee1cd8fbe625f",
+      "sha256": "c635ced74e488082668ced219793e026f6435584a7119e516dd8bba2aec61112",
       "executable": false
     },
     "tests/audit-report-journey.mjs": {
@@ -4286,11 +4286,11 @@
       "executable": false
     },
     "tests/report-delivery-journey.mjs": {
-      "sha256": "cd1ea22f100aed92a0c74bdefab1bab90db6c024dabfc5ff68e88b29d0dfe1de",
+      "sha256": "1c649a2fa16dd9ce4e78197c4967e80981162de5f5055bfa600529fc5fbda051",
       "executable": false
     },
     "tests/reports-journey.mjs": {
-      "sha256": "5fc8b07f95b5d2306c220902a2628f91ea773577c42121f2bbc355005a7fb11b",
+      "sha256": "bbd0ee28456a50ee748576547bac7d3449177fd6c59a45a07ad15331e7321125",
       "executable": false
     },
     "tests/runtime.mjs": {
