@@ -338,7 +338,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "4116d3fcb8b213084277b268720d55ffe251fe0fae88e64d66f60639fce7be41",
+      "sha256": "91dce9f1440df1598400d9191b5bba2cf7a43cee335b8975f9cf4a1949fba9bc",
       "executable": false
     },
     ".gitignore": {
@@ -350,11 +350,11 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "e4fea62be32988c09228217f7e15134edb15ac54074f574028e92c6cec7c17a5",
+      "sha256": "7a5586a99a9b4baa9507f67acbb94a302344921f74ee0929bd6464f90890a47c",
       "executable": false
     },
     "AGENTS.md": {
-      "sha256": "9fbb6b616009935299c94d0c74834f90ecd189c35500f746008dcba3ec349d29",
+      "sha256": "0f8d5a217585f081b9749013d6cf679f52dbef94ad8c8cb3307131708730a986",
       "executable": false
     },
     "base-copies.json": {
@@ -362,7 +362,7 @@
       "executable": false
     },
     "CHANGELOG.md": {
-      "sha256": "a4f7aafa6c39488e0b44e3574176502e7b847ed529a17ab2616be83c91892434",
+      "sha256": "d3a8e40e7cdfbfcd2daa53f4b3433f98c83418b57fda43527dc84b5b7b16f3bf",
       "executable": false
     },
     "CLAUDE.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "e1f1bd09e5ccf7f88945d431cce841834e2456f0908f955ba8837958c8e824ed",
+      "sha256": "c134d379214dda5bc91af5f1973505a5e5dfa7010ad3ba986bdc4f3b4e9bf6ef",
       "executable": false
     },
     "DEMO.md": {
@@ -406,15 +406,15 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "894fdc09d083d72ab523de29b673868d08ed0236466a487987554ced87e8e7bf",
+      "sha256": "de845e4ff09c9f4f61d92d2e833576fae5a6e9dda81f5d8f7d73c8b94dbde331",
       "executable": false
     },
     "docs/contract/COVERAGE.json": {
-      "sha256": "3f5cdebe90e86792a199c9c5f4000ac1daeb4dc74b85a3e14316fd202bacf35f",
+      "sha256": "a7f5b3455e6598355afbf4a7f39f12804f38a1ff16bb1c9471b62b4e529c2ff8",
       "executable": false
     },
     "docs/contract/ID-MAP.json": {
-      "sha256": "06aebe372df79ee22f9e8a53be0c7424bc2e5288d4cf24ae5b1d5aa97e34a465",
+      "sha256": "ae67d3182be290197b7f984a63d4b735482348232768abc50e72c05a6a56132d",
       "executable": false
     },
     "docs/GETTING-STARTED.md": {
@@ -459,6 +459,10 @@
     },
     "docs/TIME.md": {
       "sha256": "b247ce78838de4da3999d1e1e3998a2f1a9b54d4c2e38c567ea094747bd7a5a0",
+      "executable": false
+    },
+    "docs/verify.md": {
+      "sha256": "e690e6f01bfd141ba73bf413264879e28bd68fb631c3bf990b81687e16799fca",
       "executable": false
     },
     "docs/WORKFORCE.md": {
@@ -910,7 +914,7 @@
       "executable": false
     },
     "RULINGS.md": {
-      "sha256": "92a7b41317a5ea3a1798e1d3e9a512bf9a34279f8af16f4eb2870e3c8625f4c7",
+      "sha256": "0f39ee3b839ac5edb1169ec78cec3a306a9da158e427457487cf61885a87d095",
       "executable": false
     },
     "RUN-LOCALLY.md": {
@@ -926,7 +930,7 @@
       "executable": false
     },
     "scripts/contract-docs.mjs": {
-      "sha256": "3c535db571a46e29c59874ced7fba0bc2f89714dd38355c899cb8ae44c3bfdc1",
+      "sha256": "f8110634be260cb478773f3aeca9aa4dc216520f0aaab9464222e64494b3f7d8",
       "executable": false
     },
     "scripts/delivery/base/artifact.mjs": {

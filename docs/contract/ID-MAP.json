@@ -99,9 +99,11 @@
       ]
     },
     "TEAM-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "TEAM-001"
+        "TEAM-001",
+        "TEAM-002",
+        "TEAM-003"
       ]
     },
     "PEOPLE-002": {
@@ -159,9 +161,10 @@
       ]
     },
     "SCHEDULE-004": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "SCHEDULE-004"
+        "SCHEDULE-004",
+        "SCHEDULE-007"
       ]
     },
     "LEAVE-001": {
@@ -183,9 +186,12 @@
       ]
     },
     "LEAVE-003": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "LEAVE-003"
+        "LEAVE-003",
+        "LEAVE-004",
+        "LEAVE-005",
+        "LEAVE-006"
       ]
     },
     "MINOR-001": {
@@ -399,9 +405,11 @@
       ]
     },
     "POLICY-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "POLICY-001"
+        "POLICY-001",
+        "POLICY-003",
+        "POLICY-004"
       ]
     },
     "POLICY-002": {
@@ -729,9 +737,11 @@
       ]
     },
     "PRIVACY-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "PRIVACY-001"
+        "PRIVACY-001",
+        "PRIVACY-002",
+        "PRIVACY-003"
       ]
     },
     "BOUNDARY-001": {

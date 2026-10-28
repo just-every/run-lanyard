@@ -38,8 +38,8 @@ destination. `rer reset --yes` removes local data and settings. `rer deploy`
 uses the declared owner-account resources; `--dry-run` has no provider effect.
 
 Every private handler checks the current native session, role and ownership.
-Agent credentials only prepare drafts. Preserve explicit human approval and
-exact revisions. Hours export once; corrections export signed differences.
+Agent calls carry the risk classes in CONTRACT.md; the company policy decides
+their disposition. Preserve exact revisions and truthful attribution. Hours export once; corrections export signed differences.
 Do not change deployment, package, Worker, D1 or edition identities.
 
 Keep modules small and tests through public HTTP or CLI doors. Use
@@ -55,12 +55,15 @@ on the exact tree before every public push; no exclusions or force pushes.
 
 ## Contract documents
 
-After changing CONTRACT.md, run `node scripts/contract-docs.mjs write CLAUSE-ID`, then
-`node scripts/contract-docs.mjs check CLAUSE-ID` for the changed clauses.
-Omit the identifiers to refresh every metadata row. Existing journey wording is
-preserved; this command synchronizes status, evidence and gaps only. Commit both generated documents with
-the contract, then regenerate the edition source lock last.
+CONTRACT.md owns acceptance, status and claims. After every change, regenerate
+with the shared generator, then check it; the historical scripts/contract-docs.mjs
+command forwards to that generator and validates any touched clause identifiers.
+Never hand-resolve generated acceptance, claim or summary rows after a merge.
 
-For `sources.lock.json`, regenerate last with `node scripts/edition-authoring/cli.mjs lock`,
-then run `node scripts/edition-authoring/cli.mjs check`. This is the same freshness
-check used by Verify; keep the current Base selection when refreshing the lock.
+Lander-Regenerate: node src/base/contract-docs.mjs write
+Lander-Regenerate: node scripts/edition-authoring/cli.mjs lock
+
+Run `node src/base/contract-docs.mjs check`, regenerate the edition source lock
+last, then run `node scripts/edition-authoring/cli.mjs check`. Retain the current
+Base selection. Contract rewrites also run the ID map and coverage commands
+against the current main ancestor, preserving that main's newer judgments.
