@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "8552c8db03064721868e8d8a6c5473e151f19f18d1fcfd4a285ae66373983339",
+      "sha256": "4ca3e5cc19227ee9cf8776414737387cf37afc19771f522d18a7a594e4e6bfc3",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "030b4297191ed26ae77aa0c665bbf49937e9430ce15512bbe89ca448317dfd42",
+      "sha256": "6eb0fd557a61d70029fc9203da2a070e62d6f8620aa3ad74ccaf43a5ba87260e",
       "executable": false
     },
     "DEMO.md": {
@@ -1394,7 +1394,7 @@
       "executable": false
     },
     "src/lanyard/domain/event-notices.ts": {
-      "sha256": "3fcad07d10078030274b3b32ab66ebce0806f89b89b4fb76068010f29412dbb4",
+      "sha256": "93672ea6dc796c9a3b4be52722f1e6e925564248cd6f9c2ee6c7299173edf0bf",
       "executable": false
     },
     "src/lanyard/domain/fairness-equity.ts": {
@@ -4190,7 +4190,7 @@
       "executable": false
     },
     "tests/notices-journey.mjs": {
-      "sha256": "de4fcea49baf207137950a80472c137854f1409e0be433fc3271b900ad1e5f22",
+      "sha256": "ddaed5c177e75df80ab771566e10391aedd38349f1db53400ea0c0e883e236d0",
       "executable": false
     },
     "tests/open-template-journey.mjs": {
