@@ -149,7 +149,7 @@ async function sickDayFloors(){
 // These public-door scenarios extend the existing clause registration, keeping the test cap.
 export async function sickUnpaid(){
  for(const preset of ['NY40_UNPAID','NYC40_UNPAID','OR_UNPAID','PHILADELPHIA_UNPAID']){
-  const h=await harness({now:'2026-02-01T12:00:00Z'})
+  const h=await harness({now:'2026-02-03T12:00:00Z'})
   try{
    const {alex,ben,morgan,policy,request}=await sickFixture(h,preset,52)
    assert.equal(policy.paid,false)
@@ -181,8 +181,16 @@ export async function sickUnpaid(){
    const sourceRows=rows.slice(1).filter(r=>r[1]===alex.id&&r[5]===policy.id&&r[12])
    assert.deepEqual(sourceRows.filter(r=>r[12]===corrected.id).map(r=>[r[4],r[10],r[11],r[13],r[14]]),[[preset,'false','SICK-'+preset,String(corrected.revision),'60']],'historical unpaid use retains its preset, paid status and code')
    assert.deepEqual(sourceRows.filter(r=>r[12]===retainedWork.id).map(r=>[r[4],r[10],r[11]]),[[preset,'false','SICK-'+preset],[preset,'false','SICK-'+preset]],'historical worked accrual retains the effective unpaid policy')
-   assert.deepEqual(rows.slice(1).filter(r=>r[1]===alex.id&&r[5]===policy.id&&!r[12]).map(r=>[r[4],r[10],r[11]]),[[preset.replace('_UNPAID',''),'true','PAID-NEXT']],'the current balance summary uses the new policy')
+   const summary=rows.slice(1).find(r=>r[1]===alex.id&&r[5]===policy.id)
+   assert.deepEqual([summary[4],summary[10],summary[11]],[preset.replace('_UNPAID',''),'true','PAID-NEXT'],'the current balance summary uses the new policy')
    assert.deepEqual((await h.cmd('payroll.prepare',{})).lines.filter(l=>l.sickLine),[],'a later paid policy must not turn retained unpaid use into wages')
+   if(preset==='NY40_UNPAID'){
+    const start=local('2026-02-01','00:00'),worked=await h.cmd('time.prepare',{staffId:alex.id,start,end:new Date(Date.parse(start)+30*3600000).toISOString(),site:policy.site,breakMinutes:0,reason:'Approved work after an effective policy revision'})
+    await h.cmd('time.approve',pin(worked))
+    const current=await report('2026-02-03')
+    assert.ok(current.sources.some(r=>r.kind==='carry'&&r.date==='2026-01-01'),'the retained policy history includes the year-boundary carry')
+    assert.deepEqual([current.annualAccrued,current.annualUsed,current.balanceMinutes],[60,60,2400],'a later policy revision preserves carry and renews annual accrual without losing approved use')
+   }
   }finally{await h.close()}
  }
 }
