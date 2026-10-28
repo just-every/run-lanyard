@@ -1,4 +1,5 @@
 import {type Context,type State,type Row,need,keys,text,integer,get,exact,put,self} from './model'
+import {sickEligibility} from './sick-eligibility'
 import {date} from './aca'
 import {localDate} from './settings'
 import {sickBalance,sickRule,sickWork} from './sick'
@@ -10,6 +11,7 @@ function available(c:Context,r:Record<string,any>){
  need(rule.donations===true,'Employer policy does not allow sick-time donations',409)
  need(!r.policyRevision||r.policyRevision===rule.revision,'Leave policy changed; prepare fresh donor consent',409)
  need(participant(c.s,r.donorId,plan,r.date)&&participant(c.s,r.recipientId,plan,r.date),'Both employees must be active at the policy workplace',409)
+ need(sickEligibility(c.s,r.donorId,plan,r.date).status==='covered'&&sickEligibility(c.s,r.recipientId,plan,r.date).status==='covered','Both employees need covered leave eligibility',409)
  const donor=sickBalance(c.s,r.donorId,plan,r.date),recipient=sickBalance(c.s,r.recipientId,plan,r.date)
  need(donor.balanceMinutes>=r.minutes,'Insufficient current donor balance',409)
  need(rule.bankCap===null||recipient.balanceMinutes+r.minutes<=rule.bankCap,'Donation exceeds the recipient bank cap',409)

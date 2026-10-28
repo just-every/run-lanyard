@@ -7,6 +7,14 @@ import {harness} from './harness.mjs'
 import {tipFixture} from './tipcredit-journey.mjs'
 import {pin} from './workforce-journey.mjs'
 
+// Report fixtures record earlier qualifying employment through the same owner
+// review door as an installation bringing its existing staff history into Lanyard.
+const reviewedLeaveService=(h,policy,staffId,from)=>h.cmd('sickworker.save',{
+ ...pin(policy),staffId,from,classification:'covered',qualifiedFrom:'2024-03-31',
+ legalBasis:'Employer-reviewed prior qualifying service in continuous employment',
+ evidenceReference:'synthetic-lanyard-audit-eligibility',reviewReason:'Record prior service before the reported leave without changing worked sources',
+},h.owner,200,{'x-test-now':String(Date.parse(from+'T12:00:00Z'))})
+
 export async function auditFixture(h){
  const f=await tipFixture(h,'2026-10-27')
  await h.cmd('tipcredit.save',{site:'Austin',state:'TX',minimumWage:'7.25',from:'2020-01-01',tippedJobs:[f.server.id]})
@@ -25,7 +33,8 @@ export async function auditFixture(h){
  await h.cmd('fairwork.save',{site:'Austin',preset:'San-Jose',industry:'all',employees:100,locations:1,localEmployees:10,subjectToBusinessTax:true,reason:'Reviewed source coverage'})
  const published=(await h.state()).shifts.find(x=>x.rosterId===future.id)
  const preview=await h.cmd('fairwork.preview',{shiftId:published.id,shiftRevision:published.revision,action:'cancel',reason:'Review closing change'})
- const policy=await h.cmd('sickpolicy.save',{site:'Austin',from:'2020-01-01',preset:'CA',code:'synthetic-lanyard-leave'})
+ let policy=await h.cmd('sickpolicy.save',{site:'Austin',from:'2020-01-01',preset:'CA',code:'synthetic-lanyard-leave'})
+ policy=await reviewedLeaveService(h,policy,f.riley.id,'2026-10-23')
  const use=await h.cmd('sick.request',{policyId:policy.id,start:'2026-10-25T15:00:00Z',end:'2026-10-25T16:00:00Z',minutes:60,purpose:'illness'},f.riley.cookie)
  await h.cmd('sick.decide',{...pin(use),decision:'approved',reference:'synthetic-lanyard-service'})
  return {...f,alex,foreign,manual,timesheet,policy,use,preview}
@@ -400,7 +409,8 @@ async function auditQuarter(h){
    if(on==='2026-09-16')t=await h.cmd('time.edit',{...pin(t),start:t.start,end:on+'T15:00:00Z',breakMinutes:0,reason:'Quarter register correction'})
    records.get(p.site).push(await h.cmd('time.approve',pin(t)))
   }
-  const policy=await h.cmd('sickpolicy.save',{site:p.site,from:'2026-07-01',preset:p.state==='IL'?'CHICAGO':'CA',code:'synthetic-lanyard-quarter'})
+  let policy=await h.cmd('sickpolicy.save',{site:p.site,from:'2026-07-01',preset:p.state==='IL'?'CHICAGO':'CA',code:'synthetic-lanyard-quarter'})
+  policy=await reviewedLeaveService(h,policy,p.id,'2026-09-17')
   const use=await h.cmd('sick.request',{policyId:policy.id,start:'2026-09-20T08:00:00Z',end:'2026-09-20T09:00:00Z',minutes:60,purpose:'illness'},p.cookie)
   p.use=await h.cmd('sick.decide',{...pin(use),decision:'approved',reference:'synthetic-lanyard-quarter-'+p.state})
  }

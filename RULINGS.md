@@ -15,3 +15,13 @@ PRIVACY-001 governs retention, holds and employee-rights disposition for report 
 Every applicable hold independently blocks disposition of its covered sources and copies. Releasing one hold does not release another or initiate deletion. Employee access, export and correction requests require identity and authority review, employee-scoped disclosure and an attributable response; eligible erasure requires a separate reviewed action that rechecks current duties and every hold, removes covered local derivatives and saved results, and advances restore fences. Ordinary employee exports retain their existing visibility rules; statutory requests requiring additional material need separately reviewed fulfillment rather than a blanket refusal based on that visibility setting. Disconnected archives, downloads and provider copies require explicit external handling. Unsupported disposition remains open and cannot be reported as fulfilled. No legal compliance or complete provider erasure is established by this ruling.
 
 Authority proof belongs to TEAM-001 and ACCESS-003; retention, holds and disposition proof belongs to PRIVACY-001. REPORT-002 references these duties.
+
+## RL-103 — Voluntary Oregon sick-time donations
+
+28 October 2026 · ct · LEAVE-003 · adopt with rider.
+
+Approve the separate donation default: require a policy allowing donation, both current balances and the exact effective policy, recipient and minutes at approval, attributable voluntary donor consent and no self-approved substitute for it; atomically conserve donated minutes without accrual or immediate payroll, and pay the recipient only on approved use for an authorized purpose. Preserve consent, transfer and withdrawal history; no automatic reversal or deletion.
+
+The existing private-administration ruling continues to apply. Scoped delegated administration belongs to TEAM-001 and ACCESS-003; custody belongs to PRIVACY-001. Native minutes do not establish provider acceptance or legal applicability.
+
+Source: [Oregon BOLI sick time](https://www.oregon.gov/boli/workers/pages/sick-time.aspx).
