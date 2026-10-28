@@ -3994,7 +3994,7 @@
       "executable": false
     },
     "tests/audit-report-journey.mjs": {
-      "sha256": "e0bff989e3655c537471a6832b1e62f0f56bfd69bfb5659d713edd9093e7ba1b",
+      "sha256": "912d733e6f6dfec33308eac10b37510beb7d92553124cd8619ed273f1c4444e1",
       "executable": false
     },
     "tests/autorules-workweek-journey.mjs": {
