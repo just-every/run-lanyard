@@ -1818,7 +1818,7 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "71d4d52c973f1ec8d6beb9ee7e7c07570568e4642eec009157ea02d6c984c27a",
+      "sha256": "4eefcf88ad561bb6e50529b065339cd0913c1f00d19b653f4c122adbfc1346ce",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
@@ -1998,7 +1998,7 @@
       "executable": false
     },
     "src/lanyard/ui/index.ts": {
-      "sha256": "d7756e063fcde4053e380f61b9de11bf18b949493e11894cf516a79e369213de",
+      "sha256": "26f3749457ca46738a2eb0066ed6756dd273647d2bc19683f65fc6d84efdadfb",
       "executable": false
     },
     "src/lanyard/ui/intervals.ts": {
@@ -2018,7 +2018,7 @@
       "executable": false
     },
     "src/lanyard/ui/language.ts": {
-      "sha256": "09dfbdd24897e24e44cd88a007405a92acd40299437cd19b50f6f2ea2397a48b",
+      "sha256": "0a2a4eff54e2820ad2f56b6cb1129bb43c95e47f9a82b51f5a1be70e6e4689ee",
       "executable": false
     },
     "src/lanyard/ui/learning.ts": {
@@ -2166,7 +2166,7 @@
       "executable": false
     },
     "src/lanyard/ui/shell.ts": {
-      "sha256": "5dc68f11ea212ea2858cb36b3142460ff6b39119fdeefe2a5d3c3adcc17aa292",
+      "sha256": "5e5e608af2f10a334f8325303ac76b02eb13a70285cd35b9cdc472556bbd3c27",
       "executable": false
     },
     "src/lanyard/ui/shiftwork.ts": {
@@ -4178,7 +4178,7 @@
       "executable": false
     },
     "tests/language-journey.mjs": {
-      "sha256": "95acdb051fe9ab2927aa0bd2c2d88b943a79bfa4b8a7e74426d561d46eeabfd6",
+      "sha256": "5e070804c9964ed377086c34cfbade8755892be0b56f07147b51e0f3a4c9e6b0",
       "executable": false
     },
     "tests/lanyard.test.mjs": {
