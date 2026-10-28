@@ -718,7 +718,7 @@
       "executable": false
     },
     "public/labor-cost-settings.js": {
-      "sha256": "c3c0f87b4d12ebc1c1e373dec90be7427b30a7a89115495d0ba176a1f1a86cb5",
+      "sha256": "a9368821291f5e22892245cffe273c3b04600dc2d46b835f949c873e44a40f0c",
       "executable": false
     },
     "public/landing/base.css": {
@@ -1962,7 +1962,7 @@
       "executable": false
     },
     "src/lanyard/ui/labor-cost.ts": {
-      "sha256": "00b28a065a3bca642b45fbef09333ae90873198094af57fc30a6c3752dbfa07a",
+      "sha256": "70bcdc9eb03cc457e3034b52fdb239b154a0abddb9955202d8a091d671d9f4ac",
       "executable": false
     },
     "src/lanyard/ui/learning.ts": {
@@ -4034,7 +4034,7 @@
       "executable": false
     },
     "tests/cost-journey.mjs": {
-      "sha256": "53d0a26fb31ecc22aade45952cf05da670fcbed6114c7efd5dad516d822e8802",
+      "sha256": "2f0511ac54049fd0f572ec9e2fb02d68970cd16c5a0d92f9886a1244406c3e8c",
       "executable": false
     },
     "tests/coverage.test.mjs": {
@@ -4114,7 +4114,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "32c63dbe23b1b6084bf58a7bbf14b4eae9599e2c1506bd4efaa9c2cc16575d40",
+      "sha256": "8cfa2776991016bb3df5c739ff3f34e8dfe8bbf75961e45efb98ba90298d4185",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {

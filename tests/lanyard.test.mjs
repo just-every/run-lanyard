@@ -2071,7 +2071,7 @@ test('PAY-011: reviewed IIF activities reconcile regular overtime and PTO with m
 test('PAY-011: owner configures Desktop mappings and reviews and downloads IIF at 1440 and 390',async()=>{const {iifBrowser}=await import('./payiif-journey.mjs');await iifBrowser()})
 
 test('COST-001: native worked and approved cost retain rate history overtime burden and correction variance with budget warnings',async()=>{const {costApi}=await import('./cost-journey.mjs');await costApi()})
-test('COST-001: managers inspect worked costs and template warnings and owners configure burdens at 1440 and 390',async()=>{const {costBrowser}=await import('./cost-journey.mjs');await costBrowser()})
+test('COST-001: managers inspect worked costs and template warnings and owners edit revision-bound cost Settings',async()=>{const {costBrowser}=await import('./cost-journey.mjs');await costBrowser()})
 
 test('AI-001: consented extraction resolves ambiguous names and repeated local times before exact native draft publication',async()=>{const {aiScheduleApi}=await import('./ai-schedule-journey.mjs');await aiScheduleApi()})
 test('AI-001: owner-scoped sources and model sends refuse other roles and erasure purges local material through restart',async()=>{const {aiScheduleScopeApi}=await import('./ai-schedule-journey.mjs');await aiScheduleScopeApi()})
