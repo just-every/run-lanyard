@@ -307,6 +307,7 @@ export async function mobileJourney() {
   await editForm.getByLabel('Reason',{exact:true}).fill('Checked retained edit')
   dropEdit=true;await editForm.getByRole('button',{name:'Save edit'}).click()
   await editForm.getByRole('status').filter({hasText:'Save not confirmed.'}).waitFor()
+  assert.equal(await page.locator('.notice[role=status]').count(),0,'An earlier success must not describe the unconfirmed save')
   assert.equal(await editForm.getByLabel('Reason',{exact:true}).inputValue(),'Checked retained edit')
   assert.equal(await editForm.getByRole('button',{name:'Save edit'}).isDisabled(),true)
   stored=(await h.state()).timesheets.find(t=>t.id===edit.id);assert.equal(stored.revision,3);assert.equal(editRequests,2)

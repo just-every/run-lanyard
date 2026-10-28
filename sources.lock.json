@@ -742,7 +742,7 @@
       "executable": false
     },
     "public/mobile-workflows.js": {
-      "sha256": "84e55d362ffae5a3087b78a7456461004c03659110d5faab6fbde9360f12a086",
+      "sha256": "7977a6b9d23ff6bd890189efdcf0a11e33b3b550a58a2007797571bc08efa2d1",
       "executable": false
     },
     "public/punch-location.js": {
@@ -4026,7 +4026,7 @@
       "executable": false
     },
     "tests/clock-offline-journey.mjs": {
-      "sha256": "2e5b176ec681e7f2d6d30cedf1c0af610262b31aae168caf5c738c390a45d260",
+      "sha256": "fdc7715d88701813de818fffa8039e3561067aea5a2b9ca421cf95e475a08d1e",
       "executable": false
     },
     "tests/comparison-scope-journey.mjs": {

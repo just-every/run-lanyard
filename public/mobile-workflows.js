@@ -23,6 +23,7 @@
     const form = event.target, action = new URL(form.action, location.href)
     if (event.defaultPrevented || form.method !== 'post' || action.origin !== location.origin || action.pathname !== '/app/action') return
     event.preventDefault()
+    document.querySelectorAll('.notice[role]').forEach(note => note.remove())
     if (form.dataset.saveState === 'pending' || form.dataset.saveState === 'unknown') return
     if (!navigator.onLine) {
       form.dataset.saveState = 'unsent'
