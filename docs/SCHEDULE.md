@@ -120,3 +120,32 @@ complete statutory premiums, separate job budget caps, wider site-role scopes
 and provider-applied reconciliation remain open. **Approved time** never means
 paid wages. Entered-sales ratios use worked estimates when worked cost exists;
 missing rates or classifications keep amounts unknown.
+
+## Your private calendar subscription
+
+From your schedule, choose **Manage my calendar subscription**, or open
+**Settings** from your account menu. Under **My calendar**, confirm the private
+link warning and choose **Create private link**. Copy the link when it appears;
+normal page reads never show it again. Anyone holding it can read your published
+assignment times and cafe names, so keep it private.
+
+In Google Calendar on the web, open **Other calendars**, choose **From URL** and
+paste the private link. In Outlook on the web, choose **Add calendar**, then
+**Subscribe from web**, and paste it. These are subscription instructions;
+refresh and cancellation behavior in real Google and Microsoft accounts remain
+unverified. Importing a downloaded file creates a disconnected copy instead.
+
+The feed includes your published shifts with retained identities and UTC
+instants across overnight and daylight-saving changes. Updated shifts advance
+their event sequence; cancellation and reassignment retain a cancellation for
+that employee. It contains no drafts, coworkers, handover text or private notes.
+Google and Microsoft decide when to refresh. The feed is read-only and makes no
+immediate refresh or two-way scheduling promise.
+
+Choose **Replace private link** to invalidate the old link and receive a new
+one, or **Revoke calendar access** to stop future reads. Deactivation invalidates
+the link too; reactivation does not restore it. Already downloaded events and
+provider caches cannot be recalled. After restoring an installation archive,
+sign in again and create a fresh subscription; event history travels, while
+subscription authority does not. Complete site calendars and localized calendar
+text remain open under SCHEDULE-003 and LANG-001.
