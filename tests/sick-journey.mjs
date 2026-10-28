@@ -23,7 +23,7 @@ export async function sickFixture(h,preset='CA',count=2,workedHours=48,options={
 }
 export async function sickApi(){
  const cases=[['CA',4800,4800],['CO',2880,2880],['IL',2400,2400],['NY',3360,3360],['NY40',2400,2400],['OR',2400,2400],['WA',3744,2400],['NYC',3360,3360],['NYC40',2400,2400],['CHICAGO',2400,2400],['SEATTLE',4992,4320],['SEATTLE1',3744,2400],['SEATTLE2',3744,3360],['SEATTLE_PTO1',5616,2400],['SEATTLE_PTO2',5616,3360],['SEATTLE_PTO3',7488,6480],['SF',4800,4800],['LA',4800,4800],['PHILADELPHIA',2400,2400]]
- for(const [preset,earned,carried]of cases){const h=await harness();try{
+ for(const [preset,earned,carried]of cases){const h=await harness({now:'2026-10-27T12:00:00Z'});try{
   const combined=preset.startsWith('SEATTLE_PTO'),count=combined?78:52
   const f=await sickFixture(h,preset,count,48,combined?{spacingDays:4}:{}),{alex,ben,morgan,policy,entries,request}=f
   const report=async on=>{const r=await h.send('/api/lanyard/sick-balances?asOf='+on,undefined,h.owner);assert.equal(r.status,200,r.text);return r.value.find(x=>x.staffId===alex.id&&x.policyId===policy.id)}
@@ -118,11 +118,13 @@ export async function sickBrowser(){
  const account=page.locator('summary[aria-label="Account"]');await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'});await shot('sick-tooltip')
  await as(f.alex.cookie);await page.goto(h.origin+'/app/time?week=2026-01-05',{waitUntil:'networkidle'});assert.ok((await page.locator('#earnings').innerText()).includes('Paid sick / safe leave (approved)'));assert.ok((await page.locator('#earnings').innerText()).includes('$40.00'));await page.locator('#earnings').scrollIntoViewIfNeeded();await shot('sick-earnings')
  await page.goto(h.origin+'/app/time?week=2026-01-12',{waitUntil:'networkidle'});assert.ok((await page.locator('#earnings').innerText()).includes('$20.00'));assert.ok((await page.locator(`[data-policy-id="${prenatal.id}"]`).innerText()).includes('next bank available 2027-01-11'));await page.locator(`[data-policy-id="${prenatal.id}"]`).scrollIntoViewIfNeeded();await shot('sick-prenatal-balance')
+ await as(h.owner);await page.goto(h.origin+'/app/settings',{waitUntil:'networkidle'});const eligibility=page.locator('#sick-eligibility');await eligibility.getByText('Ocean Beach · CA · employee eligibility',{exact:true}).click();const review=eligibility.locator('details[open] form');await review.getByLabel('Employee',{exact:true}).selectOption(f.alex.id);await review.getByLabel('Review effective from',{exact:true}).fill('2026-10-27');await review.getByLabel('Reviewed classification').selectOption('covered');await review.getByLabel('Qualifying workplace service completed (optional)').fill('2020-12-31');await review.getByLabel('Applicability legal basis').fill('Reviewed California employment and qualifying service');await review.getByLabel('Employer evidence reference').fill('synthetic-lanyard-170');await review.getByLabel('Review reason',{exact:true}).fill('Retain documented service without inferring an exemption from role or pay');await Promise.all([page.waitForResponse(r=>r.url().includes('name=sickworker.save')),review.getByRole('button',{name:'Save eligibility review',exact:true}).click()]);await page.waitForLoadState('networkidle');assert.equal(await page.locator('.notice.error').count(),0,(await page.locator('.notice.error').allTextContents()).join('; '));const coverage=(await h.state()).sickpolicies.find(p=>p.id===f.policy.id).workerCoverage.find(w=>w.staffId===f.alex.id);assert.equal(coverage.evidenceReference,'synthetic-lanyard-170');await eligibility.getByText('Ocean Beach · CA · employee eligibility',{exact:true}).click();await eligibility.locator('details[open]').scrollIntoViewIfNeeded();await shot('sick-employee-eligibility')
+ await as(f.alex.cookie);await page.goto(h.origin+'/app/time',{waitUntil:'networkidle'});const guidance=page.locator(`[data-policy-id="${f.policy.id}"]`);await guidance.getByText('Permitted purpose guidance',{exact:true}).click();assert.ok((await guidance.innerText()).includes('designated person'));assert.ok((await guidance.innerText()).includes('victim proceeding'));await guidance.scrollIntoViewIfNeeded();await shot('sick-purpose-guidance')
  }finally{await context.close();await h.close()}}}finally{await browser.close()}
 }
 
 async function sickDayFloors(){
- const h=await harness()
+ const h=await harness({now:'2026-10-27T12:00:00Z'})
  try{
   const {alex,policy}=await sickFixture(h,'CA',78,48,{normalDayMinutes:600,spacingDays:4})
   assert.deepEqual([policy.annualUse,policy.bankCap,policy.carry],[3000,6000,6000],'five and ten ten-hour normal days exceed the hour floors')
@@ -191,6 +193,7 @@ export async function sickUnpaid(){
 export async function sickReasons(){
  const health=['illness','care','safe','preventive care']
  const cases=[
+  ['LA',[...health,'jury duty','court witness','victim proceeding']],
   ['SF',[...health,'jury duty','court witness','victim proceeding','organ or tissue donation']],
   ['CO',[...health,'public health closure','bereavement','school or care closure','evacuation']],
   ['NY40',health],['NY',health],
@@ -203,12 +206,18 @@ export async function sickReasons(){
   ...['SEATTLE_PTO1','SEATTLE_PTO2','SEATTLE_PTO3'].map(id=>[id,[...health,'public health closure','emergency closure','immigration proceeding','school or care closure',...(id==='SEATTLE_PTO3'?['business safety closure']:[]),'employer-approved PTO']]),
   ['PHILADELPHIA',health]
  ]
- for(const [preset,reasons] of cases){const h=await harness();try{
+ for(const [preset,reasons] of cases){const h=await harness({now:'2026-10-27T12:00:00Z'});try{
   const {alex,policy,request}=await sickFixture(h,preset)
   for(const [i,purpose] of reasons.entries()){
    const day=add('2026-03-09',i),use=await h.cmd('sick.request',{...request,start:local(day,'09:00'),end:local(day,'10:00'),minutes:60,purpose},alex.cookie)
    const approved=await h.cmd('sick.decide',{...pin(use),decision:'approved',reference:'synthetic-lanyard-90-'+i});assert.equal(approved.purpose,purpose);assert.equal(approved.minutes,60)
    await h.cmd('sick.correct',{...pin(approved),minutes:0,reason:'Reviewed category cancellation'})
+  }
+  const dated=policy.purposeRules&&Object.entries(policy.purposeRules).find(([,rule])=>rule.from)
+  if(dated){
+   const [purpose,rule]=dated,day=add(rule.from,-1),before=(await h.state()).sickuses.length
+   await h.cmd('sick.request',{...request,start:local(day,'09:00'),end:local(day,'10:00'),minutes:60,purpose},alex.cookie,400)
+   assert.equal((await h.state()).sickuses.length,before,'a future statutory purpose cannot be backdated into an absence')
   }
   const before=(await h.state()).sickuses.length
   await h.cmd('sick.request',{...request,start:local('2026-02-10','09:00'),end:local('2026-02-10','10:00'),minutes:60,purpose:'Unlisted category'},alex.cookie,400)
@@ -276,7 +285,7 @@ export async function sickPrenatal(){
 }
 
 export async function sickEmployerCoverage(){
- const h=await harness()
+ const h=await harness({now:'2026-10-27T12:00:00Z'})
  try{
   const morgan=await h.person('CoverageManager','manager'),alex=await h.person('CoverageAlex')
   const bad=[

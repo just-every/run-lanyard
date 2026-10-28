@@ -52,4 +52,65 @@ export async function sickEligibilityJourney(){
   const file=await h.send('/api/lanyard/sick-balances.csv?asOf=2026-05-04',undefined,h.owner)
   assert.equal(file.status,200);assert.ok(file.text.includes('SICK-CA'));assert.doesNotMatch(file.text,/employer source|Applicability legal basis/)
  }finally{await h.close()}
+ await sickQualifyingJourney()
+}
+
+export async function sickQualifyingJourney(){
+ const h=await harness({now:'2026-10-27T12:00:00Z'})
+ try{
+  let californiaWorker
+  const cases=[['CA',29,2],['PHILADELPHIA',1,39],['CHICAGO',2,39],['SF',1,48],['SEATTLE',5,48]]
+  for(const [preset,count,hours] of cases){
+   const employee=await h.person('Qualifying'+preset)
+   if(preset==='CA')californiaWorker=employee
+   await h.cmd('staff.save',{...pin(employee),name:employee.name,email:employee.email,payrollId:employee.payrollId,role:'staff',active:true,site:'Qualifying '+preset,hourlyRate:'20.00',startDate:'2025-01-01'})
+   let policy=await h.cmd('sickpolicy.save',{site:'Qualifying '+preset,from:'2026-01-01',preset,code:'QUALIFY-'+preset})
+   if(['SF','SEATTLE'].includes(preset))policy=await h.cmd('sickworker.save',{...pin(policy),staffId:employee.id,from:'2026-01-01',classification:'covered',occasional:'yes',legalBasis:'Occasional employee works in the named city',evidenceReference:'synthetic-lanyard-160 employer assignment',reviewReason:'Use the city threshold without inferring status from a job title'},h.owner,200,{'x-test-now':String(Date.parse('2026-01-01T12:00:00Z'))})
+   const day=n=>new Date(Date.parse('2026-01-02T00:00:00Z')+n*86400000).toISOString().slice(0,10)
+   const work=async(date,hours)=>{
+    const start=local(date,'08:00'),t=await h.cmd('time.prepare',{staffId:employee.id,start,end:new Date(Date.parse(start)+hours*3600000).toISOString(),site:policy.site,breakMinutes:0,reason:'Native qualifying workplace service'})
+    return h.cmd('time.approve',pin(t))
+   }
+   if(preset==='CHICAGO')await work('2025-08-01',40)
+   for(let i=0;i<count;i++)await work(day(i*(preset==='CA'?1:4)),hours)
+   if(preset==='SF')await work(day(4),7)
+   const balance=async date=>(await h.send('/api/lanyard/sick-balances?asOf='+date,undefined,h.owner)).value.find(r=>r.policyId===policy.id&&r.staffId===employee.id)
+   const request={policyId:policy.id,start:local('2026-03-01','09:00'),end:local('2026-03-01','10:00'),minutes:60,purpose:policy.reasons[0]}
+   if(preset==='SEATTLE'){
+    assert.equal((await balance('2026-03-01')).balanceMinutes,360,'240 occasional Seattle hours retain the Washington floor')
+    const use=await h.cmd('sick.request',request,employee.cookie),approved=await h.cmd('sick.decide',{...pin(use),decision:'approved',reference:'synthetic-lanyard-161'})
+    assert.equal(approved.minutes,60,'local qualification never withholds the state entitlement')
+   }else{
+    const before=(await h.state()).leave.length
+    const refused=await h.cmd('sick.request',request,employee.cookie,409);assert.match(refused.error,/Qualifying/)
+    assert.equal((await h.state()).leave.length,before,'unqualified use creates no absence')
+   }
+   await work('2026-03-02',preset==='CA'?2:preset==='CHICAGO'?2:1)
+   const after=await balance('2026-03-03');assert.equal(after.eligibility.status,'covered',preset+' completes qualifying service')
+   if(preset==='SEATTLE')assert.equal(after.balanceMinutes,422,'241 hours rebuild at the Seattle tier with the earlier state use deducted once')
+   const use=await h.cmd('sick.request',{...request,start:local('2026-03-03','09:00'),end:local('2026-03-03','10:00')},employee.cookie)
+   const approved=await h.cmd('sick.decide',{...pin(use),decision:'approved',reference:'synthetic-lanyard-162-'+preset})
+   assert.equal(approved.costCents,2000)
+   assert.equal((await balance('2026-03-03')).balanceMinutes,after.balanceMinutes-60)
+   if(preset==='SEATTLE'){const csv=await h.send('/api/lanyard/sick-balances.csv?asOf=2026-03-03',undefined,h.owner);assert.equal(csv.status,200);assert.ok(csv.text.includes('Washington state floor'),'source download retains the basis of use before local qualification')}
+  }
+  // The state service threshold spans the employer's California locations.
+  // Local-only coverage decisions must keep that already established floor.
+  for(const preset of ['SF','LA']){
+   let policy=await h.cmd('sickpolicy.save',{site:'California floor '+preset,from:'2026-01-01',preset,code:'FLOOR-'+preset})
+   if(preset==='SF')policy=await h.cmd('sickworker.save',{...pin(policy),staffId:californiaWorker.id,from:'2026-01-01',classification:'covered',occasional:'yes',legalBasis:'Occasional city work with continuing California employment',evidenceReference:'synthetic-lanyard-163',reviewReason:'Preserve the state floor before local qualification'},h.owner,200,{'x-test-now':String(Date.parse('2026-01-01T12:00:00Z'))})
+   const start=local(preset==='SF'?'2026-04-01':'2026-04-15','08:00'),time=await h.cmd('time.prepare',{staffId:californiaWorker.id,start,end:new Date(Date.parse(start)+30*3600000).toISOString(),site:policy.site,breakMinutes:0,reason:'Actual work at another California location'})
+   await h.cmd('time.approve',pin(time))
+   const report=(await h.send('/api/lanyard/sick-balances?asOf=2026-05-01',undefined,h.owner)).value.find(r=>r.policyId===policy.id&&r.staffId===californiaWorker.id)
+   assert.equal(report.eligibility.status,'covered');assert.equal(report.balanceMinutes,60)
+   const request={policyId:policy.id,start:local(preset==='SF'?'2026-05-01':'2026-05-02','09:00'),end:local(preset==='SF'?'2026-05-01':'2026-05-02','10:00'),minutes:60,purpose:'illness'}
+   if(preset==='SF'){
+    assert.equal(report.eligibility.localQualified,false)
+    await h.cmd('sick.request',{...request,purpose:'organ or tissue donation'},californiaWorker.cookie,400)
+   }
+   const use=await h.cmd('sick.request',request,californiaWorker.cookie)
+   const approved=await h.cmd('sick.decide',{...pin(use),decision:'approved',reference:'synthetic-lanyard-164-'+preset})
+   assert.equal(approved.minutes,60,'state-qualified service permits use at the second location')
+  }
+ }finally{await h.close()}
 }

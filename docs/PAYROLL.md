@@ -83,7 +83,7 @@ The owner sets effective dates, venue-clock windows, weekdays, cafe, position or
 
 ## Paid sick and safe leave
 
-Under **Paid sick and safe leave**, choose a listed paid jurisdiction/employer tier, effective date and mapped payroll code. New York/NYC offer 40- and 56-hour paid tiers; Seattle offers standalone tiers 1–3. For California and its local presets, enter at least the longest normal workday of employees covered by that site policy. Five such days set the use floor where a use cap applies, and ten set the balance/carry floor, without reducing a higher hour/local entitlement. Review eligibility yourself; selected paid presets do not establish every statutory variant.
+Under **Paid sick and safe leave**, choose a listed paid jurisdiction/employer tier, effective date and mapped payroll code. New York/NYC offer 40- and 56-hour paid tiers; Seattle offers standalone tiers 1–3. For California and its local presets, enter at least the longest normal workday of employees covered by that site policy. Five such days set the use floor where a use cap applies, and ten set the balance/carry floor, without reducing a higher hour/local entitlement. Review the applicable employee facts in **Settings → Sick leave eligibility**. Presets use employer-reviewed inputs; they do not independently establish legal applicability.
 
 Approve worked time first. Current approved hours accrue at the actual work location, including cross-site segments. January 1 resets annual counters and applies carryover. Staff request a permitted category and partial-day paid minutes in **Time → My paid leave** without medical details. The owner alone reviews private purposes and balances, approves use with a unique paid-service reference, and downloads the balance/source file. California/local categories include preventive care, jury duty and court witness service. These authority defaults await policy confirmation.
 
@@ -241,8 +241,41 @@ For New York State and NYC, add a distinct NY_PRENATAL policy at the same cafe
 for the separate 20-hour paid prenatal bank. It needs no worked-time accrual. Its
 52-week period starts on first approved use and resets after 364 elapsed days;
 January does not replenish it. The balance report’s annual-used field represents
-the active 52-week period for this bank. Complete eligibility and reason coverage
-remains partial as recorded in CONTRACT.md.
+the active 52-week period for this bank. Only your own pregnancy-related care
+uses this bank; family care uses the applicable accrued bank instead.
+
+### Employee eligibility and permitted purposes
+
+In **Settings → Sick leave eligibility**, open a policy and select the employee.
+Record covered employment, an unresolved review, or a listed jurisdiction-specific
+exclusion, with its legal basis, employer evidence reference and review reason.
+No exemption is inferred from an app role, salary, job title or payroll mapping.
+The effective date cannot rewrite approved worked hours or leave. Earlier earned
+minutes and paid files remain; excluded or unresolved future use is refused.
+Reviewing covered employment again permits supported future use. The owner’s
+review and its history remain private; employees see their eligibility outcome.
+
+Approved native work establishes California’s thirty qualifying workdays,
+Chicago’s eighty hours within a 120-day period and Philadelphia’s forty hours.
+For occasional San Francisco work, the local threshold is 56 hours; for Seattle
+it is more than 240 hours. Applicable California and Washington state protections
+remain available before local qualification or under a reviewed local-only waiver.
+Seattle’s higher tier rebuilds the earlier qualifying work without duplicating use.
+For qualifying service outside the native records, supply its documented completion
+date and evidence reference. This records employer facts, not independent legal
+verification. Legacy retained policies keep their original calculation until reviewed.
+
+Employees can open **Permitted purpose guidance** beside their own bank. It
+explains covered family, safe leave, closures and proceedings without collecting
+names, diagnoses or case details. A category is refused before its effective date.
+An unlisted purpose is refused without creating leave. Illinois’s any-reason bank
+asks for no explanation. Ordinary managers still see only a generic absence.
+
+Seattle tiers one and two require the employer’s reviewed full-time equivalents;
+a lower tier is refused at fifty or 250 respectively. New York State’s small
+unpaid tier requires prior-year income no greater than $1 million; NYC’s requires
+income below $1 million. The NYC review therefore asks separately whether income
+is at least that amount. A larger paid benefit may always be selected voluntarily.
 
 ### Reviewed employer tiers and Oregon donations
 
@@ -266,8 +299,8 @@ The donor can withdraw before approval; a withdrawn request cannot transfer time
 The transfer changes both balances without creating payroll, paid service or
 an absence. The recipient must request an ordinary permitted absence to use
 those minutes. Consent and transfer sources survive backup and restore.
-This conservative consent and authority default awaits ct approval; broader
-employee eligibility and complete reason applicability remain unproved.
+The separate donor-consent and independent-owner-approval policy is approved by
+ct ruling RL-103. A native transfer is not provider acceptance or legal certification.
 ## Native operational report API
 
 Signed-in native managers can read `GET /api/lanyard/reports` or download `GET /api/lanyard/reports.csv`. Supply `from` and `through` as venue dates, inclusive, for a period of at most 93 days. Optional filters are `site`, `job` (the job id), `person` (the staff id) and `kind`: `schedule`, `attendance`, `breaks`, `PTO`, `worked`, `labor`, `tips`, `payroll`, or `all`. For example: `/api/lanyard/reports.csv?from=2026-10-12&through=2026-10-18&site=East&kind=worked`.

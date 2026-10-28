@@ -1,5 +1,5 @@
 import {type State,type Context,type Row,keys,text,need,integer,put,get,exact,window,overlap,canonical,self} from './model'
-import {sickEligibility,sickWorkCovered,sickWorkerCommand} from './sick-eligibility'
+import {sickEligibility,sickWorkCovered,sickWorkerCommand,sickBankRule} from './sick-eligibility'
 import {sickReasons} from './sick-purposes'
 import {sickPreset,sickCoverage} from './sick-presets'
 import {date,dayAfter} from './aca'
@@ -38,20 +38,20 @@ export function sickBalance(s:State,staffId:string,plan:Row,on:string,exclude?:s
  const transfers=s.sicktransfers.filter(t=>t.policyId===plan.id&&t.status==='approved'&&(t.donorId===staffId||t.recipientId===staffId)).map(t=>({kind:t.donorId===staffId?'donation given':'donation received',id:t.id,revision:t.revision,date:t.date,minutes:t.minutes}))
  const events=[...transfers,...sickWork(s,staffId,plan.site),...s.sickuses.filter(u=>u.staffId===staffId&&u.policyId===plan.id&&u.status==='approved'&&u.id!==exclude).map(u=>({...u,kind:'use'}))].filter(e=>e.date<=on&&sickRule(plan,e.date)).sort((a,b)=>a.date.localeCompare(b.date)||(a.kind==='work'?-1:1)-(b.kind==='work'?-1:1)||a.id.localeCompare(b.id))
  let balance=0,annualAccrued=0,annualUsed=0,fraction=0,year=Number(plan.from.slice(0,4));const sources:any[]=[]
- const carryTo=(target:number)=>{while(year<target){year++;const rule=sickRule(plan,`${year}-01-01`)??sickRule(plan,`${year-1}-12-31`);if(rule&&rule.carry!==null)balance=Math.min(balance,rule.carry);annualAccrued=0;annualUsed=0;sources.push({kind:'carry',date:`${year}-01-01`,balanceMinutes:balance,presetVersion:rule?.version})}}
- for(const e of events){carryTo(Number(e.date.slice(0,4)));const rule=sickRule(plan,e.date)!
+ const carryTo=(target:number)=>{while(year<target){year++;const retained=sickRule(plan,`${year}-01-01`)??sickRule(plan,`${year-1}-12-31`),rule=retained?sickBankRule(s,staffId,plan,retained,on):undefined;if(rule&&rule.carry!==null)balance=Math.min(balance,rule.carry);annualAccrued=0;annualUsed=0;sources.push({kind:'carry',date:`${year}-01-01`,balanceMinutes:balance,presetVersion:rule?.version})}}
+ for(const e of events){carryTo(Number(e.date.slice(0,4)));const retained=sickRule(plan,e.date)!,rule=sickBankRule(s,staffId,plan,retained,on)
   if(e.kind==='work'&&!sickWorkCovered(rule,staffId)){sources.push({...e,creditedMinutes:0,balanceMinutes:balance,policyRevision:rule.revision,presetVersion:rule.version,eligibility:'employer-reviewed exclusion'});continue}
-  if(e.kind==='work'){fraction+=e.minutes*(840/rule.denominator);const earned=Math.floor((fraction+1e-8)/840);fraction-=earned*840;const credited=Math.max(0,Math.min(earned,rule.annualAccrual===null?Infinity:rule.annualAccrual-annualAccrued,rule.bankCap===null?Infinity:rule.bankCap-balance));balance+=credited;annualAccrued+=credited;sources.push({...e,creditedMinutes:credited,balanceMinutes:balance,policyRevision:rule.revision,presetVersion:rule.version})}
+  if(e.kind==='work'){fraction+=e.minutes*(840/rule.denominator);const earned=Math.floor((fraction+1e-8)/840);fraction-=earned*840;const credited=Math.max(0,Math.min(earned,rule.annualAccrual===null?Infinity:rule.annualAccrual-annualAccrued,rule.bankCap===null?Infinity:rule.bankCap-balance));balance+=credited;annualAccrued+=credited;sources.push({...e,creditedMinutes:credited,balanceMinutes:balance,policyRevision:rule.revision,presetVersion:rule.version,...(rule.bankBasis?{bankBasis:rule.bankBasis}:{})})}
   else if(e.kind==='donation received'||e.kind==='donation given'){balance+=e.kind==='donation received'?e.minutes:-e.minutes;sources.push({...e,balanceMinutes:balance})}
   else{balance-=e.minutes;annualUsed+=e.minutes;sources.push({...e,balanceMinutes:balance})}
  }
  carryTo(Number(on.slice(0,4)))
- const current=sickRule(plan,on),pending=s.sickuses.filter(u=>u.staffId===staffId&&u.policyId===plan.id&&u.status==='pending').reduce((n,u)=>n+u.minutes,0)
- return {staffId,policyId:plan.id,site:plan.site,asOf:on,preset:current?.preset,paid:current?.paid!==false,label:current?.label??'Not effective',code:current?.code,balanceMinutes:balance,annualAccrued,annualUsed,pendingMinutes:pending,reconciliationRequired:balance<0,eligibility:sickEligibility(s,staffId,plan,on),sources}
+ const retainedCurrent=sickRule(plan,on),current=retainedCurrent?sickBankRule(s,staffId,plan,retainedCurrent,on):undefined,pending=s.sickuses.filter(u=>u.staffId===staffId&&u.policyId===plan.id&&u.status==='pending').reduce((n,u)=>n+u.minutes,0)
+ return {staffId,policyId:plan.id,site:plan.site,asOf:on,preset:current?.preset,paid:current?.paid!==false,label:current?.label??'Not effective',code:current?.code,balanceMinutes:balance,annualAccrued,annualUsed,pendingMinutes:pending,reconciliationRequired:balance<0,permittedReasons:current?sickReasons(current,on):[],purposeRules:current?.purposeRules,bankBasis:current?.bankBasis,eligibility:sickEligibility(s,staffId,plan,on),sources}
 }
 export function sickReports(s:State,on:string,staffId?:string){return s.sickpolicies.flatMap(p=>s.staff.filter(w=>!w.erased_at&&(!staffId||w.id===staffId)).map(w=>sickBalance(s,w.id,p,on)).filter(r=>r.sources.some(x=>x.kind!=='carry')||r.pendingMinutes||s.staff.find(w=>w.id===r.staffId)?.site===p.site))}
 function useAllowed(c:Context,u:any,minutes:number){
- const plan=get(c.s,'sickpolicies',u.policyId),rule=sickRule(plan,u.date);need(rule,'Leave policy is not effective',409)
+ const plan=get(c.s,'sickpolicies',u.policyId),retained=sickRule(plan,u.date);need(retained,'Leave policy is not effective',409);const rule=sickBankRule(c.s,u.staffId,plan,retained,u.date)
  const start=c.s.employment.find(e=>e.staffId===u.staffId)?.startDate
  need(!rule.wait||start&&u.date>=dayAfter(start,rule.wait),'Waiting period is not complete or employment start date is missing',409)
  const eligibility=sickEligibility(c.s,u.staffId,plan,u.date);need(eligibility.status==='covered',eligibility.label,409)
@@ -81,10 +81,10 @@ export function sickCommand(c:Context,name:string,p:Record<string,any>){
  if(name==='sick.request'){
   keys(p,['policyId','start','end','minutes','purpose']);const staffId=self(c.a)!,plan=get(c.s,'sickpolicies',p.policyId),w=window(p,1),on=localDate(w.start,c.s.timezone)
   need(localDate(new Date(Date.parse(w.end)-1).toISOString(),c.s.timezone)===on,'Request one venue date at a time')
-  const rule=sickRule(plan,on);need(rule,'Policy is not effective',409);need(sickReasons(rule,on).includes(p.purpose),'Choose a listed permitted reason effective on the absence date')
+  const retained=sickRule(plan,on);need(retained,'Policy is not effective',409);const rule=sickBankRule(c.s,staffId,plan,retained,on);need(sickReasons(rule,on).includes(p.purpose),'Choose a listed permitted reason effective on the absence date')
   const minutes=integer(Number(p.minutes),'paid-leave minutes',1,1440);need(minutes<=(Date.parse(w.end)-Date.parse(w.start))/60000,'Paid minutes exceed the absence')
   need(!c.s.leave.some(l=>l.staffId===staffId&&['approved','pending'].includes(l.status)&&overlap(l,w)),'Leave overlaps an existing request',409)
-  const facts={staffId,policyId:plan.id,site:plan.site,date:on,...w,minutes,paid:rule.paid!==false,purpose:p.purpose};useAllowed(c,facts,minutes)
+  const facts={staffId,policyId:plan.id,site:plan.site,date:on,...w,minutes,paid:rule.paid!==false,bankBasis:rule.bankBasis??'',purpose:p.purpose};useAllowed(c,facts,minutes)
   const leave=put(c,'leave',{staffId,...w,reason:rule.paid===false?'Unpaid leave':'Paid leave',status:'pending',requestedBy:c.a.id,requestedAt:c.now})
   return put(c,'sickuses',{...facts,leaveId:leave.id,status:'pending',policyRevision:rule.revision,presetVersion:rule.version,code:rule.code,requestedBy:c.a.id,requestedAt:c.now})
  }
@@ -115,11 +115,11 @@ export function sickLines(c:Context){
 }
 export function sickCsv(s:State,on:string){
  const cell=(v:any)=>{const raw=String(v??''),safe=typeof v!=='number'&&/^[\s]*[=+@-]/.test(raw)?"'"+raw:raw;return '"'+safe.replaceAll('"','""')+'"'}
- const lines=[['payroll_id','staff_id','site','as_of','preset','policy_id','balance_minutes','annual_accrued_minutes','annual_used_minutes','pending_minutes','paid','pay_code','source_id','source_revision','source_minutes','credited_minutes']]
- for(const r of sickReports(s,on)){const person=s.staff.find(p=>p.id===r.staffId)!;const base=[person.payroll_id??'',r.staffId,r.site,on,r.preset,r.policyId,r.balanceMinutes,r.annualAccrued,r.annualUsed,r.pendingMinutes,r.paid,r.code];lines.push([...base,'','','',''] as string[]);for(const e of r.sources){
+ const lines=[['payroll_id','staff_id','site','as_of','preset','policy_id','balance_minutes','annual_accrued_minutes','annual_used_minutes','pending_minutes','paid','pay_code','source_id','source_revision','source_minutes','credited_minutes','bank_basis']]
+ for(const r of sickReports(s,on)){const person=s.staff.find(p=>p.id===r.staffId)!;const base=[person.payroll_id??'',r.staffId,r.site,on,r.preset,r.policyId,r.balanceMinutes,r.annualAccrued,r.annualUsed,r.pendingMinutes,r.paid,r.code];lines.push([...base,'','','','',r.bankBasis??''] as string[]);for(const e of r.sources){
    const rule=sickRule(get(s,'sickpolicies',r.policyId),e.date),source=[...base]
    source[4]=rule?.preset;source[10]=e.paid??(rule?.paid!==false);source[11]=e.code??rule?.code
-   lines.push([...source,e.id??'',e.revision??'',e.minutes??'',e.creditedMinutes??''] as string[])
+   lines.push([...source,e.id??'',e.revision??'',e.minutes??'',e.creditedMinutes??'',e.bankBasis??''] as string[])
   }}
  return lines.map(l=>l.map(cell).join(',')).join('\r\n')+'\r\n'
 }

@@ -1,7 +1,8 @@
-import {type State,type Row,type Context,need,keys,text,integer,get,exact,put} from './model'
+import {type State,type Row,type Context,need,keys,text,get,exact,put} from './model'
 import {date,dayAfter} from './aca'
 import {localDate} from './settings'
 import {sickWork,sickRule} from './sick'
+import {sickPreset} from './sick-presets'
 import {sickJurisdiction} from './sick-purposes'
 
 // Exclusions require an attributed employer review of the cited jurisdiction,
@@ -24,13 +25,17 @@ export const sickExclusions:Record<string,string[]>={
  PHILADELPHIA:[...common,'seasonal','term-under-six-months','adjunct-professor','pool-employee','intern','state-or-federal-government','nonprobationary-collective-agreement'],
 }
 export const sickClassificationLabel=(value:string)=>value==='covered'?'Covered employee':value==='unresolved'?'Unresolved · human review required':value.split('-').join(' ')
+const localOnly=(w:any)=>['qualifying-local-collective-waiver','express-local-collective-waiver','outside-local-minimum-wage-definition'].includes(w?.classification)
+const stateFloor=(rule:Row)=>sickJurisdiction(rule.preset)==='SEATTLE'?'WA':'CA'
 const currentWorker=(rule:Row,staffId:string)=>rule.workerCoverage?.find((w:any)=>w.staffId===staffId&&w.jurisdiction===sickJurisdiction(rule.preset))
 
 function qualifyingDate(s:State,staffId:string,plan:Row,rule:Row,on:string,worker:any){
  const jurisdiction=sickJurisdiction(rule.preset),start=s.employment.find(e=>e.staffId===staffId)?.startDate
  if(!start||on<start)return null
  if(worker?.qualifiedFrom&&worker.qualifiedFrom>=start&&worker.qualifiedFrom<=on)return worker.qualifiedFrom
- const work=sickWork(s,staffId,plan.site).filter(w=>w.date>=start&&w.date<=on).sort((a,b)=>a.date.localeCompare(b.date))
+ if(!['CA','LA','CHICAGO','PHILADELPHIA'].includes(jurisdiction)&&!(['SF','SEATTLE'].includes(jurisdiction)&&worker?.occasional))return start
+ const stateSites=['CA','LA'].includes(jurisdiction)?[...new Set(s.sickpolicies.filter(p=>['CA','LA','SF'].includes(sickJurisdiction(sickRule(p,on)?.preset??''))).map(p=>p.site))]:[plan.site]
+ const work=stateSites.flatMap(site=>sickWork(s,staffId,site)).filter(w=>w.minutes>0&&w.date>=start&&w.date<=on).sort((a,b)=>a.date.localeCompare(b.date))
  // These thresholds determine use eligibility. Accrual retains all covered
  // approved work from the start, including the hours that meet the threshold.
  if(['CA','LA'].includes(jurisdiction)){
@@ -53,15 +58,29 @@ export function sickEligibility(s:State,staffId:string,plan:Row,on:string){
  // Existing retained policies keep their original covered-core calculation.
  // New maintained versions record the eligibility rules they actually use.
  if(!rule.eligibilityVersion)return {status:'covered',label:'Legacy covered-core assumption; review applicability',qualifiedFrom:null}
- if(worker&&worker.classification!=='covered')return {status:worker.classification==='unresolved'?'unresolved':'excluded',label:worker.classification==='unresolved'?'Employee eligibility needs review':'Employer-reviewed exclusion; no new statutory use',qualifiedFrom:null}
+ if(worker&&worker.classification!=='covered'&&!localOnly(worker))return {status:worker.classification==='unresolved'?'unresolved':'excluded',label:worker.classification==='unresolved'?'Employee eligibility needs review':'Employer-reviewed exclusion; no new statutory use',qualifiedFrom:null}
  const start=s.employment.find(e=>e.staffId===staffId)?.startDate
  if(!start||start>on)return {status:'unresolved',label:'Employment start is missing or after this date',qualifiedFrom:null}
  const linked=person.site===plan.site||sickWork(s,staffId,plan.site).some(w=>w.date<=on)||Boolean(worker)
  if(!linked)return {status:'unavailable',label:'No reviewed employment or approved work at this location',qualifiedFrom:null}
- const qualifiedFrom=qualifyingDate(s,staffId,plan,rule,on,worker)
- return {status:qualifiedFrom?'covered':'qualifying',label:qualifiedFrom?'Covered employee; employer applicability review remains required':'Qualifying workplace service not yet established',qualifiedFrom}
+ const jurisdiction=sickJurisdiction(rule.preset),qualifiedFrom=localOnly(worker)?null:qualifyingDate(s,staffId,plan,rule,on,worker)
+ const fallback=localOnly(worker)||!qualifiedFrom&&worker?.occasional&&['SF','SEATTLE'].includes(jurisdiction)
+ if(fallback){
+  const stateQualified=qualifyingDate(s,staffId,plan,{...rule,preset:stateFloor(rule)},on,worker)
+  return {status:stateQualified?'covered':'qualifying',label:stateQualified?`${stateFloor(rule)==='WA'?'Washington':'California'} state floor; local qualification or waiver does not remove state protection`:'Qualifying workplace service not yet established',qualifiedFrom:stateQualified,localQualified:false}
+ }
+ return {status:qualifiedFrom?'covered':'qualifying',label:qualifiedFrom?'Covered employee; employer applicability review remains required':'Qualifying workplace service not yet established',qualifiedFrom,localQualified:Boolean(qualifiedFrom)}
 }
-export function sickWorkCovered(rule:Row,staffId:string){const w=currentWorker(rule,staffId);return !rule.eligibilityVersion||!w||w.classification==='covered'}
+/** Occasional Seattle workers retain the Washington floor before qualifying
+ * for the local tier. Once qualified, the local tier applies to earlier covered
+ * work as well. State protection is never withheld behind the local threshold. */
+export function sickBankRule(s:State,staffId:string,plan:Row,rule:Row,on:string):Row{
+ const worker=currentWorker(rule,staffId)
+ const fallback=localOnly(worker)||['SF','SEATTLE'].includes(sickJurisdiction(rule.preset))&&worker?.occasional&&!qualifyingDate(s,staffId,plan,rule,on,worker)
+ if(fallback)return {...rule,...sickPreset(stateFloor(rule),rule.normalDayMinutes??480),id:rule.id,revision:rule.revision,preset:rule.preset,code:rule.code,from:rule.from,bankBasis:stateFloor(rule)==='WA'?'Washington state floor':'California state floor'} as Row
+ return rule
+}
+export function sickWorkCovered(rule:Row,staffId:string){const w=currentWorker(rule,staffId);return !rule.eligibilityVersion||!w||w.classification==='covered'||localOnly(w)}
 
 export function sickWorkerCommand(c:Context,name:string,p:Record<string,any>){
  if(name!=='sickworker.save')return
@@ -70,7 +89,7 @@ export function sickWorkerCommand(c:Context,name:string,p:Record<string,any>){
  const old=get(c.s,'sickpolicies',p.id);exact(old,p)
  const staffId=text(p.staffId,'person'),person=c.s.staff.find(w=>w.id===staffId&&w.active&&!w.erased_at);need(person,'Active employee required',404)
  const from=date(p.from,'effective date'),jurisdiction=sickJurisdiction(old.preset)
- need(from>=old.from&&from>=localDate(c.now,c.s.timezone),'Eligibility reviews take effect after the current policy and no earlier than today',409)
+ need(from>=old.from&&from>=localDate(c.now,c.s.timezone),'Eligibility reviews take effect no earlier than the current policy and no earlier than today',409)
  need(!c.s.periods.some(r=>['locked','closed'].includes(r.status)&&r.end>=from),'Eligibility review cannot reach locked or closed payroll',409)
  need(!sickWork(c.s,staffId,old.site).some(w=>w.date>=from)&&!c.s.sickuses.some(u=>u.staffId===staffId&&u.policyId===old.id&&u.status==='approved'&&u.date>=from),'Eligibility review cannot rewrite approved work or leave; choose a later effective date',409)
  need(sickExclusions[jurisdiction],'Use the employer policy for an unmaintained jurisdiction')
@@ -78,7 +97,7 @@ export function sickWorkerCommand(c:Context,name:string,p:Record<string,any>){
  const qualifiedFrom=p.qualifiedFrom?date(p.qualifiedFrom,'qualifying service date'):''
  const start=c.s.employment.find(e=>e.staffId===staffId)?.startDate
  need(!qualifiedFrom||start&&qualifiedFrom>=start&&qualifiedFrom<=from,'Qualifying service date must be within employment and no later than this review')
- need(!qualifiedFrom||classification==='covered','An excluded or unresolved employee cannot receive a qualifying-service override')
+ need(!qualifiedFrom||classification==='covered'||localOnly({classification}),'An excluded or unresolved employee cannot receive a qualifying-service override')
  need(p.occasional===undefined||['yes','no'].includes(p.occasional),'Review occasional work')
  need(p.occasional!=='yes'||['SF','SEATTLE'].includes(jurisdiction),'Occasional-work threshold is specific to San Francisco or Seattle')
  const profile={staffId,jurisdiction,classification,occasional:p.occasional==='yes',qualifiedFrom,
