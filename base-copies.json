@@ -46,17 +46,6 @@
       }
     },
     {
-      "path": "ONBOARDING.md",
-      "originPath": "foundation/template/ONBOARDING.md",
-      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
-      "files": {
-        "ONBOARDING.md": "5d20f1bd0c24def0cd6c1165d1a58d0472ad0f02f2b60047014bda962eaf4274"
-      },
-      "modes": {
-        "ONBOARDING.md": "100644"
-      }
-    },
-    {
       "path": "migrations/core/0002_outbox.sql",
       "originPath": "default-seed/migrations/core/0004_development_outbox.sql",
       "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
@@ -208,6 +197,17 @@
       },
       "modes": {
         "migrations/core/0026_dependency_keys_sealed.sql": "100644"
+      }
+    },
+    {
+      "path": "ONBOARDING.md",
+      "originPath": "foundation/template/ONBOARDING.md",
+      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+      "files": {
+        "ONBOARDING.md": "5d20f1bd0c24def0cd6c1165d1a58d0472ad0f02f2b60047014bda962eaf4274"
+      },
+      "modes": {
+        "ONBOARDING.md": "100644"
       }
     },
     {
@@ -527,6 +527,17 @@
       }
     },
     {
+      "path": "src/base/contract-docs.mjs",
+      "originPath": "foundation/runtime/contract-docs.mjs",
+      "revision": "0fe27af9a5cb1bd9dc5e41da024784082e609010",
+      "files": {
+        "src/base/contract-docs.mjs": "d98e14f489c57f60446c2cc68310db09f298f7974d77026dbaa2c62868cc4838"
+      },
+      "modes": {
+        "src/base/contract-docs.mjs": "100644"
+      }
+    },
+    {
       "path": "src/base/contract-filter.ts",
       "originPath": "foundation/runtime/contract-filter.ts",
       "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
@@ -839,17 +850,6 @@
       }
     },
     {
-      "path": "src/modules/demo/README.md",
-      "originPath": "modules/demo/README.md",
-      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
-      "files": {
-        "src/modules/demo/README.md": "5d6dbd49a11d39876075d82c5e7b6a0ca9135de3bcc7bc6f52ecd080a9b84b82"
-      },
-      "modes": {
-        "src/modules/demo/README.md": "100644"
-      }
-    },
-    {
       "path": "src/modules/demo/declaration.mjs",
       "originPath": "modules/demo/declaration.mjs",
       "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
@@ -935,6 +935,17 @@
       },
       "modes": {
         "src/modules/demo/navigation.mjs": "100644"
+      }
+    },
+    {
+      "path": "src/modules/demo/README.md",
+      "originPath": "modules/demo/README.md",
+      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+      "files": {
+        "src/modules/demo/README.md": "5d6dbd49a11d39876075d82c5e7b6a0ca9135de3bcc7bc6f52ecd080a9b84b82"
+      },
+      "modes": {
+        "src/modules/demo/README.md": "100644"
       }
     },
     {
@@ -1125,17 +1136,6 @@
       }
     },
     {
-      "path": "src/modules/import-kit/FIXTURES.md",
-      "originPath": "modules/import-kit/FIXTURES.md",
-      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
-      "files": {
-        "src/modules/import-kit/FIXTURES.md": "2f193cf36fce01f7497721f577e4d6aca6dfaeb3cc5615c96be8c847cd6be5f3"
-      },
-      "modes": {
-        "src/modules/import-kit/FIXTURES.md": "100644"
-      }
-    },
-    {
       "path": "src/modules/import-kit/extraction.json",
       "originPath": "modules/import-kit/extraction.json",
       "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
@@ -1144,6 +1144,17 @@
       },
       "modes": {
         "src/modules/import-kit/extraction.json": "100644"
+      }
+    },
+    {
+      "path": "src/modules/import-kit/FIXTURES.md",
+      "originPath": "modules/import-kit/FIXTURES.md",
+      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+      "files": {
+        "src/modules/import-kit/FIXTURES.md": "2f193cf36fce01f7497721f577e4d6aca6dfaeb3cc5615c96be8c847cd6be5f3"
+      },
+      "modes": {
+        "src/modules/import-kit/FIXTURES.md": "100644"
       }
     },
     {
@@ -2621,17 +2632,6 @@
       }
     },
     {
-      "path": "src/modules/import-kit/src/door/README.md",
-      "originPath": "modules/import-kit/src/door/README.md",
-      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
-      "files": {
-        "src/modules/import-kit/src/door/README.md": "98f650890e5380191bf4b236d72debb9c2c93aae603500ec3b58b81d98ceb904"
-      },
-      "modes": {
-        "src/modules/import-kit/src/door/README.md": "100644"
-      }
-    },
-    {
       "path": "src/modules/import-kit/src/door/admission.ts",
       "originPath": "modules/import-kit/src/door/admission.ts",
       "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
@@ -2772,6 +2772,17 @@
       },
       "modes": {
         "src/modules/import-kit/src/door/protocol.ts": "100644"
+      }
+    },
+    {
+      "path": "src/modules/import-kit/src/door/README.md",
+      "originPath": "modules/import-kit/src/door/README.md",
+      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+      "files": {
+        "src/modules/import-kit/src/door/README.md": "98f650890e5380191bf4b236d72debb9c2c93aae603500ec3b58b81d98ceb904"
+      },
+      "modes": {
+        "src/modules/import-kit/src/door/README.md": "100644"
       }
     },
     {
@@ -3028,17 +3039,6 @@
       }
     },
     {
-      "path": "src/modules/import-kit/src/readers/README.md",
-      "originPath": "modules/import-kit/src/readers/README.md",
-      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
-      "files": {
-        "src/modules/import-kit/src/readers/README.md": "a219b8979a5a94f7d4be3ad62b4be8c4ef822c70496ce03f8a41928c825ae74e"
-      },
-      "modes": {
-        "src/modules/import-kit/src/readers/README.md": "100644"
-      }
-    },
-    {
       "path": "src/modules/import-kit/src/readers/api-policy.ts",
       "originPath": "modules/import-kit/src/readers/api-policy.ts",
       "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
@@ -3135,6 +3135,17 @@
       },
       "modes": {
         "src/modules/import-kit/src/readers/original.ts": "100644"
+      }
+    },
+    {
+      "path": "src/modules/import-kit/src/readers/README.md",
+      "originPath": "modules/import-kit/src/readers/README.md",
+      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+      "files": {
+        "src/modules/import-kit/src/readers/README.md": "a219b8979a5a94f7d4be3ad62b4be8c4ef822c70496ce03f8a41928c825ae74e"
+      },
+      "modes": {
+        "src/modules/import-kit/src/readers/README.md": "100644"
       }
     },
     {
@@ -3959,17 +3970,6 @@
       }
     },
     {
-      "path": "src/modules/operator-auth/docs/README.md",
-      "originPath": "modules/operator-auth/docs/README.md",
-      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
-      "files": {
-        "src/modules/operator-auth/docs/README.md": "fb67546feb7e63ef53608e88bf8a937abb3db31d497291734c5e7c99ac70e649"
-      },
-      "modes": {
-        "src/modules/operator-auth/docs/README.md": "100644"
-      }
-    },
-    {
       "path": "src/modules/operator-auth/docs/native-accounts.md",
       "originPath": "modules/operator-auth/docs/native-accounts.md",
       "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
@@ -3978,6 +3978,17 @@
       },
       "modes": {
         "src/modules/operator-auth/docs/native-accounts.md": "100644"
+      }
+    },
+    {
+      "path": "src/modules/operator-auth/docs/README.md",
+      "originPath": "modules/operator-auth/docs/README.md",
+      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+      "files": {
+        "src/modules/operator-auth/docs/README.md": "fb67546feb7e63ef53608e88bf8a937abb3db31d497291734c5e7c99ac70e649"
+      },
+      "modes": {
+        "src/modules/operator-auth/docs/README.md": "100644"
       }
     },
     {
@@ -4135,17 +4146,6 @@
       }
     },
     {
-      "path": "src/modules/operator-auth/identity/oidc/README.md",
-      "originPath": "modules/operator-auth/identity/oidc/README.md",
-      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
-      "files": {
-        "src/modules/operator-auth/identity/oidc/README.md": "5e03d2ef26aee1b96ef658c3dda90fe2b4781417ff1c9f32dff0d56105f7472b"
-      },
-      "modes": {
-        "src/modules/operator-auth/identity/oidc/README.md": "100644"
-      }
-    },
-    {
       "path": "src/modules/operator-auth/identity/oidc/aes-gcm.mjs",
       "originPath": "modules/operator-auth/identity/oidc/aes-gcm.mjs",
       "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
@@ -4253,6 +4253,17 @@
       },
       "modes": {
         "src/modules/operator-auth/identity/oidc/presets.mjs": "100644"
+      }
+    },
+    {
+      "path": "src/modules/operator-auth/identity/oidc/README.md",
+      "originPath": "modules/operator-auth/identity/oidc/README.md",
+      "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
+      "files": {
+        "src/modules/operator-auth/identity/oidc/README.md": "5e03d2ef26aee1b96ef658c3dda90fe2b4781417ff1c9f32dff0d56105f7472b"
+      },
+      "modes": {
+        "src/modules/operator-auth/identity/oidc/README.md": "100644"
       }
     },
     {
