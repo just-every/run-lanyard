@@ -19,6 +19,11 @@ export async function harness(options = {}) {
   const outboundService = async request => {
     options.observeOutbound?.(request)
     if(new URL(request.url).hostname==='api.openai.com'&&options.modelOutbound)return options.modelOutbound(request)
+    if(request.url==='https://api.sendgrid.com/v3/mail/send'){
+      const message=await request.json()
+      mailbox.push({to:message.personalizations.flatMap(p=>p.to.map(r=>r.email)),subject:message.subject,text:message.content.find(c=>c.type==='text/plain')?.value??''})
+      return options.sendgridOutbound?options.sendgridOutbound(message):new Response(null,{status:202,headers:{'x-message-id':'synthetic-lanyard-1'}})
+    }
     assert.equal(request.url, 'https://api.resend.com/emails')
     assert.equal(request.method, 'POST')
     mailbox.push(await request.json())
@@ -57,7 +62,7 @@ export async function harness(options = {}) {
       return { ...staff, cookie: await confirmMail(email) }
     }
     const signIn = async (email, headers = {}) => { const response = await send('/auth/magic-link', {email}, '', headers); assert.equal(response.status,202,response.text); return confirmMail(email, headers) }
-    return { get db(){return db}, mf, origin, owner, auth, send, cmd, state, person, signIn, confirmMail, restart:async()=>{await mf.setOptions(mfOptions);db=await mf.getD1Database('DB')}, close: async () => { await mf.dispose(); if (!options.root) await rm(dir, { recursive: true, force: true }) } }
+    return { get db(){return db}, mf, origin, owner, auth, mailbox, send, cmd, state, person, signIn, confirmMail, restart:async()=>{await mf.setOptions(mfOptions);db=await mf.getD1Database('DB')}, close: async () => { await mf.dispose(); if (!options.root) await rm(dir, { recursive: true, force: true }) } }
   } catch (error) {
     const collision=error?.code === 'ERR_ADDRESS_IN_USE'
     try { await mf.dispose() } catch (cleanupError) { if(!collision)throw cleanupError }

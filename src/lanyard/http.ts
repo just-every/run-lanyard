@@ -1,3 +1,4 @@
+import {reportDeliveryCsv} from './report-delivery'
 import {auditRestricted} from './domain/audit-access'
 import {retainedAuditRead} from './domain/audit-retention'
 import {operationalReport,operationalCsv,reportSites} from './domain/reports'
@@ -204,6 +205,11 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if (path === '/api/lanyard/agent/demand') return json(await agentDemandRead(env.DB,who,url.searchParams.get('site')??'',url.searchParams.get('date')??''))
       if (path === '/api/lanyard/agent/learning/proposals') return json(await agentLearnRead(env.DB,who,url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/agent/fairness/compare') return json(await comparisonRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
+      const delivery=path.match(/^\/api\/lanyard\/report-deliveries\/([\w-]+)\.csv$/)
+      if(delivery){
+       const csv=await reportDeliveryCsv(env,who,delivery[1],url.searchParams.get('token')??'',new Date().toISOString())
+       return new Response(csv,{headers:{...headers,'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="lanyard-operational.csv"'}})
+      }
       if(path==='/app/reports'||path==='/api/lanyard/reports'||path==='/api/lanyard/reports.csv') {
        const source=await load(env.DB),params=new URLSearchParams(url.searchParams),now=new Date().toISOString()
        if(path==='/app/reports'){

@@ -105,6 +105,7 @@ export async function reportsApi(){
   assert.equal(await sourceRecords(),beforeRefusal)
   assert.equal((await h.db.prepare("SELECT count(*) n FROM l_events WHERE action='reports.download'").first()).n,auditCount)
  }finally{await h.close()}
+ const {reportsDeliveryApi}=await import('./report-delivery-journey.mjs');await reportsDeliveryApi()
 }
 
 export async function reportsBrowser(){
