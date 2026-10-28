@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "22cc7166072efcc6f6df78abe73390620c9d5d9a2a264771b2a5950f0d5fe003",
+      "sha256": "69703bc29d731afc025b2047d5df0ccdc17089df63bd54732594c00d47c28a1c",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "0e4c9b9b804ae415c55f5d6770c35da2d0bcdef44788e53af8ecbd0b08db5ab6",
+      "sha256": "0214d2c8a8e4be60dd889f130af126e3b383dde5c3f9177e71996f1aeb6b1809",
       "executable": false
     },
     "DEMO.md": {
@@ -1474,7 +1474,7 @@
       "executable": false
     },
     "src/lanyard/domain/learn-propose.ts": {
-      "sha256": "ab3ca99c9c5c9fb6d30ca53a4b0b36d472aee48bded4c0696f880327c2c73067",
+      "sha256": "106f30dd9210b1410bc13c9fbd378191ba826197b5f420d26ea8171fd38a284c",
       "executable": false
     },
     "src/lanyard/domain/learning.ts": {
@@ -4146,7 +4146,7 @@
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
-      "sha256": "6f88df2f1965270e4d9df1efcbb885dcc6cd6a0ace926dbf192775e005f221b5",
+      "sha256": "49e963ea2828a2caee03e38aaea9ee1b6ae051a7a5cb732d8333336f0d2d0bd0",
       "executable": false
     },
     "tests/learning-journey.mjs": {
