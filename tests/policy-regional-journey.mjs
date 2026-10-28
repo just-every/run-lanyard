@@ -156,5 +156,25 @@ async function nevadaOrdinaryBoundaries(){
   await reviewNevadaWorker(h,unknown,'East',{stateDaily:'reviewed-not-applicable',legalBasis:'Employer exception needs separate supported treatment'})
   r=await h.cmd('policy.review',{staffId:unknown.id,week});assert.equal(r.classificationIncomplete,true);assert.equal(r.estimateCents,null)
   assert.deepEqual((await h.state()).timesheets,before.timesheets)
+  const manager=await h.person('NevadaPolicyManager','manager'),policy=(await h.state()).policies.find(r=>r.site==='East')
+  const review={...pin(policy),site:'East',from:policy.from,staffId:unknown.id,
+   ...Object.fromEntries(['federalOvertime','stateWeekly','stateDaily','stateConsecutive','stateSeventh','meal','rest','weeklyRest'].map(k=>[k,'covered'])),
+   legalBasis:'',evidenceReference:'',reviewReason:'Missing ordinary applicability evidence cannot authorize an estimate'}
+  const unchanged=await h.state()
+  await h.cmd('policy.worker.preview',review,manager.cookie,403)
+  await h.cmd('policy.worker.preview',review,h.owner,400)
+  assert.equal((await h.state()).version,unchanged.version,'unauthorized and unevidenced reviews write nothing')
+  const deviation=await person(h,'NevadaUnsupportedFourTen'),alternate=regionalExample('NV',[deviation.id])
+  for(const site of ['East','West']){
+   const old=(await h.state()).policies.find(r=>r.site===site)
+   await apply(h,{...pin(old),site,preset:'NV',from,alternate,reviewReason:'Reviewed mutual schedule; deviations and the four-ten workday remainder stay unresolved'})
+  }
+  await workFour(h,deviation,[12,10,8,10])
+  const retained=await h.state(),unsupported=await h.cmd('policy.review',{staffId:deviation.id,week})
+  assert.equal(unsupported.classificationIncomplete,true)
+  assert.equal(unsupported.estimateCents,null);assert.equal(unsupported.breakPremiumEstimateCents,null)
+  assert.ok(unsupported.alternateReviews.every(r=>r.reviewRequired&&r.reviewReason))
+  assert.deepEqual((await h.state()).timesheets,retained.timesheets)
+  assert.equal((await h.state()).batches.length,0,'unsupported schedules never create or mutate payroll')
  }finally{await h.close()}
 }
