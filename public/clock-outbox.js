@@ -96,7 +96,9 @@
     }
     if (capture.name === 'clock.breakEnd' && current && at > current.start) { current.end = at; return clock }
     if (capture.name === 'clock.transfer' && !current && at > clock.start && (clock.transfers || []).every(item => at > item.at) && (clock.breaks || []).every(item => at >= item.end) && capture.input.job) {
-      clock.transfers = [...(clock.transfers || []),{at,job:capture.input.job,site:capture.input.site ?? null}]
+      const from = clock.transfers?.at(-1) ?? clock, currentSite = from.site || clock.site || '', site = capture.input.site || currentSite
+      if (capture.input.job === from.job && site === currentSite) throw new Error('You are already working this job here.')
+      clock.transfers = [...(clock.transfers || []),{at,job:capture.input.job,site:site || null}]
       return clock
     }
     throw new Error('This event does not follow the current clock. Resolve the earlier captures first.')

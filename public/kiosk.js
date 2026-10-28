@@ -52,7 +52,7 @@
   catch(e){status.textContent=e.message}finally{busy=false;document.querySelector('#kiosk-retry').disabled=false}
  }
  login.addEventListener('submit',async event=>{event.preventDefault();try{await request('signin',Object.fromEntries(new FormData(login)));login.reset();status.textContent='';await load()}catch(e){status.textContent=e.message}})
- form.addEventListener('submit',async event=>{event.preventDefault();if(!current||busy)return;busy=true
+ form.addEventListener('submit',async event=>{event.preventDefault();if(!current||busy)return;busy=true;let queued=false
   try{const name=event.submitter.name,input={commandId:crypto.randomUUID(),capturedAt:new Date().toISOString()},data=new FormData(form);if(name==='clock.out')input.breakMinutes=0;if(name==='clock.breakStart')input.kind='meal';if(name==='clock.transfer')input.job=data.get('job');let photo,photoFailure
    const photoRequired=current.photoRequired&&(!name.startsWith('clock.break')||current.photoBreaks)&& (name!=='clock.transfer'||current.photoTransfers)
    if(photoRequired&&data.get('photoFailure'))photoFailure=String(data.get('photoFailure'));
@@ -60,8 +60,8 @@
     if(!data.get('photoConsent'))photoFailure='photo consent declined'
     else{const captured=await window.LanyardPunchPhoto.still(document.querySelector('[data-kiosk-video]'));photo=captured.photo;photoFailure=captured.photoFailure}
    }
-   await vault(async(state,save)=>{if(state.revoked||state.events.some(e=>e.status==='rejected'))throw new Error('Saved captures need manager review before recording more time.');const capture={name,input};if(name==='clock.transfer'&&!current.jobs.some(j=>j.id===input.job))throw new Error('Choose an available job.');window.LanyardClock.apply(window.LanyardClock.project(state),capture);state.events.push({capture,photo,photoConsent:Boolean(photo),photoFailure,status:'pending'});await save();render(state)});form.reset()
-  }catch(e){status.textContent=e.message}finally{busy=false;await sync()}
+   await vault(async(state,save)=>{if(state.revoked||state.events.some(e=>e.status==='rejected'))throw new Error('Saved captures need manager review before recording more time.');const capture={name,input};if(name==='clock.transfer'&&!current.jobs.some(j=>j.id===input.job))throw new Error('Choose an available job.');window.LanyardClock.apply(window.LanyardClock.project(state),capture);state.events.push({capture,photo,photoConsent:Boolean(photo),photoFailure,status:'pending'});await save();render(state)});queued=true;form.reset()
+  }catch(e){status.textContent=e.message}finally{busy=false;if(queued)await sync()}
  })
  document.querySelector('#kiosk-retry').addEventListener('click',sync);window.addEventListener('online',sync)
  document.querySelector('#kiosk-signout').addEventListener('click',async()=>{try{let yes=false;await vault(async(state,save)=>{if(state.events.length&&!confirm('Signing out deletes local originals. Cancel and ask the owner to recover unresolved captures first. Delete and sign out?'))return;await request('signout',{});state.events=[];await save();yes=true});if(yes){current=null;key=null;clear();panel.hidden=true;login.hidden=false;status.textContent='Signed out. Ready for the next employee.';form.reset()}}catch(e){status.textContent=e.message}})

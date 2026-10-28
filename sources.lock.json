@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "8daf71f6487a31c0c2706f2df2d642576fd16b6dfb9665dc7e826f24ba931873",
+      "sha256": "91842df6597d32fe2df8894674f2cd03a2e97c6434efcfc4c499038c1767a78d",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "5261305d3c4af0924964eda561b505c8c8b72ef61ef7e4b1ca67ebc2263d5ab9",
+      "sha256": "b2dfe70db1e1df358a0295c4e1a85828ab3aca4e9d65e336647277a69e4bcc94",
       "executable": false
     },
     "DEMO.md": {
@@ -658,7 +658,7 @@
       "executable": false
     },
     "public/clock-outbox.js": {
-      "sha256": "fba301b03479c86e32342195b9169a86249aa3bb4470386cd831b90f1f9c2afa",
+      "sha256": "7b042e6b970274c89acd9afa24ecee728b5e62e545ee928afa8879aaf520441b",
       "executable": false
     },
     "public/clock-recovery.js": {
@@ -722,7 +722,7 @@
       "executable": false
     },
     "public/kiosk.js": {
-      "sha256": "d06024ac20b096bbbe364dbb8012d142ea2013f62a95fcef2ddef56582735a8e",
+      "sha256": "9d3ccdbdacafe11fa849a907f2881abb8a59728b608c7e067f9b4bf9316e785a",
       "executable": false
     },
     "public/labor-cost-settings.js": {
@@ -4014,7 +4014,7 @@
       "executable": false
     },
     "tests/access-chat-kiosk-journey.mjs": {
-      "sha256": "0c1ed5df3ee2b64fa5004e26549a71c54e1fc5fce683b0d4b668bdb495e7b139",
+      "sha256": "e5eb10332355b06c5fa4f9179e26fb43de9de529b8f8121c402659030c5fa5c0",
       "executable": false
     },
     "tests/ai-schedule-journey.mjs": {
@@ -4054,7 +4054,7 @@
       "executable": false
     },
     "tests/clock-offline-journey.mjs": {
-      "sha256": "fdc7715d88701813de818fffa8039e3561067aea5a2b9ca421cf95e475a08d1e",
+      "sha256": "dea6270a06a7865b22b4eb022ae0df39ec7841209d4db67bbd0869f503a50081",
       "executable": false
     },
     "tests/comparison-scope-journey.mjs": {
