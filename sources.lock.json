@@ -658,11 +658,11 @@
       "executable": false
     },
     "public/clock-outbox.js": {
-      "sha256": "f6a612e67a7505ebe51c678baa0a86c2e7b54045f7129572172c3d09f97ba915",
+      "sha256": "fba301b03479c86e32342195b9169a86249aa3bb4470386cd831b90f1f9c2afa",
       "executable": false
     },
     "public/clock-recovery.js": {
-      "sha256": "05effcb15ffd5fd8dd703b25c7aeac3b2bf116e0dbbcd1ff67d4ad3455684cf9",
+      "sha256": "ac69dcaad3fe69ef0a8ba1a3a75950b95646b8ae184ec762bb6d80ff43cd2096",
       "executable": false
     },
     "public/docs.css": {
@@ -722,7 +722,7 @@
       "executable": false
     },
     "public/kiosk.js": {
-      "sha256": "27d17dfca588717520dcada015201b81511cbc091209af54171d827d559c959a",
+      "sha256": "a1216e8ab634525a6f2c7f4a68192e2c6426eaeadd147143c5257064f00fa22e",
       "executable": false
     },
     "public/labor-cost-settings.js": {
@@ -1338,7 +1338,7 @@
       "executable": false
     },
     "src/lanyard/domain/breaks.ts": {
-      "sha256": "92fbe82cd30e320dfe7d1e24d049b8159036609db86a7ca910eb3dc03ce336ba",
+      "sha256": "281a45683b30a0c26a8425408fb564628aba128444fc417023c457c4cb9c1dc7",
       "executable": false
     },
     "src/lanyard/domain/chat.ts": {
@@ -1790,11 +1790,11 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "74c447bcd956e5d7ae2ab74ec61924542a43ce65d070a6bc07fc7e3efcabcd54",
+      "sha256": "1c9ba9caeb3660571a9db8a2fd79ca175110ef1773f0bdfa73d7756ddb683605",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
-      "sha256": "d9f3bf7ef541e841a05ea9ef2cab4e3b89eae78a4418209083ff1f5b07d8b67d",
+      "sha256": "806950ebc722ed4bbc0cc675d801389da94e568f64a6fd0774a4b5855c8fac9d",
       "executable": false
     },
     "src/lanyard/movein/csv.ts": {
@@ -1962,7 +1962,7 @@
       "executable": false
     },
     "src/lanyard/ui/index.ts": {
-      "sha256": "d546864c40aa9fb0040816e869ad335b3937d991afef3cbeb511e3d4c8cd4688",
+      "sha256": "d61da1c14e5823887cfbf50830a2dbbfec204f33757c7787622aa5adb2f230a4",
       "executable": false
     },
     "src/lanyard/ui/intervals.ts": {
@@ -4010,7 +4010,7 @@
       "executable": false
     },
     "tests/access-chat-kiosk-journey.mjs": {
-      "sha256": "f89dc43ce6cdb34a1dc1cd0c07f0f95d40b69b3576fa886cd85e5eb6ec1d8628",
+      "sha256": "dc8bd146dc1b920c042e7edca3bf0e9ad0141e7f217f122c80feb21ba9010ac6",
       "executable": false
     },
     "tests/ai-schedule-journey.mjs": {

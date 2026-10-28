@@ -9,7 +9,7 @@ import {type AiConfiguration} from './domain/ai-provider'
 import {policyForm} from './policy-form'
 import {sickCsv,sickReports} from './domain/sick'
 import {localDate} from './domain/settings'
-import {kioskResponse,kioskAdmin,kioskPin} from './kiosk'
+import {kioskResponse,kioskAdmin,kioskPin,revokedKioskSessions} from './kiosk'
 import {chatRead,chatFile,chatMembershipAudit} from './domain/chat'
 import {load} from './domain/storage'
 import {customAccessRead} from './domain'
@@ -45,7 +45,8 @@ async function state(request:Request,env: Bindings, who: Actor, withChat=false) 
   const [snap, keys, browsers, jobs] = await Promise.all([snapshot(env.DB, who, env.SESSION_SECRET, new URL(request.url).searchParams.get('week')??undefined), agentKeys(env, who), clockBrowsers(env, who), who.role === 'owner' ? env.DB.prepare("SELECT id,state,checkpoint,total,fingerprint,error FROM ik_jobs WHERE destination='lanyard:staff' AND namespace='lanyard.staff.csv.v1' AND mapping_version='staff-csv-v1' AND principal_id=? ORDER BY rowid DESC LIMIT 30").bind(who.id).all() : null])
   const revokedKiosks=who.role==='owner'||who.role==='manager'?(await env.DB.prepare('SELECT id,site FROM l_kiosk_devices WHERE revoked_at IS NOT NULL OR locked=1').all<{id:string;site:string}>()).results.filter(d=>who.role==='owner'||d.site===(snap as any).staff.find((p:any)=>p.id===who.staffId)?.site).map(d=>d.id):[]
   const photoDevices=who.role==='agent'?[]:(await networkOf(request,env)).browsers.map(b=>({site:b.site,type:b.type}))
-  return { ...snap, reportDeliveryConfigured:who.role==='owner'&&env.MAIL_PROVIDER==='sendgrid'&&Boolean(env.MAIL_FROM&&env.MAIL_API_KEY), photoDevices,revokedKiosks,kiosks:who.role==='owner'?(await env.DB.prepare('SELECT id,site,label,photo,locked,revoked_at FROM l_kiosk_devices').all()).results:[], ...(withChat?{chat:chatRead(await load(env.DB),who)}:{}), agentKeys: keys, clockBrowsers: browsers, importJobs: jobs ? jobs.results : [] }
+  const revokedSessions=await revokedKioskSessions(env,who,(snap as any).staff.find((p:any)=>p.id===who.staffId)?.site??'')
+  return { ...snap, reportDeliveryConfigured:who.role==='owner'&&env.MAIL_PROVIDER==='sendgrid'&&Boolean(env.MAIL_FROM&&env.MAIL_API_KEY), photoDevices,revokedKiosks,revokedKioskSessions:revokedSessions,kiosks:who.role==='owner'?(await env.DB.prepare('SELECT id,site,label,photo,locked,revoked_at FROM l_kiosk_devices').all()).results:[], ...(withChat?{chat:chatRead(await load(env.DB),who)}:{}), agentKeys: keys, clockBrowsers: browsers, importJobs: jobs ? jobs.results : [] }
 }
 
 async function execute(request: Request, env: Bindings, who: Actor, name: string, input: Record<string, unknown>) {

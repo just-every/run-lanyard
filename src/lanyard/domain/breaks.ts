@@ -74,6 +74,7 @@ export function breaks(c:Context,name:string,p:Record<string,any>) {
   if(name==='clock.breakStart') {
    const kind=text(p.kind,'break kind',10);need(KINDS.includes(kind),'Choose a meal or rest break');need(!last||last.end,'You are already on a break',409)
    need(at>=open.start&&(!last||at>=last.end!),'A break cannot start before your clock-in or your last break',409)
+   need((open.transfers??[]).every((t:any)=>at>=t.at),'A break follows your last job change',409)
    return put(c,'clocks',{...open,breaks:[...list,{kind,start:at,end:null,receivedAt:c.now}]},open)
   }
   need(last&&!last.end,'You are not on a break',409);need(at>last.start,'A break ends after it starts',409)

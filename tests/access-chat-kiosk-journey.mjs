@@ -188,7 +188,7 @@ export async function kioskApi(h){
  return f
 }
 export async function surfaceBrowser(){
- const h=await harness({secure:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const h=await harness({secure:true}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--use-mock-keychain','--password-store=basic']})
  try{
  const f=await crew(h)
  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
@@ -224,32 +224,67 @@ export async function surfaceBrowser(){
 }
 
 export async function kioskOffline(){
- const h=await harness({secure:true}),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']})
+ const h=await harness({secure:true}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--use-mock-keychain','--password-store=basic','--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']})
  try{
-  const f=await crew(h),{alex}=f
+  const {handoverFixture}=await import('./shiftwork-fixture.mjs'),f=await handoverFixture(h),{alex,counter,kitchen}=f
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
   await h.cmd('kiosk.pin',{pin:'123456',language:'en',consent:true},alex.cookie)
   const enrolled=await h.send('/api/lanyard/command',{name:'kiosk.enroll',input:{site:'Ocean Beach',label:'Offline counter',photo:true,consent:true}},h.owner)
-  const context=await browser.newContext({viewport:{width:390,height:1000},ignoreHTTPSErrors:true}),[name,...value]=enrolled.cookie.split('=')
+  const context=await browser.newContext({viewport:{width:1440,height:1000},ignoreHTTPSErrors:true}),[name,...value]=enrolled.cookie.split('=')
   await context.addCookies([{name,value:value.join('='),url:h.origin,secure:true}])
   let disconnected=true
   await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path==='/api/lanyard/kiosk/capture'&&disconnected)return route.abort('internetdisconnected');if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js'))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
   let page=await context.newPage();await page.goto(h.origin+'/app/kiosk');await page.locator('[name=email]').fill(alex.email);await page.locator('[name=pin]').fill('123456');await page.getByRole('button',{name:'Verify employee'}).click();await page.getByRole('heading',{name:'Your clock',exact:true}).waitFor()
-  const start=Date.now()-4*3600000,at=n=>new Date(start+n*60000),capture=async(n,label,count)=>{await page.clock.setFixedTime(at(n));await page.locator('[name=photoConsent]').check();await page.getByRole('button',{name:label,exact:true}).click();await page.waitForFunction(n=>document.querySelector('#kiosk-pending').textContent.startsWith(n+' saved'),count)}
-  await context.setOffline(true);await capture(0,'Clock in',1);await capture(30,'Start meal',2)
-  await page.close();await h.restart();await context.setOffline(false);page=await context.newPage();await page.goto(h.origin+'/app/kiosk');await page.getByRole('heading',{name:'Your clock',exact:true}).waitFor();await capture(60,'End break',3);await capture(180,'Clock out',4)
+  const start=Date.parse(f.start),at=n=>new Date(start+n*60000),capture=async(n,label,count)=>{await page.clock.setFixedTime(at(n));await page.locator('[name=photoConsent]').check();await page.getByRole('button',{name:label,exact:true}).click();await page.waitForFunction(n=>document.querySelector('#kiosk-pending').textContent.startsWith(n+' saved'),count)}
+  const saved=()=>page.evaluate(async()=>{const db=(await indexedDB.databases()).find(d=>d.name.includes('kiosk:')).name;return window.LanyardClock.withState(db.slice(window.LanyardClock.databaseName('').length),null,state=>structuredClone(state))})
+  const shot=async label=>{if(process.env.C33_SCREENS)for(const width of [1440,390]){await page.setViewportSize({width,height:1000});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await mkdir(process.env.C33_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.C33_SCREENS,`kiosk-${label}-${width}.png`),fullPage:true})}await page.setViewportSize({width:1440,height:1000})}
+  const current=()=>page.locator('#kiosk-current').innerText()
+  await context.setOffline(true);await capture(0,'Clock in',1)
+  assert.match(await current(),/Clocked in.*Pending sync/)
+  await page.locator('[name=job]').selectOption(kitchen.id);await capture(160,'Change job',2)
+  assert.match(await current(),/Working Kitchen.*Ocean Beach.*Pending sync/)
+  await capture(180,'Start meal',3);assert.match(await current(),/On meal break/)
+  assert.equal(await page.getByRole('button',{name:'Change job',exact:true}).isDisabled(),true)
+  assert.equal(await page.getByRole('button',{name:'Clock out',exact:true}).isDisabled(),true)
+  const originals=(await saved()).events.map(e=>e.capture)
+  await shot('pending-meal')
+  await page.close();await h.restart();await context.setOffline(false);page=await context.newPage();await page.goto(h.origin+'/app/kiosk');await page.getByRole('heading',{name:'Your clock',exact:true}).waitFor();assert.match(await current(),/Working Kitchen.*On meal break.*Pending sync/)
+  assert.deepEqual((await saved()).events.map(e=>e.capture),originals,'page and Worker restart keep original command identities and capture times')
+  await capture(210,'End break',4);await page.locator('[name=job]').selectOption(counter.id);await capture(320,'Change job',5)
+  assert.match(await current(),/Working Counter.*Pending sync/);await shot('pending-counter')
+  await capture(480,'Clock out',6);assert.match(await current(),/Clocked out.*Pending sync/)
+  const allOriginals=(await saved()).events.map(e=>e.capture)
   const encrypted=await page.evaluate(async()=>{const names=await indexedDB.databases(),name=names.find(d=>d.name.includes('kiosk:')).name,db=await new Promise((resolve,reject)=>{const r=indexedDB.open(name);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});try{const tx=db.transaction('vault'),get=k=>new Promise((resolve,reject)=>{const r=tx.objectStore('vault').get(k);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});const key=await get('key'),state=await get('state');return {extractable:key.extractable,plain:new TextDecoder().decode(state.data),bytes:state.data.byteLength}}finally{db.close()}})
   assert.equal(encrypted.extractable,false);assert.ok(encrypted.bytes>0);assert.equal(encrypted.plain.includes('capturedAt'),false);assert.equal((await h.state()).clocks.length,0)
   disconnected=false;await page.getByRole('button',{name:'Retry saved captures'}).click();await page.waitForFunction(()=>document.querySelector('#kiosk-pending').textContent.startsWith('0 saved'))
-  let state=await h.state();assert.equal(state.timesheets.length,1);assert.equal(state.timesheets[0].minutes,150);assert.equal(state.clocks[0].breaks.length,1);assert.equal(state.kioskreceipts.length,4);assert.ok(state.kioskreceipts.every(r=>r.receivedAt>r.capturedAt&&r.photoId&&r.photoConsent));assert.equal((await h.db.prepare('SELECT count(*) AS n FROM l_kiosk_photos').first()).n,4)
+  let state=await h.state();assert.equal(state.timesheets.length,1);assert.equal(state.timesheets[0].minutes,450);assert.equal(state.clocks[0].breaks.length,1);assert.equal(state.kioskreceipts.length,6);assert.ok(state.kioskreceipts.every(r=>r.receivedAt>r.capturedAt&&r.photoId&&r.photoConsent));assert.equal((await h.db.prepare('SELECT count(*) AS n FROM l_kiosk_photos').first()).n,6)
+  assert.deepEqual(state.kioskreceipts.map(r=>[r.name,r.commandId,r.capturedAt]),allOriginals.map(c=>[c.name,c.input.commandId,c.input.capturedAt]))
+  const approved=await h.cmd('time.approve',pin(state.timesheets[0]))
+  // Three equal 160-minute spans share 30 unpaid minutes: 150 payable minutes each.
+  assert.deepEqual(approved.workSegments.map(p=>[p.job,p.site,p.minutes,p.rateBasis.segments.map(x=>x.cents),p.rateBasis.costCents]),[[counter.id,'Ocean Beach',150,[2000],5000],[kitchen.id,'Ocean Beach',150,[2400],6000],[counter.id,'Ocean Beach',150,[2000],5000]])
+  const profile=(await h.state()).workforce.find(p=>p.staffId===alex.id)
+  await h.cmd('workforce.save',{...pin(profile),staffId:alex.id,jobs:profile.jobs,skills:profile.skills,certifications:profile.certifications,sites:profile.sites,preferences:profile.preferences,minHours:profile.minHours,maxHours:profile.maxHours,classification:profile.classification,employmentType:profile.employmentType,startDate:profile.startDate,rates:[{job:counter.id,from:'2020-01-01',cents:3000},{job:kitchen.id,from:'2020-01-01',cents:3500}]})
+  const batch=await h.cmd('payroll.prepare',{ids:[approved.id]}),competing=await h.cmd('payroll.prepare',{ids:[approved.id]})
+  assert.deepEqual(batch.lines.map(l=>[l.job,l.minutes,l.rateBasis.costCents]),[[counter.id,300,10000],[kitchen.id,150,6000]])
+  const exported=await h.cmd('payroll.export',pin(batch));await h.cmd('payroll.export',pin(competing),h.owner,409)
+  const csv=(await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,h.owner)).text
+  assert.deepEqual(csv.split('\r\n').filter(l=>l.startsWith('ALEX,')).map(l=>{const c=l.split(',');return [c[5],c[9],c[11]]}),[['300',counter.id,'Ocean Beach'],['150',kitchen.id,'Ocean Beach']])
   await page.reload();await page.getByRole('heading',{name:'Your clock',exact:true}).waitFor();assert.equal((await h.state()).timesheets.length,1)
-  disconnected=true;await capture(200,'Clock in',1);await h.cmd('kiosk.revoke',{id:enrolled.value.id})
+  assert.match(await current(),/Clocked out/);await shot('reconnected')
+  // A PIN change invalidates this saved session before any employee retry.
+  disconnected=true;await capture(500,'Clock in',1);await page.locator('[name=job]').selectOption(kitchen.id);await capture(520,'Change job',2)
+  const unresolved=(await saved()).events.map(e=>e.capture)
+  await h.cmd('kiosk.pin',{pin:'345678',language:'en',consent:true},alex.cookie)
   // No employee retry precedes the owner's sign-in. The manager recovery UI reveals only a count.
-  const [ownerName,...ownerValue]=h.owner.split('=');await context.addCookies([{name:ownerName,value:ownerValue.join('='),url:h.origin}]);await page.goto(h.origin+'/app/time');const recovery=page.locator('[data-clock-recovery]');await recovery.waitFor();const notice=await recovery.innerText();assert.ok(notice.includes('1 unsynced punch'));assert.equal(notice.includes('Alex'),false);assert.equal(notice.includes('capturedAt'),false)
+  const [ownerName,...ownerValue]=h.owner.split('=');await context.addCookies([{name:ownerName,value:ownerValue.join('='),url:h.origin}]);await page.goto(h.origin+'/app/time');const recovery=page.locator('[data-clock-recovery]');await recovery.waitFor();const notice=await recovery.innerText();assert.ok(notice.includes('2 unsynced punches'));assert.equal(notice.includes('Alex'),false);assert.equal(notice.includes('capturedAt'),false)
   if(process.env.C33_SCREENS)for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await mkdir(process.env.C33_SCREENS,{recursive:true});await recovery.screenshot({path:join(process.env.C33_SCREENS,`kiosk-recovery-${width}.png`)})}
   await recovery.getByRole('button',{name:'Submit unsynced punches for review'}).click();await page.waitForFunction(()=>document.querySelector('[data-clock-recovery]').textContent.includes('No punches were automatically applied'))
-  state=await h.state();assert.equal(state.clockissues.length,1);assert.equal(state.timesheets.length,1);assert.ok(!JSON.stringify(state.clockissues).includes('photoConsent'));assert.ok(!JSON.stringify(state.clockissues).includes('/9j/'));assert.equal(state.clockissues[0].originalActorId,(await h.state(alex.cookie)).actor.id)
+  state=await h.state();assert.equal(state.clockissues.length,2);assert.equal(state.timesheets.length,1);assert.ok(!JSON.stringify(state.clockissues).includes('photoConsent'));assert.ok(!JSON.stringify(state.clockissues).includes('/9j/'));assert.equal(state.clockissues[0].originalActorId,(await h.state(alex.cookie)).actor.id)
+  assert.deepEqual(state.clockissues.map(i=>i.capture),unresolved)
+  assert.deepEqual((await saved()).events.map(e=>e.capture),unresolved,'authorized review retains encrypted originals')
+  for(const c of unresolved){const before=await retained(h);const r=await context.request.post(h.origin+'/api/lanyard/kiosk/capture',{data:c,headers:{origin:h.origin}});assert.equal(r.status(),401);assert.deepEqual(await retained(h),before)}
   const issue=state.clockissues[0];await h.cmd('clockissue.resolve',{...pin(issue),commandId:crypto.randomUUID(),reason:'Owner reviewed kiosk original; no additional work was performed.'});assert.equal((await h.state()).clockissues[0].status,'resolved');assert.equal((await h.state()).timesheets.length,1)
+  await h.cmd('kiosk.revoke',{id:enrolled.value.id})
   await page.goto(h.origin+'/app/kiosk');assert.equal((await page.locator('body').innerText()).includes('Kiosk is unavailable'),true)
   await context.close()
  }finally{await browser.close();await h.close()}
@@ -262,13 +297,42 @@ export async function kioskSegmentApi(h){
  const signin=await h.send('/api/lanyard/kiosk/signin',{email:alex.email,pin:'123456'},enrolled.cookie);assert.equal(signin.status,200,signin.text)
  const cookie=enrolled.cookie+'; '+signin.cookie,post=async(name,at,extra={})=>{const r=await h.send('/api/lanyard/kiosk/capture',{name,input:{commandId:crypto.randomUUID(),capturedAt:at,...extra}},cookie);assert.equal(r.status,200,r.text);return r.value.result}
  const refused=await h.send('/api/lanyard/kiosk/capture',{name:'clock.in',input:{commandId:crypto.randomUUID(),capturedAt:start},photo:btoa(String.fromCharCode(255,216,255,217)),photoConsent:true},cookie);assert.equal(refused.status,403,'a device without employer photo approval cannot collect optional photos')
- await post('clock.in',start);await post('clock.transfer',new Date(Date.parse(start)+180*60000).toISOString(),{job:kitchen.id})
- const time=(await post('clock.out',end,{breakMinutes:30})).timesheet,approved=await h.cmd('time.approve',pin(time))
+ const at=n=>new Date(Date.parse(start)+n*60000).toISOString(),event=(name,n,extra={})=>({name,input:{commandId:crypto.randomUUID(),capturedAt:at(n),...extra}})
+ const noWrites=async(capture,status,as=cookie)=>{const before=await retained(h);const r=await h.send('/api/lanyard/kiosk/capture',capture,as);assert.equal(r.status,status,r.text);assert.deepEqual(await retained(h),before);return r}
+ const bar=await h.cmd('job.save',{name:'Bar',skills:['mixology'],certifications:[]})
+ await noWrites(event('clock.transfer',10,{job:kitchen.id}),409)
+ const entered=event('clock.in',0),moved=event('clock.transfer',180,{job:kitchen.id})
+ const accepted=await h.send('/api/lanyard/kiosk/capture',entered,cookie);assert.equal(accepted.status,200,accepted.text)
+ await noWrites(event('clock.transfer',30,{job:bar.id}),409)
+ await noWrites(event('clock.transfer',30,{job:kitchen.id,site:'Mission'}),403)
+ await post('clock.breakStart',at(60),{kind:'meal'})
+ await noWrites(event('clock.transfer',75,{job:kitchen.id}),409)
+ await post('clock.breakEnd',at(90))
+ const changedJob=await h.send('/api/lanyard/kiosk/capture',moved,cookie);assert.equal(changedJob.status,200,changedJob.text)
+ await noWrites({...moved,input:{...moved.input,job:counter.id}},409)
+ await noWrites(event('clock.breakStart',120,{kind:'meal'}),409)
+ await noWrites(event('clock.transfer',150,{job:counter.id}),409)
+ await noWrites(event('clock.out',150,{breakMinutes:0}),409)
+ const own=(await h.send('/api/lanyard/kiosk/state',undefined,cookie)).value
+ assert.equal(own.open.job,counter.id);assert.equal(own.open.transfers.at(-1).job,kitchen.id)
+ assert.ok(!JSON.stringify(own.open).includes('rateBasis'))
+ const time=(await post('clock.out',end,{breakMinutes:0})).timesheet,approved=await h.cmd('time.approve',pin(time))
  assert.deepEqual(approved.workSegments.map(p=>[p.job,p.site,p.minutes,p.rateBasis.segments.map(x=>x.cents),p.rateBasis.costCents]),[[counter.id,'Ocean Beach',169,[2000],5633],[kitchen.id,'Ocean Beach',281,[2400],11240]])
  assert.equal(approved.workSegments.reduce((n,p)=>n+p.minutes,0),450)
  const batch=await h.cmd('payroll.prepare',{ids:[approved.id]}),exported=await h.cmd('payroll.export',pin(batch)),csv=(await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,h.owner)).text
  assert.ok(csv.includes(counter.id));assert.ok(csv.includes(kitchen.id));assert.equal(csv.split('\r\n').filter(l=>l.startsWith('ALEX,')).length,2)
+ await h.restart()
+ for(const capture of [entered,moved]){
+  const before=await retained(h),retry=await h.send('/api/lanyard/kiosk/capture',capture,cookie)
+  assert.equal(retry.status,200,retry.text);assert.deepEqual(await retained(h),before,'original retry creates no time, receipt, photo or payroll claim')
+ }
+ await noWrites({...entered,input:{...entered.input,capturedAt:at(1)}},409)
+ await h.cmd('kiosk.pin',{pin:'234567',language:'en',consent:true},f.ben.cookie)
+ const other=await h.send('/api/lanyard/kiosk/signin',{email:f.ben.email,pin:'234567'},enrolled.cookie)
+ await noWrites(moved,409,enrolled.cookie+'; '+other.cookie)
+ const alexAgain=await h.send('/api/lanyard/kiosk/signin',{email:alex.email,pin:'123456'},enrolled.cookie),live=enrolled.cookie+'; '+alexAgain.cookie
  await h.cmd('kiosk.pin',{pin:'345678',language:'es',consent:true},alex.cookie)
+ assert.equal((await h.send('/api/lanyard/kiosk/state',undefined,live)).status,401)
  assert.equal((await h.send('/api/lanyard/kiosk/state',undefined,cookie)).status,401,'a PIN change revokes an already active kiosk session')
  const again=await h.send('/api/lanyard/kiosk/signin',{email:alex.email,pin:'345678'},enrolled.cookie),changed=enrolled.cookie+'; '+again.cookie
  const person=(await h.state()).staff.find(x=>x.id===alex.id);await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:person.role,active:false,site:person.site})

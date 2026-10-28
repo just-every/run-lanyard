@@ -4,6 +4,7 @@
   const {role,actor} = document.body.dataset
   if (!['owner','manager'].includes(role) || !actor) return
   const revokedKiosks=new Set(JSON.parse(document.body.dataset.revokedKiosks||'[]'))
+  const revokedKioskSessions=new Set(JSON.parse(document.body.dataset.revokedKioskSessions||'[]'))
   const inactiveStaff = new Set(JSON.parse(document.body.dataset.inactiveStaff))
   const main = document.querySelector('main'), clock = window.LanyardClock
   if (!main || !clock?.withState || !clock?.databaseName) return
@@ -25,7 +26,7 @@
     const prefix = clock.databaseName(''), own = clock.databaseName(actor)
     return (await indexedDB.databases()).map(database => database.name).filter(name => typeof name === 'string' && name.startsWith(prefix) && name !== own && name.length > prefix.length).sort().map(name => name.slice(prefix.length))
   }
-  const remaining = state => (state.revoked === true || inactiveStaff.has(state.owner?.staffId) || state.client==='kiosk'&&revokedKiosks.has(state.deviceId)) ? state.events.filter(event => !event.recovered) : []
+  const remaining = state => (state.revoked === true || inactiveStaff.has(state.owner?.staffId) || state.client==='kiosk'&&(revokedKiosks.has(state.deviceId)||revokedKioskSessions.has(state.sessionId))) ? state.events.filter(event => !event.recovered) : []
   function render(message = '', hasError = false) {
     card.hidden = !count && !message
     notice.textContent = count === null ? 'The saved punch count is unavailable.' : `${count} unsynced ${count === 1 ? 'punch' : 'punches'} from a revoked session on this device.`
