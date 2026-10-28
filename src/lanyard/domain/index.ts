@@ -275,7 +275,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string,earni
  }
  if(agent) {
   result.clocks=[];result.teamviews=[];result.leave=s.leave.filter(r=>r.status==='approved').map(r=>({id:r.id,staffId:r.staffId,start:r.start,end:r.end,status:r.status,revision:r.revision}))
-  result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,network,answers,editHistory,...r})=>r)
+  result.timesheets=s.timesheets.map(({reason,submittedBy,approvedBy,network,answers,editHistory,minorCheck,...r})=>r)
   result.batches=s.batches.filter(b=>!b.exportTemplate&&!b.lines.some((l:any)=>l.sickLine)).map(({csv,csvPreview,lines,reference,...r})=>({...r,lines:lines.map(({payrollId,rateBasis,...l}:any)=>withoutRates(l))}))
  }
  // COVER-001: managers read every swap; a person reads the swaps they are in, with both names, and their own swap choices.
