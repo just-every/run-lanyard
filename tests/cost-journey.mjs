@@ -116,6 +116,23 @@ export async function costApi(){
   await h.cmd('time.prepare',{...f.shift(6,2,noRate),reason:'Recorded closing time awaiting a rate'})
   r=await read();assert.equal(r.actual.totalCents,null);assert.ok(r.actual.knownCents>0);assert.ok(r.actual.unpricedSources>0)
   await h.restart();assert.equal((await read()).actual.totalCents,null)
+  const current=(await h.state()).forecasts.find(x=>x.week===week&&x.site==='East')
+  const capInput={week,site:'East',days:current.days,budgetPercent:current.budgetPercent,revision:current.revision,jobBudgets:current.jobBudgets}
+  const managed=await h.cmd('forecast.save',capInput,manager.cookie)
+  assert.deepEqual(managed.jobBudgets,current.jobBudgets,'existing home-cafe manager command authority is preserved')
+  const refusedBefore=await h.state(),attempt={...capInput,revision:managed.revision,jobBudgets:[]}
+  await h.cmd('forecast.save',attempt,foreign.cookie,404)
+  await h.cmd('forecast.save',attempt,alex.cookie,403)
+  await h.cmd('forecast.save',attempt,'',401,{authorization:`Bearer ${key.token}`})
+  assert.equal((await h.state()).version,refusedBefore.version)
+  assert.deepEqual((await h.state()).forecasts,refusedBefore.forecasts)
+  assert.equal((await read(manager.cookie)).paidNonWork,null)
+  const person=(await h.state()).staff.find(p=>p.id===manager.id)
+  await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:'manager',active:false,site:'East'})
+  const revokedBefore=await h.state()
+  await h.cmd('forecast.save',attempt,manager.cookie,403)
+  assert.equal((await h.state()).version,revokedBefore.version,'revoked native authority cannot change caps')
+
  }finally{await h.close()}
 }
 

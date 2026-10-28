@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "3f1371540c82d201e9eb50e6650c84b7bf3ffc7c74e4d50e51e0ada917499213",
+      "sha256": "39f3c1108fa89e2415cfd9411a865182df45992592a582aec1a8112032d99e03",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "bca067c811cf8db9dc4cca8164f69ecc70d7e1e72e427b3fc50ef067a1e3cd56",
+      "sha256": "d85f9d52e8a4feace9a5e73d9da5b8d9f8380676d3cf7766fbed554df603840f",
       "executable": false
     },
     "DEMO.md": {
@@ -4034,7 +4034,7 @@
       "executable": false
     },
     "tests/cost-journey.mjs": {
-      "sha256": "2f0511ac54049fd0f572ec9e2fb02d68970cd16c5a0d92f9886a1244406c3e8c",
+      "sha256": "ec6ce85df78c9ac9e72e3a40e36757f5c4b5bf8c8db88303db203199b5f654f2",
       "executable": false
     },
     "tests/coverage.test.mjs": {
