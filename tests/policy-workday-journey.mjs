@@ -28,6 +28,7 @@ async function lock(h,p,period){
 // Native API: midnight retains the existing calculation; the employer's 04:00
 // workday joins Monday's eight hours to Tuesday's first four across cafes.
 export async function policyWorkdayApi(){
+ await nevadaAdoption()
  const h=await harness()
  try{
   await h.cmd('settings.save',{timezone:'UTC'})
@@ -96,6 +97,7 @@ export async function policyWorkdayBoundaryApi(){
 }
 
 export async function policyWorkdayAllocationApi(){
+ await nevadaAllocation()
  const h=await harness()
  try{
   await h.cmd('settings.save',{timezone:'UTC'})
@@ -118,6 +120,7 @@ export async function policyWorkdayAllocationApi(){
 }
 
 export async function policyWorkdayDstApi(){
+ await nevadaDst()
  const h=await harness({now:'2026-11-02T12:00:00Z'})
  try{
   await h.cmd('settings.save',{timezone:'America/Los_Angeles'})
@@ -131,6 +134,93 @@ export async function policyWorkdayDstApi(){
    assert.equal(sum(parts,'minutes'),x.minutes)
    assert.deepEqual(parts.map(a=>[a.date,a.workdayDate,a.minutes]),[[x.day,x.prior,x.before],[x.day,x.day,120]],'DST uses venue wall boundaries and elapsed weights')
    assert.equal(parts[0].intervalEnd,x.cut);assert.equal(parts[1].intervalStart,x.cut)
+  }
+ }finally{await h.close()}
+}
+
+// Nevada's ordinary workday follows elapsed time from first work, independently
+// of venue midnight, the employee workweek, job and cafe boundaries.
+export async function nevadaFixture(h,{legacy=false,review=true,rate='16.00'}={}){
+ await h.cmd('settings.save',{timezone:'UTC'})
+ const p=await person(h,'NevadaService');await wage(h,p,rate)
+ for(const site of ['East','West'])await h.cmd('policy.save',{site,preset:'NV',from:'2026-01-01',...(legacy?{presetVersion:'2026-10-26'}:{}),reviewReason:'Reviewed ordinary Nevada work under NRS 608.0126 and NRS 608.018'})
+ if(review){const {reviewNevadaWorker}=await import('./policy-regional-journey.mjs');for(const site of ['East','West'])await reviewNevadaWorker(h,p,site)}
+ return p
+}
+
+async function nevadaAdoption(){
+ const h=await harness({now:'2026-10-28T12:30:00Z'})
+ try{
+  const p=await nevadaFixture(h,{legacy:true}),manager=await h.person('NevadaReviewer','manager')
+  await approve(h,p,'2026-09-29T08:00:00Z','2026-09-29T17:00:00Z')
+  let period=await h.cmd('period.save',{start:'2026-09-28',end:'2026-10-04'});period=await lock(h,p,period)
+  const batch=await h.cmd('payroll.prepare',{});await h.cmd('payroll.export',pin(batch));await h.cmd('period.close',{...pin(period),reference:'synthetic-lanyard-1 employer recorded prior run'})
+  await approve(h,p,'2026-10-11T16:00:00Z','2026-10-11T22:00:00Z')
+  await approve(h,p,week+'T00:00:00Z',week+'T06:00:00Z',{site:'West'})
+  assert.deepEqual([(await report(h,p,'2026-10-05')).overtimeMinutes,(await report(h,p)).overtimeMinutes],[0,0])
+  const retained=await h.state()
+  for(const site of ['East','West']){
+   const old=(await h.state()).policies.find(r=>r.site===site)
+   const change={...pin(old),site,preset:'NV',presetVersion:'2026-10-28',from:'2026-10-05',reviewReason:'Review ordinary consecutive 24-hour workdays and adjacent workweek context'}
+   await h.cmd('policy.preview',change,manager.cookie,403);await h.cmd('policy.save',change,h.owner,409)
+   let preview=await h.cmd('policy.preview',change)
+   assert.ok(preview.calculations.some(c=>c.week===week),'review includes the next workweek even when the changed cafe only supplied prior-week work')
+   if(site==='East'){
+    await h.cmd('time.prepare',{staffId:p.id,site,start:'2026-10-14T08:00:00Z',end:'2026-10-14T09:00:00Z',breakMinutes:0,reason:'Source arrived after the release preview'})
+    const before=await h.state();await h.cmd('policy.save',{...change,reviewDigest:preview.digest},h.owner,409)
+    assert.equal((await h.state()).version,before.version,'stale adoption changes neither policy nor audit')
+    preview=await h.cmd('policy.preview',change)
+   }else assert.deepEqual(preview.calculations.filter(c=>c.week===week).map(c=>[c.before.estimateCents,c.after.overtimeMinutes,c.after.estimateCents]),[[null,240,12800]])
+   await h.cmd('policy.save',{...change,reviewDigest:preview.digest})
+   if(site==='East'){const mixed=await report(h,p);assert.equal(mixed.classificationIncomplete,true);assert.equal(mixed.estimateCents,null)}
+  }
+  const prior=await report(h,p,'2026-10-05'),current=await report(h,p)
+  assert.deepEqual([prior.minutes,prior.overtimeMinutes,current.minutes,current.regularMinutes,current.overtimeMinutes],[360,0,360,120,240])
+  assert.ok(current.parts.every(p=>p.date===week&&p.workdayStart==='2026-10-11T16:00:00.000Z'&&p.workdayEnd===week+'T16:00:00.000Z'))
+  const after=await h.state()
+  for(const t of retained.timesheets)assert.deepEqual(after.timesheets.find(x=>x.id===t.id),t)
+  assert.deepEqual(after.batches,retained.batches);assert.deepEqual(after.periods,retained.periods)
+  const west=after.policies.find(r=>r.site==='West')
+  await h.cmd('policy.preview',{...pin(west),site:'West',preset:'NV',from:'2026-09-29',presetVersion:'2026-10-28',reviewReason:'Refused closed-period reclassification'},h.owner,409)
+  assert.equal((await report(h,p,'2026-09-28')).overtimeMinutes,60,'closed history keeps the retained older version')
+  await h.restart();assert.deepEqual(await report(h,p),current,'restarting preserves exact workday classifications')
+ }finally{await h.close()}
+}
+
+async function nevadaAllocation(){
+ const h=await harness({now:'2026-10-28T12:30:00Z'})
+ try{
+  const p=await nevadaFixture(h)
+  const jobs=[];for(const name of ['Nevada counter','Nevada kitchen'])jobs.push(await h.cmd('job.save',{name,skills:[],certifications:[]}))
+  await h.cmd('workforce.save',{staffId:p.id,jobs:jobs.map(j=>j.id),skills:[],certifications:[],sites:['East','West'],preferences:[],minHours:0,maxHours:168,classification:'hourly employee',employmentType:'part-time',startDate:'2020-01-01',rates:[]})
+  await approve(h,p,week+'T08:00:00Z',week+'T15:00:00Z',{job:jobs[0].id})
+  const overnight=await approve(h,p,week+'T23:00:00Z','2026-10-13T09:00:00Z',{site:'West',job:jobs[1].id,breakMinutes:1})
+  await wage(h,p,'30.00')
+  const r=await report(h,p),parts=r.parts.filter(x=>x.timeId===overnight.id)
+  assert.deepEqual([r.minutes,r.regularMinutes,r.overtimeMinutes,r.doubleMinutes],[1019,540,479,0])
+  assert.deepEqual(parts.map(x=>[x.date,x.minutes,x.workdayStart]),[[week,60,week+'T08:00:00.000Z'],['2026-10-13',479,week+'T08:00:00.000Z'],['2026-10-13',60,'2026-10-13T08:00:00.000Z']])
+  assert.ok(parts.every(x=>x.cents===1600),'recutting preserves approved wages despite later wage edits')
+  assert.equal(sum(parts,'minutes'),overnight.minutes)
+  assert.deepEqual([...new Set(r.parts.map(x=>x.job))].sort(),jobs.map(j=>j.id).sort(),'jobs share one ordinary workday')
+  assert.ok(parts.every(x=>x.intervalStart>=x.date+'T00:00:00.000Z'))
+ }finally{await h.close()}
+}
+
+async function nevadaDst(){
+ const h=await harness({now:'2026-11-02T12:30:00Z'})
+ try{
+  const p=await nevadaFixture(h)
+  await h.cmd('settings.save',{timezone:'America/Los_Angeles'})
+  for(const x of [
+   {start:'2026-03-07T16:00:00Z',end:'2026-03-08T00:00:00Z',next:'2026-03-08T15:00:00Z',finish:'2026-03-08T17:00:00Z',week:'2026-03-02',cut:'2026-03-08T16:00:00.000Z'},
+   {start:'2026-10-31T15:00:00Z',end:'2026-10-31T23:00:00Z',next:'2026-11-01T15:00:00Z',finish:'2026-11-01T17:00:00Z',week:'2026-10-26',cut:'2026-11-01T15:00:00.000Z'},
+  ]){
+   await approve(h,p,x.start,x.end)
+   const tail=await approve(h,p,x.next,x.finish,{site:'West'}),r=await report(h,p,x.week),parts=r.parts.filter(v=>v.timeId===tail.id)
+   assert.equal(r.overtimeMinutes,x.week==='2026-03-02'?60:0,'a workday is 24 elapsed hours across both daylight-saving transitions')
+   assert.equal(sum(parts,'minutes'),120)
+   assert.equal(parts[0].workdayEnd,x.week==='2026-03-02'?x.cut:'2026-11-02T15:00:00.000Z')
+   if(parts.length===2)assert.equal(parts[0].intervalEnd,x.cut)
   }
  }finally{await h.close()}
 }

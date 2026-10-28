@@ -67,6 +67,7 @@ export async function policyEarningsApi(){
  }finally{await h.close()}
  await earningsRounding()
  await splitPeriod()
+ await nevadaEarnings()
 }
 
 async function earningsRounding(){
@@ -126,4 +127,29 @@ export async function policyEarningsBrowser(){
    assert.deepEqual(errors,[])
   }finally{await context.close();await h.close()}
  }}finally{await browser.close()}
+}
+
+async function nevadaEarnings(){
+ const h=await harness({now:'2026-10-28T12:30:00Z'})
+ try{
+  const {nevadaFixture}=await import('./policy-workday-journey.mjs'),{reviewNevadaWorker}=await import('./policy-regional-journey.mjs')
+  const p=await nevadaFixture(h)
+  const prior=await approve(h,{staffId:p.id,site:'East',start:'2026-10-11T16:00:00Z',end:'2026-10-11T22:00:00Z',breakMinutes:0})
+  const current=await approve(h,{staffId:p.id,site:'West',start:week+'T00:00:00Z',end:week+'T06:00:00Z',breakMinutes:0})
+  await wage(h,p,'99.00')
+  let e=(await own(h,p)).ownEarnings
+  assert.deepEqual([e.regularMinutes,e.overtimeMinutes,e.doubleMinutes,e.estimateCents],[120,240,0,12800],'prior-week daily context changes only current-period retained pay')
+  assert.equal((await own(h,p,'2026-10-05')).ownEarnings.estimateCents,9600)
+  assert.deepEqual(e.approvedIds,[current.id]);assert.ok(!e.approvedIds.includes(prior.id))
+  assert.equal(e.regularCostCents+e.overtimeCostCents,12800)
+  await reviewNevadaWorker(h,p,'West',{stateDaily:'reviewed-not-applicable',legalBasis:'Unresolved employer applicability outside this ordinary release'})
+  e=(await own(h,p)).ownEarnings
+  assert.equal(e.policyReviewRequired,true);assert.equal(e.estimateCents,null)
+  assert.equal(e.regularCostCents,null);assert.equal(e.overtimeCostCents,null)
+  const settings=await h.cmd('earnings.save',{estimates:false,statementUrl:'',payDays:5})
+  e=(await own(h,p)).ownEarnings;assert.equal(e.estimateCents,null);assert.equal(e.rateCents,null)
+  await h.cmd('earnings.save',{revision:settings.revision,estimates:true,statementUrl:'',payDays:5})
+  await reviewNevadaWorker(h,p,'West');await h.restart()
+  assert.equal((await own(h,p)).ownEarnings.estimateCents,12800)
+ }finally{await h.close()}
 }

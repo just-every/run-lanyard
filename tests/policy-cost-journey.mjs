@@ -82,6 +82,7 @@ export async function policyCostApi(){
  }finally{await h.close()}
  await openPunchProjection()
  await consecutiveProjection()
+ await nevadaProjection()
 }
 
 async function consecutiveProjection(){
@@ -136,6 +137,74 @@ export async function policyCostBrowser(){
    const [response]=await Promise.all([page.waitForResponse(r=>r.url().includes('name=overtime.substitute')),card.getByRole('button',{name:/Give to Casey/}).first().click()]);assert.equal(response.status(),200);await page.waitForLoadState('networkidle')
    assert.match(await card.innerText(),/9\.0 hrs projected \(4\.0 recorded \+ 5\.0 scheduled\).*1\.0 hr overtime.*0\.0 hr double time/s);await card.scrollIntoViewIfNeeded();await shot('policy-cost-reassigned')
    assert.deepEqual(errors,[])
+  }finally{await context.close();await h.close()}
+ }}finally{await browser.close()}
+ await nevadaCostBrowser()
+}
+
+async function nevadaProjectionFixture(h){
+ const {nevadaFixture}=await import('./policy-workday-journey.mjs'),p=await nevadaFixture(h)
+ for(const [site,start,end]of [['East','2026-10-11T16:00:00Z','2026-10-11T22:00:00Z'],['West','2026-10-12T00:00:00Z','2026-10-12T02:00:00Z']]){
+  const t=await h.cmd('time.prepare',{staffId:p.id,site,start,end,breakMinutes:0,reason:'Recorded Nevada ordinary service before the projected shift'})
+  await h.cmd('time.approve',pin(t))
+ }
+ await h.cmd('availability.save',{staffId:p.id,start:'2026-10-05T00:00:00Z',end:'2026-10-19T00:00:00Z'})
+ const prior=await h.cmd('roster.prepare',{week:'2026-10-05',shifts:[{staffId:p.id,site:'East',start:'2026-10-11T16:00:00Z',end:'2026-10-11T22:00:00Z',breakMinutes:0}]});await h.cmd('roster.publish',pin(prior))
+ const draft=await h.cmd('roster.prepare',{week:weekNevada,shifts:[{staffId:p.id,site:'West',start:weekNevada+'T00:00:00Z',end:weekNevada+'T02:00:00Z',breakMinutes:0},{staffId:p.id,site:'West',start:weekNevada+'T02:00:00Z',end:weekNevada+'T06:00:00Z',breakMinutes:0}]})
+ await h.cmd('roster.publish',pin(draft))
+ return {p,draft}
+}
+const weekNevada='2026-10-12',nowNevada=weekNevada+'T02:00:00Z'
+async function nevadaProjection(){
+ const h=await harness({now:nowNevada})
+ try{
+  const {p,draft}=await nevadaProjectionFixture(h),path=`/api/lanyard/overtime?week=${weekNevada}&asOf=${nowNevada}`
+  assert.ok(draft.policyWarnings.some(w=>w.message.includes('240 overtime minutes')&&w.message.includes('consecutive 24-hour')),'planning includes prior-workweek and cross-cafe workday context')
+  let a=(await h.send(path,undefined,h.owner)).value.alerts.find(a=>a.staffId===p.id)
+  assert.deepEqual([a.actualMinutes,a.scheduledMinutes,a.projectedMinutes,a.overtimeMinutes,a.doubleMinutes,a.premiumCents],[120,240,360,240,0,3200])
+  assert.ok(a.policy.parts.every(p=>p.workdayStart==='2026-10-11T16:00:00.000Z'))
+  const before=await h.state(),{reviewNevadaWorker}=await import('./policy-regional-journey.mjs')
+  await reviewNevadaWorker(h,p,'West',{stateDaily:'reviewed-not-applicable',legalBasis:'Unknown ordinary workday applicability must withhold risk amounts'})
+  a=(await h.send(path,undefined,h.owner)).value.alerts.find(a=>a.staffId===p.id)
+  assert.equal(a.policy.classificationIncomplete,true);assert.equal(a.premiumCents,null)
+  const after=await h.state();assert.deepEqual(after.timesheets,before.timesheets);assert.deepEqual(after.batches,before.batches)
+ }finally{await h.close()}
+}
+
+async function nevadaCostBrowser(){
+ const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ try{for(const width of [1440,390]){
+  const h=await harness({now:nowNevada}),context=await browser.newContext({viewport:{width,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse(nowNevada))}})
+  try{
+   await nevadaProjectionFixture(h)
+   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'x-test-now':String(Date.parse(nowNevada)),'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+   const {browserAssets}=await import('./policy-settings-journey.mjs');await browserAssets(context)
+   const [name,...value]=h.owner.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
+   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message))
+   const shot=async label=>{if(process.env.POLICY_COST_SCREENS){await mkdir(process.env.POLICY_COST_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.POLICY_COST_SCREENS,`${label}-${width}.png`)})}}
+   await page.goto(h.origin+`/app/schedule?week=${weekNevada}`,{waitUntil:'networkidle'})
+   const card=page.locator('#overtime');await card.getByText('Policy and estimate inputs',{exact:true}).click();await card.scrollIntoViewIfNeeded()
+   if(width===1440){
+    assert.match(await card.innerText(),/6.0 hrs projected.*2.0 recorded.*4.0 scheduled.*4.0 hr overtime.*\$32.00/s)
+    assert.match(await card.innerText(),/Nevada consecutive 24-hour workday.*eight hours below USD 18/s)
+    assert.ok(await card.getByRole('link',{name:'Workday source',exact:true}).count())
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+   }
+   await shot('nevada-workday-risk')
+   const account=page.locator('summary[aria-label="Account"]');await account.focus();await page.getByRole('tooltip',{name:'Account menu',exact:true}).waitFor({state:'visible'})
+   await page.goto(h.origin+'/app/settings?site=West&preset=NV',{waitUntil:'networkidle'})
+   const editor=page.locator('[data-policy-editor]');await editor.getByLabel('Review reason',{exact:true}).fill('Review Nevada first-work anchors and retained ordinary service rates')
+   await editor.getByRole('button',{name:'Preview policy changes',exact:true}).click();await page.waitForLoadState('networkidle')
+   const preview=page.locator('#policy-preview'),workweek=preview.locator('[data-policy-workweek]').last();await workweek.getByText('Calculation inputs and retained sources',{exact:true}).click()
+   if(width===1440){
+    assert.equal(await page.locator('.notice.error').count(),0)
+    assert.match(await preview.innerText(),/2026-10-11T16:00:00.000Z/)
+    assert.match(await preview.innerText(),/2026-10-12T16:00:00.000Z/)
+    assert.match(await preview.innerText(),/NRS608Sec0126/)
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    assert.deepEqual(errors,[])
+   }
+   await preview.scrollIntoViewIfNeeded();await shot('nevada-workday-settings-trace')
   }finally{await context.close();await h.close()}
  }}finally{await browser.close()}
 }

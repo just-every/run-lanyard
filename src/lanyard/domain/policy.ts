@@ -1,3 +1,4 @@
+import {nevadaWorkdayParts,nevadaWorkday,NEVADA_SOURCE,NEVADA_OVERTIME_SOURCE} from './policy-nevada'
 import {workdayParts} from './policy-workday'
 import {regionalLimits} from './policy-alternate-regional'
 // POLICY-001: versioned overtime core. Meal timing and statutory premium payroll
@@ -17,7 +18,7 @@ const version=(r:Row)=>{const {versions,...v}=r;return v}
 export function policyOn(s:State,site:string,on:string){
  return s.policies.filter(r=>r.site===site).flatMap(r=>[...(r.versions??[]),version(r)]).filter(r=>r.from<=on).sort((a,b)=>a.from.localeCompare(b.from)||a.revision-b.revision).at(-1)
 }
-export function policyLabel(r:any){return r.preset==='custom'?`${r.jurisdiction}: employer-configured, unmaintained`:`${r.preset} overtime core (${r.presetVersion}); meal and rest compliance incomplete`}
+export function policyLabel(r:any){return r.preset==='custom'?`${r.jurisdiction}: employer-configured, unmaintained`:`${r.preset} overtime core (${r.presetVersion}); ${nevadaWorkday(r)?'Nevada consecutive 24-hour workday; daily overtime after eight hours below USD 18; ':''}meal and rest compliance incomplete`}
 /** Actuals use approved retained rate allocations; all sites and jobs share the
  * employee workweek. Daily premiums never count twice toward weekly overtime.
  * A date uses the strongest threshold of the sites actually worked that date. */
@@ -28,7 +29,7 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
   return areas.flatMap((area:any)=>{const basis=area.rateBasis??priced(s,staffId,{...t,...area});return basis.segments.map((p:any)=>({date:p.date,minutes:p.minutes,cents:p.cents,rateReference:{from:p.from,profileId:p.profileId,profileRevision:p.profileRevision,jobRevision:basis.jobRevision},site:basis.site??t.site??s.staff.find(x=>x.id===staffId)?.site??'',timeId:t.id,revision:t.revision,start:area.start??t.start,end:area.end??t.end,area:area.area??'',job:area.job??t.job??''}))})
  }).sort((a:any,b:any)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start)||a.timeId.localeCompare(b.timeId))
  const key=(p:any)=>p.workdayKey??staffId+'|'+p.date+'|00:00',on=(p:any)=>p.workdayDate??p.date
- const allParts=workdayParts(s,staffId,retainedParts,((site,on)=>policyOn(s,site,on))).sort((a,b)=>a.date.localeCompare(b.date)||(a.intervalStart??a.start).localeCompare(b.intervalStart??b.start)||a.timeId.localeCompare(b.timeId))
+ const allParts=nevadaWorkdayParts(s,staffId,workdayParts(s,staffId,retainedParts,((site,on)=>policyOn(s,site,on))),((site,on)=>policyOn(s,site,on))).sort((a,b)=>a.date.localeCompare(b.date)||(a.intervalStart??a.start).localeCompare(b.intervalStart??b.start)||a.timeId.localeCompare(b.timeId))
  const consecutive=consecutiveWork(s,allParts,rows,((site,on)=>{const r=policyOn(s,site,on);return r&&!covered(r,staffId,'stateConsecutive')?{...r,consecutiveMinutes:0}:r}))
  const parts=allParts.filter((p:any)=>workweek(s,staffId,p.date)===week)
  const selectedDays=new Set(parts.map(key)),context=allParts.filter(p=>selectedDays.has(key(p))),prior=context.filter(p=>workweek(s,staffId,p.date)<week)
@@ -38,6 +39,7 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
  for(const p of context){const r=policyOn(s,p.site,p.date);if(r)rules.set(key(p)+'|'+p.site+'|'+r.revision,r)}
  const anchors=new Set(context.map(p=>{const r=policyOn(s,p.site,p.date);return r?.preset==='CA'?r.workdayStart??'00:00':'00:00'}))
  const workdayReviewIssues=anchors.size>1?['Employer workday anchors differ across the workweek; review all affected sites and effective dates']:[]
+ if(context.some((p:any)=>p.nevadaReviewRequired))workdayReviewIssues.push('Nevada consecutive 24-hour treatment requires evidenced ordinary nonexempt applicability at every worked site and effective version; mixed workday or alternate-schedule evidence remains unresolved')
  const classify=(useConsecutive:boolean)=>{let regularWeek=0;daily.clear();for(const q of prior)daily.set(key(q),(daily.get(key(q))??0)+q.minutes);return parts.map((p:any)=>{
   const own=policyOn(s,p.site,p.date),dayRules=[...rules.entries()].filter(([key])=>key.startsWith((p.workdayKey??staffId+'|'+p.date+'|00:00')+'|')).map(([,r])=>r)
   // Nevada's current general minimum wage is USD 12; daily overtime applies
@@ -50,7 +52,7 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
   const doubleMinutes=over(seventh?480:doubleMax),dailyOvertime=seventh?p.minutes-doubleMinutes:Math.max(useConsecutive?consecutive.get(p)?.minutes??0:0,Math.max(0,over(dailyMax)-doubleMinutes))
   const eligible=p.minutes-doubleMinutes-dailyOvertime,weeklyOvertime=Math.max(0,regularWeek+eligible-weeklyMax)-Math.max(0,regularWeek-weeklyMax);regularWeek+=eligible
   const overtimeMinutes=dailyOvertime+weeklyOvertime,regularMinutes=p.minutes-overtimeMinutes-doubleMinutes
-  return {...p,regularMinutes,overtimeMinutes,doubleMinutes,consecutiveOvertimeMinutes:consecutive.get(p)?.minutes??0,consecutiveEvidenceUnknown:consecutive.get(p)?.unknown??false,rules:dayRules.map(r=>({id:r.id,revision:r.revision,preset:r.preset,version:r.presetVersion,source:r.source,consecutiveMinutes:r.consecutiveMinutes??0,alternate:alternative(r,p),label:policyLabel(r)})),configured:!!own}
+  return {...p,regularMinutes,overtimeMinutes,doubleMinutes,consecutiveOvertimeMinutes:consecutive.get(p)?.minutes??0,consecutiveEvidenceUnknown:consecutive.get(p)?.unknown??false,rules:dayRules.map(r=>({id:r.id,revision:r.revision,preset:r.preset,version:r.presetVersion,source:r.source,consecutiveMinutes:r.consecutiveMinutes??0,...(nevadaWorkday(r)?{workdaySource:NEVADA_SOURCE,overtimeSource:NEVADA_OVERTIME_SOURCE}:{}),alternate:alternative(r,p),label:policyLabel(r)})),configured:!!own}
  })}
  const dailyOutput=classify(false),consecutiveOutput=classify(true)
  const premium=(list:any[])=>list.reduce((n,p)=>n+p.overtimeMinutes*.5+p.doubleMinutes,0)
@@ -70,7 +72,7 @@ export function policyClassification(s:State,staffId:string,week:string,planned?
   const d=premiumDays.get(day)??{meal:0,rest:0};d.meal=Math.max(d.meal,r.mealPremiumMinutes);d.rest=Math.max(d.rest,r.restPremiumMinutes);premiumDays.set(day,d)
  }
  const weeklyRestReviews=illinoisRest(s,rows.filter(t=>t.staffId===staffId),week)
- const alternateReviews=parts.flatMap((p:any)=>{const r=policyOn(s,p.site,p.date),review=r?alternative(r,p):null;return review?[{date:p.date,site:p.site,...review}]:[]})
+ const alternateReviews=parts.flatMap((p:any)=>{const r=policyOn(s,p.site,p.date),review=r?alternative(r,p):null;return review?[{date:p.date,site:p.site,...review,...(nevadaWorkday(r)?{reviewRequired:true,reviewReason:'Nevada four-ten consecutive 24-hour workday treatment remains unresolved; no alternate exception is certified'}:{})}]:[]})
  const coverage=coverageReview(s,staffId,parts,((site,on)=>policyOn(s,site,on)));coverage.issues.push(...workdayReviewIssues)
  const breakPremiumMinutes=[...premiumDays.values()].reduce((n,d)=>n+d.meal+d.rest,0)
  const total=(key:string)=>output.reduce((n:number,p:any)=>n+p[key],0),minutes=total('minutes'),known=output.every((p:any)=>p.cents!==null)
@@ -88,6 +90,7 @@ export function policyWarnings(s:State,shifts:Row[],week:string){
   if(review.issues.length&&!seenBreaks.has(breakKey)){seenBreaks.add(breakKey);result.push({kind:'policy',site,date:review.date,message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${r.preset} break review (${review.version}): ${review.issues.map((i:{message:string})=>i.message).join('; ')}. ${review.sources.join(' ')}. ${review.label}.`})}}
   const report=policyClassification(s,x.staffId,workweek(s,x.staffId,localDate(x.start,s.timezone)),all),mine=report.parts.filter((p:any)=>p.timeId===x.id)
   const overtime=mine.reduce((n:number,p:any)=>n+p.overtimeMinutes,0),double=mine.reduce((n:number,p:any)=>n+p.doubleMinutes,0)
+  if(report.classificationIncomplete)result.push({kind:'policy',site,date:localDate(x.start,s.timezone),message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${policyLabel(r)}: classification review required; monetary estimates withheld. ${report.coverage.issues.join('; ')}`})
   if(overtime||double||r.preset==='custom')result.push({kind:'policy',site,date:localDate(x.start,s.timezone),message:`${s.staff.find(p=>p.id===x.staffId)?.name}: ${policyLabel(r)}: ${overtime} overtime minutes; ${double} double-time minutes. ${report.label}.`})
  }
  for(const staffId of new Set(shifts.map(x=>x.staffId)))for(const r of illinoisRest(s,all.filter(x=>x.staffId===staffId),week))result.push({kind:'policy',site:r.site,date:r.date,message:`${s.staff.find(p=>p.id===staffId)?.name}: ${r.message} (${r.version}). ${r.source}. Exemptions and permits require review.`})

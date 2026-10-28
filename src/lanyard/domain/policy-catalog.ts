@@ -1,6 +1,6 @@
 import {BREAK_VERSION,breakSources} from './policy-breaks'
-export const VERSION='2026-10-26'
-export const POLICY_VERSIONS=['2026-10-24',VERSION] as const
+export const VERSION='2026-10-28'
+export const POLICY_VERSIONS=['2026-10-24','2026-10-26',VERSION] as const
 export const sources:Record<string,string>={
  federal:'https://www.dol.gov/agencies/whd/overtime',
  CA:'https://www.dir.ca.gov/dlse/faq_overtime.htm',
@@ -12,4 +12,4 @@ export const sources:Record<string,string>={
  NY:'https://dol.ny.gov/overtime-pay',
  IL:'https://labor.illinois.gov/faqs/overtime-faq.html',
 }
-export const policyPresets=Object.entries(sources).map(([id,source])=>({id,source,version:VERSION,effectiveFrom:'2026-10-26',breakVersion:breakSources[id]?BREAK_VERSION:null,breakSources:breakSources[id]??[],scope:'Nonexempt overtime core; selected break review estimates; exemptions, alternate workdays and premium payroll incomplete'}))
+export const policyPresets=Object.entries(sources).map(([id,source])=>({id,source,version:VERSION,effectiveFrom:VERSION,breakVersion:breakSources[id]?BREAK_VERSION:null,breakSources:breakSources[id]??[],scope:'Nonexempt overtime core; selected break review estimates; exemptions, alternate workdays and premium payroll incomplete'}))
