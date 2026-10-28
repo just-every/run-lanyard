@@ -47,7 +47,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | NOTICE-002 | Reminders escalation and payroll follow-up | done |
 | NOTICE-003 | Reminder delivery under employee contact settings | missing |
 | CHAT-001 | Team messaging and operational handover | partial |
-| CAL-001 | Google and Outlook calendar subscriptions | missing |
+| CAL-001 | Google and Outlook calendar subscriptions | partial |
 | FEEDBACK-001 | Post-shift employee feedback | done |
 | LOG-001 | Manager logbook and shift handover log | done |
 | MOBILE-001 | Employee and manager mobile apps | partial |

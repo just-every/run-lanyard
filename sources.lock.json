@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "8daf71f6487a31c0c2706f2df2d642576fd16b6dfb9665dc7e826f24ba931873",
+      "sha256": "80007a5fb8cb5f852333617c9c952af9c64b52f475fc94cb5a869092507c1f9a",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "5261305d3c4af0924964eda561b505c8c8b72ef61ef7e4b1ca67ebc2263d5ab9",
+      "sha256": "fe510c24c8907b16669511b51a10c198ec21b1d04ddb397f079531449b85d649",
       "executable": false
     },
     "DEMO.md": {
@@ -406,7 +406,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "634d7742a5defe4bf91d593bfe00ac5b783bddb27c6affecfa91604298ed5008",
+      "sha256": "730484a6dfbb1c511e61dab53f4f3f609ad3a6874989d4e0f6d278aba988e203",
       "executable": false
     },
     "docs/GETTING-STARTED.md": {
@@ -438,7 +438,7 @@
       "executable": false
     },
     "docs/SCHEDULE.md": {
-      "sha256": "3bc79f408da86551fcdfbfbfcddaa892ebc3a7b42599e3cd373ab1f2f14b70b6",
+      "sha256": "427528bc92713feb47dd64861f63b01d6554a55d5a7be916cf4e635c2b5c8c40",
       "executable": false
     },
     "docs/SOURCES.md": {
@@ -579,6 +579,10 @@
     },
     "migrations/core/0027_report_delivery_approvals.sql": {
       "sha256": "9154e0ee8fc58960d50c45a1dd5e5109a54a3101d4e4f754e898cccdebc8c8dd",
+      "executable": false
+    },
+    "migrations/core/0028_lanyard_calendar.sql": {
+      "sha256": "e6a51c4004f574b5d2d49d61c8d833dd979aa4fcd882016aa6bc5a2ad73acf9d",
       "executable": false
     },
     "ONBOARDING.md": {
@@ -1266,7 +1270,15 @@
       "executable": false
     },
     "src/lanyard/archive-policy.mjs": {
-      "sha256": "5c969525513cf83cceaefc1fcafc534551e3f8dc52fd6ddf4d20186f92be24f1",
+      "sha256": "511a37d2ed99e10bc648d432f29ed533fb8d0940d623611cc26e88b156857286",
+      "executable": false
+    },
+    "src/lanyard/calendar-events.ts": {
+      "sha256": "35fdb8c5f0fcd624deb06a910b9e9a16a33265fd64f01cbb5119b8c411cc119a",
+      "executable": false
+    },
+    "src/lanyard/calendar.ts": {
+      "sha256": "164e82a340cf798532dc6c0147be106010c42601d844568aba961b0bd85dbb2d",
       "executable": false
     },
     "src/lanyard/clockbrowsers.ts": {
@@ -1750,7 +1762,7 @@
       "executable": false
     },
     "src/lanyard/domain/storage.ts": {
-      "sha256": "919a74abeeb5cec1a2936ca54ff2fc7b9545a527f468b956473bf33fafde640b",
+      "sha256": "b1e50a63038a1a3d450cce53edecd5a75c37bc93024af0bfa936e07ecea94374",
       "executable": false
     },
     "src/lanyard/domain/swaps.ts": {
@@ -1794,7 +1806,7 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "1c9ba9caeb3660571a9db8a2fd79ca175110ef1773f0bdfa73d7756ddb683605",
+      "sha256": "c40ca614aa7d23ccc96af03959d29becf5503ed6fe8bf1a39d6e7b101f0ba11d",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
@@ -1875,6 +1887,10 @@
     },
     "src/lanyard/ui/breaks.ts": {
       "sha256": "9de6d76d7fab6d25b78ab1dbe8ceaf84043f6bf47ed882df1059e6522e43eb2b",
+      "executable": false
+    },
+    "src/lanyard/ui/calendar.ts": {
+      "sha256": "e585b0e1abca4565bee225c2c7c9e60b21e1340ef3413bdb674ad165d525c584",
       "executable": false
     },
     "src/lanyard/ui/callout.ts": {
@@ -1966,7 +1982,7 @@
       "executable": false
     },
     "src/lanyard/ui/index.ts": {
-      "sha256": "d61da1c14e5823887cfbf50830a2dbbfec204f33757c7787622aa5adb2f230a4",
+      "sha256": "871a1c047cacbb873cbddfc472278ec0d3864098e4c936c12f1969835ff01fd9",
       "executable": false
     },
     "src/lanyard/ui/intervals.ts": {
@@ -2122,7 +2138,7 @@
       "executable": false
     },
     "src/lanyard/ui/schedule.ts": {
-      "sha256": "955c84a20c61ac5c385e58430e872f2216d4d542233ed3cddc32ed627b75c8c7",
+      "sha256": "d5fe6ab2fac0e296faea02fc6a0a8f6bfb228ae25b9ce64a2524064168d9e31c",
       "executable": false
     },
     "src/lanyard/ui/shared.ts": {
@@ -2130,7 +2146,7 @@
       "executable": false
     },
     "src/lanyard/ui/shell.ts": {
-      "sha256": "0192a72b0c8591297644cd02f957830ac881edd9c1409b735887be2aff371232",
+      "sha256": "c373b2c922ea6d698be323ced33bffe4c9ac04254ed656d7fd2bc0c439c88576",
       "executable": false
     },
     "src/lanyard/ui/shiftwork.ts": {
@@ -4022,7 +4038,7 @@
       "executable": false
     },
     "tests/archive.test.mjs": {
-      "sha256": "c635ced74e488082668ced219793e026f6435584a7119e516dd8bba2aec61112",
+      "sha256": "84c25a2a37112c866c250cf19ff1c3d4c33368a6767be146d4ad5a8888c031d9",
       "executable": false
     },
     "tests/audit-report-journey.mjs": {
@@ -4047,6 +4063,10 @@
     },
     "tests/bulk-approval-journey.mjs": {
       "sha256": "a7ae5c2d4f49b3ed92d737224201a5fa3f3fb3745679f13008dfedc5aa385e26",
+      "executable": false
+    },
+    "tests/calendar-journey.mjs": {
+      "sha256": "3800feacc29b1e4413e24a56a458783d4a1b5e372ae4edec46187806f18022c3",
       "executable": false
     },
     "tests/chat-membership-journey.mjs": {
@@ -4142,7 +4162,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "939c48c22ba4364e1cace309d6ee4243637660b6406c6cbe1574bc184287d19d",
+      "sha256": "6603b97308936a180aa9a9cbfbbd66aa383bf38e7bb3e9b9d42eb97064a73be0",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
