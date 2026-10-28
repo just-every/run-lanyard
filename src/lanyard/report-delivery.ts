@@ -29,7 +29,7 @@ export async function deliverReports(env:Bindings,now:string) {
   const token=crypto.randomUUID()+crypto.randomUUID(),filter={site:schedule.site,kind:schedule.kind,job:schedule.job,person:schedule.person,...deliveryPeriod(c.s,due,schedule.periodDays)}
   let reader,blocked:string|null=null
   try{reader=await deliveryReader(env.DB,c.s,c.a,schedule,env.SESSION_SECRET);operationalReport(c.s,reader,new URLSearchParams(filter),now)}catch{blocked='Current recipient authority requires owner review'}
-  if(env.MAIL_PROVIDER!=='sendgrid'||!env.MAIL_FROM||!env.MAIL_API_KEY)blocked='SendGrid is not configured; no mail submitted'
+  if(!blocked&&(env.MAIL_PROVIDER!=='sendgrid'||!env.MAIL_FROM||!env.MAIL_API_KEY))blocked='SendGrid is not configured; no mail submitted'
   const delivery:Row={id,revision:1,scheduleId:schedule.id,scheduleRevision:schedule.revision,recipientId:schedule.recipientId,site:schedule.site,filter,due,attemptedAt:now,expiresAt:new Date(Date.parse(now)+86400000).toISOString(),tokenHash:await sha(token),status:blocked?'blocked':'uncertain',reason:blocked??'Submission claimed; provider outcome not yet recorded',providerId:null,revokedAt:null}
   c.s.reportdeliveries.push(delivery);c.entity=id
   const step=schedule.cadenceDays*86400000,nextDue=new Date(Date.parse(due)+(Math.floor((Date.parse(now)-Date.parse(due))/step)+1)*step).toISOString()

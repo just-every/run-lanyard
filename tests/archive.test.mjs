@@ -132,6 +132,9 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.equal(scopedAudit.status,200,scopedAudit.text)
     assert.deepEqual(scopedAudit.value.rows.map(r=>r.sourceId).sort(),[kioskOut.value.result.timesheet.id,nativeOut.timesheet.id].sort())
     const quarterPackets=await auditLargeQuarter(h)
+    const reportHeaders={'x-test-now':String(Date.parse('2026-10-28T12:00:00Z'))}
+    const reportSchedule=await h.cmd('report.schedule.save',{label:'Archive report approval',recipient:'owner',site:'Archive cafe',kind:'worked',periodDays:14,cadenceDays:7,nextDue:'2026-10-29T12:00:00Z',consent:true},h.owner,200,reportHeaders)
+    assert.equal((await h.db.prepare('SELECT count(*) n FROM l_report_approvals WHERE schedule_id=?').bind(reportSchedule.id).first()).n,1)
     const originalChat=(await h.send('/api/lanyard/chat',undefined,h.owner)).value,originalAccess=(await h.send('/api/lanyard/access',undefined,h.owner)).value
     const journal=await h.cmd('import.journal',{jobId:imported.job.id}),original=await h.state()
     const identity={auth:h.auth,owner:h.owner}
@@ -148,6 +151,8 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     await h.state(identity.owner,401)
     assert.equal((await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agentKey.token}`})).status,401)
     const owner=await h.signIn(h.auth.OWNER_EMAIL),back=await h.state(owner)
+    assert.deepEqual(back.reportschedules,original.reportschedules,'Schedule history travels without its live delivery approval')
+    assert.equal((await h.db.prepare('SELECT count(*) n FROM l_report_approvals').first()).n,0,'Restoring with the same secrets cannot restore delivery authority')
     assert.deepEqual(back.agentKeys,[])
     assert.deepEqual(back.kiosks,[])
     assert.equal((await h.send('/api/lanyard/kiosk/state',undefined,kioskCookie)).status,403)
@@ -199,6 +204,10 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     for(const [id,text] of Object.entries(files))assert.equal((await h.send(`/api/lanyard/batches/${id}.csv`,undefined,owner)).text,text)
     assert.deepEqual(await h.cmd('import.journal',{jobId:imported.job.id},owner),journal)
     assert.equal((await h.state(await h.signIn(alex.email))).shifts[0].label,'Morning service')
+    const restoredTick=await (await h.mf.getWorker()).scheduled({scheduledTime:new Date('2026-10-29T12:00:00Z'),cron:'*/15 * * * *'})
+    assert.equal(restoredTick.outcome,'ok')
+    const blockedReport=(await h.state(owner)).reportdeliveries.find(r=>r.scheduleId===reportSchedule.id)
+    assert.equal(blockedReport.status,'blocked');assert.match(blockedReport.reason,/recipient authority requires owner review/)
     await h.close();h=null
     await command(restored,['import','--input',old,'--yes','--no-queue'],4)
     const corrupt=join(temporary,'corrupt.rer');await writeFile(corrupt,bytes.replace('Temporary joiner','Changed joiner'),{mode:0o600})

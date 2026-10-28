@@ -75,5 +75,19 @@ export async function reportsDeliveryApi(){
   assert.equal(h.mailbox.length,mailCount+2,'Deactivated recipient is never submitted')
   assert.equal((await h.state()).reportdeliveries.filter(r=>r.status==='blocked').length,1)
   assert.equal((await h.send(path,undefined,manager.cookie)).status,403)
+  const latestManager=(await h.state()).staff.find(p=>p.id===manager.id)
+  await h.cmd('staff.save',{...pin(latestManager),name:manager.name,email:manager.email,payrollId:manager.payrollId,role:'manager',active:true,site:'East'})
+  const newSession=await h.signIn(manager.email)
+  const newlyApproved=await h.cmd('report.schedule.save',{...input,...pin((await h.state()).reportschedules[0])})
+  await tick(at)
+  const currentMessage=h.mailbox.findLast(m=>m.subject==='Your scheduled Lanyard report'),currentLink=new URL(currentMessage.text.match(/https?:\/\/\S+/)[0]),currentPath=currentLink.pathname+currentLink.search
+  assert.equal((await h.send(currentPath,undefined,newSession)).status,200)
+  const move=async site=>{const p=(await h.state()).staff.find(p=>p.id===manager.id);return h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site})}
+  await move('West');assert.equal((await h.send(currentPath,undefined,newSession)).status,403)
+  await move('East');assert.equal((await h.send(currentPath,undefined,newSession)).status,403,'Restoring a prior site never resurrects an earlier approved link')
+  const beforeStaleTick=h.mailbox.length
+  await tick('2026-11-02T12:00:00Z')
+  assert.equal(h.mailbox.length,beforeStaleTick,'Authority changes require new owner approval before later sends')
+  assert.ok((await h.state()).reportdeliveries.some(r=>r.scheduleId===newlyApproved.id&&r.due==='2026-11-02T12:00:00.000Z'&&r.status==='blocked'))
  }finally{await h.close()}
 }

@@ -21,7 +21,7 @@ export async function reportRecipient(db:D1Database,s:State,owner:Actor,recipien
  need(!restricted(s,reader)&&!auditRestricted(s,reader),'Custom and auditor report delivery is not available',403)
  return reader
 }
-export const recipientBinding=(secret:string,a:Actor,site:string)=>keyed(secret,canonical({id:a.id,email:a.email,role:a.role,staffId:a.staffId??null,site}))
+export const recipientBinding=(secret:string,s:State,a:Actor,site:string)=>keyed(secret,canonical({id:a.id,email:a.email,role:a.role,staffId:a.staffId??null,staffRevision:s.staff.find(p=>p.id===a.staffId)?.version??null,grants:s.accessgrants.filter(g=>g.staffId===a.staffId),auditGrants:s.auditgrants.filter(g=>g.staffId===a.staffId),site}))
 export async function reportScheduleCommand(c:Context,name:string,p:Record<string,any>) {
  if(!name.startsWith('report.schedule.')&&name!=='report.delivery.revoke')return undefined
  need(c.a.role==='owner','Only the owner approves report delivery',403)
@@ -47,7 +47,7 @@ export async function reportScheduleCommand(c:Context,name:string,p:Record<strin
  need(reader.role==='owner'||!['PTO','payroll'].includes(kind),'Private paid-time and payroll reports remain owner-only',403)
  operationalReport(c.s,reader,new URLSearchParams({site,kind,job,person,...deliveryPeriod(c.s,nextDue,periodDays)}),c.now)
  need(c.secret,'Installation secret required',503)
- const schedule=put(c,'reportschedules',{label,recipient,recipientId:reader.id,site,kind,job,person,periodDays,cadenceDays,nextDue,enabled:true,ownerId:c.a.id,authorityDigest:await recipientBinding(c.secret,reader,site),approvedAt:c.now,approvedBy:c.a.id},old)
+ const schedule=put(c,'reportschedules',{label,recipient,recipientId:reader.id,site,kind,job,person,periodDays,cadenceDays,nextDue,enabled:true,ownerId:c.a.id,authorityDigest:await recipientBinding(c.secret,c.s,reader,site),approvedAt:c.now,approvedBy:c.a.id},old)
  c.sql.push(c.db.prepare('INSERT INTO l_report_approvals(schedule_id,revision,owner_id) VALUES(?,?,?) ON CONFLICT(schedule_id) DO UPDATE SET revision=excluded.revision,owner_id=excluded.owner_id').bind(schedule.id,schedule.revision,c.a.id))
  return schedule
 }
@@ -55,6 +55,6 @@ export async function deliveryReader(db:D1Database,s:State,owner:Actor,schedule:
  need(schedule.enabled&&schedule.ownerId===owner.id,'Report schedule is paused or its owner changed',403)
  need(await db.prepare('SELECT 1 FROM l_report_approvals WHERE schedule_id=? AND revision=? AND owner_id=?').bind(schedule.id,schedule.revision,owner.id).first(),'Restored report schedules require fresh owner approval',403)
  const reader=await reportRecipient(db,s,owner,schedule.recipient,schedule.site)
- need(reader.id===schedule.recipientId&&await recipientBinding(secret,reader,schedule.site)===schedule.authorityDigest,'Recipient or installation authority changed; owner must approve again',403)
+ need(reader.id===schedule.recipientId&&await recipientBinding(secret,s,reader,schedule.site)===schedule.authorityDigest,'Recipient or installation authority changed; owner must approve again',403)
  return reader
 }
