@@ -17,7 +17,7 @@ function trialState(s:State,week:string,slots:Row[],rows:Row[]):State {
  const ids=new Set(slots.map(x=>x.id))
  return {...s,shifts:s.shifts.map(x=>ids.has(x.id)?rows.find(r=>r.id===x.id)!:x)}
 }
-function cost(s:State,rows:Row[]) {
+export function scheduledComparisonCost(s:State,rows:Row[]) {
  const inputs=rows.map(x=>{const basis=rateBasis(s,x.staffId,x),holiday=scheduledHolidayCost(s,{...x,rateBasis:basis});return {shiftId:x.id,staffId:x.staffId,basis,holiday}})
  return {currency:'USD',costCents:inputs.some(x=>x.basis.costCents===null||x.holiday.costCents===null)?null:inputs.reduce((n,x)=>n+x.basis.costCents!+x.holiday.costCents,0),inputs,label:'Scheduled wage and employer holiday-rule estimate; excludes unconfigured burden and unapproved premiums'}
 }
@@ -34,7 +34,7 @@ export async function compareFairness(s:State,a:Actor,week:string,site:string,we
  const valid=(rows:Row[])=>rows.every((x,i)=>pools[i]!.includes(x.staffId))&&!conflicts({s} as Context,[...s.shifts.filter(x=>x.rosterId===roster.id&&x.status==='published'&&(x.site??'')!==site),...rows],week).length
  need(valid(source),'Resolve the source week eligibility, availability or hours conflicts before comparing')
  const report=(rows:Row[])=>preferenceReport(trialState(s,week,source,rows),a,week,site,weeks,{asOf})
- const score=(rows:Row[])=>{const r=report(rows);return {...r.totals,costCents:cost(s,rows).costCents}}
+ const score=(rows:Row[])=>{const r=report(rows);return {...r.totals,costCents:scheduledComparisonCost(s,rows).costCents}}
  const budgetLimit=planningBudget(s,week,site,null).limitCents
  const original=score(source)
  need(original.spread!==null&&original.meanGapMinutes!==null&&original.maxGapMinutes!==null&&original.violations!==null,'Complete the cohort, tag policy and preference inputs before optimizing fairness')
@@ -51,7 +51,7 @@ export async function compareFairness(s:State,a:Actor,week:string,site:string,we
    if(!next)break
    rows=next;value=best;moves++
   }
-  const priced=cost(s,rows)
+  const priced=scheduledComparisonCost(s,rows)
   return {priority,moves,shifts:rows.map(input),assignments:rows.map(x=>({slotId:x.id,staffId:x.staffId})),measures:report(rows),cost:priced,budget:planningBudget(s,week,site,priced.costCents),service:planningDemand(s,week,site,rows),coverage:coverage(rows),conflicts:[]}
  }
  const lowBase=optimize(source,'low'),lowRows=source.map((x,i)=>({...x,staffId:lowBase.assignments[i].staffId})),highBase=optimize(lowRows,'high')

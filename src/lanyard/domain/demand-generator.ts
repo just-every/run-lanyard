@@ -5,8 +5,7 @@ import {datePlus,savedVersions,demandScope} from './demand'
 import {localDate,instantAt} from './settings'
 import {conflicts,draftWeek} from './roster'
 import {policyOn,policyWarnings} from './policy'
-import {rateBasis} from './workforce'
-import {scheduledHolidayCost} from './holidays'
+import {scheduledComparisonCost} from './fairness-optimizer'
 import {planningBudget,planningDemand} from './planning-inputs'
 import {restricted} from './access'
 
@@ -24,6 +23,7 @@ export const generationInput=(p:Record<string,any>)=>{
 }
 type Input=ReturnType<typeof generationInput>
 const shiftInput=(x:Row)=>({staffId:x.staffId,start:x.start,end:x.end,breakMinutes:x.breakMinutes,label:x.label??'',site:x.site??'',job:x.job??''})
+const rowDigest=(rows:Row[])=>sha(canonical(rows.map(x=>canonical(shiftInput(x))).sort()))
 function authority(s:State,a:Actor,site:string){manager(a);need(!restricted(s,a),'Demand generation is unavailable to custom access levels',403);need(demandScope(s,a,site),'Not found',404)}
 // Bind to source and eligibility facts without feedback, worked-time or clock inputs.
 // The generated draft itself is excluded; its exact rows are separately bound below.
@@ -39,10 +39,7 @@ function preserved(s:State,p:Input){
  const seen=new Set<string>(),rows=candidates.filter(x=>{const key=canonical(shiftInput(x));if(seen.has(key))return false;seen.add(key);return true})
  return {draft,rows:rows.filter(x=>x.site!==p.site||!p.dates.includes(localDate(x.start,s.timezone)))}
 }
-export function generationCost(s:State,rows:Row[]){
- const inputs=rows.map(x=>{const basis=rateBasis(s,x.staffId,x),holiday=scheduledHolidayCost(s,{...x,rateBasis:basis});return {shiftId:x.id,staffId:x.staffId,basis,holiday}})
- return {currency:'USD',label:'Scheduled wage and configured holiday estimate; unsupported payroll and statutory costs are refused',inputs,costCents:inputs.some(x=>x.basis.costCents===null||x.holiday.costCents===null)?null:inputs.reduce((n,x)=>n+x.basis.costCents!+x.holiday.costCents,0)}
-}
+export const generationCost=scheduledComparisonCost
 export async function generateDemand(s:State,a:Actor,input:Record<string,any>){
  const p=generationInput(input);authority(s,a,p.site)
  const source=preserved(s,p),generated:Row[]=[],issues:string[]=[],rejections=new Set<string>(),versions:Row[]=[]
@@ -80,7 +77,7 @@ export async function generateDemand(s:State,a:Actor,input:Record<string,any>){
      const rows=[...all(),row],bad=conflicts({s} as Context,rows,p.week)
      if(bad.length){for(const e of bad)rejections.add(e.reason);continue}
      const warnings=policyWarnings(s,rows,p.week)
-     if(warnings.length){for(const e of warnings)rejections.add(e.message);continue}
+     if(warnings.length){for(const e of warnings)rejections.add(e.site===p.site?e.message:'Preserved work has unresolved required policy checks');continue}
      const cost=generationCost(s,rows.filter(x=>x.site===p.site)).costCents,budget=planningBudget(s,p.week,p.site,cost)
      if(cost===null||budget.withinBudget!==true){rejections.add(cost===null?'Unpriced assignment':'Reviewed labor budget exceeded');continue}
      const after=planningDemand(s,p.week,p.site,rows,p.dates),gain=before.uncoveredMinutes!-after.uncoveredMinutes!,excess=after.excessMinutes!
@@ -92,10 +89,11 @@ export async function generateDemand(s:State,a:Actor,input:Record<string,any>){
    generated.push(best.row)
   }
  }
+ if(!generated.length&&!source.rows.length&&!s.openshifts.some(x=>x.week===p.week&&x.status==='draft'))issues.push('No assigned service to prepare; use the separate schedule cancellation review')
  const coverage=service(),cost=generationCost(s,all().filter(x=>x.site===p.site)),budget=planningBudget(s,p.week,p.site,cost.costCents)
  if(coverage.uncoveredMinutes!==null&&coverage.uncoveredMinutes>.01&&!issues.length)issues.push('Coverage exceeds the supported 250-shift draft bound')
  if(!issues.length&&(cost.costCents===null||budget.withinBudget!==true))issues.push('Known costs within the reviewed weekly budget are required')
- const basis=await facts(s,p.week),result={...p,method:'Bounded greedy demand coverage on quarter-hour boundaries; one generated shift per person per service date',versions:versions.map(v=>({id:v.id,revision:v.revision,version:v.version,digest:v.digest,date:v.date})),generated:generated.map(shiftInput),preserved:source.rows.filter(x=>x.site===p.site).map(shiftInput),preservedOtherSites:source.rows.filter(x=>x.site!==p.site).length,service:coverage,cost,budget,infeasible:issues,rejections:[...rejections].sort(),feasible:issues.length===0,basis}
+ const basis=await facts(s,p.week),result={...p,method:'Bounded greedy demand coverage on quarter-hour boundaries; one generated shift per person per service date',versions:versions.map(v=>({id:v.id,revision:v.revision,version:v.version,digest:v.digest,date:v.date})),generated:generated.map(shiftInput),preserved:source.rows.filter(x=>x.site===p.site).map(shiftInput),preservedOtherSites:null,service:coverage,cost,budget,infeasible:issues,rejections:[...rejections].sort(),feasible:issues.length===0,basis}
  return {...result,digest:await sha(canonical(result))}
 }
 export async function demandGenerationCommand(c:Context,name:string,p:Record<string,any>){
@@ -105,7 +103,7 @@ export async function demandGenerationCommand(c:Context,name:string,p:Record<str
  need(preview.digest===text(p.digest,'generation review',64),'Generation facts changed; preview and review again',409)
  need(preview.feasible,preview.infeasible.join('; '),409)
  const result=draftWeek(c,preview.week,[...preserved(c.s,generationInput(p)).rows.map(shiftInput),...preview.generated])
- const review={input:generationInput(p),facts:await facts(c.s,preview.week,result.id),rows:await sha(canonical(result.shifts.map(shiftInput))),previewDigest:preview.digest}
+ const review={input:generationInput(p),facts:await facts(c.s,preview.week,result.id),rows:await rowDigest(result.shifts),previewDigest:preview.digest}
  put(c,'rosters',{...c.s.rosters.find(r=>r.id===result.id)!,generationReview:review},c.s.rosters.find(r=>r.id===result.id))
  const roster=c.s.rosters.find(r=>r.id===result.id)!
  return {...result,shifts:c.a.role==='owner'?result.shifts:result.shifts.filter((x:Row)=>x.site===preview.site),revision:roster.revision,approval:{id:roster.id,revision:roster.revision},generationReview:review}
@@ -117,6 +115,6 @@ export async function generationPublication(c:Context,name:string,p:Record<strin
  authority(c.s,c.a,review.input.site)
  need(await facts(c.s,r!.week,r!.id)===review.facts,'Generation facts changed; preview and prepare again before publication',409)
  const rows=c.s.shifts.filter(x=>x.rosterId===r!.id&&x.status==='draft')
- need(await sha(canonical(rows.map(shiftInput)))===review.rows,'Generated draft changed; preview and prepare again',409)
+ need(await rowDigest(rows)===review.rows,'Generated draft changed; preview and prepare again',409)
  need(!policyWarnings(c.s,rows,r!.week).length,'Required policy checks refuse this generated draft',409)
 }
