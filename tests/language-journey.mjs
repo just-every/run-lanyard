@@ -37,7 +37,7 @@ export async function languageJourney(){
   const open=async path=>{await page.goto(h.origin+path);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)}
   const shot=async name=>{if(process.env.LANGUAGE_SCREENS){await mkdir(process.env.LANGUAGE_SCREENS,{recursive:true});for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.screenshot({path:join(process.env.LANGUAGE_SCREENS,`${name}-${width}.png`),fullPage:true})}await page.setViewportSize({width:1440,height:1000});await writeFile(join(process.env.LANGUAGE_SCREENS,name+'.txt'),await page.locator('body').innerText())}}
   const submit=async(button,command)=>{await Promise.all([page.waitForResponse(r=>new URL(r.url()).pathname==='/app/action'&&new URL(r.url()).searchParams.get('name')===command),button.click()]);await page.waitForFunction(()=>Boolean(document.querySelector('.notice[role]')))}
-  await identity(spanish.cookie);await open('/app/settings')
+  await identity(spanish.cookie);await open('/app/schedule?week='+week);await page.getByLabel('Account',{exact:true}).click();await page.getByRole('link',{name:'Settings',exact:true}).click()
   await page.getByLabel('My language').selectOption('es');await submit(page.getByRole('button',{name:'Save language',exact:true}),'clocklanguage.save')
   assert.equal(await page.locator('html').getAttribute('lang'),'es-US');assert.equal((await h.state(spanish.cookie)).clocklanguages[0].language,'es')
   await shot('spanish-settings')
