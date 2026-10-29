@@ -61,7 +61,13 @@ export async function cutoffReports(s:State,a:Actor,now:string,db:D1Database,per
   if(config&&template&&!issues.length&&pending.length){
    const copy=structuredClone(s),c:Context={a,s:copy,now,db,sql:[],entity:''}
    try{await payroll(c,'payroll.prepare',{ids:pending.map(t=>t.id),templateId:template.id})}
-   catch(error){const status=Number((error as any).status);if(!status)throw error;add('payroll_review',(error as Error).message,p,'periods',periodHref)}
+   catch(error){
+    const status=Number((error as any).status);if(!status)throw error
+    const message=(error as Error).message
+    // Generated earnings use the same native mapping correction as retained inputs.
+    if(message.startsWith('Unmapped earning code: '))add('mapping',message,template,'paytemplates',`/app/settings#template-${template.id}`)
+    else add('payroll_review',message,p,'periods',periodHref)
+   }
   }
   const difference=config?Date.parse(config.cutoffAt)-Date.parse(now):null
   return {period:{id:p.id,revision:p.revision,start:p.start,end:p.end,status:p.status},configuration:config??null,template:template?{id:template.id,revision:template.revision,name:template.name,approved:template.approved}:null,observedAt:now,stateVersion:s.version,timing:difference===null?'no_cutoff':difference>0?'before':difference===0?'at':'after',remainingMilliseconds:difference,nativeReadiness:!config?'no_cutoff':issues.length?'needs_attention':'ready',providerState:'unknown',providerExplanation:'Provider acceptance, application and partial rejection are unknown. A native review, download or manually recorded reference is not proof of paid payroll.',issues}

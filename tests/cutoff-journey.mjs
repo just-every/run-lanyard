@@ -6,13 +6,17 @@ import {harness} from './harness.mjs'
 import {iconTooltips} from './browser-controls.mjs'
 const pin=r=>({id:r.id,revision:r.revision})
 const NOW='2026-11-02T18:00:00Z'
-async function fixture(h){
+async function fixture(h,classified=false){
  const alex=await h.person('Alex'),bea=await h.person('Bea'),manager=await h.person('Morgan','manager')
+ if(classified){
+  for(const p of [alex,bea])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,hourlyRate:'20.00'})
+  await h.cmd('policy.save',{site:'',from:'2026-10-01',preset:'CA',reviewReason:'Owner reviewed maintained overtime treatment'})
+ }
  const period=await h.cmd('period.save',{start:'2026-10-26',end:'2026-11-01'})
  await h.cmd('breakrule.save',{site:'',mealAfterMinutes:300,mealMinutes:30,restEveryMinutes:0,restMinutes:10,premium:false})
- const time=await h.cmd('time.request',{start:'2026-10-26T16:00:00Z',end:'2026-10-27T00:00:00Z',breakMinutes:0,reason:'Opening punch was missed; employee confirmed actual work',attest:true},alex.cookie)
+ const time=await h.cmd('time.request',{start:'2026-10-26T16:00:00Z',end:classified?'2026-10-27T05:00:00Z':'2026-10-27T00:00:00Z',breakMinutes:0,reason:'Opening punch was missed; employee confirmed actual work',attest:true},alex.cookie)
  const clock=await h.cmd('clock.in',{commandId:'synthetic-lanyard-1',capturedAt:'2026-10-27T16:00:00Z'},bea.cookie)
- const spec={name:'Reviewed native hours',approved:true,header:true,columns:[{field:'employee',header:'Employee'},{field:'code',header:'Earning'},{field:'minutes',header:'Minutes'}],groupBy:[],employees:{},codes:{},jobs:{},locations:{}}
+ const spec={name:'Reviewed native hours',...(classified?{classification:'policy'}:{}),approved:true,header:true,columns:[{field:'employee',header:'Employee'},{field:'code',header:'Earning'},{field:'minutes',header:'Minutes'}],groupBy:[],employees:{},codes:{},jobs:{},locations:{}}
  const template=await h.cmd('payroll.template.save',spec)
  const read=async(cookie=h.owner,status=200,headers={})=>{const r=await h.send('/api/lanyard/cutoffs?periodId='+period.id,undefined,cookie,headers);assert.equal(r.status,status,r.text);return status===200?r.value[0]:r}
  const configure=async(p=period,t=template,revision=0,cutoffAt=NOW,extra={},cookie=h.owner,status=200)=>h.cmd('cutoff.save',{periodId:p.id,periodRevision:p.revision,templateId:t.id,templateRevision:t.revision,revision,cutoffAt,reason:'Owner reviewed provider deadline separately; native monitoring only',reviewed:true,...extra},cookie,status)
@@ -97,13 +101,38 @@ export async function cutoffApi(){
   await h.cmd('period.lock',pin(period),h.owner,409)
   if(corrected.exceptions?.length)corrected=await h.cmd('time.resolve',{...pin(corrected),reason:'Reasoned break review on the corrected facts'},manager.cookie)
   for(const cookie of [alex.cookie,manager.cookie])period=await h.cmd('period.signoff',pin(period),cookie)
+  const retained=structuredClone(period.signoffHistory)
+  assert.ok(retained.some(x=>x.role==='manager'&&x.sources.includes(second.id)),'renewed manager signoff retains the actual earlier sources')
+  const privatePeriod=async(cookie,foreign)=>{
+   const p=(await h.state(cookie)).periods.find(p=>p.id===period.id)
+   assert.ok(p.signoffs.every(x=>x.staffId===foreign.mine))
+   assert.ok((p.signoffHistory??[]).every(x=>x.role==='employee'&&x.staffId===foreign.mine))
+   for(const id of foreign.ids)assert.ok(!JSON.stringify(p).includes(id),'private period must not disclose a coworker time identity: '+id)
+   return p
+  }
+  await privatePeriod(bea.cookie,{mine:bea.id,ids:[time.id,corrected.id,factual.id]})
+  await privatePeriod(alex.cookie,{mine:alex.id,ids:[second.id]})
+  assert.deepEqual((await h.state(manager.cookie)).periods.find(p=>p.id===period.id).signoffHistory,retained)
+  // Renewing the other employee's signoff must protect both JSON representations.
+  let beaEdit=await h.cmd('time.prepare',{staffId:bea.id,start:second.start,end:'2026-10-27T17:30:00Z',breakMinutes:0,corrects:second.id,reason:'Employee confirmed the later finish'})
+  beaEdit=await h.cmd('time.acknowledge',pin(beaEdit),bea.cookie)
+  await h.cmd('time.approve',pin(beaEdit),manager.cookie)
+  const answer=await h.cmd('period.signoff',pin(period),bea.cookie)
+  assert.ok(!JSON.stringify(answer).includes(corrected.id),'signoff command response must not disclose coworker sources')
+  assert.ok(answer.signoffHistory.every(x=>x.staffId===bea.id))
+  period=(await h.state()).periods.find(p=>p.id===period.id)
+  period=await h.cmd('period.signoff',pin(period),manager.cookie)
+  await h.restart()
+  await privatePeriod(bea.cookie,{mine:bea.id,ids:[time.id,corrected.id,factual.id]})
   period=await h.cmd('period.lock',pin(period))
+  await privatePeriod(bea.cookie,{mine:bea.id,ids:[time.id,corrected.id,factual.id]})
   report=await read();assert.equal(report.nativeReadiness,'ready',JSON.stringify(report.issues));assert.equal(report.providerState,'unknown')
   const noWrites=await sourceBytes(h);await read();await h.state();assert.equal(await sourceBytes(h),noWrites)
   await h.cmd('time.prepare',{staffId:alex.id,start:corrected.start,end:corrected.end,breakMinutes:30,corrects:corrected.id,reason:'A locked period cannot change'},h.owner,409)
   const exported=await h.cmd('payroll.export',pin(await h.cmd('payroll.prepare',{templateId:template.id})))
   period=await h.cmd('period.close',{...pin(period),reference:'synthetic-lanyard-5 owner-recorded reference only'})
   assert.equal((await read()).providerState,'unknown','manual closure is not provider readback')
+  await privatePeriod(bea.cookie,{mine:bea.id,ids:[time.id,corrected.id,factual.id]})
   const locked=structuredClone(period),paid=await sourceBytes(h)
   let late=await h.cmd('time.prepare',{staffId:alex.id,start:corrected.start,end:'2026-10-26T22:00:00Z',breakMinutes:0,corrects:corrected.id,reason:'Later employee-confirmed correction after the recorded run'})
   assert.equal((await read()).nativeReadiness,'needs_attention')
@@ -117,7 +146,7 @@ export async function cutoffApi(){
   assert.equal((await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,h.owner)).text,exported.csv)
   assert.notEqual(await sourceBytes(h),paid)
   const key=await h.cmd('agent.create',{label:'Preparation only'})
-  const agent=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${key.token}`});assert.deepEqual(agent.value.cutoffs,[]);assert.deepEqual(agent.value.cutoffReports,[])
+  const agent=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${key.token}`});assert.deepEqual(agent.value.cutoffs,[]);assert.deepEqual(agent.value.cutoffReports,[]);assert.ok(agent.value.periods.every(p=>p.signoffHistory.length===0))
   assert.equal((await h.send('/api/lanyard/agent/command',{name:'cutoff.save',input:{}},'',{authorization:`Bearer ${key.token}`})).status,403)
   for(const cookie of [alex.cookie,manager.cookie]){const state=await h.state(cookie);assert.deepEqual(state.cutoffs,[]);assert.deepEqual(state.cutoffReports,[])}
   await h.cmd('agent.revoke',{id:key.id});assert.equal((await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${key.token}`})).status,401)
@@ -141,7 +170,7 @@ export async function cutoffApi(){
 export async function cutoffBrowser(){
  const h=await harness({now:NOW}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try{
-  const f=await fixture(h),{alex,bea,manager}=f
+  const f=await fixture(h,true),{alex,bea,manager}=f
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
   const context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse(NOW))}})
   try{
@@ -211,12 +240,41 @@ export async function cutoffBrowser(){
    await configure.getByLabel('Review reason',{exact:true}).fill('Reviewed locked period and current mappings')
    await configure.getByRole('checkbox').check();await configure.getByRole('button',{name:'Save reviewed cutoff'}).click();await page.waitForLoadState('networkidle')
    assert.equal(await page.locator('.notice.error').count(),0)
+   await open('/app/payroll')
+   assert.match(await monitor.innerText(),/Unmapped earning code: overtime/)
+   const mappingIssue=monitor.locator('li').filter({hasText:'Unmapped earning code: overtime'})
+   await mappingIssue.getByRole('link',{name:'Review source'}).click();await page.waitForLoadState('networkidle')
+   assert.equal(new URL(page.url()).pathname,'/app/settings')
+   await mappings.locator('summary').click()
+   assert.equal(await mappings.getByLabel('Earning code · overtime',{exact:true}).count(),1,'generated overtime has a native correction field')
+   await mappings.getByLabel('Earning code · overtime',{exact:true}).fill('OT')
+   await mappings.getByRole('checkbox').check();await mappings.getByRole('button',{name:'Approve export mappings'}).click();await page.waitForLoadState('networkidle')
+   assert.equal(await page.locator('.notice.error').count(),0)
+   await open('/app/settings#pay-cutoffs');await page.locator('#pay-cutoffs summary').click()
+   await configure.getByLabel('Review reason',{exact:true}).fill('Reviewed generated overtime mapping')
+   await configure.getByRole('checkbox').check();await configure.getByRole('button',{name:'Save reviewed cutoff'}).click();await page.waitForLoadState('networkidle')
+   await open('/app/payroll');assert.match(await monitor.innerText(),/Unmapped earning code: double time/)
+   await monitor.locator('li').filter({hasText:'Unmapped earning code: double time'}).getByRole('link',{name:'Review source'}).click();await page.waitForLoadState('networkidle')
+   await mappings.locator('summary').click()
+   assert.equal(await mappings.getByLabel('Earning code · overtime',{exact:true}).inputValue(),'OT')
+   await mappings.getByLabel('Earning code · double time',{exact:true}).fill('DT')
+   await proof('cutoff-generated-mappings')
+   await mappings.getByRole('checkbox').check();await mappings.getByRole('button',{name:'Approve export mappings'}).click();await page.waitForLoadState('networkidle')
+   assert.equal(await page.locator('.notice.error').count(),0)
+   await h.restart()
+   await open('/app/settings#pay-cutoffs');await page.locator('#pay-cutoffs summary').click()
+   await configure.getByLabel('Review reason',{exact:true}).fill('Reviewed all generated earning mappings after reload')
+   await configure.getByRole('checkbox').check();await configure.getByRole('button',{name:'Save reviewed cutoff'}).click();await page.waitForLoadState('networkidle')
    const beforeReady=await sourceBytes(h);await open('/app/payroll')
    assert.match(await monitor.innerText(),/Native review complete/);assert.match(await monitor.innerText(),/Provider state: unknown/)
    assert.equal(await sourceBytes(h),beforeReady)
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
    await iconTooltips(page);assert.deepEqual(errors,[])
    await proof('cutoff-native-review-complete')
+   const batch=await h.cmd('payroll.prepare',{templateId:f.template.id})
+   assert.deepEqual(batch.classificationLines.filter(l=>l.staffId===alex.id).map(l=>[l.earningCode,l.minutes,l.costCents]),[['regular',480,16000],['overtime',240,12000],['double time',60,4000]])
+   assert.ok(batch.csvPreview.split('\r\n').includes('synthetic-lanyard-30,OT,240'))
+   assert.ok(batch.csvPreview.split('\r\n').includes('synthetic-lanyard-30,DT,60'))
   }finally{await context.close()}
  }finally{await browser.close();await h.close()}
 }
