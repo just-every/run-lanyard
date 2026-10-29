@@ -1,5 +1,5 @@
 // OPT-001: bounded native generation from explicitly selected saved service dates.
-// No provider claim, preference objective or automatic publication is made here.
+// Native reviewed objectives grant no provider or automatic-publication authority.
 import {type State,type Actor,type Row,type Context,manager,need,keys,text,integer,sha,canonical,put} from './model'
 import {datePlus,savedVersions,demandScope} from './demand'
 import {localDate,instantAt} from './settings'
@@ -10,6 +10,7 @@ import {differentialBasis} from './differentials'
 import {premiumRule} from './premiums'
 import {planningBudget,planningDemand} from './planning-inputs'
 import {restricted} from './access'
+import {generationObjectives,generationOfferBasis} from './demand-objectives'
 
 export const generationInput=(p:Record<string,any>)=>{
  const week=text(p.week,'week',10),monday=new Date(week+'T00:00:00Z')
@@ -21,7 +22,9 @@ export const generationInput=(p:Record<string,any>)=>{
  const minShiftMinutes=number('minShiftMinutes',15,720),maxShiftMinutes=number('maxShiftMinutes',minShiftMinutes,720),breakAfterMinutes=number('breakAfterMinutes',15,720),breakMinutes=number('breakMinutes',0,120)
  need([minShiftMinutes,maxShiftMinutes,breakAfterMinutes,breakMinutes].every(x=>x%15===0),'Use whole quarter-hour shift and break inputs')
  need(breakMinutes<minShiftMinutes,'Break must be shorter than the minimum shift')
- return {week,site:text(p.site,'site',80,true),dates:[...dates].sort() as string[],minShiftMinutes,maxShiftMinutes,breakAfterMinutes,breakMinutes}
+ const priority=p.priority??'low';need(priority==='low'||priority==='high','Choose low or high fairness priority')
+ const weeks=integer(Number(p.weeks??8),'trailing fairness weeks',1,52)
+ return {priority:priority as 'low'|'high',weeks,week,site:text(p.site,'site',80,true),dates:[...dates].sort() as string[],minShiftMinutes,maxShiftMinutes,breakAfterMinutes,breakMinutes}
 }
 type Input=ReturnType<typeof generationInput>
 const shiftInput=(x:Row)=>({staffId:x.staffId,start:x.start,end:x.end,breakMinutes:x.breakMinutes,label:x.label??'',site:x.site??'',job:x.job??''})
@@ -30,7 +33,7 @@ function authority(s:State,a:Actor,site:string){manager(a);need(!restricted(s,a)
 // Bind to source and eligibility facts without feedback, worked-time or clock inputs.
 // The generated draft itself is excluded; its exact rows are separately bound below.
 async function facts(s:State,week:string,ignoreDraft?:string){
- const collections=['availability','leave','patterns','workforce','jobs','orgmemberships','locations','policies','minors','paygroups','fairworkpolicies','mealrules','forecasts','sales','demandrules','demandforecasts','holidays','holidayrules','differentials','premiumrules','accessgrants','accesslevels'] as const
+ const collections=['availability','leave','patterns','workforce','jobs','orgmemberships','locations','policies','minors','paygroups','fairworkpolicies','mealrules','forecasts','sales','demandrules','demandforecasts','holidays','holidayrules','differentials','premiumrules','accessgrants','accesslevels','fairnesspolicies','fairnesscohorts','fairnessrequests','employment','offers'] as const
  return sha(canonical({timezone:s.timezone,staff:s.staff,inputs:Object.fromEntries(collections.map(k=>[k,s[k]])),
   rosters:s.rosters.filter(r=>r.id!==ignoreDraft&&['draft','published'].includes(r.status)),
   shifts:s.shifts.filter(x=>x.rosterId!==ignoreDraft&&['draft','published'].includes(x.status)),openshifts:s.openshifts.filter(x=>x.rosterId!==ignoreDraft),week}))
@@ -54,7 +57,8 @@ export function generationCost(s:State,rows:Row[]){
 }
 export async function generateDemand(s:State,a:Actor,input:Record<string,any>){
  const p=generationInput(input);authority(s,a,p.site)
- const source=preserved(s,p),generated:Row[]=[],issues:string[]=[],rejections=new Set<string>(),versions:Row[]=[]
+ const source=preserved(s,p);let generated:Row[]=[]
+ const issues:string[]=[],rejections=new Set<string>(),versions:Row[]=[]
  const budgetSource=s.forecasts.find(f=>f.week===p.week&&f.site===p.site)
  if(!budgetSource||budgetSource.budgetPercent===null)issues.push('Review a saved weekly labor budget before generation')
  if(budgetSource&&(budgetSource.burdenPercent||budgetSource.burdenPerHourCents||budgetSource.jobBudgets?.length))issues.push('Configured burden or job caps require cost treatment beyond this generator; generation refused')
@@ -104,20 +108,27 @@ export async function generateDemand(s:State,a:Actor,input:Record<string,any>){
   }
  }
  if(!generated.length&&!source.rows.length&&!s.openshifts.some(x=>x.week===p.week&&x.status==='draft'))issues.push('No assigned service to prepare; use the separate schedule cancellation review')
+ const objectives=!issues.length?generationObjectives(s,a,p,source.rows,generated,rows=>generationCost(s,rows)):null
+ if(objectives){
+  if(p.priority==='high'&&!objectives.high)issues.push(...objectives.reasons)
+  generated=(p.priority==='high'?objectives.high?.rows:objectives.low.rows)??objectives.low.rows
+ }
  const coverage=service(),cost=generationCost(s,all().filter(x=>x.site===p.site)),budget=planningBudget(s,p.week,p.site,cost.costCents)
  if(coverage.uncoveredMinutes!==null&&coverage.uncoveredMinutes>.01&&!issues.length)issues.push('Coverage exceeds the supported 250-shift draft bound')
  if(!issues.length&&(cost.costCents===null||budget.withinBudget!==true))issues.push('Known costs within the reviewed weekly budget are required')
- const basis=await facts(s,p.week),result={...p,method:'Bounded greedy demand coverage on quarter-hour boundaries; one generated shift per person per service date',versions:versions.map(v=>({id:v.id,revision:v.revision,version:v.version,digest:v.digest,date:v.date})),generated:generated.map(shiftInput),preserved:source.rows.filter(x=>x.site===p.site).map(shiftInput),preservedOtherSites:null,service:coverage,cost,budget,infeasible:issues,rejections:[...rejections].sort(),feasible:issues.length===0,basis}
- return {...result,digest:await sha(canonical(result))}
+ const basis=await facts(s,p.week),result={...p,method:'Bounded greedy demand coverage on quarter-hour boundaries; one generated shift per person per service date',versions:versions.map(v=>({id:v.id,revision:v.revision,version:v.version,digest:v.digest,date:v.date})),generated:generated.map(shiftInput),preserved:source.rows.filter(x=>x.site===p.site).map(shiftInput),preservedOtherSites:null,service:coverage,cost,budget,infeasible:issues,rejections:[...rejections].sort(),feasible:issues.length===0,basis,objectives,offerBasis:p.priority==='high'?await sha(canonical(generationOfferBasis(s,a,p))):null}
+ const reviewed=structuredClone(result)
+ for(const alternative of [reviewed.objectives?.low,reviewed.objectives?.high])if(alternative)alternative.measures.equity.asOf=''
+ return {...result,digest:await sha(canonical(reviewed))}
 }
 export async function demandGenerationCommand(c:Context,name:string,p:Record<string,any>){
  if(name!=='demand.generate.prepare')return undefined
- keys(p,['week','site','dates','minShiftMinutes','maxShiftMinutes','breakAfterMinutes','breakMinutes','digest'])
+ keys(p,['week','site','dates','minShiftMinutes','maxShiftMinutes','breakAfterMinutes','breakMinutes','priority','weeks','digest'])
  const preview=await generateDemand(c.s,c.a,p)
  need(preview.digest===text(p.digest,'generation review',64),'Generation facts changed; preview and review again',409)
  need(preview.feasible,preview.infeasible.join('; '),409)
  const result=draftWeek(c,preview.week,[...preserved(c.s,generationInput(p)).rows.map(shiftInput),...preview.generated])
- const review={input:generationInput(p),facts:await facts(c.s,preview.week,result.id),rows:await rowDigest(result.shifts),previewDigest:preview.digest}
+ const review={input:generationInput(p),facts:await facts(c.s,preview.week,result.id),rows:await rowDigest(result.shifts),previewDigest:preview.digest,offerBasis:preview.offerBasis}
  put(c,'rosters',{...c.s.rosters.find(r=>r.id===result.id)!,generationReview:review},c.s.rosters.find(r=>r.id===result.id))
  const roster=c.s.rosters.find(r=>r.id===result.id)!
  return {...result,shifts:c.a.role==='owner'?result.shifts:result.shifts.filter((x:Row)=>x.site===preview.site),revision:roster.revision,approval:{id:roster.id,revision:roster.revision},generationReview:review}
@@ -129,6 +140,7 @@ export async function generationPublication(c:Context,name:string,p:Record<strin
  authority(c.s,c.a,review.input.site)
  need(await facts(c.s,r!.week,r!.id)===review.facts,'Generation facts changed; preview and prepare again before publication',409)
  const rows=c.s.shifts.filter(x=>x.rosterId===r!.id&&x.status==='draft')
+ if(review.input.priority==='high')need(await sha(canonical(generationOfferBasis(c.s,c.a,review.input)))===review.offerBasis,'Fairness offer facts changed; preview and prepare again',409)
  need(await rowDigest(rows)===review.rows,'Generated draft changed; preview and prepare again',409)
  need(!policyWarnings(c.s,rows,r!.week).length,'Required policy checks refuse this generated draft',409)
 }

@@ -24,7 +24,7 @@ export async function generationFixture(h){
  const input={week,site,dates:[week],minShiftMinutes:60,maxShiftMinutes:240,breakAfterMinutes:240,breakMinutes:0}
  const path=p=>'/api/lanyard/demand/generate?'+new URLSearchParams({...p,dates:p.dates.join(',')})
  const read=async(p=input,cookie=h.owner)=>{const r=await h.send(path(p),undefined,cookie);assert.equal(r.status,200,r.text);return r.value}
- const prepare=(c,cookie=h.owner,status=200)=>h.cmd('demand.generate.prepare',{...Object.fromEntries(Object.keys(input).map(k=>[k,c[k]])),digest:c.digest},cookie,status)
+ const prepare=(c,cookie=h.owner,status=200)=>h.cmd('demand.generate.prepare',{...Object.fromEntries([...Object.keys(input),'priority','weeks'].map(k=>[k,c[k]])),digest:c.digest},cookie,status)
  return {people,manager,foreign,job,input,path,read,prepare}
 }
 const safetyState=s=>Object.fromEntries(['shifts','rosters','openshifts','timesheets','clocks','batches','claims','sales','demandforecasts'].map(k=>[k,s[k]]))
@@ -143,6 +143,7 @@ export async function demandGenerationApi(){
 
  }finally{await h.close()}
  await generationCostReview()
+ await generationFairnessReview()
 }
 const differentialInput={name:'Reviewed service premium',from:'2026-01-01',site,role:'Counter',tag:'',startMinute:480,endMinute:540,days:[1],mode:'added',value:1000,order:1,code:'service premium'}
 async function generationCostReview(){
@@ -193,20 +194,88 @@ async function generationCostReview(){
   const after=safetyState(await h.state());for(const key of ['sales','demandforecasts','timesheets','clocks','batches','claims'])assert.deepEqual(after[key],sources[key])
  }finally{await h.close()}
 }
+export async function generationFairnessFixture(h){
+ const f=await generationFixture(h),first=days(week,-49),[avery,blair]=f.people
+ const profile=(await h.state()).workforce.find(x=>x.staffId===blair.id)
+ await h.cmd('workforce.save',{...pin(profile),staffId:blair.id,jobs:[f.job.id],skills:['service'],certifications:[],sites:[site],preferences:[],minHours:0,maxHours:40,classification:'hourly',rates:[{job:f.job.id,from:'2026-01-01',cents:2500}]})
+ for(const [person,hours] of [[avery,0],[blair,3]])await h.cmd('pattern.save',{from:first,blocks:full+(person===avery?'\nMon prefer-not 08:00-11:00':''),preferredHours:hours,maxHours:40},person.cookie)
+ await h.cmd('fairness.policy.save',{site,tags:['closing'],closingTime:'11:00',openingTime:'08:00',closeOpenHours:12})
+ await h.cmd('fairness.cohort.save',{site,position:'Counter',from:first,staffIds:f.people.map(x=>x.id)})
+ for(let i=0;i<7;i++){
+  const on=days(first,i*7),draft=await h.cmd('roster.prepare',{week:on,shifts:[{staffId:avery.id,site,job:f.job.id,start:local(on,'08:00'),end:local(on,'11:00'),breakMinutes:0}]})
+  assert.deepEqual(draft.conflicts,[]);await h.cmd('roster.publish',pin(draft))
+ }
+ return {...f,first}
+}
+async function generationFairnessReview(){
+ const h=await harness({now})
+ try{
+  const f=await generationFairnessFixture(h),sources=safetyState(await h.state())
+  const low=await f.read(),high=await f.read({...f.input,priority:'high',weeks:8})
+  assert.equal(low.feasible,true);assert.equal(high.feasible,true,JSON.stringify(high.infeasible))
+  assert.equal(low.generated[0].staffId,f.people[0].id);assert.equal(high.generated[0].staffId,f.people[1].id)
+  assert.deepEqual(low.generated.map(({staffId,...x})=>x),high.generated.map(({staffId,...x})=>x))
+  assert.deepEqual([low.cost.costCents,high.cost.costCents,high.objectives.difference.costCents],[6000,7500,1500])
+  assert.deepEqual([low.service.uncoveredMinutes,high.service.uncoveredMinutes,high.objectives.difference.coveredMinutes],[0,0,0])
+  for(const alternative of [high.objectives.low,high.objectives.high]){
+   // Seven historical three-hour closings for Avery; the projection adds one closing.
+   const moved=alternative.rows[0].staffId===f.people[1].id
+   assert.deepEqual(alternative.measures.undesirable.groups[0].counts.map(x=>[x.staffId,x.count]).sort(),[[f.people[0].id,moved?7:8],[f.people[1].id,moved?1:0]].sort())
+   assert.equal(alternative.measures.totals.spread,moved?6:8)
+   assert.equal(alternative.measures.totals.meanGapMinutes,moved?157.5:180)
+   assert.equal(alternative.measures.totals.maxGapMinutes,180)
+   assert.equal(alternative.measures.totals.violations,moved?7:8)
+   assert.equal(alternative.cost.costCents,moved?7500:6000)
+   assert.equal(alternative.measures.equity.groups[0].totalOfferedMinutes,0)
+   assert.ok(alternative.measures.equity.groups[0].reasons.length,'generation never invents reached offers')
+  }
+  assert.deepEqual(safetyState(await h.state()),sources,'both objective previews are read only')
+  await h.cmd('forecast.save',{week,site,days:[1000,0,0,0,0,0,0],budgetPercent:6})
+  const capped=await f.read({...f.input,priority:'high',weeks:8});assert.equal(capped.feasible,true);assert.equal(capped.cost.costCents,6000);assert.equal(capped.generated[0].staffId,f.people[0].id)
+  assert.equal(capped.objectives.high.measures.totals.spread,8,'fairness cannot waive the reviewed USD budget')
+  await h.cmd('forecast.save',{week,site,days:[1000,0,0,0,0,0,0],budgetPercent:30})
+  let reviewed=await f.read({...f.input,priority:'high'}),draft=await f.prepare(reviewed,f.manager.cookie)
+  // Changed preferences invalidate both preparation and publication without draft writes.
+  await h.cmd('pattern.save',{from:week,blocks:full,preferredHours:2,maxHours:40},f.people[1].cookie)
+  let unchanged=safetyState(await h.state())
+  await f.prepare(reviewed,h.owner,409);await h.cmd('roster.publish',pin(draft),f.manager.cookie,409)
+  assert.deepEqual(safetyState(await h.state()),unchanged)
+  reviewed=await f.read({...f.input,priority:'high'});draft=await f.prepare(reviewed,f.manager.cookie)
+  const rule=(await h.state()).fairnesspolicies[0]
+  await h.cmd('fairness.policy.save',{...{site,revision:rule.revision},tags:['closing'],closingTime:'10:00',openingTime:'08:00',closeOpenHours:12})
+  unchanged=safetyState(await h.state());await h.cmd('roster.publish',pin(draft),f.manager.cookie,409);assert.deepEqual(safetyState(await h.state()),unchanged)
+  // Feedback and actual worked time remain absent from generated-objective inputs.
+  reviewed=await f.read({...f.input,priority:'high'})
+  await h.cmd('clock.in',{commandId:crypto.randomUUID(),capturedAt:local(f.first,'08:00')},f.people[0].cookie)
+  const clock=await h.cmd('clock.out',{commandId:crypto.randomUUID(),capturedAt:local(f.first,'11:00'),breakMinutes:0},f.people[0].cookie)
+  await h.cmd('feedback.submit',{timesheetId:clock.timesheet.id,rating:1,flags:['safety'],comment:'Review separately'},f.people[0].cookie)
+  assert.deepEqual(await f.read({...f.input,priority:'high'}),reviewed)
+  draft=await f.prepare(reviewed,f.manager.cookie);await h.restart();await h.cmd('roster.publish',pin(draft),f.manager.cookie)
+  const report=await h.send(`/api/lanyard/fairness?week=${week}&site=Ocean%20Beach&weeks=8`,undefined,h.owner)
+  assert.deepEqual(report.value.totals,reviewed.objectives.high.measures.totals,'actual published FAIR-001 measures match the reviewed projection')
+  const state=await h.state();assert.deepEqual(state.sales,sources.sales);assert.deepEqual(state.demandforecasts,sources.demandforecasts)
+  // Incomplete window evidence refuses the high objective, keeping costs and measures honest.
+  const missing=await f.read({...f.input,priority:'high',weeks:9});assert.equal(missing.feasible,false);assert.match(missing.infeasible.join('; '),/confirmed FAIR-001/)
+  unchanged=safetyState(await h.state());await f.prepare(missing,h.owner,409);assert.deepEqual(safetyState(await h.state()),unchanged)
+ }finally{await h.close()}
+}
 export async function demandGenerationBrowser(){
  const browser=await chromium.launch({headless:true,...(process.env.LANYARD_CHROMIUM?{executablePath:process.env.LANYARD_CHROMIUM}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try{for(const width of [1440,390]){
   const h=await harness({now}),context=await browser.newContext({viewport:{width,height:1100}})
   try{
-   const f=await generationFixture(h),page=await context.newPage(),[name,...value]=f.manager.cookie.split('=')
+   const f=await generationFairnessFixture(h),page=await context.newPage(),[name,...value]=f.manager.cookie.split('=')
    await h.cmd('differential.save',differentialInput)
    await h.cmd('differential.save',{...differentialInput,name:'Reviewed later multiplier',endMinute:660,mode:'multiplier',value:1.5,order:2,code:'service multiplier'})
    await context.addCookies([{name,value:value.join('='),url:h.origin}])
    await context.route('**/*',async route=>{const p=new URL(route.request().url()).pathname;if(p.startsWith('/fonts/')||p.startsWith('/brand/')||/\.(css|js)$/.test(p))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',p.slice(1))),contentType:p.endsWith('.css')?'text/css':p.endsWith('.js')?'application/javascript':p.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
    const url=`${h.origin}/app/schedule?`+new URLSearchParams({...f.input,dates:week,demandGenerate:'1'})
    await page.goto(url,{waitUntil:'networkidle'});const panel=page.locator('#demand-generation');await panel.scrollIntoViewIfNeeded()
+   await panel.getByLabel('Fairness priority',{exact:true}).selectOption('high')
+   await panel.getByRole('button',{name:'Preview demand-generated shifts',exact:true}).click();await page.waitForLoadState('networkidle')
+   await panel.scrollIntoViewIfNeeded()
    const shot=async key=>{if(process.env.GENERATION_SCREENS){await mkdir(process.env.GENERATION_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.GENERATION_SCREENS,`${key}-${width}.png`),fullPage:false})}}
-   if(width===1440){assert.ok((await panel.innerText()).includes('$105.00'));assert.ok((await panel.innerText()).includes('Draft ready for preparation'));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)}
+   if(width===1440){assert.ok((await panel.innerText()).includes('$105.00'));assert.ok((await panel.innerText()).includes('$127.50'));assert.ok((await panel.innerText()).includes('Selected priority: high'));assert.ok((await panel.innerText()).includes('Draft ready for preparation'));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)}
    await shot('generation-preview')
    await panel.getByRole('button',{name:'Prepare demand-generated draft',exact:true}).click();await page.waitForLoadState('networkidle')
    if(width===1440)assert.equal((await h.state()).rosters.filter(x=>x.status==='draft').length,1)
@@ -214,7 +283,7 @@ export async function demandGenerationBrowser(){
    const review=page.getByRole('link',{name:/Review draft revision/});if(await review.count())await review.click()
    await page.getByRole('button',{name:'Publish this revision',exact:true}).click();await page.waitForLoadState('networkidle')
    await h.restart();await page.reload({waitUntil:'networkidle'})
-   if(width===1440)assert.equal((await h.state()).shifts.filter(x=>x.status==='published').length,1)
+   if(width===1440){const published=(await h.state()).shifts.filter(x=>x.status==='published');assert.equal(published.length,8);assert.equal(published.find(x=>x.start===local(week,'08:00')).staffId,f.people[1].id)}
    await shot('generation-published')
    await h.cmd('forecast.save',{week,site,days:[1000,0,0,0,0,0,0],budgetPercent:9})
    await page.goto(url,{waitUntil:'networkidle'});await panel.scrollIntoViewIfNeeded()
