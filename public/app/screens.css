@@ -27,7 +27,7 @@ html.rer-themed .lanyard-app pre.csv{white-space:pre-wrap;overflow-wrap:anywhere
 
 .counts{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin:0 0 12px}
 .counts div{border:1px solid var(--rule);border-radius:var(--r-input);padding:8px 12px;background:var(--head)}
-.counts dt{font-size:12px;color:var(--muted)}
+.counts dt{font-size:13px;color:var(--muted)}
 .counts dd{margin:0;font-weight:700;font-size:18px}
 .credential{user-select:all}
 html.rer-themed .lanyard-app dl.command-docs{display:block}
@@ -53,7 +53,7 @@ html.rer-themed .lanyard-app dl.command-docs{display:block}
  /* Tables as Uptime's labelled stack: a small label over each value, short values paired. */
  table.list.stack tr:not(.band):not(.edit-row){display:grid;gap:8px 14px;padding:12px 0;align-items:start}
  table.list.stack td{width:auto;min-width:0;padding:0}
- table.list.stack td[data-label]::before{content:attr(data-label);display:block;margin:0 0 2px;font-size:12px;font-weight:500;line-height:1.3;color:var(--muted)}
+ table.list.stack td[data-label]::before{content:attr(data-label);display:block;margin:0 0 2px;font-size:13px;font-weight:500;line-height:1.3;color:var(--muted)}
  table.list.stack td.who{display:flex;gap:10px;align-items:center;align-self:center}
  table.list.stack .row-actions{justify-content:flex-end}
  .time-list tr:not(.band){grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);grid-template-areas:"who who day" "span meal hrs" "src src src" "st act act"}

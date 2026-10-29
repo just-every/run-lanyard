@@ -23,3 +23,19 @@ export function staffError(s:any,message:string){
 
 export const localDay=(s:any,date:string,weekday=true)=>new Intl.DateTimeFormat(languageOf(s)==='es'?'es-US':'en-US',{timeZone:'UTC',...(weekday?{weekday:'short'}:{}),month:'short',day:'numeric'}).format(new Date(date+'T12:00:00Z')).replace(',','')
 export const localWeekday=(s:any,date:string)=>new Intl.DateTimeFormat(languageOf(s)==='es'?'es-US':'en-US',{timeZone:'UTC',weekday:'short'}).format(new Date(date+'T12:00:00Z'))
+
+/** Translate generated clock flags without changing authored exception wording. */
+export function punchFlag(s:any,value:string){
+ if(value==='missed break reported')return t(s,'missed break reported')
+ if(value==='punch photo unavailable: camera denied')return t(s,'punch photo unavailable: camera denied')
+ if(value==='punch photo unavailable: camera failed')return t(s,'punch photo unavailable: camera failed')
+ if(value==='punch photo unavailable: photo consent declined')return t(s,'punch photo unavailable: photo consent declined')
+ if(value==='unscheduled punch')return t(s,'unscheduled punch')
+ if(value==='early clock-in')return t(s,'early clock-in')
+ if(value==='missed meal')return t(s,'missed meal')
+ if(value==='unconfirmed meal deduction')return t(s,'unconfirmed meal deduction')
+ if(value==='short meal break')return t(s,'short meal break')
+ if(value==='short rest break')return t(s,'short rest break')
+ if(value==='late meal break')return t(s,'late meal break')
+ return value
+}

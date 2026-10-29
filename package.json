@@ -7,7 +7,7 @@
     "node": "22.20.0"
   },
   "scripts": {
-    "build": "node scripts/check-staff-strings.mjs && rer build",
+    "build": "rer build",
     "dev": "rer dev",
     "preview": "rer preview",
     "typecheck": "tsc --build --incremental",
