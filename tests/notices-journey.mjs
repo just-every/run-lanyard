@@ -182,7 +182,7 @@ export async function scheduleNoticesFixture(h){
 export async function scheduleNoticesApi(h){
  const f=await scheduleNoticesFixture(h),{cmd,state,alex,ben,cy,manager}=f
  const stored=async()=> (await h.db.prepare("SELECT data FROM l_records WHERE kind='schedulenotices' ORDER BY id").all()).results.map(r=>JSON.parse(r.data))
- const records=async()=> (await h.db.prepare("SELECT kind,id,revision,data FROM l_records WHERE kind IN ('shifts','rosters','schedulenotices','timesheets','batches') ORDER BY kind,id").all()).results
+ const records=async()=> (await h.db.prepare("SELECT kind,id,revision,data FROM l_records WHERE kind IN ('shifts','rosters','schedulenotices','eventnotices','timesheets','batches') ORDER BY kind,id").all()).results
  const notices=async person=>(await state(person.cookie)).schedulenotices
  let a=(await notices(alex))[0],b=(await notices(ben))[0]
  assert.equal(a.kind,'publication');assert.equal(a.actionable,true);assert.equal(a.delivery.state,'available');assert.equal(a.acknowledgedAt,null)
@@ -254,6 +254,7 @@ export async function scheduleNoticesApi(h){
  const beforeDecision=await stored();await cmd('swap.decide',{...pin(consented),decision:'approved'},alex.cookie,403);assert.deepEqual(await stored(),beforeDecision)
  await cmd('swap.decide',{...pin(consented),decision:'approved'},manager.cookie)
  for(const person of [alex,cy]){const n=(await notices(person)).find(n=>n.kind==='swap');assert.ok(n);assert.equal(n.acknowledgedAt,null);assert.equal(n.actionable,true)}
+ for(const person of [alex,cy])assert.ok((await state(person.cookie)).eventnotices.some(n=>n.topic==='swap'&&n.source.id===consented.id&&n.label==='Swap approved'))
  const swapped=(await state()).shifts.find(x=>x.id===give.id);assert.ok(swapped.confirmedAt)
  // A real payroll file remains byte-identical across acknowledgment, restart and revocation.
  const t=await cmd('time.prepare',{staffId:ben.id,start:'2026-10-31T09:00:00Z',end:'2026-10-31T11:00:00Z',breakMinutes:0,reason:'Recorded worked time'})
@@ -276,7 +277,7 @@ export async function scheduleNoticesApi(h){
  assert.equal((await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,h.owner,f.head)).text,fileBefore.text)
  const key=await cmd('agent.create',{label:'Preparation only'})
  const agent=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${key.token}`,...f.head})
- assert.equal(agent.status,200);assert.deepEqual(agent.value.schedulenotices,[])
+ assert.equal(agent.status,200);assert.deepEqual(agent.value.schedulenotices,[]);assert.deepEqual(agent.value.eventnotices,[])
  const all=await stored();assert.equal(new Set(all.map(n=>n.id)).size,all.length)
  await eventNoticesApi(h,f)
  assert.ok(all.every(n=>n.delivery.channel==='in-app'&&n.delivery.state==='available'))
@@ -292,12 +293,15 @@ export async function scheduleNoticesBrowser(){
   await f.cmd('shift.change',{...pin(a),start:'2026-11-03T10:00:00Z',end:'2026-11-03T12:00:00Z',reason:'Later opening'},f.manager.cookie)
   const b=(await f.state(f.ben.cookie)).shifts.find(x=>x.staffId===f.ben.id)
   await f.cmd('shift.cancel',{...pin(b),reason:'No longer required'},f.manager.cookie)
+  const open=await f.cmd('openshift.post',{site:'',position:'',start:'2026-11-06T09:00:00Z',end:'2026-11-06T11:00:00Z',breakMinutes:0,approval:'auto',pool:[f.alex.id],order:'all'})
+  const propose=async()=>{const x=(await f.state(f.alex.cookie)).shifts.find(x=>x.staffId===f.alex.id&&x.status==='published');return f.cmd('swap.propose',{shiftId:x.id,revision:x.revision,to:f.ben.id,note:'Private browser-only proposal'},f.alex.cookie)}
+  let proposal=await propose()
   const prove=async(width,assertions)=>{
    const context=await browser.newContext({viewport:{width,height:1000},extraHTTPHeaders:f.head})
    const [name,...value]=f.alex.cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
    await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js'))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
    const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message))
-   const shot=async key=>{if(process.env.NOTICE_SCREENS){await mkdir(process.env.NOTICE_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.NOTICE_SCREENS,`${key}-page-${width}.png`)});await page.locator('#schedule-inbox').screenshot({path:join(process.env.NOTICE_SCREENS,`${key}-${width}.png`)})}}
+   const shot=async key=>{if(process.env.NOTICE_SCREENS){await mkdir(process.env.NOTICE_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.NOTICE_SCREENS,`${key}-page-${width}.png`)});await page.locator('#schedule-inbox').screenshot({path:join(process.env.NOTICE_SCREENS,`${key}-${width}.png`)});if(await page.locator('#activity-inbox').count())await page.locator('#activity-inbox').screenshot({path:join(process.env.NOTICE_SCREENS,`${key}-activity-${width}.png`)})}}
    await page.goto(h.origin+`/app/schedule?week=${f.week}`,{waitUntil:'networkidle'})
    if(assertions){
     const inbox=page.locator('#schedule-inbox');assert.match(await inbox.innerText(),/Shift changed/);assert.match(await inbox.innerText(),/Superseded/)
@@ -307,6 +311,11 @@ export async function scheduleNoticesBrowser(){
     assert.ok(await inbox.locator('p,strong,button,summary').evaluateAll(nodes=>nodes.every(n=>parseFloat(getComputedStyle(n).fontSize)>=13)))
     const account=page.locator('[data-tooltip="Account menu"]');await account.focus();assert.equal(await page.locator('[role=tooltip]').innerText(),'Account menu')
    }
+   if(assertions){
+    const activity=page.locator('#activity-inbox');assert.match(await activity.innerText(),/Open shift offered/);assert.match(await activity.innerText(),/External delivery not attempted/);assert.ok(!await activity.innerText().then(t=>t.includes('Private browser-only proposal')))
+    assert.ok(await activity.locator('p,strong,button,a').evaluateAll(nodes=>nodes.every(n=>parseFloat(getComputedStyle(n).fontSize)>=13)))
+    const receipt=(await f.state(f.alex.cookie)).eventnotices.find(n=>n.source.id===open.id);assert.equal(receipt.source.revision,open.revision)
+   }
    await shot('schedule-change-inbox')
    if(assertions){
     await Promise.all([page.waitForResponse(r=>r.url().includes('name=schedule.notice.acknowledge')),page.locator('#schedule-inbox').getByRole('button',{name:'Acknowledge notice',exact:true}).click()])
@@ -314,16 +323,27 @@ export async function scheduleNoticesBrowser(){
     const s=await f.state(f.alex.cookie);assert.ok(s.schedulenotices.find(n=>n.kind==='change').acknowledgedAt);assert.ok(!s.shifts.find(x=>x.staffId===f.alex.id).confirmedAt)
     await page.reload({waitUntil:'networkidle'});assert.match(await page.locator('#schedule-inbox').innerText(),/You acknowledged this notice/)
    }
+   if(assertions){
+    await Promise.all([page.waitForResponse(r=>r.url().includes('name=notice.acknowledge')),page.locator('#activity-inbox').getByRole('button',{name:'Acknowledge activity notice',exact:true}).click()])
+    assert.equal(await page.locator('.notice.error').count(),0);assert.match(await page.locator('#activity-inbox').innerText(),/You acknowledged this notice/);assert.equal((await f.state()).openshifts.find(x=>x.id===open.id).status,'open')
+    await page.reload({waitUntil:'networkidle'});assert.equal(await page.locator('#activity-inbox').getByRole('button',{name:'Acknowledge activity notice',exact:true}).count(),0)
+   }
    await shot('schedule-acknowledged-inbox')
    const [bn,...bv]=f.ben.cookie.split('=');await context.clearCookies();await context.addCookies([{name:bn,value:bv.join('='),url:h.origin}])
    await page.goto(h.origin+`/app/time?week=${f.week}`,{waitUntil:'networkidle'})
    if(assertions){assert.match(await page.locator('#schedule-inbox').innerText(),/Assignment cancelled/);assert.equal(await page.locator('#schedule-inbox').getByRole('button',{name:'Acknowledge notice',exact:true}).count(),1);assert.deepEqual(errors,[])}
+   if(assertions){
+    const activity=page.locator('#activity-inbox');assert.match(await activity.innerText(),/Swap proposed/);assert.ok(!await activity.innerText().then(t=>t.includes('Private browser-only proposal')))
+    await Promise.all([page.waitForResponse(r=>r.url().includes('name=notice.acknowledge')),activity.getByRole('button',{name:'Acknowledge activity notice',exact:true}).click()])
+    assert.equal((await f.state()).swaps.find(x=>x.id===proposal.id).status,'proposed');assert.match(await activity.innerText(),/You acknowledged this notice/)
+   }
    await shot('schedule-cancellation-inbox');await context.close()
   }
   await prove(1440,true)
   // The phone capture uses a fresh changed revision, so both proofs show the live action.
   const moved=(await f.state(f.alex.cookie)).shifts.find(x=>x.staffId===f.alex.id)
   await f.cmd('shift.change',{...pin(moved),start:'2026-11-03T11:00:00Z',end:'2026-11-03T13:00:00Z',reason:'Final opening'},f.manager.cookie)
+  proposal=await propose()
   await prove(390,false)
  }finally{await browser.close();await h.close()}
 }
@@ -342,9 +362,10 @@ async function eventNoticesApi(h,f){
  let shift=(await state()).shifts.find(x=>x.status==='published'&&x.staffId===alex.id&&x.start.startsWith('2026-11-05'))
  let swap=await cmd('swap.propose',{shiftId:shift.id,revision:shift.revision,to:dee.id,note:'Private swap explanation'},alex.cookie)
  let n=(await read(dee)).find(n=>n.topic==='swap'&&n.source.id===swap.id)
- assert.equal(n.label,'Swap proposed');assert.equal(n.actionable,true)
+ assert.equal(n.label,'Swap proposed');assert.equal(n.actionable,true);assert.deepEqual(n.source,{kind:'swaps',id:swap.id,revision:swap.revision});assert.equal(n.sourceAt,swap.proposedAt)
  assert.ok(!(await read(ben)).some(n=>n.source.id===swap.id));assert.ok(!(await read(foreign)).some(n=>n.source.id===swap.id))
  const before=await unchanged();await cmd('notice.acknowledge',pin(n),ben.cookie,404);assert.equal(await unchanged(),before)
+ await cmd('notice.acknowledge',{id:n.id,revision:n.revision+1},dee.cookie,409);assert.equal(await unchanged(),before)
  const ack=await cmd('notice.acknowledge',pin(n),dee.cookie)
  assert.ok(ack.acknowledgedAt);assert.equal((await state()).swaps.find(w=>w.id===swap.id).status,'proposed','notice acknowledgment grants no swap consent')
  const version=await unchanged(),saved=await stored();await cmd('notice.acknowledge',pin(n),dee.cookie)
@@ -359,6 +380,11 @@ async function eventNoticesApi(h,f){
  swap=await cmd('swap.propose',{shiftId:shift.id,revision:shift.revision,to:ben.id},alex.cookie)
  await cmd('swap.withdraw',pin(swap),alex.cookie)
  assert.ok((await read(ben)).some(n=>n.source.id===swap.id&&n.label==='Swap withdrawn'))
+ swap=await cmd('swap.propose',{shiftId:shift.id,revision:shift.revision,to:dee.id},alex.cookie)
+ const staleProposal=(await read(dee)).find(n=>n.source.id===swap.id)
+ await cmd('shift.confirm',pin(shift),alex.cookie)
+ assert.ok(!(await read(dee)).some(n=>n.id===staleProposal.id))
+ const staleVersion=await unchanged();await cmd('notice.acknowledge',pin(staleProposal),dee.cookie,404);assert.equal(await unchanged(),staleVersion)
  // Each tier appears at its opening, not at posting. Replay and restart do not
  // repeat it; picking one recipient closes every competing pending purpose.
  const offer=await cmd('openshift.post',{site:'',position:'',start:'2026-11-07T09:00:00Z',end:'2026-11-07T11:00:00Z',breakMinutes:0,approval:'manager',pool:[alex.id,dee.id],order:'tiers',rule:'custom',ranking:[alex.id,dee.id],size:1,minutes:30})
@@ -398,6 +424,16 @@ async function eventNoticesApi(h,f){
  await h.cmd('clock.in',{commandId:crypto.randomUUID(),capturedAt:missed},ben.cookie,200,missedHead)
  missedState=(await h.send('/api/lanyard/state',undefined,manager.cookie,missedHead)).value
  assert.ok(!missedState.eventnotices.some(n=>n.source.id===covered.id&&n.topic==='coverage'))
+ // TIME-007's own in-app reminder remains distinct from an end-time decision.
+ await cmd('closerule.save',{site:'',graceMinutes:0,capHours:12})
+ const overdue='2026-11-07T12:00:00.000Z',overdueHead={'x-test-now':String(Date.parse(overdue))}
+ await (await h.mf.getWorker()).scheduled({scheduledTime:new Date(overdue),cron:'*/15 * * * *'})
+ const overdueState=(await h.send('/api/lanyard/state',undefined,ben.cookie,overdueHead)).value
+ const clockNotice=overdueState.eventnotices.find(n=>n.topic==='clock-out')
+ assert.ok(clockNotice);assert.ok(overdueState.clocks.find(k=>k.id===clockNotice.source.id).provisional)
+ const clockBefore=(await state()).clocks,workBefore=(await state()).timesheets
+ await h.cmd('notice.acknowledge',pin(clockNotice),ben.cookie,200,overdueHead)
+ assert.deepEqual((await state()).clocks,clockBefore);assert.deepEqual((await state()).timesheets,workBefore,'notice receipt cannot set a forgotten end time')
  // Mentions resolve only for current native logbook readers. Correction and
  // cafe transfer immediately withdraw access, including an old receipt pin.
  const log=await cmd('log.save',{site:'',date:'2026-11-02',category:'staffing',text:'Private staffing details',mentions:[manager.id]})
