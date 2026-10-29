@@ -626,7 +626,7 @@
       "executable": false
     },
     "public/app/screens.css": {
-      "sha256": "91df9586b1227310922a2d1cda5f4fbcb7e8ab069d87c49794f50dfb3819cb8d",
+      "sha256": "7a628cec9b6a495e3b1a9be872d28b344c67bbf8568ee7c6211ff8d6a6a44dee",
       "executable": false
     },
     "public/app/shell.css": {
@@ -4087,6 +4087,10 @@
     },
     "tests/coverage.test.mjs": {
       "sha256": "13ffb9835f1ad97e16b9a661ef71507d23eebbb4e43b2a6cfb4003b5cc684b1f",
+      "executable": false
+    },
+    "tests/demand-generation-journey.mjs": {
+      "sha256": "c1ebfdd418fd314e045c65e591b75fe91d25a13f418b2dc22317508220b92308",
       "executable": false
     },
     "tests/demand-journey.mjs": {
