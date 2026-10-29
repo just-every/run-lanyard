@@ -72,7 +72,7 @@ import {questions,injuriesFor} from './questions'
 import {attendance,board} from './attendance'
 import {offerRules,accessToHours} from './offerorder'
 import {cutoffCommand,cutoffReports} from './cutoff'
-import {periods,guardPeriods,signoffCurrent} from './periods'
+import {periods,guardPeriods,signoffCurrent,periodFor} from './periods'
 import {logbook,logFor,searchLog,incidentText,logFile} from './logbook'
 import {dashboard} from './dashboard'
 import {contacts,mayRead,contactCard} from './contacts'
@@ -324,7 +324,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string,earni
  result.employment=agent?[]:s.employment.filter(r=>manages||r.staffId===a.staffId)
  if(!manages)result.offerrules=[]
  // TIME-004: a person reads each pay period with only their own signoff and locked rows.
- if(!manages)result.periods=s.periods.map(r=>({...r,signoffs:r.signoffs.filter((x:any)=>!agent&&x.staffId===a.staffId),locked:r.locked.filter((x:any)=>!agent&&x.staffId===a.staffId),reopens:r.reopens.map((x:any)=>({at:x.at,reason:x.reason}))}))
+ if(!manages)result.periods=s.periods.map(r=>periodFor(r,a))
  // CLOCK-006: injury answers and their follow-ups only for the employee, the owner and that cafe's managers.
  result.injuries=injuriesFor(s,a)
  // SCHEDULE-006: shift history from last week on (managers every line; an employee the lines they were assigned).
