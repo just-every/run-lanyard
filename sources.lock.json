@@ -1714,7 +1714,7 @@
       "executable": false
     },
     "src/lanyard/domain/schedule-notices.ts": {
-      "sha256": "9304cc1ce2d23126e5bf940f601b46b9319aa9ddcf25a8dd4258b8a6ebe4be66",
+      "sha256": "421daaf384395e2b54f42dedd92ceb288f11238207e0a8911bdc6abb3db53829",
       "executable": false
     },
     "src/lanyard/domain/schedule-review.ts": {
@@ -4194,7 +4194,7 @@
       "executable": false
     },
     "tests/notices-journey.mjs": {
-      "sha256": "723167689ca8ae922399e87b56fe185bd66e55105ad6ef63e58e29606f8318a2",
+      "sha256": "d123167deaadbe76a90e558018e28b98247c6ff3ef6f099a52d1ab7386424aa6",
       "executable": false
     },
     "tests/open-template-journey.mjs": {

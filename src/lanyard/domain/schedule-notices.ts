@@ -61,9 +61,10 @@ export function scheduleNoticeCommand(c:Context,name:string,p:Record<string,any>
  need(n.recipient===recipient&&active(c.s,recipient!),'Not found',404)
  need(available(c.s,n),'This notice is superseded; review your current schedule',409)
  // A retry retains the first explicit acknowledgment and writes no second audit.
- if(n.acknowledgedAt){need(p.revision===n.revision||p.revision===n.revision-1,'Revision changed; reload before deciding',409);return n}
+ if(n.acknowledgedAt){need(p.revision===n.revision||p.revision===n.revision-1,'Revision changed; reload before deciding',409);return scheduleNoticesFor(c.s,c.a).find(r=>r.id===n.id)}
  exact(n,p)
- return put(c,'schedulenotices',{...n,acknowledgedAt:c.now,acknowledgedBy:c.a.id},n)
+ put(c,'schedulenotices',{...n,acknowledgedAt:c.now,acknowledgedBy:c.a.id},n)
+ return scheduleNoticesFor(c.s,c.a).find(r=>r.id===n.id)
 }
 
 /** History reports native availability and explicit receipt, never provider delivery. */
