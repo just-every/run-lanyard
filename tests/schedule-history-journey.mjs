@@ -33,13 +33,13 @@ async function scenario(h) {
  const moved=await h.cmd('shift.change',{...pin(shift),start:local(days(week,1),'10:00'),end:local(days(week,1),'18:00'),reason:'Later delivery'},manager.cookie)
  for(const p of [alex,ben,cy])assert.equal((await read(p.cookie,moved.shift.id)).filter(e=>e.action==='swapped').length,2)
  const log=await h.send(`/api/lanyard/weeks/${week}/changes.csv`,undefined,manager.cookie)
- assert.equal(log.status,200);assert.match(log.text,/,swapped,Ben,Alex,.*Priya,Alex training,not sent/);assert.match(log.text,/,swapped,Cy,Ben,.*Priya,Ben appointment,not sent/)
+ assert.equal(log.status,200);assert.match(log.text,/,swapped,Ben,Alex,.*Priya,Alex training,In Lanyard/);assert.match(log.text,/,swapped,Cy,Ben,.*Priya,Ben appointment,In Lanyard/)
  assert.equal((log.text.match(/,acknowledged,/g)??[]).length,3)
  return {alex,ben,cy,manager,week}
 }
 export const repeatedHistoryApi=scenario
 export async function repeatedHistoryBrowser() {
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--use-mock-keychain','--password-store=basic','--no-sandbox']})
  try{for(const width of [1440,390]) {
   const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
   try{

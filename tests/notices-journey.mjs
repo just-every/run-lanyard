@@ -137,7 +137,7 @@ export async function noticesCases(h) {
  for(const privateText of ['Private family reason','Forgot the clock','Delivery moved','Meal confirmed missed'])assert.ok(!safe.includes(privateText),privateText)
 }
 export async function noticesBrowser() {
- const h=await harness(),browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const h=await harness(),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--use-mock-keychain','--password-store=basic','--no-sandbox']})
  try{
   const f=await noticesFixture(h);await f.tick(6)
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
@@ -161,5 +161,167 @@ export async function noticesBrowser() {
    assert.equal((await f.state()).noticerules.find(r=>r.site==='').ackMinutes,8)
    await shot('saved');assert.deepEqual(errors,[]);await context.close()
   }
+ }finally{await browser.close();await h.close()}
+}
+
+const scheduleNow='2026-11-02T12:00:00.000Z'
+const assignmentInput=x=>Object.fromEntries(['staffId','start','end','breakMinutes','label','site','job'].filter(k=>x[k]!==undefined).map(k=>[k,x[k]]))
+export async function scheduleNoticesFixture(h){
+ const head={'x-test-now':String(Date.parse(scheduleNow))},cmd=(name,input,c=h.owner,status=200)=>h.cmd(name,input,c,status,head)
+ const state=async(c=h.owner,status=200)=>{const r=await h.send('/api/lanyard/state',undefined,c,head);assert.equal(r.status,status,r.text);return r.value}
+ await cmd('settings.save',{timezone:'UTC'})
+ const alex=await h.person('Alex'),ben=await h.person('Ben'),cy=await h.person('Cy'),manager=await h.person('Priya','manager')
+ for(const p of [alex,ben,cy,manager])await cmd('availability.save',{staffId:p.id,start:'2026-11-01T00:00:00Z',end:'2026-11-15T00:00:00Z'})
+ const shifts=[{staffId:alex.id,start:'2026-11-03T09:00:00Z',end:'2026-11-03T11:00:00Z',breakMinutes:0,label:'Opening'},{staffId:ben.id,start:'2026-11-04T09:00:00Z',end:'2026-11-04T11:00:00Z',breakMinutes:0,label:'Counter'}]
+ const draft=await cmd('roster.prepare',{week:'2026-11-02',shifts})
+ assert.deepEqual((await state(alex.cookie)).schedulenotices,[],'drafts create no schedule notice')
+ const roster=await cmd('roster.publish',pin(draft),manager.cookie)
+ return {head,cmd,state,alex,ben,cy,manager,roster,week:'2026-11-02'}
+}
+
+export async function scheduleNoticesApi(h){
+ const f=await scheduleNoticesFixture(h),{cmd,state,alex,ben,cy,manager}=f
+ const stored=async()=> (await h.db.prepare("SELECT data FROM l_records WHERE kind='schedulenotices' ORDER BY id").all()).results.map(r=>JSON.parse(r.data))
+ const records=async()=> (await h.db.prepare("SELECT kind,id,revision,data FROM l_records WHERE kind IN ('shifts','rosters','schedulenotices','timesheets','batches') ORDER BY kind,id").all()).results
+ const notices=async person=>(await state(person.cookie)).schedulenotices
+ let a=(await notices(alex))[0],b=(await notices(ben))[0]
+ assert.equal(a.kind,'publication');assert.equal(a.actionable,true);assert.equal(a.delivery.state,'available');assert.equal(a.acknowledgedAt,null)
+ assert.equal(a.assignment.start,'2026-11-03T09:00:00.000Z');assert.equal(a.assignment.end,'2026-11-03T11:00:00.000Z')
+ const initial=(await state()).shifts.filter(x=>x.status==='published'),alexShift=initial.find(x=>x.staffId===alex.id)
+ assert.deepEqual(a.assignmentSource,{shiftId:alexShift.id,shiftRevision:alexShift.revision,rosterId:f.roster.id,rosterRevision:f.roster.revision})
+ assert.deepEqual(await notices(cy),[]);assert.deepEqual(await notices(manager),[]);assert.deepEqual((await state()).schedulenotices,[],'the owner has no recipient inbox for other employees')
+ const isolated=await records();await cmd('schedule.notice.acknowledge',pin(a),ben.cookie,404);await cmd('schedule.notice.acknowledge',pin(a),manager.cookie,404)
+ assert.deepEqual(await records(),isolated,'foreign notice actions change no source or receipt')
+ // A rejected source decision cannot leave a notification behind.
+ await cmd('shift.change',{...pin(alexShift),start:alexShift.start,end:alexShift.end,reason:'No actual change'},manager.cookie,400)
+ assert.deepEqual(await records(),isolated)
+ // Confirmation is neither delivery nor explicit notice acknowledgment.
+ await cmd('shift.confirm',pin(alexShift),alex.cookie)
+ assert.equal((await notices(alex))[0].acknowledgedAt,null)
+ const confirmed=(await state()).shifts.find(x=>x.id===alexShift.id)
+ a=await cmd('schedule.notice.acknowledge',pin(a),alex.cookie)
+ assert.ok(a.acknowledgedAt);assert.equal((await state()).shifts.find(x=>x.id===confirmed.id).revision,confirmed.revision)
+ const acknowledged=await records(),auditBefore=(await state(alex.cookie)).events.filter(e=>e.action==='schedule.notice.acknowledge')
+ await cmd('schedule.notice.acknowledge',{id:a.id,revision:a.revision-1},alex.cookie)
+ assert.deepEqual(await records(),acknowledged);assert.deepEqual((await state(alex.cookie)).events.filter(e=>e.action==='schedule.notice.acknowledge'),auditBefore)
+ // Replacing only the physical published rows changes no recipient event or source pins.
+ const unchanged=await stored(),republish=await cmd('roster.prepare',{week:f.week,shifts:initial.map(assignmentInput)})
+ await cmd('roster.publish',pin(republish),manager.cookie)
+ assert.deepEqual(await stored(),unchanged)
+ const oldBen=(await state()).shifts.find(x=>x.status==='published'&&x.staffId===ben.id)
+ // A storage failure after source writes rolls back the assignment, notice and audit together.
+ const beforeFault=await records(),eventsBeforeFault=(await state()).events
+ await h.db.exec("CREATE TRIGGER synthetic_notice_failure BEFORE INSERT ON l_records WHEN NEW.kind='schedulenotices' BEGIN SELECT RAISE(ABORT,'CHECK synthetic-lanyard-1'); END;")
+ try{await cmd('shift.change',{...pin(oldBen),start:'2026-11-04T10:00:00Z',end:'2026-11-04T12:00:00Z',reason:'Storage refusal'},manager.cookie,409)}finally{await h.db.exec('DROP TRIGGER synthetic_notice_failure')}
+ assert.deepEqual(await records(),beforeFault);assert.deepEqual((await state()).events,eventsBeforeFault)
+ const changed=await cmd('shift.change',{...pin(oldBen),start:'2026-11-04T10:00:00Z',end:'2026-11-04T12:00:00Z',reason:'Private manager reason'},manager.cookie)
+ b=(await notices(ben)).find(n=>n.kind==='change')
+ assert.equal(b.assignment.start,'2026-11-04T10:00:00.000Z');assert.equal(b.previous.start,'2026-11-04T09:00:00.000Z')
+ assert.deepEqual(b.priorSource,{shiftId:oldBen.id,shiftRevision:oldBen.revision,rosterId:oldBen.rosterId,rosterRevision:republish.revision+1})
+ assert.equal(b.assignmentSource.shiftId,changed.shift.id)
+ const stale=(await notices(ben)).find(n=>n.kind==='publication');assert.equal(stale.status,'superseded');assert.equal(stale.actionable,false)
+ const beforeStale=await records();await cmd('schedule.notice.acknowledge',pin(stale),ben.cookie,409);assert.deepEqual(await records(),beforeStale)
+ await cmd('schedule.notice.acknowledge',pin(b),ben.cookie)
+ const history=await h.send(`/api/lanyard/shifts/${changed.shift.id}/history`,undefined,ben.cookie,f.head)
+ assert.equal(history.status,200);assert.ok(history.value.events.some(e=>e.notice.includes('employee acknowledged')))
+ // Reassignment tells the former recipient only that their own assignment ended.
+ const reassigned=await cmd('shift.change',{...pin(changed.shift),staffId:cy.id,reason:'Private replacement decision'},manager.cookie)
+ const cancellation=(await notices(ben)).find(n=>n.kind==='cancellation')
+ assert.equal(cancellation.assignment,null);assert.equal(cancellation.assignmentSource,null);assert.equal(cancellation.previous.start,'2026-11-04T10:00:00.000Z')
+ assert.ok(!JSON.stringify(await notices(ben)).includes(cy.id));assert.ok(!JSON.stringify(await notices(ben)).includes('Private'))
+ assert.equal((await notices(cy))[0].assignment.start,'2026-11-04T10:00:00.000Z')
+ await cmd('schedule.notice.acknowledge',pin(cancellation),ben.cookie)
+ const cyNotice=(await notices(cy))[0]
+ await cmd('shift.cancel',{...pin(reassigned.shift),reason:'Private cancellation reason'},manager.cookie)
+ assert.equal((await notices(cy)).find(n=>n.id===cyNotice.id).status,'superseded')
+ assert.equal((await notices(cy)).find(n=>n.kind==='cancellation').assignment,null)
+ // Both manager-approved and automatic pickups create exactly one recipient event.
+ for(const [person,approval,day] of [[alex,'manager','05'],[cy,'auto','06']]){
+  const o=await cmd('openshift.post',{site:'',position:'',start:`2026-11-${day}T09:00:00Z`,end:`2026-11-${day}T11:00:00Z`,breakMinutes:0,approval,order:'all'})
+  const request=await cmd('openshift.request',pin(o),person.cookie)
+  if(approval==='manager'){
+   assert.ok(!(await notices(person)).some(n=>n.kind==='pickup'))
+   await cmd('openshift.approve',pin(request),manager.cookie)
+   const done=await stored();await cmd('openshift.approve',pin(request),manager.cookie,409);assert.deepEqual(await stored(),done)
+  }
+  assert.equal((await notices(person)).filter(n=>n.kind==='pickup').length,1)
+ }
+ // Consent and an approved exchange confirm shifts but do not acknowledge notices.
+ const current=(await state()).shifts.filter(x=>x.status==='published'),give=current.find(x=>x.staffId===alex.id&&x.start.startsWith('2026-11-03')),take=current.find(x=>x.staffId===cy.id)
+ const proposed=await cmd('swap.propose',{shiftId:give.id,revision:give.revision,theirShiftId:take.id},alex.cookie)
+ const consented=await cmd('swap.respond',{...pin(proposed),decision:'accepted'},cy.cookie)
+ const beforeDecision=await stored();await cmd('swap.decide',{...pin(consented),decision:'approved'},alex.cookie,403);assert.deepEqual(await stored(),beforeDecision)
+ await cmd('swap.decide',{...pin(consented),decision:'approved'},manager.cookie)
+ for(const person of [alex,cy]){const n=(await notices(person)).find(n=>n.kind==='swap');assert.ok(n);assert.equal(n.acknowledgedAt,null);assert.equal(n.actionable,true)}
+ const swapped=(await state()).shifts.find(x=>x.id===give.id);assert.ok(swapped.confirmedAt)
+ // A real payroll file remains byte-identical across acknowledgment, restart and revocation.
+ const t=await cmd('time.prepare',{staffId:ben.id,start:'2026-10-31T09:00:00Z',end:'2026-10-31T11:00:00Z',breakMinutes:0,reason:'Recorded worked time'})
+ const approved=await cmd('time.approve',pin(t)),batch=await cmd('payroll.prepare',{ids:[approved.id]})
+ const exported=await cmd('payroll.export',pin(batch)),timeBefore=(await state()).timesheets,batchesBefore=(await state()).batches
+ const fileBefore=await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,h.owner,f.head)
+ assert.equal(fileBefore.status,200)
+ const swapNotice=(await notices(alex)).find(n=>n.kind==='swap');await cmd('schedule.notice.acknowledge',pin(swapNotice),alex.cookie)
+ const persisted=await stored();await h.restart();assert.deepEqual(await stored(),persisted)
+ assert.ok((await notices(alex)).find(n=>n.id===swapNotice.id).acknowledgedAt)
+ const person=(await state()).staff.find(p=>p.id===cy.id)
+ await cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:person.role,active:false})
+ await state(cy.cookie,403);await cmd('schedule.notice.acknowledge',pin((persisted.find(n=>n.recipient===cy.id&&n.status==='current'))),cy.cookie,403)
+ assert.ok((await stored()).filter(n=>n.recipient===cy.id&&n.status==='current').length===0)
+ // Reactivation does not resurrect withdrawn assignment notices.
+ const inactive=(await state()).staff.find(p=>p.id===cy.id)
+ await cmd('staff.save',{...pin(inactive),name:inactive.name,email:inactive.email,payrollId:inactive.payrollId,role:inactive.role,active:true})
+ assert.ok((await notices(cy)).every(n=>!n.actionable))
+ assert.deepEqual((await state()).timesheets,timeBefore);assert.deepEqual((await state()).batches,batchesBefore)
+ assert.equal((await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,h.owner,f.head)).text,fileBefore.text)
+ const key=await cmd('agent.create',{label:'Preparation only'})
+ const agent=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${key.token}`,...f.head})
+ assert.equal(agent.status,200);assert.deepEqual(agent.value.schedulenotices,[])
+ const all=await stored();assert.equal(new Set(all.map(n=>n.id)).size,all.length)
+ assert.ok(all.every(n=>n.delivery.channel==='in-app'&&n.delivery.state==='available'))
+ for(const secret of ['Private manager reason','Private replacement decision','Private cancellation reason','rateBasis','payrollId','consent'])assert.ok(!JSON.stringify(all).includes(secret),secret)
+}
+
+export async function scheduleNoticesBrowser(){
+ const h=await harness({now:scheduleNow}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--use-mock-keychain','--password-store=basic','--no-sandbox']})
+ try{
+  const f=await scheduleNoticesFixture(h)
+  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+  const a=(await f.state(f.alex.cookie)).shifts.find(x=>x.staffId===f.alex.id)
+  await f.cmd('shift.change',{...pin(a),start:'2026-11-03T10:00:00Z',end:'2026-11-03T12:00:00Z',reason:'Later opening'},f.manager.cookie)
+  const b=(await f.state(f.ben.cookie)).shifts.find(x=>x.staffId===f.ben.id)
+  await f.cmd('shift.cancel',{...pin(b),reason:'No longer required'},f.manager.cookie)
+  const prove=async(width,assertions)=>{
+   const context=await browser.newContext({viewport:{width,height:1000},extraHTTPHeaders:f.head})
+   const [name,...value]=f.alex.cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
+   await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js'))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
+   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message))
+   const shot=async key=>{if(process.env.NOTICE_SCREENS){await mkdir(process.env.NOTICE_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.NOTICE_SCREENS,`${key}-page-${width}.png`)});await page.locator('#schedule-inbox').screenshot({path:join(process.env.NOTICE_SCREENS,`${key}-${width}.png`)})}}
+   await page.goto(h.origin+`/app/schedule?week=${f.week}`,{waitUntil:'networkidle'})
+   if(assertions){
+    const inbox=page.locator('#schedule-inbox');assert.match(await inbox.innerText(),/Shift changed/);assert.match(await inbox.innerText(),/Superseded/)
+    assert.equal(await inbox.getByRole('button',{name:'Acknowledge notice',exact:true}).count(),1)
+    assert.ok(!await inbox.innerText().then(t=>t.includes('No longer required')))
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    assert.ok(await inbox.locator('p,strong,button,summary').evaluateAll(nodes=>nodes.every(n=>parseFloat(getComputedStyle(n).fontSize)>=13)))
+    const account=page.locator('[data-tooltip="Account menu"]');await account.focus();assert.equal(await page.locator('[role=tooltip]').innerText(),'Account menu')
+   }
+   await shot('schedule-change-inbox')
+   if(assertions){
+    await Promise.all([page.waitForResponse(r=>r.url().includes('name=schedule.notice.acknowledge')),page.locator('#schedule-inbox').getByRole('button',{name:'Acknowledge notice',exact:true}).click()])
+    assert.equal(await page.locator('.notice.error').count(),0);assert.equal(await page.locator('#schedule-inbox').getByRole('button',{name:'Acknowledge notice',exact:true}).count(),0)
+    const s=await f.state(f.alex.cookie);assert.ok(s.schedulenotices.find(n=>n.kind==='change').acknowledgedAt);assert.ok(!s.shifts.find(x=>x.staffId===f.alex.id).confirmedAt)
+    await page.reload({waitUntil:'networkidle'});assert.match(await page.locator('#schedule-inbox').innerText(),/You acknowledged this notice/)
+   }
+   await shot('schedule-acknowledged-inbox')
+   const [bn,...bv]=f.ben.cookie.split('=');await context.clearCookies();await context.addCookies([{name:bn,value:bv.join('='),url:h.origin}])
+   await page.goto(h.origin+`/app/time?week=${f.week}`,{waitUntil:'networkidle'})
+   if(assertions){assert.match(await page.locator('#schedule-inbox').innerText(),/Assignment cancelled/);assert.equal(await page.locator('#schedule-inbox').getByRole('button',{name:'Acknowledge notice',exact:true}).count(),1);assert.deepEqual(errors,[])}
+   await shot('schedule-cancellation-inbox');await context.close()
+  }
+  await prove(1440,true)
+  // The phone capture uses a fresh changed revision, so both proofs show the live action.
+  const moved=(await f.state(f.alex.cookie)).shifts.find(x=>x.staffId===f.alex.id)
+  await f.cmd('shift.change',{...pin(moved),start:'2026-11-03T11:00:00Z',end:'2026-11-03T13:00:00Z',reason:'Final opening'},f.manager.cookie)
+  await prove(390,false)
  }finally{await browser.close();await h.close()}
 }
