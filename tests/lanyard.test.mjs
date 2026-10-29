@@ -2096,3 +2096,6 @@ test('REPORT-002: audit records reconcile retained sources, preserve unknown cov
 test('REPORT-002: native audit filters, source links and download remain usable on desktop with phone proof',async()=>{const {auditBrowser}=await import('./audit-report-journey.mjs');await auditBrowser()})
 
 test('MOBILE-001 MOBILE-002: phone shift change, offline unsent state, current attendance, reasoned edits and scoped exact-revision approvals',async()=>{const {mobileJourney}=await import('./clock-offline-journey.mjs');await mobileJourney()})
+
+test('LINK-001: a single-cafe partner prepares one replay-safe roster draft for separate human publication and current authority refuses unsafe retries',async()=>{const {partnerApiJourney}=await import('./partner-api-journey.mjs');await partnerApiJourney()})
+test('LINK-001: the owner issues, rotates and revokes a narrow partner credential in Settings',async()=>{const {partnerBrowser}=await import('./partner-api-journey.mjs');await partnerBrowser()})

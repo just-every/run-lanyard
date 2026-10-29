@@ -1,3 +1,5 @@
+import {currentPartner} from '../partner-scope'
+import {partnerRoster,partnerDraft,partnerReplay,type PartnerRequest} from './partner-roster'
 import {tipPoolCommand} from './tip-pools'
 import {reportScheduleCommand} from './report-schedules'
 import {recordRetentionCommand} from './record-retention'
@@ -96,17 +98,19 @@ function fresh(a:Actor,s:State) {
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
  need(person,'Staff access revoked',403);return {...a,role:person.role}
 }
-export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string,net?:Context['net'],files?:R2Bucket,kiosk?:Context['kiosk'],aiConfig?:AiConfiguration):Promise<object> {
+export async function command(db:D1Database,identity:Actor,name:string,input:unknown,secret?:string,net?:Context['net'],files?:R2Bucket,kiosk?:Context['kiosk'],aiConfig?:AiConfiguration,partnerRequest?:PartnerRequest):Promise<object> {
  need(commands.includes(name)||['aca.plan.save','aca.credit.save','job.save','workforce.save','shiftwork.save','shiftwork.respond'].includes(name),'Unknown command',404);const a=await live(db,identity),p=object(input)
+ if(a.partner){need(name==='roster.prepare'&&partnerRequest,'Partner credentials prepare roster drafts only',403);await currentPartner(db,a)}
  if(a.role==='agent')need(['roster.prepare','time.prepare','payroll.prepare','learn.propose'].includes(name),'Agents may prepare drafts only; a human manager must approve',403)
  need(!auditRestricted(await load(db),a),'Audit readers cannot perform operational mutations',403)
- const commandId=name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID(),digest=await sha(canonical({name,input:p,...(kiosk?{kioskDevice:kiosk.deviceId,photoDigest:kiosk.photo?await sha(kiosk.photo):null,photoFailure:kiosk.photoFailure??null}:{})}))
+ const commandId=partnerRequest?.commandId??(name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID()),digest=partnerRequest?.digest??await sha(canonical({name,input:p,...(kiosk?{kioskDevice:kiosk.deviceId,photoDigest:kiosk.photo?await sha(kiosk.photo):null,photoFailure:kiosk.photoFailure??null}:{})}))
  // Kiosk authority is rechecked before returning a saved result.
- const previous=kiosk?null:await saved(db,commandId,a,digest);if(previous){locationReplay(await load(db),previous,net);return previous}
+ const previous=kiosk?null:await saved(db,commandId,a,digest);if(previous){if(a.partner){const state=await load(db);partnerReplay(state,a,previous);await currentPartner(db,a)}locationReplay(await load(db),previous,net);return previous}
  const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret,net,files,kiosk,rollback:[]}
  try {
  await kioskCheck(c,name,p)
  if(kiosk){const previous=await saved(db,commandId,a,digest);if(previous)return previous}
+ if(a.partner)partnerRoster(s,a,p,partnerRequest!)
  authorizeCommand(c,name,p)
  const pendingLocation=locationBefore(c,name,p)
  const pendingPhoto=photoBefore(c,name,p)
@@ -189,7 +193,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  const capture=kioskReceipt(c,name,p,result);if(capture)result={...capture.result,kioskReceipt:capture.receipt}
  if(['roster.publish','shift.change','cover.approve','swap.decide','overtime.substitute','openshift.approve'].includes(name)){checkSegmentAssignments(s,before);checkMinorAssignments(s,before)}
  // AUTO-001: an active rule approves the clean punched time this command submitted.
- if(!name.startsWith('ai.'))autoApprove(c,before)
+ if(!a.partner&&!name.startsWith('ai.'))autoApprove(c,before)
  // TIME-004: whatever the command, time in a locked or closed pay period is rechecked before the write.
  guardPeriods(c,before)
  if(a.role==='agent'&&name==='roster.prepare')result={...result,shifts:result.shifts.map(withoutRates)}
@@ -199,6 +203,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  }
  if(!['owner','manager'].includes(a.role))result=hideRates(result)
  if(restricted(s,a)&&!commandTargets(s,name,p).every(x=>allowed(s,a,'wages.view',siteOf(s,x),x.staffId)))result=wageRedact(result)
+ if(a.partner)result=partnerDraft(result)
  await reconcileScheduleNotices(c,before,name,p)
  const ownerRow=await db.prepare("SELECT id,email FROM oa_operators WHERE role='owner' AND status='active' ORDER BY created_at LIMIT 1").first<{id:string;email:string}>()
  if(ownerRow)await reconcileNotices(c,await actor(db,{userId:ownerRow.id,email:ownerRow.email,isOwner:true}))

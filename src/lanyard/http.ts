@@ -1,3 +1,5 @@
+import {partnerApi} from './partner-api'
+import {partnerKeys,partnerCredentialCommand} from './partner-credentials'
 import {reportDeliveryCsv} from './report-delivery'
 import {auditRestricted} from './domain/audit-access'
 import {retainedAuditRead} from './domain/audit-retention'
@@ -42,14 +44,15 @@ async function state(request:Request,env: Bindings, who: Actor, withChat=false) 
   // A new installation takes the time zone its owner gave at setup until anything is saved.
   if (env.VENUE_TIMEZONE) await env.DB.prepare('UPDATE l_meta SET timezone=? WHERE id=1 AND version=0 AND timezone<>?').bind(zone(env.VENUE_TIMEZONE), zone(env.VENUE_TIMEZONE)).run()
   // Independent reads go to D1 together, so a page waits for one round trip instead of several in a row.
-  const [snap, keys, browsers, jobs] = await Promise.all([snapshot(env.DB, who, env.SESSION_SECRET, new URL(request.url).searchParams.get('week')??undefined), agentKeys(env, who), clockBrowsers(env, who), who.role === 'owner' ? env.DB.prepare("SELECT id,state,checkpoint,total,fingerprint,error FROM ik_jobs WHERE destination='lanyard:staff' AND namespace='lanyard.staff.csv.v1' AND mapping_version='staff-csv-v1' AND principal_id=? ORDER BY rowid DESC LIMIT 30").bind(who.id).all() : null])
+  const [snap, keys, partners, browsers, jobs] = await Promise.all([snapshot(env.DB, who, env.SESSION_SECRET, new URL(request.url).searchParams.get('week')??undefined), agentKeys(env, who), partnerKeys(env.DB,who), clockBrowsers(env, who), who.role === 'owner' ? env.DB.prepare("SELECT id,state,checkpoint,total,fingerprint,error FROM ik_jobs WHERE destination='lanyard:staff' AND namespace='lanyard.staff.csv.v1' AND mapping_version='staff-csv-v1' AND principal_id=? ORDER BY rowid DESC LIMIT 30").bind(who.id).all() : null])
   const revokedKiosks=who.role==='owner'||who.role==='manager'?(await env.DB.prepare('SELECT id,site FROM l_kiosk_devices WHERE revoked_at IS NOT NULL OR locked=1').all<{id:string;site:string}>()).results.filter(d=>who.role==='owner'||d.site===(snap as any).staff.find((p:any)=>p.id===who.staffId)?.site).map(d=>d.id):[]
   const photoDevices=who.role==='agent'?[]:(await networkOf(request,env)).browsers.map(b=>({site:b.site,type:b.type}))
   const revokedSessions=await revokedKioskSessions(env,who,(snap as any).staff.find((p:any)=>p.id===who.staffId)?.site??'')
-  return { ...snap, reportDeliveryConfigured:who.role==='owner'&&env.MAIL_PROVIDER==='sendgrid'&&Boolean(env.MAIL_FROM&&env.MAIL_API_KEY), photoDevices,revokedKiosks,revokedKioskSessions:revokedSessions,kiosks:who.role==='owner'?(await env.DB.prepare('SELECT id,site,label,photo,locked,revoked_at FROM l_kiosk_devices').all()).results:[], ...(withChat?{chat:chatRead(await load(env.DB),who)}:{}), agentKeys: keys, clockBrowsers: browsers, importJobs: jobs ? jobs.results : [] }
+  return { ...snap, reportDeliveryConfigured:who.role==='owner'&&env.MAIL_PROVIDER==='sendgrid'&&Boolean(env.MAIL_FROM&&env.MAIL_API_KEY), photoDevices,revokedKiosks,revokedKioskSessions:revokedSessions,kiosks:who.role==='owner'?(await env.DB.prepare('SELECT id,site,label,photo,locked,revoked_at FROM l_kiosk_devices').all()).results:[], ...(withChat?{chat:chatRead(await load(env.DB),who)}:{}), agentKeys: keys, partnerKeys:partners, clockBrowsers: browsers, importJobs: jobs ? jobs.results : [] }
 }
 
 async function execute(request: Request, env: Bindings, who: Actor, name: string, input: Record<string, unknown>) {
+  if(name.startsWith('partner.'))return partnerCredentialCommand(env.DB,who,name,input)
   if(name==='kiosk.pin')return kioskPin(env,who,input)
   if(name==='kiosk.enroll'||name==='kiosk.revoke')return kioskAdmin(env,who,name,input)
   if (name.startsWith('agent.') || name === 'staff.invite') return credentialCommand(request, env, who, name, input)
@@ -153,9 +156,10 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     if (url.origin !== env.AUTH_ORIGIN || (request.headers.has('host') && request.headers.get('host') !== url.host)) fail('Wrong application origin', 403)
     if (!['GET', 'POST'].includes(request.method)) return json({ error: 'Method not allowed' }, 405)
     // Bearer-only agent routes have no ambient browser authority. Human mutations require Origin.
-    if (request.method === 'POST' && !isAgent && (request.headers.get('origin') !== env.AUTH_ORIGIN || request.headers.get('sec-fetch-site') === 'cross-site')) fail('Cross-site request refused', 403)
+    if (request.method === 'POST' && !isAgent && !path.startsWith('/api/lanyard/partner/') && (request.headers.get('origin') !== env.AUTH_ORIGIN || request.headers.get('sec-fetch-site') === 'cross-site')) fail('Cross-site request refused', 403)
     // The schedule was called the roster; old links keep working.
     if (path === '/app/roster' && request.method === 'GET') return new Response(null, { status: 301, headers: { ...headers, location: '/app/schedule' + url.search } })
+    if(path.startsWith('/api/lanyard/partner/'))return json(await partnerApi(request,env.DB))
     const kiosk=await kioskResponse(request,env);if(kiosk)return kiosk
     who = await principal(request, env, isAgent)
     auditOnly=auditRestricted(await load(env.DB),who)
