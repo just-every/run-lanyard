@@ -59,7 +59,7 @@ export function periods(c:Context,name:string,p:Record<string,any>) {
   const role=c.a.role==='staff'?'employee':'manager'
   if(role==='employee')need(inPeriod(c.s,r).some(t=>t.staffId===c.a.staffId),'You have no time in this pay period',409)
   need(!r.signoffs.some((x:any)=>x.by===c.a.id&&x.role===role&&signoffCurrent(c.s,r,x)),'Already signed off',409)
-  return put(c,'periods',{...r,signoffs:[...r.signoffs.filter((x:any)=>x.by!==c.a.id||x.role!==role),{by:c.a.id,staffId:c.a.staffId??null,role,at:c.now,sources:signoffSources(c.s,r,role==='employee'?c.a.staffId:undefined)}]},r)
+  return put(c,'periods',{...r,signoffHistory:[...(r.signoffHistory??[]),...r.signoffs.filter((x:any)=>x.by===c.a.id&&x.role===role)],signoffs:[...r.signoffs.filter((x:any)=>x.by!==c.a.id||x.role!==role),{by:c.a.id,staffId:c.a.staffId??null,role,at:c.now,sources:signoffSources(c.s,r,role==='employee'?c.a.staffId:undefined)}]},r)
  }
  if(name==='period.lock') {
   owner(c);need(r.status==='open','Only an open pay period can be locked',409)

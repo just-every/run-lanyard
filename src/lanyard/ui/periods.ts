@@ -5,7 +5,7 @@ import {day,dateKey} from './format'
 import {venue} from './shared'
 
 const range=(r:any)=>`${day(r.start)} – ${day(r.end)}`
-const signed=(s:any,r:any,role:string)=>r.signoffs.some((x:any)=>x.role===role&&x.by===s.actor.id&&x.current!==false)
+const signed=(s:any,r:any,role:string)=>r.signoffs.some((x:any)=>x.role===role&&x.by===s.actor.id&&s.periodSignoffState?.[r.id]?.[x.by+'|'+x.role]!==false)
 function actions(s:any,r:any) {
  const out:string[]=[]
  if(r.status==='open'&&manager(s)&&!signed(s,r,'manager'))out.push(form('period.signoff','payroll',exact(r),'Sign off as manager','','secondary small'))
@@ -21,6 +21,6 @@ export function periodsCard(s:any,tz:string) {
 }
 /** The employee's signoff for open periods holding their time. */
 export function signoffCard(s:any) {
- const mine=rows(s,'periods').filter(r=>(!r.groupId||rows(s,'paygroups').some(g=>g.id===r.groupId&&g.staffIds.includes(s.actor.staffId)))&&r.status==='open'&&rows(s,'timesheets').some(t=>t.staffId===s.actor.staffId&&dateKey(t.start,venue(s))>=r.start&&dateKey(t.start,venue(s))<=r.end)&&!r.signoffs.some((x:any)=>x.role==='employee'&&x.staffId===s.actor.staffId&&x.current!==false))
+ const mine=rows(s,'periods').filter(r=>(!r.groupId||rows(s,'paygroups').some(g=>g.id===r.groupId&&g.staffIds.includes(s.actor.staffId)))&&r.status==='open'&&rows(s,'timesheets').some(t=>t.staffId===s.actor.staffId&&dateKey(t.start,venue(s))>=r.start&&dateKey(t.start,venue(s))<=r.end)&&!r.signoffs.some((x:any)=>x.role==='employee'&&x.staffId===s.actor.staffId&&s.periodSignoffState?.[r.id]?.[x.by+'|'+x.role]!==false))
  return mine.length?card('Sign off your hours',mine.map(r=>`<p>${h(range(r))}${form('period.signoff','time',exact(r),'Sign off my hours','','primary small')}</p>`).join(''),'','signoff'):''
 }

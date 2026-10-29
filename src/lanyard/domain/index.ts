@@ -228,7 +228,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string,earni
  result.auditpackets=a.role==='owner'?s.auditpackets.map(({report,csv,...summary})=>summary):[]
  result.cutoffs=a.role==='owner'?s.cutoffs:[]
  result.cutoffReports=a.role==='owner'?await cutoffReports(s,a,new Date().toISOString(),db):[]
- result.periods=s.periods.map(p=>({...p,signoffs:p.signoffs.map((x:any)=>({...x,current:signoffCurrent(s,p,x)}))}))
+ result.periodSignoffState=Object.fromEntries(s.periods.map(p=>[p.id,Object.fromEntries(p.signoffs.map((x:any)=>[x.by+'|'+x.role,signoffCurrent(s,p,x)]))]))
  result.paytemplates=a.role==='owner'?s.paytemplates:[]
  result.payinputs=a.role==='owner'?s.payinputs:[]
  result.tippools=a.role==='owner'?s.tippools:[]

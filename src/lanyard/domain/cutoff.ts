@@ -3,7 +3,7 @@ import {type Actor,type Context,type Row,type State,keys,need,get,exact,put,inst
 import {inPeriod,periodOf,signoffCurrent} from './periods'
 import {templateMappingIssues,templateSnapshot} from './paytemplates'
 import {payroll} from './payroll'
-import {localDate} from './settings'
+import {instantAt} from './settings'
 import {weekOf} from './openshifts'
 
 export function cutoffCommand(c:Context,name:string,p:Record<string,any>){
@@ -12,7 +12,7 @@ export function cutoffCommand(c:Context,name:string,p:Record<string,any>){
  keys(p,['periodId','periodRevision','revision','templateId','templateRevision','cutoffAt','reason','reviewed'])
  const period=get(c.s,'periods',p.periodId);exact(period,{revision:p.periodRevision})
  const old=c.s.cutoffs.find(r=>r.periodId===period.id)
- if(old)exact(old,p);else need(p.revision===0,'Cutoff configuration changed; reload before saving',409)
+ if(old)need(p.revision===old.revision,'Cutoff configuration changed; reload before saving',409);else need(p.revision===0,'Cutoff configuration changed; reload before saving',409)
  need(p.reviewed===true||p.reviewed==='on','Explicitly review this cutoff and export template')
  const template=templateSnapshot(c,p.templateId);exact(template,{revision:p.templateRevision})
  const cutoffAt=instant(p.cutoffAt,'cutoff instant')
@@ -42,6 +42,8 @@ export async function cutoffReports(s:State,a:Actor,now:string,db:D1Database,per
   for(const shift of s.shifts.filter(x=>x.status==='published'&&x.end<=now&&periodOf(s,x)?.id===p.id)){
    if(!times.some(t=>t.staffId===shift.staffId&&t.start<shift.end&&t.end>shift.start)&&!s.clocks.some(k=>k.staffId===shift.staffId&&k.start<shift.end&&(!k.end||k.end>shift.start)))add('missing_punch','This completed assignment has no recorded work facts. Request factual time or resolve attendance through the existing doors; scheduled hours are not worked hours.',shift,'shifts',timeHref(s,shift,'time-requests'),shift.staffId)
   }
+  const dated=(r:Row)=>periodOf(s,{...r,start:r.start??instantAt(r.date,'12:00',s.timezone)})?.id===p.id
+  const nativeInputs=[...s.payinputs.filter(dated).map(r=>({...r,payCode:r.kind})),...s.sickuses.filter(r=>r.paid!==false&&r.status==='approved'&&dated(r)).map(r=>({...r,payCode:r.code})),...s.holidaypay.filter(r=>r.status==='approved'&&dated(r)).map(r=>({...r,payCode:r.code}))]
   const participants=[...new Set(times.map(t=>t.staffId))]
   if(p.status==='open'){
    for(const id of participants)if(!p.signoffs.some((x:any)=>x.role==='employee'&&x.staffId===id&&signoffCurrent(s,p,x)))add('employee_signoff','The employee must sign off the current time revisions.',p,'periods',periodHref,id)
@@ -51,7 +53,7 @@ export async function cutoffReports(s:State,a:Actor,now:string,db:D1Database,per
   // Retained native segments identify the required mappings even before locking.
   if(template){
    const lines=times.flatMap(t=>(t.workSegments?.length?t.workSegments:[t]).flatMap((segment:any)=>[{...segment,staffId:t.staffId,timeId:t.id},...(t.premiums??[]).map((v:any)=>({...segment,staffId:t.staffId,timeId:t.id,payCode:v.code}))]))
-   for(const issue of templateMappingIssues(template,lines))add('mapping',issue.message,template,'paytemplates',`/app/settings#template-${template.id}`,issue.staffId)
+   for(const issue of templateMappingIssues(template,[...lines,...nativeInputs]))add('mapping',issue.message,template,'paytemplates',`/app/settings#template-${template.id}`,issue.staffId)
   }
   // Execute the actual preparation checks on an isolated state copy. No D1 write,
   // source claim, saved batch, audit mutation or outbound request is performed.

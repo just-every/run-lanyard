@@ -18,7 +18,7 @@ async function fixture(h){
  const configure=async(p=period,t=template,revision=0,cutoffAt=NOW,extra={},cookie=h.owner,status=200)=>h.cmd('cutoff.save',{periodId:p.id,periodRevision:p.revision,templateId:t.id,templateRevision:t.revision,revision,cutoffAt,reason:'Owner reviewed provider deadline separately; native monitoring only',reviewed:true,...extra},cookie,status)
  return {alex,bea,manager,period,time,clock,spec,template,read,configure}
 }
-const sourceBytes=async h=>JSON.stringify({records:(await h.db.prepare("SELECT kind,id,revision,data FROM l_records WHERE kind IN ('clocks','timesheets','periods','paytemplates','batches') ORDER BY kind,id").all()).results,claims:(await h.db.prepare('SELECT * FROM l_payroll_claims ORDER BY time_id,time_revision').all()).results})
+const sourceBytes=async h=>JSON.stringify({records:(await h.db.prepare("SELECT kind,id,revision,data FROM l_records ORDER BY kind,id").all()).results,claims:(await h.db.prepare('SELECT * FROM l_payroll_claims ORDER BY time_id,time_revision').all()).results})
 
 export async function cutoffApi(){
  const clock={now:NOW},h=await harness(clock)
@@ -34,6 +34,9 @@ export async function cutoffApi(){
   await configure(period,template,0,'2026-11-01T01:30:00',{},h.owner,400)
   assert.equal(await sourceBytes(h),beforeInvalid)
   let config=await configure()
+  const configuredBytes=await sourceBytes(h)
+  await configure(period,template,0,NOW,{},h.owner,409)
+  assert.equal(await sourceBytes(h),configuredBytes)
   const before=await sourceBytes(h),readState=await h.state()
   for(const [at,timing,milliseconds] of [['2026-11-02T17:59:00Z','before',60000],[NOW,'at',0],['2026-11-02T18:01:00Z','after',-60000]]){
    const r=await read(h.owner,200,{'x-test-now':String(Date.parse(at))});assert.equal(r.timing,timing);assert.equal(r.remainingMilliseconds,milliseconds);assert.equal(r.providerState,'unknown')
@@ -53,6 +56,23 @@ export async function cutoffApi(){
    assert.equal((await read(h.owner,200,{'x-test-now':String(Date.parse(instant))})).timing,'at')
   }
   config=await configure(period,template,config.revision)
+  const job=await h.cmd('job.save',{name:'Counter',skills:[],certifications:[]})
+  await h.cmd('availability.save',{staffId:alex.id,start:'2026-10-25T00:00:00Z',end:'2026-11-02T20:00:00Z'})
+  const shifts=[{staffId:alex.id,start:'2026-11-01T08:30:00Z',end:'2026-11-01T10:30:00Z',breakMinutes:0,label:'Actual work must be confirmed separately'}]
+  const draft=await h.cmd('roster.prepare',{week:'2026-10-26',shifts});await h.cmd('roster.publish',pin(draft))
+  const originalCount=(await h.state()).timesheets.length
+  assert.ok((await read()).issues.some(i=>i.kind==='missing_punch'&&i.source.kind==='shifts'))
+  assert.equal((await h.state()).timesheets.length,originalCount,'monitoring never turns scheduled hours into worked hours')
+  let factual=await h.cmd('time.prepare',{staffId:alex.id,start:shifts[0].start,end:shifts[0].end,breakMinutes:0,job:job.id,site:'East',reason:'Employee supplied actual fallback-day work; awaiting confirmation'})
+  assert.ok(!(await read()).issues.some(i=>i.kind==='missing_punch'))
+  assert.ok((await read()).issues.some(i=>i.kind==='confirmation'&&i.source.id===factual.id))
+  assert.ok((await read()).issues.some(i=>i.kind==='mapping'&&i.message.startsWith('Unmapped job')))
+  assert.ok((await read()).issues.some(i=>i.kind==='mapping'&&i.message.startsWith('Unmapped location')))
+  factual=await h.cmd('time.acknowledge',pin(factual),alex.cookie)
+  assert.ok(!(await read()).issues.some(i=>i.kind==='confirmation'&&i.source.id===factual.id))
+  await h.cmd('time.approve',pin(factual),alex.cookie,403)
+  await h.cmd('time.approve',pin(factual),manager.cookie,403)
+  await h.cmd('time.approve',pin(factual))
   const stopped=await h.cmd('clock.out',{commandId:'synthetic-lanyard-2',capturedAt:'2026-10-27T17:00:00Z',breakMinutes:0},bea.cookie)
   assert.ok(!(await read()).issues.some(i=>i.kind==='open_punch'))
   time=await h.cmd('time.approve',pin(time),manager.cookie)
@@ -62,7 +82,7 @@ export async function cutoffApi(){
   await h.cmd('time.approve',pin(stopped.timesheet),bea.cookie,403)
   const second=await h.cmd('time.approve',pin(stopped.timesheet),manager.cookie)
   assert.ok(!(await read()).issues.some(i=>i.kind==='exception'||i.kind==='approval'))
-  const fullSpec={...f.spec,employees:{[alex.id]:{id:'synthetic-lanyard-3',workflow:'W-2'},[bea.id]:{id:'synthetic-lanyard-4',workflow:'W-2'}},codes:{regular:'REG'}}
+  const fullSpec={...f.spec,employees:{[alex.id]:{id:'synthetic-lanyard-3',workflow:'W-2'},[bea.id]:{id:'synthetic-lanyard-4',workflow:'W-2'}},codes:{regular:'REG'},jobs:{[job.id]:'COUNTER'},locations:{East:'EAST'}}
   template=await h.cmd('payroll.template.save',{...fullSpec,...pin(template)})
   assert.ok(!(await read()).issues.some(i=>i.kind==='mapping'));assert.ok((await read()).issues.some(i=>i.kind==='configuration'))
   await configure(period,template,config.revision,NOW,{templateRevision:template.revision-1},h.owner,409)
@@ -101,7 +121,102 @@ export async function cutoffApi(){
   assert.equal((await h.send('/api/lanyard/agent/command',{name:'cutoff.save',input:{}},'',{authorization:`Bearer ${key.token}`})).status,403)
   for(const cookie of [alex.cookie,manager.cookie]){const state=await h.state(cookie);assert.deepEqual(state.cutoffs,[]);assert.deepEqual(state.cutoffReports,[])}
   await h.cmd('agent.revoke',{id:key.id});assert.equal((await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${key.token}`})).status,401)
+  const beforeInput=(await h.state()).batches
+  await h.cmd('payroll.input.save',{staffId:alex.id,date:'2026-11-01',kind:'PTO',minutes:60,amountCents:2000,reference:'synthetic-lanyard-40',reason:'Separately reviewed non-work input'})
+  assert.ok((await read()).issues.some(i=>i.kind==='mapping'&&i.message==='Unmapped earning code: PTO'))
+  template=await h.cmd('payroll.template.save',{...fullSpec,...pin(template),codes:{regular:'REG',PTO:'VAC'}})
+  config=await configure(period,template,config.revision)
+  assert.equal((await read()).nativeReadiness,'ready')
+  assert.deepEqual((await h.state()).batches,beforeInput,'native monitoring never exports a newly reviewed input')
+  const inputBatch=await h.cmd('payroll.prepare',{templateId:template.id});assert.deepEqual(inputBatch.lines.map(l=>[l.payCode,l.minutes]),[['PTO',60]])
+  await h.cmd('payroll.export',pin(inputBatch))
+  const currentAlex=(await h.state()).staff.find(p=>p.id===alex.id)
+  await h.cmd('staff.save',{...pin(currentAlex),name:alex.name,email:alex.email,payrollId:alex.payrollId,role:'staff',active:false})
+  await read(alex.cookie,403)
   await h.restart();assert.equal((await read()).nativeReadiness,'ready');assert.equal((await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,h.owner)).text,exported.csv)
   assert.equal(second.minutes,60)
  }finally{await h.close()}
+}
+
+export async function cutoffBrowser(){
+ const h=await harness({now:NOW}),browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
+ try{
+  const f=await fixture(h),{alex,bea,manager}=f
+  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+  const context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse(NOW))}})
+  try{
+   await context.route('**/*',async route=>{
+    const p=new URL(route.request().url()).pathname
+    if(p.startsWith('/fonts/')||p.startsWith('/brand/')||/\.(css|js)$/.test(p))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',p.slice(1))),contentType:p.endsWith('.css')?'text/css':p.endsWith('.js')?'application/javascript':p.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}
+    await route.continue()
+   })
+   const [name,...cookie]=h.owner.split('=');await context.addCookies([{name,value:cookie.join('='),url:h.origin}])
+   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message))
+   const open=path=>page.goto(h.origin+path,{waitUntil:'networkidle'})
+   const proof=async(label)=>{
+    if(!process.env.CUTOFF_SCREENS)return
+    await mkdir(process.env.CUTOFF_SCREENS,{recursive:true})
+    for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await page.screenshot({path:join(process.env.CUTOFF_SCREENS,`${label}-${width}.png`),fullPage:true})}
+    await page.setViewportSize({width:1440,height:1000})
+   }
+   await open('/app/payroll');assert.match(await page.locator('#pay-cutoff-monitor').innerText(),/No cutoff configured/)
+   const initial=await sourceBytes(h);await open('/app/payroll');assert.equal(await sourceBytes(h),initial)
+   await open('/app/settings#pay-cutoffs')
+   const configure=page.locator('#pay-cutoffs form')
+   await page.locator('#pay-cutoffs summary').click()
+   await configure.getByLabel('Cutoff instant in UTC').fill(NOW)
+   await configure.getByLabel('Owner-approved export template').selectOption(f.template.id+'|1')
+   await configure.getByLabel('Review reason',{exact:true}).fill('Owner reviewed UTC cutoff and selected native template')
+   await configure.getByRole('checkbox').check()
+   let period=await h.cmd('period.signoff',pin(f.period),manager.cookie)
+   await configure.getByRole('button',{name:'Save reviewed cutoff'}).click();await page.waitForLoadState('networkidle')
+   assert.match(await page.locator('.notice.error').innerText(),/Revision changed/);assert.equal((await h.state()).cutoffs.length,0)
+   await page.locator('#pay-cutoffs summary').click()
+   await configure.getByLabel('Cutoff instant in UTC').fill(NOW)
+   await configure.getByLabel('Owner-approved export template').selectOption(f.template.id+'|1')
+   await configure.getByLabel('Review reason',{exact:true}).fill('Reviewed refreshed period and exact UTC cutoff')
+   await configure.getByRole('checkbox').check()
+   await configure.getByRole('button',{name:'Save reviewed cutoff'}).click();await page.waitForLoadState('networkidle')
+   assert.equal(await page.locator('.notice.error').count(),0);assert.equal((await h.state()).cutoffs.length,1)
+   await proof('cutoff-settings')
+   await open('/app/payroll')
+   const monitor=page.locator('#pay-cutoff-monitor')
+   const visible=await monitor.innerText();for(const fact of ['Native review needs attention','Provider state: unknown','no confirmed end','missed meal break','Unmapped employee'])assert.ok(visible.includes(fact),fact)
+   const href=await monitor.getByRole('link',{name:'Review source'}).first().getAttribute('href');assert.ok(href.startsWith('/app/time?week=2026-10-26'))
+   await monitor.getByRole('link',{name:'Review source'}).first().click();await page.waitForLoadState('networkidle');assert.equal(new URL(page.url()).pathname,'/app/time')
+   await open('/app/payroll');await iconTooltips(page)
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+   await proof('cutoff-needs-attention')
+   await open('/app/settings#template-'+f.template.id)
+   const mappings=page.locator('#template-'+f.template.id)
+   await mappings.locator('summary').click()
+   for(const [i,p] of [alex,bea,manager].entries()){
+    const group=mappings.locator('fieldset').filter({has:page.locator('legend',{hasText:p.name})})
+    if(p===manager)continue
+    await group.getByLabel('Provider employee ID',{exact:true}).fill('synthetic-lanyard-'+(i+30))
+    await group.getByLabel('Reviewed worker treatment').selectOption('W-2')
+   }
+   await mappings.getByLabel('Earning code · regular',{exact:true}).fill('REG')
+   await mappings.getByRole('checkbox').check();await mappings.getByRole('button',{name:'Approve export mappings'}).click();await page.waitForLoadState('networkidle')
+   assert.equal(await page.locator('.notice.error').count(),0)
+   assert.equal((await h.state()).paytemplates.find(t=>t.id===f.template.id).employees[alex.id].id,'synthetic-lanyard-30')
+   await open('/app/payroll');assert.match(await monitor.innerText(),/selected export template changed/)
+   const ended=await h.cmd('clock.out',{commandId:'synthetic-lanyard-20',capturedAt:'2026-10-27T17:00:00Z',breakMinutes:0},bea.cookie)
+   await h.cmd('time.approve',pin(ended.timesheet),manager.cookie)
+   let time=await h.cmd('time.approve',pin(f.time),manager.cookie)
+   time=await h.cmd('time.resolve',{...pin(time),reason:'Reviewed missed punch and missed meal without inventing time'},manager.cookie)
+   for(const cookie of [alex.cookie,bea.cookie,manager.cookie])period=await h.cmd('period.signoff',pin(period),cookie)
+   period=await h.cmd('period.lock',pin(period))
+   await open('/app/settings#pay-cutoffs');await page.locator('#pay-cutoffs summary').click()
+   await configure.getByLabel('Review reason',{exact:true}).fill('Reviewed locked period and current mappings')
+   await configure.getByRole('checkbox').check();await configure.getByRole('button',{name:'Save reviewed cutoff'}).click();await page.waitForLoadState('networkidle')
+   assert.equal(await page.locator('.notice.error').count(),0)
+   const beforeReady=await sourceBytes(h);await open('/app/payroll')
+   assert.match(await monitor.innerText(),/Native review complete/);assert.match(await monitor.innerText(),/Provider state: unknown/)
+   assert.equal(await sourceBytes(h),beforeReady)
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+   await iconTooltips(page);assert.deepEqual(errors,[])
+   await proof('cutoff-native-review-complete')
+  }finally{await context.close()}
+ }finally{await browser.close();await h.close()}
 }
