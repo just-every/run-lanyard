@@ -5,6 +5,7 @@ import {resolve} from 'node:path'
 import '../public/staff-language.js'
 const root=resolve(process.argv.includes('--root')?process.argv[process.argv.indexOf('--root')+1]:'.')
 const inventory={
+ 'src/lanyard/localization.ts':['punchFlag'],
  "src/lanyard/ui/cases.ts":["attest", "myRequestsCard"],
  "src/lanyard/ui/review.ts":["reviewNote", "returnedCard"],
  "src/lanyard/ui/periods.ts":["range", "signoffCard"],
