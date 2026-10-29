@@ -11,7 +11,7 @@ export function reviewNote(s:any,r:any,tz:string) {
  const parts=[v.scheduled?html(s)`Scheduled ${span(v.scheduled.start,v.scheduled.end,tz)}`:tr(s,'Unscheduled'),html(s)`captured ${span(v.captured.start,v.captured.end,tz)}`,html(s)`payable ${span(v.payable.start,v.payable.end,tz)}`]
  if(v.variance)parts.push(html(s)`start ${signed(v.variance.start)}, end ${signed(v.variance.end)}, ${signed(v.variance.minutes)} vs schedule`)
  parts.push(html(s)`meal ${v.breaks.taken} of ${v.breaks.required} min${v.breaks.waived?tr(s,' (policy meal waived)'):''}`)
- if(v.breaks.rest){const r=v.breaks.rest;parts.push(html(s)`paid rest ${r.taken===null?tr(s,'not recorded'):r.taken+' min'} of ${r.required} min; ${r.count===null?tr(s,'unknown'):r.count} of ${r.requiredCount} full breaks`)}
+ if(v.breaks.rest){const r=v.breaks.rest;parts.push(html(s)`paid rest ${r.taken===null?tr(s,'not recorded'):html(s)`${r.taken} min`} of ${r.required} min; ${r.count===null?tr(s,'unknown'):r.count} of ${r.requiredCount} full breaks`)}
  if(v.roundingMinutes)parts.push(html(s)`rounding ${signed(v.roundingMinutes)}`)
  parts.push([v.job,v.site].filter(Boolean).join(tr(s,' at '))||tr(s,'No position'))
  if(v.costCents!==null)parts.push(html(s)`cost ${money(v.costCents)}`)

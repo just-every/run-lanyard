@@ -34,7 +34,7 @@ export function answersNote(s:any,r:any) {
 }
 export function safetyCard(s:any,tz:string,back:string,canManage:boolean) {
  const list=rows(s,'injuries').filter(r=>r.status!=='none'&&(canManage?r.staffId!==s.actor.staffId:r.staffId===s.actor.staffId));if(!list.length)return ''
- const items=list.map(r=>html(s)`<li><strong>${canManage?h(person(s,r.staffId)):tr(s,'Your report')}</strong> · ${h(localDay(s,dateKey(r.at,tz)))} · “${h(r.text)}” ${h(r.answer)} · ${r.status==='open'?'open':`resolved: ${h(r.resolution?.reason)}`}${canManage&&r.status==='open'?form('injury.resolve',back,exact(r)+field('reason',tr(s,'How it was followed up'),'','text','required maxlength="500"'),tr(s,'Resolve'),'','secondary small'):''}</li>`).join('')
+ const items=list.map(r=>html(s)`<li><strong>${canManage?h(person(s,r.staffId)):tr(s,'Your report')}</strong> · ${h(localDay(s,dateKey(r.at,tz)))} · “${h(r.text)}” ${h(r.answer)} · ${r.status==='open'?tr(s,'open'):html(s)`resolved: ${h(r.resolution?.reason)}`}${canManage&&r.status==='open'?form('injury.resolve',back,exact(r)+field('reason',tr(s,'How it was followed up'),'','text','required maxlength="500"'),tr(s,'Resolve'),'','secondary small'):''}</li>`).join('')
  return card(canManage?tr(s,'Safety follow-ups'):tr(s,'My safety reports'),html(s)`<ul class="swap-list">${items}</ul>`,'','safety')
 }
 /** Declared cash tips per person and day, from clock answers, for managers (TIPS-001 takes them into its pool draft). */

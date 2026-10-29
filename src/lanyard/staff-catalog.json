@@ -523,5 +523,9 @@
   "employee: “{0}”": "persona: “{0}”",
   "Tip pool allocation (review required)": "Distribución del fondo de propinas (requiere revisión)",
   "Tip pool allocation (approved)": "Distribución del fondo de propinas (aprobada)",
-  "Approved tip pool sources changed. The owner must review a pool correction before a pay estimate can be shown.": "Las fuentes aprobadas del fondo de propinas cambiaron. La persona propietaria debe revisar una corrección del fondo antes de mostrar una estimación de pago."
+  "Approved tip pool sources changed. The owner must review a pool correction before a pay estimate can be shown.": "Las fuentes aprobadas del fondo de propinas cambiaron. La persona propietaria debe revisar una corrección del fondo antes de mostrar una estimación de pago.",
+  "resolved: {0}": "resuelto: {0}",
+  "· overtime": "· horas extra",
+  "· {0}/hr": "· {0}/h",
+  "s": "s"
 }

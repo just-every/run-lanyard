@@ -162,7 +162,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     if(auditOnly&&(request.method!=='GET'||!['/app/audit','/api/lanyard/audit','/api/lanyard/audit.csv'].includes(path)))fail('Audit authority grants only report reads and downloads',403)
     if (request.method === 'GET') {
       const custom=await customMode(env,who)
-      if(custom&&!auditOnly&&!['/api/lanyard/intervals','/app/intervals','/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path)&&!/^\/api\/lanyard\/batches\/[\w-]+\.(csv|tsv|txt|xlsx|iif)$/.test(path))fail('This read is unavailable to custom levels',403)
+      if(custom&&!auditOnly&&!['/api/lanyard/intervals','/app/intervals','/app','/app/schedule','/app/time','/app/settings/language','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path)&&!/^\/api\/lanyard\/batches\/[\w-]+\.(csv|tsv|txt|xlsx|iif)$/.test(path))fail('This read is unavailable to custom levels',403)
       const retainedAudit=path.match(/^\/api\/lanyard\/audit-packets\/([\w-]+)(\.csv)?$/)
       if(retainedAudit){
        const packet=await retainedAuditRead(env.DB,who,retainedAudit[1],Boolean(retainedAudit[2]))
