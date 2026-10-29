@@ -1870,7 +1870,7 @@
       "executable": false
     },
     "src/lanyard/staff-catalog.json": {
-      "sha256": "2db740895c2f534d41a368fe4f14dbd53f6e27001dbba984f7ade0824bb5a0ba",
+      "sha256": "a685abb384b127a28a7cf93f80af7dc231cbf31386e92816d6fdd4a3578b07ac",
       "executable": false
     },
     "src/lanyard/ui/aca.ts": {
@@ -1990,7 +1990,7 @@
       "executable": false
     },
     "src/lanyard/ui/history.ts": {
-      "sha256": "2708c651f3e10e09b420dac1bbbc803890262db326eba72c322e25c7a640b546",
+      "sha256": "c419ee1f4e5cd02f5ab3edda92b8e9e2f365ee9454cf501841792a4e56e10ae5",
       "executable": false
     },
     "src/lanyard/ui/holidays.ts": {
@@ -4182,7 +4182,7 @@
       "executable": false
     },
     "tests/language-journey.mjs": {
-      "sha256": "ec5496bdb770cf51546fe143e36daa12873e795f2ff3d226ef7c9b31a77b330c",
+      "sha256": "be3913f81bdcd371ba2574f8f933ea3e2948f0949ea5aa680d919b00e655fc9d",
       "executable": false
     },
     "tests/lanyard.test.mjs": {
