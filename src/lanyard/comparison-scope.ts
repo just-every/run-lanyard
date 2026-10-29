@@ -15,8 +15,8 @@ export async function requireComparison(db:D1Database,a:Actor,site:string) {
  need(await db.prepare(comparisonGrant).bind(a.agentKeyId,a.id,Date.now(),site).first(),'Not found',404)
 }
 export async function recordComparisonRead(db:D1Database,a:Actor,site:string,subject:Record<string,unknown>) {
- const receipt=await db.prepare(`INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at)
- SELECT ?,?,'agent','comparison.read',?,? WHERE EXISTS(${comparisonGrant})`)
- .bind(crypto.randomUUID(),a.id,JSON.stringify({keyId:a.agentKeyId,site,...subject}),new Date().toISOString(),a.agentKeyId,a.id,Date.now(),site).run()
+ const receipt=await db.prepare(`INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at,agent_id,agent_name,sponsor_name,operation_id)
+ SELECT ?,?,'agent','comparison.read',?,?,?,?,?,? WHERE EXISTS(${comparisonGrant})`)
+ .bind(crypto.randomUUID(),a.id,JSON.stringify({keyId:a.agentKeyId,site,...subject}),new Date().toISOString(),a.delegation?.agentId??null,a.delegation?.agentName??null,a.delegation?.sponsorName??null,a.delegation?.operationId??null,a.agentKeyId,a.id,Date.now(),site).run()
  need(receipt.meta.changes===1,'Agent credential expired or revoked',401)
 }
