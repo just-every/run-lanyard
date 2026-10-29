@@ -1710,7 +1710,7 @@
       "executable": false
     },
     "src/lanyard/domain/roster.ts": {
-      "sha256": "31aa8934f98c513ffac3126a2235996c9a4f42a2fd64b9071623e5c7db2c3a6a",
+      "sha256": "6a070e013a00cab411589e28c623fc3606ab90ae917efcb95d4791723300dc2d",
       "executable": false
     },
     "src/lanyard/domain/rounding.ts": {
@@ -4102,7 +4102,7 @@
       "executable": false
     },
     "tests/demand-generation-journey.mjs": {
-      "sha256": "c1ebfdd418fd314e045c65e591b75fe91d25a13f418b2dc22317508220b92308",
+      "sha256": "ea2c2423d1c22ff0c99de9beb8ed3cc0267e4a4e013589d02acc259cae8361d4",
       "executable": false
     },
     "tests/demand-journey.mjs": {
