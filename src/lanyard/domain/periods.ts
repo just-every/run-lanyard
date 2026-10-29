@@ -3,7 +3,7 @@
 // the owner locks it, freezing its time; only the owner reopens it, with a reason, which clears
 // the signoffs; a locked period whose time is all exported closes with the provider reference.
 // After close, corrections and late time are linked adjustments; the locked record never changes.
-import {type Context,type Row,type State,keys,text,need,get,exact,put} from './model'
+import {type Context,type Row,type State,keys,text,need,get,exact,put,canonical} from './model'
 import {localDate} from './settings'
 
 import {groupOn} from './payschedules'
@@ -13,7 +13,9 @@ const DAY=/^\d{4}-\d{2}-\d{2}$/
 export function periodOf(s:State,t:Row) {
  const d=localDate(t.start,s.timezone);const g=groupOn(s,t.staffId,d);return s.periods.find(p=>(g?p.groupId===g.id:!p.groupId)&&p.start<=d&&d<=p.end)
 }
-const inPeriod=(s:State,p:Row)=>s.timesheets.filter(t=>t.status!=='superseded'&&periodOf(s,t)?.id===p.id)
+export const inPeriod=(s:State,p:Row)=>s.timesheets.filter(t=>t.status!=='superseded'&&periodOf(s,t)?.id===p.id)
+export const signoffSources=(s:State,p:Row,staffId?:string)=>canonical(inPeriod(s,p).filter(t=>!staffId||t.staffId===staffId).map(t=>[t.id,t.revision]).sort(([a],[b])=>String(a).localeCompare(String(b))))
+export const signoffCurrent=(s:State,p:Row,signoff:any)=>signoff.sources===signoffSources(s,p,signoff.role==='employee'?signoff.staffId:undefined)
 const owner=(c:Context)=>need(c.a.role==='owner','Only the payroll administrator (the owner) can do this',403)
 const claimed=(s:State,t:Row)=>s.claims.some(cl=>cl.time_id===t.id&&cl.time_revision===t.revision)
 /**
@@ -56,15 +58,15 @@ export function periods(c:Context,name:string,p:Record<string,any>) {
   need(r.status==='open','Sign off an open pay period',409);need(c.a.role!=='agent','Staff or manager required',403)
   const role=c.a.role==='staff'?'employee':'manager'
   if(role==='employee')need(inPeriod(c.s,r).some(t=>t.staffId===c.a.staffId),'You have no time in this pay period',409)
-  need(!r.signoffs.some((x:any)=>x.by===c.a.id&&x.role===role),'Already signed off',409)
-  return put(c,'periods',{...r,signoffs:[...r.signoffs,{by:c.a.id,staffId:c.a.staffId??null,role,at:c.now}]},r)
+  need(!r.signoffs.some((x:any)=>x.by===c.a.id&&x.role===role&&signoffCurrent(c.s,r,x)),'Already signed off',409)
+  return put(c,'periods',{...r,signoffs:[...r.signoffs.filter((x:any)=>x.by!==c.a.id||x.role!==role),{by:c.a.id,staffId:c.a.staffId??null,role,at:c.now,sources:signoffSources(c.s,r,role==='employee'?c.a.staffId:undefined)}]},r)
  }
  if(name==='period.lock') {
   owner(c);need(r.status==='open','Only an open pay period can be locked',409)
   const rows=inPeriod(c.s,r);need(rows.every(t=>t.status==='approved'),'Approve or decide every timesheet in this pay period first',409)
   need(!c.s.clocks.some(k=>k.status==='open'&&periodOf(c.s,k)?.id===r.id),'A punch in this pay period is still open',409)
-  need(r.signoffs.some((x:any)=>x.role==='manager'),'A manager must sign off first',409)
-  const missing=[...new Set(rows.map(t=>t.staffId))].filter(id=>!r.signoffs.some((x:any)=>x.role==='employee'&&x.staffId===id))
+  need(r.signoffs.some((x:any)=>x.role==='manager'&&signoffCurrent(c.s,r,x)),'A manager must sign off first',409)
+  const missing=[...new Set(rows.map(t=>t.staffId))].filter(id=>!r.signoffs.some((x:any)=>x.role==='employee'&&x.staffId===id&&signoffCurrent(c.s,r,x)))
   need(!missing.length,`${missing.length} employee${missing.length===1?' has':'s have'} not signed off`,409)
   return put(c,'periods',{...r,status:'locked',locked:rows.map(t=>({id:t.id,revision:t.revision,staffId:t.staffId,minutes:t.minutes})),lockedBy:c.a.id,lockedAt:c.now},r)
  }
