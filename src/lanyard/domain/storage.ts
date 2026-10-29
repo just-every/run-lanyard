@@ -1,3 +1,5 @@
+import {partnerReplay} from './partner-roster'
+import {currentPartner,partnerGrant} from '../partner-scope'
 // Adapted from saved siblings glove-storage.ts: a false CHECK guard rolls back
 // the complete D1 batch, including source claims, audit and idempotent outcome.
 import {type Actor,type State,type Context,type Staff,kinds,need,fail,sha} from './model'
@@ -10,7 +12,7 @@ export async function actor(db:D1Database,session:{userId:string;email:string;is
  return {id:session.userId,email,role:session.isOwner?'owner':person!.role,staffId:person?.id,isOwner:session.isOwner}
 }
 export async function live(db:D1Database,a:Actor):Promise<Actor> {
- if(a.role==='agent') { need(a.isOwner===true&&a.id,'Agent must be bound to an owner by the authenticated wrapper',403);return {...a,staffId:undefined} }
+ if(a.role==='agent') { if(a.partner)await currentPartner(db,a);need(a.isOwner===true&&a.id,'Agent must be bound to an owner by the authenticated wrapper',403);return {...a,staffId:undefined} }
  return actor(db,{userId:a.id,email:a.email,isOwner:a.isOwner===true||a.role==='owner'})
 }
 export async function load(db:D1Database):Promise<State> {
@@ -36,6 +38,7 @@ export async function commit(c:Context,before:State,name:string,commandId:string
  else guard("EXISTS(SELECT 1 FROM oa_operators WHERE id=? AND status='active')",c.a.id)
  // Recheck the scoped key in the transaction that persists the proposal and its audit.
  if(c.a.role==='agent'&&name==='learn.propose')guard(`EXISTS(${comparisonGrant})`,c.a.agentKeyId,c.a.id,Date.now(),c.s.learnproposals.find(r=>r.id===c.entity)?.site)
+ if(c.a.partner)guard(`EXISTS(${partnerGrant})`,c.a.partner.keyId,c.a.id,c.a.partner.site,c.a.partner.version,Date.now())
  if(c.kiosk)guard(`EXISTS(SELECT 1 FROM l_kiosk_sessions k JOIN l_kiosk_devices d ON d.id=k.device_id JOIN l_kiosk_pins p ON p.staff_id=k.staff_id WHERE k.token_hash=? AND d.id=? AND k.revoked_at IS NULL AND k.expires_at>? AND d.revoked_at IS NULL AND d.locked=0 AND p.version=k.pin_version)`,c.kiosk.sessionHash,c.kiosk.deviceId,Date.now())
  for(const k of kinds) { const old=new Map(before[k].map(r=>[r.id,JSON.stringify(r)]));for(const r of c.s[k])if(old.get(r.id)!==JSON.stringify(r))q.push(c.db.prepare('INSERT INTO l_records(kind,id,revision,data) VALUES(?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET revision=excluded.revision,data=excluded.data').bind(k,r.id,r.revision,JSON.stringify(r))) }
  q.push(...c.sql)
@@ -44,6 +47,6 @@ export async function commit(c:Context,before:State,name:string,commandId:string
  const response={ok:true,result,version:before.version+1}
  q.push(c.db.prepare('INSERT INTO l_commands(id,actor_id,digest,result,created_at) VALUES(?,?,?,?,?)').bind(commandId,c.storedActor??c.a.id,c.storedDigest??digest,JSON.stringify(name==='privacy.export'?{ok:true,result:{exported:true}}:response),c.now))
  q.push(c.db.prepare('DELETE FROM l_guard'))
- try { await c.db.batch(q) } catch(e) { const replay=await saved(c.db,commandId,c.a,digest);if(replay)return replay;const message=e instanceof Error?e.message:String(e);if(/constraint|CHECK|UNIQUE/i.test(message))fail('State changed or identity conflicts; reload before retrying',409);throw e }
+ try { await c.db.batch(q) } catch(e) { const replay=await saved(c.db,commandId,c.a,digest);if(replay){if(c.a.partner){partnerReplay(await load(c.db),c.a,replay);await currentPartner(c.db,c.a)}return replay}const message=e instanceof Error?e.message:String(e);if(/constraint|CHECK|UNIQUE/i.test(message))fail('State changed or identity conflicts; reload before retrying',409);throw e }
  return response
 }

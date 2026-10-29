@@ -2099,3 +2099,5 @@ test('MOBILE-001 MOBILE-002: phone shift change, offline unsent state, current a
 
 test('CUTOFF-001: owner cutoff monitoring follows native facts, exact approvals and mappings without submitting payroll or rewriting paid history',async()=>{const {cutoffApi}=await import('./cutoff-journey.mjs');await cutoffApi()})
 test('CUTOFF-001: owner reviews cutoff Settings and source-linked payroll readiness',async()=>{const {cutoffBrowser}=await import('./cutoff-journey.mjs');await cutoffBrowser()})
+test('LINK-001: a single-cafe partner prepares one replay-safe roster draft for separate human publication and current authority refuses unsafe retries',async()=>{const {partnerApiJourney}=await import('./partner-api-journey.mjs');await partnerApiJourney()})
+test('LINK-001: the owner issues, rotates and revokes a narrow partner credential in Settings',async()=>{const {partnerBrowser}=await import('./partner-api-journey.mjs');await partnerBrowser()})

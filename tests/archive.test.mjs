@@ -76,6 +76,10 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     // New product records travel, while kiosk authentication must be re-established.
     const kioskPerson=await h.person('KioskArchive')
     await h.cmd('staff.save',{id:kioskPerson.id,revision:1,name:kioskPerson.name,email:kioskPerson.email,payrollId:kioskPerson.payrollId,role:'staff',active:true,site:'Archive cafe'})
+    const partnerKey=await h.cmd('partner.create',{label:'synthetic-lanyard-90',site:'Archive cafe',requestId:crypto.randomUUID()})
+    const partnerHeaders={authorization:`Bearer ${partnerKey.token}`,'idempotency-key':'synthetic-lanyard-91'},partnerContext=(await h.send('/api/lanyard/partner/v1/context',undefined,'',partnerHeaders)).value
+    const partnerBody={contextVersion:partnerContext.contextVersion,week:'2026-11-02',shifts:[{staffId:kioskPerson.id,site:'Archive cafe',start:'2026-11-02T14:00:00Z',end:'2026-11-02T18:00:00Z',breakMinutes:0}]}
+    const partnerDraft=await h.send('/api/lanyard/partner/v1/roster-drafts',partnerBody,'',partnerHeaders);assert.equal(partnerDraft.status,200,partnerDraft.text)
     const level=await h.cmd('access.level.save',{name:'Archive shift lead',site:'Archive cafe',permissions:['draft.edit']})
     await h.cmd('access.grant',{levelId:level.id,site:'Archive cafe',staffId:kioskPerson.id})
     const thread=await h.cmd('chat.create',{kind:'announcement',site:'Archive cafe',title:'Archive operational handover'})
@@ -138,7 +142,7 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     await h.close();h=null
     const old=join(temporary,'before.rer'),later=join(temporary,'later.rer'),again=join(temporary,'again.rer')
     await command(source,['export','--output',old,'--no-queue'])
-    const bytes=await readFile(old,'utf8');assert.ok(bytes.includes('Temporary joiner'));assert.ok(!bytes.includes('Excluded secret'));assert.ok(!bytes.includes('token_hash'));assert.ok(!bytes.includes('scopes_json'));assert.ok(!bytes.includes('comparison.read'));for(const table of ['l_kiosk_devices','l_kiosk_pins','l_kiosk_sessions','l_kiosk_attempts'])assert.equal(bytes.split('\n').filter(Boolean).map(JSON.parse).filter(p=>p.kind==='part').flatMap(p=>p.items).some(i=>i.kind==='row'&&i.table===table),false,table)
+    const bytes=await readFile(old,'utf8');assert.ok(bytes.includes('Temporary joiner'));assert.ok(!bytes.includes('Excluded secret'));assert.ok(!bytes.includes('token_hash'));assert.ok(!bytes.includes(partnerKey.token));assert.ok(!bytes.includes('synthetic-lanyard-90'));assert.ok(!bytes.includes('scopes_json'));assert.ok(!bytes.includes('comparison.read'));for(const table of ['l_partner_keys','l_kiosk_devices','l_kiosk_pins','l_kiosk_sessions','l_kiosk_attempts'])assert.equal(bytes.split('\n').filter(Boolean).map(JSON.parse).filter(p=>p.kind==='part').flatMap(p=>p.items).some(i=>i.kind==='row'&&i.table===table),false,table)
     await command(restored,['import','--input',old,'--yes','--no-queue'])
     await command(restored,['export','--output',again,'--no-queue'])
     const rows=text=>text.split('\n').filter(Boolean).map(JSON.parse).filter(r=>r.kind==='part')
@@ -149,6 +153,10 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.equal((await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agentKey.token}`})).status,401)
     const owner=await h.signIn(h.auth.OWNER_EMAIL),back=await h.state(owner)
     assert.deepEqual(back.agentKeys,[])
+    assert.deepEqual(back.partnerKeys,[])
+    assert.equal((await h.send('/api/lanyard/partner/v1/context',undefined,'',partnerHeaders)).status,401)
+    assert.equal((await h.send('/api/lanyard/partner/v1/roster-drafts',partnerBody,'',partnerHeaders)).status,401)
+    assert.ok(back.rosters.some(r=>r.id===partnerDraft.value.result.id),'non-executable draft data survives restore')
     assert.deepEqual(back.kiosks,[])
     assert.equal((await h.send('/api/lanyard/kiosk/state',undefined,kioskCookie)).status,403)
     assert.equal((await h.send('/api/lanyard/kiosk/signin',{email:kioskPerson.email,pin:'123456'},enrolled.cookie)).status,403)
