@@ -16,6 +16,8 @@ export async function languageJourney(){
    await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:'staff',active:true,site,position:'Counter',hourlyRate:'20.00'})
    await h.cmd('availability.save',{start:week+'T00:00:00Z',end:'2026-11-09T00:00:00Z'},p.cookie)
   }
+  const personalLevel=await h.cmd('access.level.save',{name:'Synthetic personal access',site,permissions:[]})
+  await h.cmd('access.grant',{levelId:personalLevel.id,staffId:spanish.id,site})
   const startQuestion=await h.cmd('question.save',{site,when:'in',kind:'yesno',text:'Ready for work?',textEs:'¿Listo para trabajar?',required:true})
   await h.cmd('breakrule.save',{site,mealAfterMinutes:300,mealMinutes:30,waiveUpTo:360,restEveryMinutes:0,restMinutes:10,premium:false})
   const q=await h.cmd('question.save',{site,when:'out',kind:'breaks',text:'Did you take all your breaks?',textEs:'¿Tomaste todos tus descansos?',required:true})
@@ -40,9 +42,13 @@ export async function languageJourney(){
   await identity(spanish.cookie);await open('/app/schedule?week='+week);await page.getByLabel('Account',{exact:true}).click();await page.getByRole('link',{name:'Settings',exact:true}).click()
   await page.getByLabel('My language').selectOption('es');await submit(page.getByRole('button',{name:'Save language',exact:true}),'clocklanguage.save')
   assert.equal(await page.locator('html').getAttribute('lang'),'es-US');assert.equal((await h.state(spanish.cookie)).clocklanguages[0].language,'es')
+  assert.equal((await h.send('/app/settings/language',undefined,spanish.cookie)).status,200,'custom-access employees can reopen their personal language Settings')
+  assert.equal((await h.send('/app/settings',undefined,spanish.cookie)).status,403,'personal Settings do not grant employer policy access')
+  await page.reload();assert.equal(await page.getByLabel('Mi idioma').inputValue(),'es')
   await shot('spanish-settings')
   await h.cmd('clocklanguage.save',{language:'en'},english.cookie)
   assert.match((await h.send('/app/access',undefined,spanish.cookie)).text,/value="es" selected>Español/,'changing a PIN starts with the same personal language preference')
+  await h.cmd('access.restore',{staffId:spanish.id})
   const beforePrefs=await Promise.all([h.state(spanish.cookie),h.state(english.cookie)]).then(states=>states.map(s=>s.clocklanguages))
   await h.cmd('clocklanguage.save',{language:'es',staffId:english.id},spanish.cookie,400)
   assert.deepEqual(await Promise.all([h.state(spanish.cookie),h.state(english.cookie)]).then(states=>states.map(s=>s.clocklanguages)),beforePrefs,'personal preference cannot administer another employee')
@@ -143,6 +149,23 @@ export async function untranslatedBuildRefusal(){
   const catalogFile=join(root,'src/lanyard/staff-catalog.json'),catalog=JSON.parse(await readFile(catalogFile,'utf8'));catalog['synthetic-lanyard-untranslated']='Texto de prueba';await writeFile(catalogFile,JSON.stringify(catalog));assert.equal(run().status,0,'supplying Spanish restores the build gate')
   await writeFile(file,source.replace("card(tr(s,'Shift swaps')", "card('synthetic-lanyard-helper'"))
   result=run();assert.notEqual(result.status,0);assert.match(result.stderr,/Missing Spanish.*synthetic-lanyard-helper/)
+  for(const label of ['`synthetic-lanyard-label`','`synthetic-lanyard-label ${s.actor.staffId}`']){
+   await writeFile(file,source.replace("tr(s,'Message (optional)')",label))
+   result=run();assert.notEqual(result.status,0,'template labels must not bypass translation marking');assert.match(result.stderr,/staff|Spanish/i)
+  }
+  await writeFile(file,source.replace("tr(s,'Message (optional)')","tr(s,`synthetic-lanyard-label ${s.actor.staffId}`)"))
+  result=run();assert.notEqual(result.status,0,'translation keys must keep interpolated data separate')
+  await writeFile(file,source)
+  const clientFile=join(root,'public/staff-language.js'),clientSource=await readFile(clientFile,'utf8')
+  for(const message of ["'synthetic-lanyard browser validation.'",'`synthetic-lanyard browser validation ${field.name}.`']){
+   await writeFile(clientFile,clientSource.replace("'Complete this field.'",message))
+   result=run();assert.notEqual(result.status,0,'browser validation must be covered by the catalog gate');assert.match(result.stderr,/Missing Spanish.*synthetic-lanyard browser validation/)
+  }
+  await writeFile(clientFile,clientSource)
+  await writeFile(file,source.replace("tr(s,'Message (optional)')","tr(s,'synthetic-lanyard-label {person}',{person:s.actor.staffId})"))
+  result=run();assert.notEqual(result.status,0)
+  catalog['synthetic-lanyard-label {person}']='Etiqueta de prueba {person}';await writeFile(catalogFile,JSON.stringify(catalog))
+  assert.equal(run().status,0,'explicit catalog keys with Spanish and separate data pass')
 
  }finally{await rm(root,{recursive:true,force:true})}
 }

@@ -27,7 +27,7 @@ const inventory={
  'src/lanyard/ui/photos.ts':['photoFields','photoReview'],
  'src/lanyard/ui/geofence.ts':['locationFields','locationReview'],
  'src/lanyard/ui/notices.ts':['noticeInbox'],
- 'public/kiosk.js':null,'public/clock-outbox.js':null,'public/mobile-workflows.js':null,'public/lanyard.js':null,
+ 'public/staff-language.js':null,'public/kiosk.js':null,'public/clock-outbox.js':null,'public/mobile-workflows.js':null,'public/lanyard.js':null,
 }
 const catalog=JSON.parse(await readFile(resolve(root,'src/lanyard/staff-catalog.json'),'utf8')),missing=new Set(),unmarked=[]
 const check=key=>{if(typeof catalog[key]!=='string'||!catalog[key].trim())missing.add(key);else{
@@ -35,6 +35,9 @@ const check=key=>{if(typeof catalog[key]!=='string'||!catalog[key].trim())missin
  if(placeholders(key)!==placeholders(catalog[key]))throw new Error('Spanish placeholders differ: '+key)
 }}
 for(const key of Object.keys(catalog))check(key)
+const at=(file,node,path)=>path+':'+(file.getLineAndCharacterOfPosition(node.getStart(file)).line+1)
+const literal=node=>node&&(ts.isStringLiteral(node)||ts.isNoSubstitutionTemplateLiteral(node))
+const templateKey=node=>ts.isTemplateExpression(node)?node.head.text+node.templateSpans.map((span,index)=>'{'+index+'}'+span.literal.text).join(''):node.text
 const labelArguments={field:[1],textarea:[1],utc:[1],card:[0],empty:[0],disclosure:[0],form:[3]}
 for(const [path,selected]of Object.entries(inventory)){
  const source=await readFile(resolve(root,path),'utf8'),file=ts.createSourceFile(path,source,ts.ScriptTarget.Latest,true)
@@ -48,20 +51,27 @@ for(const [path,selected]of Object.entries(inventory)){
    }
    if(ts.isCallExpression(node)&&/^(t|tr)$/.test(node.expression.getText(file))){
     const index=path.startsWith('public/')?0:1,arg=node.arguments[index]
-    if(arg&&ts.isStringLiteral(arg))check(arg.text)
+    if(literal(arg))check(arg.text)
+    else if(arg&&ts.isTemplateExpression(arg))unmarked.push(at(file,arg,path)+' (translation key must be a literal with separate values)')
    }
    if(ts.isCallExpression(node)&&!path.startsWith('public/'))for(const index of labelArguments[node.expression.getText(file)]??[]){
     const label=node.arguments[index]
-    if(label&&ts.isStringLiteral(label)&&label.text.trim()){
-     check(label.text)
-     unmarked.push(path+':'+(file.getLineAndCharacterOfPosition(label.getStart(file)).line+1))
+    if(label&&(literal(label)||ts.isTemplateExpression(label))&&/[A-Za-z]/.test(templateKey(label).replace(/\{\d+\}/g,''))){
+     check(templateKey(label))
+     unmarked.push(at(file,label,path))
     }
    }
    // Client catalog lookups also use small label maps. Check their literal values,
    // while selectors, class names and command identifiers remain program data.
-   if(path.startsWith('public/')&&ts.isStringLiteral(node)&&/[A-Za-z] [A-Za-z]|[A-Za-z][.!?…]$/.test(node.text)
-      &&! /^(?:[.#[<]|(?:button|input|form|details|template|select)[.#[:])/.test(node.text)
-      &&!['secondary small'].includes(node.text))check(node.text)
+   if(path.startsWith('public/')&&(literal(node)||ts.isTemplateExpression(node))){
+    const key=templateKey(node)
+    let ancestor=node.parent
+    while(ancestor&&ts.isBinaryExpression(ancestor))ancestor=ancestor.parent
+    const diagnostic=ancestor&&ts.isNewExpression(ancestor)&&ancestor.expression.getText(file)==='Error'
+    if(!diagnostic&&/[A-Za-z] [A-Za-z]|[A-Za-z][.!?…]$/.test(key)
+       &&! /^(?:[.#[<]|(?:button|input|form|details|template|select)[.#[:])/.test(key)
+       &&!['secondary small'].includes(key))check(key)
+   }
    if((ts.isStringLiteral(node)||ts.isNoSubstitutionTemplateLiteral(node)||ts.isTemplateExpression(node))&&/<[a-z][^>]*>/i.test(node.getText(file))&&!(node.parent&&ts.isTaggedTemplateExpression(node.parent)))unmarked.push(path+':'+(file.getLineAndCharacterOfPosition(node.getStart(file)).line+1))
   }
   ts.forEachChild(node,n=>visit(n,scope))
