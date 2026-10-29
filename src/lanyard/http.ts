@@ -1,4 +1,5 @@
 import {cutoffReports} from './domain/cutoff'
+import {demandGenerationRead} from './domain'
 import {reportDeliveryCsv} from './report-delivery'
 import {auditRestricted} from './domain/audit-access'
 import {retainedAuditRead} from './domain/audit-retention'
@@ -203,9 +204,10 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
           const {weekModel}=await import('./ui/week'),w=weekModel(view,Date.now(),url.searchParams,true)
           const site=who.role==='manager'?view.staff.find((p:any)=>p.id===view.actor.staffId)?.site??'':w.site
           const weeks=Number(url.searchParams.get('fairWeeks')??8),fairness=await fairnessRead(env.DB,who,w.week,site,weeks)
-          let comparison,comparisonError:string|undefined
+          let comparison,generation,comparisonError:string|undefined
           if(url.searchParams.has('fairCompare'))try{comparison=await fairnessCompare(env.DB,who,w.week,site,weeks)}catch(error){if(Number((error as any)?.status)!==400)throw error;comparisonError=(error as Error).message}
-          return renderApp(view,path+url.search,{error:comparisonError,result:{fairness,fairnessCompare:comparison,cost:url.searchParams.get('site')==='all'?undefined:laborCostReport(await load(env.DB),who,w.week,site,new Date().toISOString(),w.view==='draft')}})
+          if(url.searchParams.has('demandGenerate'))try{generation=await demandGenerationRead(env.DB,who,{...Object.fromEntries(url.searchParams),week:w.week,site})}catch(error){if(Number((error as any)?.status)!==400)throw error;comparisonError=(error as Error).message}
+          return renderApp(view,path+url.search,{error:comparisonError,result:{generation,fairness,fairnessCompare:comparison,cost:url.searchParams.get('site')==='all'?undefined:laborCostReport(await load(env.DB),who,w.week,site,new Date().toISOString(),w.view==='draft')}})
         }
         return renderApp(view,path+url.search)
       }
@@ -229,6 +231,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
        return new Response(operationalCsv(report),{headers:{...headers,'content-type':'text/csv; charset=utf-8','content-disposition':'attachment; filename="lanyard-operational.csv"'}})
       }
       if(path==='/api/lanyard/cost')return json(laborCostReport(await load(env.DB),who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',url.searchParams.get('asOf')??new Date().toISOString(),url.searchParams.get('view')==='draft'))
+      if(path==='/api/lanyard/demand/generate')return json(await demandGenerationRead(env.DB,who,Object.fromEntries(url.searchParams)))
       if (path === '/api/lanyard/fairness/compare') return json(await fairnessCompare(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/fairness') return json(await fairnessRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       // CONTACT-001: the audited emergency contact card, as a screen and as JSON.

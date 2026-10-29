@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "3d1e6db789d96c9747e0452053c8baab0b6b0e82a16139422e46973c0331b458",
+      "sha256": "691182de41290bf43227a5c68bf2883038826b015f89706b4a1ec5aca962183a",
       "executable": false
     },
     "agent-surface.json": {
@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "efd0496352b8feb3aabec37d19d7e41f5a7b633db6919fc8e62d68dc7770ef36",
+      "sha256": "4d556d43513ea894f7448c12291c2ae065261cf8a68759f5c64690500ae20dec",
       "executable": false
     },
     "DEMO.md": {
@@ -626,7 +626,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "fe694de55ff0b8c1903dcb508580f77f371be4d81009852dcdaabbf73ac8d497",
+      "sha256": "5d17fbb5535bdb2501ad364581860690d7774ef50a0058636b748fd1155f0c53",
       "executable": false
     },
     "packaging.json": {
@@ -634,7 +634,7 @@
       "executable": false
     },
     "pnpm-lock.yaml": {
-      "sha256": "1dc1c0ac5c31615e33520a46d95b704fc853b602600ab2705729c2ec80b7feaf",
+      "sha256": "2528b52fe849b6c52cb236f52f51ec55cca1baa43c4412ae37390bc4c89f34e5",
       "executable": false
     },
     "public/ai-schedule.js": {
@@ -654,7 +654,7 @@
       "executable": false
     },
     "public/app/screens.css": {
-      "sha256": "91df9586b1227310922a2d1cda5f4fbcb7e8ab069d87c49794f50dfb3819cb8d",
+      "sha256": "7a628cec9b6a495e3b1a9be872d28b344c67bbf8568ee7c6211ff8d6a6a44dee",
       "executable": false
     },
     "public/app/shell.css": {
@@ -1434,7 +1434,7 @@
       "executable": false
     },
     "src/lanyard/domain/cutoff.ts": {
-      "sha256": "f87b1d000a0590c4533143a959c354870db01f4fc322ea07aabfc61559cc7e09",
+      "sha256": "f3288735a6b19db654292da253ec40b717e1e3def0649b1187b1519441d7c187",
       "executable": false
     },
     "src/lanyard/domain/dashboard.ts": {
@@ -1443,6 +1443,10 @@
     },
     "src/lanyard/domain/demand-compare.ts": {
       "sha256": "905deefbaed62c4b5d2681c9563feba3ca9856b3ea1987882bd4b6c7cb7d9faf",
+      "executable": false
+    },
+    "src/lanyard/domain/demand-generator.ts": {
+      "sha256": "b9b34341aadf4420c97d68c077159820be03dd13800aa734672120219e06db5e",
       "executable": false
     },
     "src/lanyard/domain/demand.ts": {
@@ -1466,7 +1470,7 @@
       "executable": false
     },
     "src/lanyard/domain/fairness-optimizer.ts": {
-      "sha256": "ab7f7514cb0bf098a0f3d35c54f7b11a5c839c3d94fb74384c072bc1ead8c368",
+      "sha256": "f9067351a4304ccf5f497a510f2efb2791e5eba9c2c85222d9ff0495a4450b56",
       "executable": false
     },
     "src/lanyard/domain/fairness-policy.ts": {
@@ -1514,7 +1518,7 @@
       "executable": false
     },
     "src/lanyard/domain/index.ts": {
-      "sha256": "fb3b4718b3bda27c25d5ddca579f820e66fb32c2f447c6652ddd76c7f1954c18",
+      "sha256": "8c49290e22937b4be5d6d6debfb8465869b7fc0de7e0939163012cbd4983bd1e",
       "executable": false
     },
     "src/lanyard/domain/intervals.ts": {
@@ -1650,7 +1654,7 @@
       "executable": false
     },
     "src/lanyard/domain/periods.ts": {
-      "sha256": "10e5cc1450872de1db84268a8d3c2763654b551ed5f4d75151770f3c62dea17c",
+      "sha256": "e4b7f776878647baa409e4ca4f84ea60ce7a24a3334dd9c738f0f50bed3b6689",
       "executable": false
     },
     "src/lanyard/domain/photos.ts": {
@@ -1658,7 +1662,7 @@
       "executable": false
     },
     "src/lanyard/domain/planning-inputs.ts": {
-      "sha256": "3feef864ed2e5f34e2832800bf5f4f1df3ea47031066d47be3f17a3b6b27af56",
+      "sha256": "d91497abf4a276b604c713224a13999645da0a3e43e1608e8c3b3e616042a754",
       "executable": false
     },
     "src/lanyard/domain/policy-alternate-regional.ts": {
@@ -1766,7 +1770,7 @@
       "executable": false
     },
     "src/lanyard/domain/roster.ts": {
-      "sha256": "31aa8934f98c513ffac3126a2235996c9a4f42a2fd64b9071623e5c7db2c3a6a",
+      "sha256": "6a070e013a00cab411589e28c623fc3606ab90ae917efcb95d4791723300dc2d",
       "executable": false
     },
     "src/lanyard/domain/rounding.ts": {
@@ -1874,7 +1878,7 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "8496ba111359920e8407b9ef8dea10e00083546afe2fdaabd443588bceb0249f",
+      "sha256": "299b96d129de164cbaea6853e3ad4bdbd8c3a94f2ead0aa89f8b2301ee675136",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
@@ -2010,7 +2014,7 @@
       "executable": false
     },
     "src/lanyard/ui/fairness-compare.ts": {
-      "sha256": "f795acbd3ad6fdd0c62db8e9ffb94921830eec8138c6ac645c80afa6effc3691",
+      "sha256": "f6a66da9c5bbaff1c0767cc60295106614392c75e72333a49b41bf17446ff36c",
       "executable": false
     },
     "src/lanyard/ui/fairness.ts": {
@@ -2206,7 +2210,7 @@
       "executable": false
     },
     "src/lanyard/ui/schedule.ts": {
-      "sha256": "955c84a20c61ac5c385e58430e872f2216d4d542233ed3cddc32ed627b75c8c7",
+      "sha256": "2d32d8837b9530a3310a3023e739088a8b55ec66b90d1368ec59b60406b6635b",
       "executable": false
     },
     "src/lanyard/ui/shared.ts": {
@@ -4538,7 +4542,11 @@
       "executable": false
     },
     "tests/cutoff-journey.mjs": {
-      "sha256": "bdfa41862680b2b67428a97288e4a96c8000f94022cac42db71994252c85f4f9",
+      "sha256": "eb3ddab3864537df9e21ff3854549753db69b093d5037da8af277805353789e3",
+      "executable": false
+    },
+    "tests/demand-generation-journey.mjs": {
+      "sha256": "ea2c2423d1c22ff0c99de9beb8ed3cc0267e4a4e013589d02acc259cae8361d4",
       "executable": false
     },
     "tests/demand-journey.mjs": {
@@ -4562,7 +4570,7 @@
       "executable": false
     },
     "tests/fairness-optimization-journey.mjs": {
-      "sha256": "fd550eca1ab70898a23ffacf13bf01e82b9fac4b848c3b20e3931254145f359c",
+      "sha256": "085513c98327c2cdaa94851eff5414b633dac703c32c14d99bef15ec21f790a7",
       "executable": false
     },
     "tests/fairwork-journey.mjs": {
@@ -4614,7 +4622,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "7b944ccdf751bf73d43ac5d3ac505bbe9cd4c63c9dc0186b45ecceb0961630f3",
+      "sha256": "6a72bb2ac4ef29a4811e2b9573782349adea206edd12b034078d64bb175b7514",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
