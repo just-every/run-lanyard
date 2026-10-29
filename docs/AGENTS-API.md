@@ -147,7 +147,7 @@ edges, resource refresh, timed and queued lifecycles, dual-host operation and
 owner-native administration are unproved. No provider cost or spend is claimed.
 
 The measured conformance result is **643/645 points** using
-`SEED_VERIFY_SHARD=app pnpm exec rer verify`. Every subset refusal check and the
+`CI=true SEED_VERIFY_SHARD=app pnpm exec rer verify --no-queue`. Every subset refusal check and the
 specialist native journey passes. The former refusal-review mismatch is fixed:
 a native refusal opens no review and retains its refused audit. Changed-email
 admission is refused with the original native binding unchanged.
@@ -159,3 +159,12 @@ and the current verifier time; they neither write native history nor advance
 the clock. The hosted database boundary refuses history writes with
 `hosted_database_invalid`. No production backdate route or test-only authority
 is added. This Base history gap retains the ordinary failed verification exit.
+
+The native `demand.save` command accepts today or a future service date and
+records its server time. Running that command now cannot establish a forecast
+before an already completed day. The required Base follow-up is an explicit
+conformance-only native-history capability at the hosted database boundary,
+protected against direct or trigger-mediated writes to agent-door state.
+A current-time reader alone cannot close these two proposal points. Keep the
+real proposal tool and its success requirements, and retain the normal failed
+verification exit until that lifecycle is available.
