@@ -3,6 +3,7 @@
 // cancellation of one shift publishes a new revision of the week with a reason; swaps, call-out
 // cover and overtime substitutes change the published row in place. A shift's history is read from
 // its rows across revisions; two revisions compare by lineage; the week's change log exports as CSV.
+import {historyNoticeState} from './notices'
 import {rateBasis} from './workforce'
 import {type Actor,type Context,type Row,type State,keys,text,need,manager,get,exact,put,work,staff,fail} from './model'
 import {conflicts} from './roster'
@@ -102,7 +103,7 @@ const involved=(list:Event[],id:string)=>list.some(e=>e.staffId===id||e.from?.st
 export function shiftHistory(s:State,a:Actor,id:string) {
  const x=get(s,'shifts',id),week=s.rosters.find(r=>r.id===x.rosterId)?.week??'',list=events(s,week,lineageOf(x))
  need(a.role==='owner'||a.role==='manager'||(a.role==='staff'&&a.staffId&&involved(list,a.staffId)),'Not found',404)
- return {shiftId:id,lineage:lineageOf(x),week,events:list}
+ return {shiftId:id,lineage:lineageOf(x),week,events:list.map(e=>({...e,notice:e.notice?historyNoticeState(s,a,lineageOf(x),e.at):''}))}
 }
 /** Two published revisions of a week compared by shift line: added, removed and changed shifts, and the hours each person and cafe gain or lose. */
 export function compare(s:State,a:Actor,week:string,from:string,to:string) {
@@ -120,7 +121,7 @@ export function compare(s:State,a:Actor,week:string,from:string,to:string) {
 /** Events in weeks from last week on, for the screens: managers read every shift line, an employee the lines they were ever assigned. */
 export function recentChanges(s:State,a:Actor,since:string) {
  const weeks=[...new Set(s.rosters.filter(r=>r.publishedAt&&r.week>=since).map(r=>r.week))]
- return weeks.flatMap(week=>[...new Set(s.shifts.filter(x=>s.rosters.find(r=>r.id===x.rosterId&&r.week===week&&r.publishedAt)).map(lineageOf))].flatMap(l=>{const list=events(s,week,l);return a.role==='owner'||a.role==='manager'||(a.staffId&&involved(list,a.staffId))?list.map(e=>({...e,week,lineage:l})):[]}))
+ return weeks.flatMap(week=>[...new Set(s.shifts.filter(x=>s.rosters.find(r=>r.id===x.rosterId&&r.week===week&&r.publishedAt)).map(lineageOf))].flatMap(l=>{const list=events(s,week,l);return a.role==='owner'||a.role==='manager'||(a.staffId&&involved(list,a.staffId))?list.map(e=>({...e,week,lineage:l,notice:e.notice?historyNoticeState(s,a,l,e.at):''})):[]}))
 }
 const cell=(v:unknown)=>{let t=String(v??'');if(/^[\s]*[=+\-@\t\r]/.test(t))t="'"+t;return /[",\r\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t}
 /** The week's change log for managers as CSV: every event of every shift line, with its reason and notice state. */
@@ -128,6 +129,6 @@ export function changeLog(s:State,a:Actor,week:string) {
  need(a.role==='owner'||a.role==='manager','Manager required',403)
  const lines=new Set(s.shifts.filter(x=>s.rosters.find(r=>r.id===x.rosterId&&r.week===week&&r.publishedAt)).map(lineageOf))
  const name=(id:string|null|undefined)=>id?s.staff.find(p=>p.id===id)?.name??'Former staff':''
- const rows=[...lines].flatMap(l=>events(s,week,l).map(e=>({...e,lineage:l}))).sort((x,y)=>x.at.localeCompare(y.at)||x.lineage.localeCompare(y.lineage))
+ const rows=[...lines].flatMap(l=>events(s,week,l).map(e=>({...e,lineage:l,notice:e.notice?historyNoticeState(s,a,l,e.at):''}))).sort((x,y)=>x.at.localeCompare(y.at)||x.lineage.localeCompare(y.lineage))
  return 'at_utc,shift_line,action,employee,previous_employee,start_utc,end_utc,site,by,reason,notice\r\n'+rows.map(e=>[e.at,e.lineage,e.action,name(e.staffId),name(e.from?.staffId),e.start,e.end,e.site,e.by,e.reason,e.notice].map(cell).join(',')).join('\r\n')+'\r\n'
 }

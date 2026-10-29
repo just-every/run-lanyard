@@ -43,7 +43,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | COVER-003 | Call-out replacement and verified coverage | done |
 | COVER-004 | Offer order and access-to-hours priority | done |
 | ROSTER-004 | Team schedule visibility for staff | done |
-| NOTICE-001 | Delivered schedule notices and acknowledgment | missing |
+| NOTICE-001 | Delivered schedule notices and acknowledgment | partial |
 | NOTICE-002 | Reminders escalation and payroll follow-up | done |
 | NOTICE-003 | Reminder delivery under employee contact settings | missing |
 | CHAT-001 | Team messaging and operational handover | partial |
