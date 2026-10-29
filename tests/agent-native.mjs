@@ -8,6 +8,10 @@ import {signJws,policyEnvelope,autonomousPolicy} from '../src/modules/agent-door
 export default async function ({tool}) {
  const visible=await tool('lanyard.context.read',{})
  assert.equal(visible.status,200)
+ await identityProof()
+}
+
+export async function identityProof() {
  const pair=await webcrypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify'])
  const publicKey=await webcrypto.subtle.exportKey('jwk',pair.publicKey),kid=randomUUID(),issuer='https://synthetic-business.example.invalid',installationId=randomUUID()
  const keys={[kid]:publicKey},owner='business-owner',member='business-member'

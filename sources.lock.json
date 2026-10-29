@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "04618996233a4ba37be4410a0733a2adb3146385c902765e80870ba6456a1d43",
+      "sha256": "d89fd8e075cc81808b2519174ebbce416c4877e07aa7f1e6114dcca2cee934e4",
       "executable": false
     },
     "agent-surface.json": {
@@ -358,7 +358,7 @@
       "executable": false
     },
     "AGENTS.md": {
-      "sha256": "8907245c3fef8e6a145847f8addf3bee622eb39704d9167f8b76d4cf0d0b6e70",
+      "sha256": "00c16405efdc98b17c3e0e895a508ff3b8e6cc5d41a0ee71333bd57791f99808",
       "executable": false
     },
     "base-copies.json": {
@@ -4442,7 +4442,7 @@
       "executable": false
     },
     "tests/agent-native.mjs": {
-      "sha256": "e128f848fbbaa91b6b83592f2a0772f4a989449cd8e980950d350a8830a17d99",
+      "sha256": "b40ef38dce433f4e5fcf49326bac42fbbcdb3a99debedae3ed84693552772960",
       "executable": false
     },
     "tests/agent-owner.mjs": {
