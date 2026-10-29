@@ -9,6 +9,18 @@ const mapping=(v:unknown,label:string)=>Object.fromEntries(Object.entries(object
 export function templateCommand(c:Context,name:string,p:Record<string,any>){
  if(name!=='payroll.template.save')return
  need(c.a.role==='owner','Only the payroll administrator (the owner) maintains export templates',403)
+ if(p.mappingEdit==='true'){
+  const old=get(c.s,'paytemplates',p.id);exact(old,p)
+  keys(p,['id','revision','mappingEdit','approved',...Object.keys(p).filter(k=>/^(employee|workflow|code|job|location):/.test(k))])
+  need(!old.preset,'Use the maintained preset editor for this template',409)
+  const result=Object.fromEntries(['name','delimiter','header','columns','groupBy','dateFormat','decimals','employees','codes','jobs','locations','classification','format','timeFormat'].map(k=>[k,old[k]]))
+  for(const [prefix,kind] of [['code','codes'],['job','jobs'],['location','locations']]){
+   result[kind]={...result[kind]};for(const [key,value] of Object.entries(p))if(key.startsWith(prefix+':')){const id=key.slice(prefix.length+1);if(String(value).trim())result[kind][id]=value;else delete result[kind][id]}
+  }
+  result.employees=structuredClone(old.employees)
+  for(const [key,value] of Object.entries(p))if(key.startsWith('employee:')){const id=key.slice(9);if(String(value).trim())result.employees[id]={id:value,workflow:p['workflow:'+id]};else delete result.employees[id]}
+  p={...result,id:old.id,revision:old.revision,approved:p.approved==='on'||p.approved===true}
+ }
  p=iifForm(c,p)
  keys(p,['id','revision','name','delimiter','header','columns','groupBy','dateFormat','decimals','employees','codes','jobs','locations','classification','format','timeFormat','approved','preset','iif'])
  const old=p.id?get(c.s,'paytemplates',p.id):undefined;if(old)exact(old,p)
@@ -36,6 +48,19 @@ export function templateSnapshot(c:Context,id:unknown){
  need(c.a.role==='owner','Only the payroll administrator (the owner) prepares mapped payroll',403)
  const {versions,...t}=get(c.s,'paytemplates',id);need(t.approved===true,'Template is not owner-approved; review and approve this revision before output',409);return t
 }
+export function templateMappingIssues(t:Row,lines:any[]) {
+ const issues:{kind:string;key:string;staffId:string;timeId?:string;message:string}[]=[]
+ const add=(kind:string,key:string,l:any,message:string)=>{if(!issues.some(x=>x.kind===kind&&x.key===key))issues.push({kind,key,staffId:l.staffId,timeId:l.timeId,message})}
+ for(const l of lines){
+  const e=own(t.employees,l.staffId),code=l.earningCode??l.payCode??'regular',job=l.job??l.rateBasis?.job??'',site=l.site??l.rateBasis?.site??''
+  if(!e)add('employee',l.staffId,l,'Unmapped employee; update the template')
+  else if(!['W-2','1099'].includes(e.workflow))add('classification',l.staffId,l,'Worker classification is unclassified; owner review is required before output')
+  if(!own(t.codes,code))add('code',code,l,`Unmapped earning code: ${code}`)
+  if(job&&!own(t.jobs,job))add('job',job,l,'Unmapped job; update the template')
+  if(site&&!own(t.locations,site)&&t.format!=='iif')add('location',site,l,'Unmapped location; update the template')
+ }
+ return issues
+}
 function escaped(v:any,delimiter:string,numeric=false){
  let value=String(v??'');if(!numeric&&/^[\s]*[=+\-@\t\r]/.test(value))value="'"+value
  return value.includes(delimiter)||/["\r\n]/.test(value)?'"'+value.replaceAll('"','""')+'"':value
@@ -44,6 +69,7 @@ function escaped(v:any,delimiter:string,numeric=false){
  * Contractor exports support worked regular time only; no tax treatment is applied. */
 function mappedTable(c:Context,lines:any[],t:Row){
  const groups=new Map<string,any>()
+ const issues=templateMappingIssues(t,lines);need(!issues.length,issues[0]?.message??'Template mapping requires review',409)
  for(const l of lines){
   const employee=own(t.employees,l.staffId);need(employee,'Unmapped employee; update the template',409)
   need(['W-2','1099'].includes(employee.workflow),'Worker classification is unclassified; owner review is required before output',409)

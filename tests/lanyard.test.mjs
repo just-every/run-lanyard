@@ -2096,3 +2096,6 @@ test('REPORT-002: audit records reconcile retained sources, preserve unknown cov
 test('REPORT-002: native audit filters, source links and download remain usable on desktop with phone proof',async()=>{const {auditBrowser}=await import('./audit-report-journey.mjs');await auditBrowser()})
 
 test('MOBILE-001 MOBILE-002: phone shift change, offline unsent state, current attendance, reasoned edits and scoped exact-revision approvals',async()=>{const {mobileJourney}=await import('./clock-offline-journey.mjs');await mobileJourney()})
+
+test('CUTOFF-001: owner cutoff monitoring follows native facts, exact approvals and mappings without submitting payroll or rewriting paid history',async()=>{const {cutoffApi}=await import('./cutoff-journey.mjs');await cutoffApi()})
+test('CUTOFF-001: owner reviews cutoff Settings and source-linked payroll readiness',async()=>{const {cutoffBrowser}=await import('./cutoff-journey.mjs');await cutoffBrowser()})
