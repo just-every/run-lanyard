@@ -151,6 +151,10 @@ export async function demandGenerationBrowser(){
    await h.restart();await page.reload({waitUntil:'networkidle'})
    if(width===1440)assert.equal((await h.state()).shifts.filter(x=>x.status==='published').length,1)
    await shot('generation-published')
+   await h.cmd('forecast.save',{week,site,days:[1000,0,0,0,0,0,0],budgetPercent:1})
+   await page.goto(url,{waitUntil:'networkidle'});await panel.scrollIntoViewIfNeeded()
+   if(width===1440){assert.ok((await panel.innerText()).includes('Generation refused'));assert.equal(await panel.getByRole('button',{name:'Prepare demand-generated draft',exact:true}).count(),0)}
+   await shot('generation-infeasible')
   }finally{await context.close();await h.close()}
  }}finally{await browser.close()}
 }
