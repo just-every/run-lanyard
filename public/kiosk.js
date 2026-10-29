@@ -1,7 +1,7 @@
 (() => {
  const status=document.querySelector('#kiosk-status'),login=document.querySelector('#kiosk-signin'),panel=document.querySelector('#kiosk-person'),form=document.querySelector('#kiosk-clock'),pending=document.querySelector('#kiosk-pending')
  const t=(source,values)=>window.LanyardStaff.t(source,values),errorText=source=>window.LanyardStaff.error(source)
- let current=null,key=null,busy=false,phase=''
+ let current=null,key=null,busy=false,phase='',lastState=null
  const labels=['Clock in','Start meal','End break','Change job','Clock out']
  const copy={
   '#kiosk-title':'Shared clock','#kiosk-heading':'Your clock','#photo-copy':'A still is taken at the punch; the camera stops immediately.',
@@ -27,9 +27,10 @@
    return value
   }finally{clearTimeout(timeout)}
  }
- const clear=()=>{pending.textContent='';document.querySelector('#kiosk-current').textContent='';document.querySelector('#kiosk-events')?.replaceChildren();document.querySelector('#kiosk-questions').replaceChildren();form.querySelector('[name=job]').replaceChildren(new Option(t('Choose a job'),''))}
+ const clear=()=>{lastState=null;pending.textContent='';document.querySelector('#kiosk-current').textContent='';document.querySelector('#kiosk-events')?.replaceChildren();document.querySelector('#kiosk-questions').replaceChildren();form.querySelector('[name=job]').replaceChildren(new Option(t('Choose a job'),''))}
  const vault=work=>window.LanyardClock.withState(key,current.open,work)
  const render=state=>{
+  lastState=structuredClone(state)
   const count=state.events.length,errors=state.events.filter(e=>e.status==='rejected').length
   pending.textContent=t('{count} saved captures · {errors} need review',{count,errors})
   const clock=window.LanyardClock.project(state),onBreak=clock?.breaks?.some(b=>!b.end),job=clock?.transfers?.at(-1)?.job??clock?.job
@@ -38,7 +39,8 @@
   const next=onBreak?'break':clock?'out':'in'
   if(phase!==next){phase=next;document.querySelector('#kiosk-questions').innerHTML=next==='break'?'':current.fields[next]}
   const blocked=state.revoked||errors>0
-  for(const button of form.querySelectorAll('button'))button.disabled=Boolean(blocked||(button.name==='clock.in'?clock:button.name==='clock.breakEnd'?!onBreak:!clock||onBreak))
+  for(const button of form.querySelectorAll('button'))button.disabled=Boolean(busy||blocked||(button.name==='clock.in'?clock:button.name==='clock.breakEnd'?!onBreak:!clock||onBreak))
+  document.querySelector('#kiosk-retry').disabled=busy;document.querySelector('#kiosk-signout').disabled=busy
   form.querySelector('[name=job]').disabled=Boolean(blocked||!clock||onBreak)
   let list=document.querySelector('#kiosk-events')
   if(!list){list=document.createElement('ul');list.id='kiosk-events';pending.after(list)}
@@ -64,7 +66,7 @@
    status.textContent=e.status===401?t('Verify your personal PIN to use this clock.'):errorText(e.message)
   }
  }
- async function sync(){if(busy||!current)return;busy=true;status.textContent='';document.querySelector('#kiosk-retry').disabled=true
+ async function sync(){if(busy||!current)return;busy=true;if(lastState)render(lastState);status.textContent='';document.querySelector('#kiosk-retry').disabled=true
   try{await vault(async(state,save)=>{for(const e of state.events){if(state.revoked||e.status==='rejected')break;try{
    const accepted=await request('capture',{...e.capture,photo:e.photo,photoConsent:e.photoConsent,photoFailure:e.photoFailure})
    if(accepted.ok!==true)throw new Error('The response did not confirm the capture. Retry the saved original.')
@@ -79,10 +81,10 @@
    if([401,403].includes(error.status))state.revoked=true
    await save();status.textContent=current.language==='es'?'El registro se conserva para revisión del encargado.':'Capture retained for manager review. '+error.message;break
   }}render(state)})}
-  catch(e){status.textContent=e.message}finally{busy=false;document.querySelector('#kiosk-retry').disabled=false}
+  catch(e){status.textContent=errorText(e.message)}finally{busy=false;if(lastState)render(lastState);document.querySelector('#kiosk-retry').disabled=false}
  }
  login.addEventListener('submit',async event=>{event.preventDefault();try{await request('signin',Object.fromEntries(new FormData(login)));login.reset();status.textContent='';await load()}catch(e){status.textContent=errorText(e.message)}})
- form.addEventListener('submit',async event=>{event.preventDefault();if(!current||busy)return;busy=true
+ form.addEventListener('submit',async event=>{event.preventDefault();if(!current||busy)return;busy=true;if(lastState)render(lastState)
   try{
    const name=event.submitter.name,input={commandId:crypto.randomUUID(),capturedAt:new Date().toISOString()},data=new FormData(form)
    if(['clock.in','clock.out'].includes(name)){const answers={};for(const [key,value]of data)if(key.startsWith('answer:')&&value!=='')answers[key.slice(7)]=value;if(Object.keys(answers).length)input.answers=answers}
