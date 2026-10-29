@@ -7,6 +7,7 @@ import {conflicts,draftWeek} from './roster'
 import {policyOn,policyWarnings} from './policy'
 import {scheduledComparisonCost} from './fairness-optimizer'
 import {differentialBasis} from './differentials'
+import {premiumRule} from './premiums'
 import {planningBudget,planningDemand} from './planning-inputs'
 import {restricted} from './access'
 
@@ -29,7 +30,7 @@ function authority(s:State,a:Actor,site:string){manager(a);need(!restricted(s,a)
 // Bind to source and eligibility facts without feedback, worked-time or clock inputs.
 // The generated draft itself is excluded; its exact rows are separately bound below.
 async function facts(s:State,week:string,ignoreDraft?:string){
- const collections=['availability','leave','patterns','workforce','jobs','orgmemberships','locations','policies','minors','paygroups','fairworkpolicies','mealrules','forecasts','sales','demandrules','demandforecasts','holidays','holidayrules','differentials','accessgrants','accesslevels'] as const
+ const collections=['availability','leave','patterns','workforce','jobs','orgmemberships','locations','policies','minors','paygroups','fairworkpolicies','mealrules','forecasts','sales','demandrules','demandforecasts','holidays','holidayrules','differentials','premiumrules','accessgrants','accesslevels'] as const
  return sha(canonical({timezone:s.timezone,staff:s.staff,inputs:Object.fromEntries(collections.map(k=>[k,s[k]])),
   rosters:s.rosters.filter(r=>r.id!==ignoreDraft&&['draft','published'].includes(r.status)),
   shifts:s.shifts.filter(x=>x.rosterId!==ignoreDraft&&['draft','published'].includes(x.status)),openshifts:s.openshifts.filter(x=>x.rosterId!==ignoreDraft),week}))
@@ -57,6 +58,8 @@ export async function generateDemand(s:State,a:Actor,input:Record<string,any>){
  const budgetSource=s.forecasts.find(f=>f.week===p.week&&f.site===p.site)
  if(!budgetSource||budgetSource.budgetPercent===null)issues.push('Review a saved weekly labor budget before generation')
  if(budgetSource&&(budgetSource.burdenPercent||budgetSource.burdenPerHourCents||budgetSource.jobBudgets?.length))issues.push('Configured burden or job caps require cost treatment beyond this generator; generation refused')
+ const costDates=[...p.dates,...source.rows.filter(x=>x.site===p.site).map(x=>localDate(x.start,s.timezone))]
+ if(costDates.some(date=>premiumRule(s,p.site,date)))issues.push('Configured reporting, split-shift or spread-of-hours premiums require unsupported cost treatment; generation refused')
  if(s.fairworkpolicies.some(r=>r.site===p.site))issues.push('Fair-workweek consequences require separate supported policy enforcement; generation refused')
  if(s.mealrules.some(r=>r.site===p.site&&r.enabled))issues.push('Automatic meal deductions are unsupported for generated shifts')
  for(const date of p.dates){

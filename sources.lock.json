@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "d8a29af06f32a529a170e9507c559b18cc5e925f61ffc3d0ae261caf68f11c3a",
+      "sha256": "128810fb00df8b76e170074949107dbb6eaeb96b54e77791ad7b2dd3f0b1b66b",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "025d0b5ea01f54ca6149791672a8f7ae1b2581dea9e5844289248c6476ca2cdd",
+      "sha256": "300e6693fa0a9528c347b0d5350b175d9f49eb45b0449549b566fb6c9f5eee2f",
       "executable": false
     },
     "DEMO.md": {
@@ -1386,7 +1386,7 @@
       "executable": false
     },
     "src/lanyard/domain/demand-generator.ts": {
-      "sha256": "88275951282fa30b4c69c6f28ce483117ee8394b263aec33e7b020048f6426a8",
+      "sha256": "39d18f7b2f4e9284d44a6dd6070040c50bd1d78d7f1c24a3ff737e03a9cb155f",
       "executable": false
     },
     "src/lanyard/domain/demand.ts": {
@@ -4102,7 +4102,7 @@
       "executable": false
     },
     "tests/demand-generation-journey.mjs": {
-      "sha256": "ad4065c0fc74051deb5f3e1c8c1c355389ff4c48abfc9ef67b1afe76f6849ae0",
+      "sha256": "deb09d856923f08feaa01c99faea636a87b7cd0be0b212b49b5fa129cb3edd37",
       "executable": false
     },
     "tests/demand-journey.mjs": {

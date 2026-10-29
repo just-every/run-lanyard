@@ -179,6 +179,17 @@ async function generationCostReview(){
   const changed=await f.read();assert.equal(changed.cost.costCents,12000)
   assert.ok(changed.cost.inputs.flatMap(x=>x.differential).flatMap(x=>x.additions).some(x=>x.ruleId===revised.id&&x.ruleRevision===revised.revision))
   assert.equal(fresh.cost.costCents,10500)
+  // A premium that needs actual-work review cannot be silently priced as zero.
+  const premium={from:'2026-01-01',preset:'employer',minimumCents:2000,reportingGuaranteeMinutes:120,splitMinutes:60,spreadMinutes:60,spreadThresholdMinutes:600}
+  await h.cmd('premiumrule.save',{...premium,site:'Mission'})
+  await h.cmd('premiumrule.save',{...premium,site,from:days(week,1)})
+  const supported=await f.read();assert.equal(supported.feasible,true,'foreign and future premium rules do not require treatment on this service date')
+  const prepared=await f.prepare(supported)
+  await h.cmd('premiumrule.save',{...premium,site})
+  unchanged=safetyState(await h.state())
+  await f.prepare(supported,h.owner,409);await h.cmd('roster.publish',pin(prepared),h.owner,409)
+  const unsupported=await f.read();assert.equal(unsupported.feasible,false);assert.match(unsupported.infeasible.join('; '),/premiums require unsupported cost treatment/)
+  await f.prepare(unsupported,h.owner,409);assert.deepEqual(safetyState(await h.state()),unchanged)
   const after=safetyState(await h.state());for(const key of ['sales','demandforecasts','timesheets','clocks','batches','claims'])assert.deepEqual(after[key],sources[key])
  }finally{await h.close()}
 }
