@@ -35,6 +35,6 @@ export function breakQuestions(s:any,open:any) {
 }
 /** One line under a timesheet's source: timed breaks, waiver, attestation and premium inputs. */
 export function breakNote(s:any,r:any,tz:string) {
- const parts=[...(r.breaks??[]).map((b:any)=>`${tr(s,b.kind)} ${clock(b.start,tz)}–${clock(b.end,tz)}`),...(r.breakWaiver?[tr(s,'meal waived by the employee')]:[]),...(r.breakAttestation?[`employee: “${r.breakAttestation.note}”`]:[]),...(r.premiums??[]).map((p:any)=>`${p.code} ${p.minutes/60} hr`)]
+ const parts=[...(r.breaks??[]).map((b:any)=>`${tr(s,b.kind)} ${clock(b.start,tz)}–${clock(b.end,tz)}`),...(r.breakWaiver?[tr(s,'meal waived by the employee')]:[]),...(r.breakAttestation?[html(s)`employee: “${r.breakAttestation.note}”`]:[]),...(r.premiums??[]).map((p:any)=>`${p.code} ${p.minutes/60} hr`)]
  return parts.length?html(s)`<small>Breaks: ${h(parts.join(' · '))}</small>`:''
 }
