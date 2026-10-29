@@ -142,6 +142,45 @@ export async function demandGenerationApi(){
   assert.deepEqual(safetyState(await h.state()),protectedState)
 
  }finally{await h.close()}
+ await generationCostReview()
+}
+const differentialInput={name:'Reviewed service premium',from:'2026-01-01',site,role:'Counter',tag:'',startMinute:480,endMinute:540,days:[1],mode:'added',value:1000,order:1,code:'service premium'}
+async function generationCostReview(){
+ const h=await harness({now})
+ try{
+  const f=await generationFixture(h),sources=safetyState(await h.state()),original=await f.read(),draft=await f.prepare(original)
+  const added=await h.cmd('differential.save',differentialInput)
+  let unchanged=safetyState(await h.state())
+  await f.prepare(original,h.owner,409);await h.cmd('roster.publish',pin(draft),h.owner,409)
+  assert.deepEqual(safetyState(await h.state()),unchanged,'a changed pay rule cannot publish or replace the reviewed draft')
+  const first=await f.read();assert.equal(first.cost.costCents,7000)
+  const current=await f.prepare(first)
+  const multiplier=await h.cmd('differential.save',{...differentialInput,name:'Reviewed later multiplier',endMinute:660,mode:'multiplier',value:1.5,order:2,code:'service multiplier'})
+  unchanged=safetyState(await h.state())
+  await f.prepare(first,h.owner,409);await h.cmd('roster.publish',pin(current),h.owner,409)
+  assert.deepEqual(safetyState(await h.state()),unchanged)
+  // One hour at (USD 20 + USD 10) times 1.5, then two hours at USD 20 times 1.5.
+  const reviewed=await f.read();assert.equal(reviewed.cost.costCents,4500+2*3000)
+  const additions=reviewed.cost.inputs.flatMap(x=>x.differential).flatMap(x=>x.additions)
+  assert.equal(additions.reduce((n,x)=>n+x.costCents,0),4500)
+  assert.deepEqual([...new Set(additions.map(x=>x.ruleId))].sort(),[added.id,multiplier.id].sort())
+  assert.ok(additions.every(x=>x.ruleRevision===1))
+  // Each three-hour shift has 150 payable minutes: 50 in the first hour and 100 after it.
+  const breaks=await f.read({...f.input,minShiftMinutes:180,maxShiftMinutes:180,breakAfterMinutes:120,breakMinutes:30})
+  assert.equal(breaks.generated.length,2);assert.equal(breaks.cost.costCents,2*(5000+833+1250+1667))
+  await h.cmd('forecast.save',{week,site,days:[1000,0,0,0,0,0,0],budgetPercent:9})
+  const impossible=await f.read();assert.equal(impossible.feasible,false);assert.match(JSON.stringify(impossible.rejections),/budget/i)
+  unchanged=safetyState(await h.state());await f.prepare(impossible,h.owner,409);assert.deepEqual(safetyState(await h.state()),unchanged)
+  await h.cmd('forecast.save',{week,site,days:[1000,0,0,0,0,0,0],budgetPercent:15})
+  const fresh=await f.read();assert.equal(fresh.cost.costCents,10500);assert.equal(fresh.budget.withinBudget,true)
+  const ready=await f.prepare(fresh);await h.restart();await h.cmd('roster.publish',pin(ready))
+  assert.equal((await h.state()).shifts.filter(x=>x.status==='published').length,1)
+  const revised=await h.cmd('differential.save',{...differentialInput,...pin(added),value:2000})
+  const changed=await f.read();assert.equal(changed.cost.costCents,12000)
+  assert.ok(changed.cost.inputs.flatMap(x=>x.differential).flatMap(x=>x.additions).some(x=>x.ruleId===revised.id&&x.ruleRevision===revised.revision))
+  assert.equal(fresh.cost.costCents,10500)
+  const after=safetyState(await h.state());for(const key of ['sales','demandforecasts','timesheets','clocks','batches','claims'])assert.deepEqual(after[key],sources[key])
+ }finally{await h.close()}
 }
 export async function demandGenerationBrowser(){
  const browser=await chromium.launch({headless:true,...(process.env.LANYARD_CHROMIUM?{executablePath:process.env.LANYARD_CHROMIUM}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
@@ -149,12 +188,14 @@ export async function demandGenerationBrowser(){
   const h=await harness({now}),context=await browser.newContext({viewport:{width,height:1100}})
   try{
    const f=await generationFixture(h),page=await context.newPage(),[name,...value]=f.manager.cookie.split('=')
+   await h.cmd('differential.save',differentialInput)
+   await h.cmd('differential.save',{...differentialInput,name:'Reviewed later multiplier',endMinute:660,mode:'multiplier',value:1.5,order:2,code:'service multiplier'})
    await context.addCookies([{name,value:value.join('='),url:h.origin}])
    await context.route('**/*',async route=>{const p=new URL(route.request().url()).pathname;if(p.startsWith('/fonts/')||p.startsWith('/brand/')||/\.(css|js)$/.test(p))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',p.slice(1))),contentType:p.endsWith('.css')?'text/css':p.endsWith('.js')?'application/javascript':p.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
    const url=`${h.origin}/app/schedule?`+new URLSearchParams({...f.input,dates:week,demandGenerate:'1'})
    await page.goto(url,{waitUntil:'networkidle'});const panel=page.locator('#demand-generation');await panel.scrollIntoViewIfNeeded()
    const shot=async key=>{if(process.env.GENERATION_SCREENS){await mkdir(process.env.GENERATION_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.GENERATION_SCREENS,`${key}-${width}.png`),fullPage:false})}}
-   if(width===1440){assert.ok((await panel.innerText()).includes('$60.00'));assert.ok((await panel.innerText()).includes('Draft ready for preparation'));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)}
+   if(width===1440){assert.ok((await panel.innerText()).includes('$105.00'));assert.ok((await panel.innerText()).includes('Draft ready for preparation'));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)}
    await shot('generation-preview')
    await panel.getByRole('button',{name:'Prepare demand-generated draft',exact:true}).click();await page.waitForLoadState('networkidle')
    if(width===1440)assert.equal((await h.state()).rosters.filter(x=>x.status==='draft').length,1)
@@ -164,7 +205,7 @@ export async function demandGenerationBrowser(){
    await h.restart();await page.reload({waitUntil:'networkidle'})
    if(width===1440)assert.equal((await h.state()).shifts.filter(x=>x.status==='published').length,1)
    await shot('generation-published')
-   await h.cmd('forecast.save',{week,site,days:[1000,0,0,0,0,0,0],budgetPercent:1})
+   await h.cmd('forecast.save',{week,site,days:[1000,0,0,0,0,0,0],budgetPercent:9})
    await page.goto(url,{waitUntil:'networkidle'});await panel.scrollIntoViewIfNeeded()
    if(width===1440){assert.ok((await panel.innerText()).includes('Generation refused'));assert.equal(await panel.getByRole('button',{name:'Prepare demand-generated draft',exact:true}).count(),0)}
    await shot('generation-infeasible')

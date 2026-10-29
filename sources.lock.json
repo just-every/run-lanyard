@@ -1386,7 +1386,7 @@
       "executable": false
     },
     "src/lanyard/domain/demand-generator.ts": {
-      "sha256": "b9b34341aadf4420c97d68c077159820be03dd13800aa734672120219e06db5e",
+      "sha256": "88275951282fa30b4c69c6f28ce483117ee8394b263aec33e7b020048f6426a8",
       "executable": false
     },
     "src/lanyard/domain/demand.ts": {
@@ -1954,7 +1954,7 @@
       "executable": false
     },
     "src/lanyard/ui/fairness-compare.ts": {
-      "sha256": "f6a66da9c5bbaff1c0767cc60295106614392c75e72333a49b41bf17446ff36c",
+      "sha256": "f9e71472b7fade11ff67ee06c3b40af52443834b440db775c7e93d0d4160a73c",
       "executable": false
     },
     "src/lanyard/ui/fairness.ts": {
@@ -4102,7 +4102,7 @@
       "executable": false
     },
     "tests/demand-generation-journey.mjs": {
-      "sha256": "234b53af8d628521b92ff2b694905562fb6d9bd21db23ccae6f41bde96f730b6",
+      "sha256": "ad4065c0fc74051deb5f3e1c8c1c355389ff4c48abfc9ef67b1afe76f6849ae0",
       "executable": false
     },
     "tests/demand-journey.mjs": {

@@ -6,6 +6,7 @@ import {localDate,instantAt} from './settings'
 import {conflicts,draftWeek} from './roster'
 import {policyOn,policyWarnings} from './policy'
 import {scheduledComparisonCost} from './fairness-optimizer'
+import {differentialBasis} from './differentials'
 import {planningBudget,planningDemand} from './planning-inputs'
 import {restricted} from './access'
 
@@ -28,7 +29,7 @@ function authority(s:State,a:Actor,site:string){manager(a);need(!restricted(s,a)
 // Bind to source and eligibility facts without feedback, worked-time or clock inputs.
 // The generated draft itself is excluded; its exact rows are separately bound below.
 async function facts(s:State,week:string,ignoreDraft?:string){
- const collections=['availability','leave','patterns','workforce','jobs','orgmemberships','locations','policies','minors','paygroups','fairworkpolicies','mealrules','forecasts','sales','demandrules','demandforecasts','holidays','holidayrules','accessgrants','accesslevels'] as const
+ const collections=['availability','leave','patterns','workforce','jobs','orgmemberships','locations','policies','minors','paygroups','fairworkpolicies','mealrules','forecasts','sales','demandrules','demandforecasts','holidays','holidayrules','differentials','accessgrants','accesslevels'] as const
  return sha(canonical({timezone:s.timezone,staff:s.staff,inputs:Object.fromEntries(collections.map(k=>[k,s[k]])),
   rosters:s.rosters.filter(r=>r.id!==ignoreDraft&&['draft','published'].includes(r.status)),
   shifts:s.shifts.filter(x=>x.rosterId!==ignoreDraft&&['draft','published'].includes(x.status)),openshifts:s.openshifts.filter(x=>x.rosterId!==ignoreDraft),week}))
@@ -39,7 +40,17 @@ function preserved(s:State,p:Input){
  const seen=new Set<string>(),rows=candidates.filter(x=>{const key=canonical(shiftInput(x));if(seen.has(key))return false;seen.add(key);return true})
  return {draft,rows:rows.filter(x=>x.site!==p.site||!p.dates.includes(localDate(x.start,s.timezone)))}
 }
-export const generationCost=scheduledComparisonCost
+export function generationCost(s:State,rows:Row[]){
+ const base=scheduledComparisonCost(s,rows)
+ const inputs=base.inputs.map((x,i)=>{
+  const row=rows[i],differential=differentialBasis(s,{...row,rateBasis:x.basis,
+   differentialContext:{tag:row.label??'',role:s.staff.find(p=>p.id===row.staffId)?.position??''}},s.differentials)
+  return {...x,differential}
+ })
+ const additions=inputs.flatMap(x=>x.differential)
+ return {...base,inputs,costCents:base.costCents===null||additions.some(x=>x.costCents===null)?null:base.costCents+additions.reduce((n,x)=>n+x.costCents,0),
+  label:'Scheduled wage, employer holiday and shift differential estimate; excludes unconfigured burden and unapproved premiums'}
+}
 export async function generateDemand(s:State,a:Actor,input:Record<string,any>){
  const p=generationInput(input);authority(s,a,p.site)
  const source=preserved(s,p),generated:Row[]=[],issues:string[]=[],rejections=new Set<string>(),versions:Row[]=[]
