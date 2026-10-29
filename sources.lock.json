@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "a47294c112eddf26b73a7ec71038877b8dcac2587f77d3e794b25b43f31d14e0",
+      "sha256": "f1b52bef5bf4ed04db5a64a975852a98f572f938e63fa215e6476b223d693281",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "23daa960fe904bb7612722571e41ee9fb306aed9e5f094f8ce771cb5cf3cdd14",
+      "sha256": "6c219d24d4b9a2ffb08ad02a544199ff721b003ebd42b8dd3622f13a840d56ff",
       "executable": false
     },
     "DEMO.md": {
@@ -426,7 +426,7 @@
       "executable": false
     },
     "docs/PAYROLL.md": {
-      "sha256": "57a5d777489f9d2399781c3bb13f956c33acf551dcb1391bb315fdb6c37fc11f",
+      "sha256": "c98833e15f661f6a590b3dcb798e6d2c31eef5d5f34155deefc112000ca4f7ba",
       "executable": false
     },
     "docs/PRIVACY.md": {
@@ -1377,6 +1377,10 @@
       "sha256": "92a2e5d4b8d1587d1cdf7651e80f3cb0b1545f27a444e9e06452e18707d46cf1",
       "executable": false
     },
+    "src/lanyard/domain/cutoff.ts": {
+      "sha256": "f87b1d000a0590c4533143a959c354870db01f4fc322ea07aabfc61559cc7e09",
+      "executable": false
+    },
     "src/lanyard/domain/dashboard.ts": {
       "sha256": "a72cc3327520db53288a8ffdb669d8641f5e5a302d9a4bc4072193051206d943",
       "executable": false
@@ -1454,7 +1458,7 @@
       "executable": false
     },
     "src/lanyard/domain/index.ts": {
-      "sha256": "6981df337e8c6c41e2a089051e00d7e41954a73ae070ddf0c4b55f68b33d28ce",
+      "sha256": "cde4ff7a120641a33763e5b8698d642274e4a1a2741e45cfbace053b622aeb87",
       "executable": false
     },
     "src/lanyard/domain/intervals.ts": {
@@ -1522,7 +1526,7 @@
       "executable": false
     },
     "src/lanyard/domain/model.ts": {
-      "sha256": "caf5529662bfb8e0765aa8f20d7634f71b5b32014364bf23912b8cee5f3c2ff5",
+      "sha256": "c8609f2046df475f02095125e306e7a4cfc7368fa1ddd013013cf42b49cfeb52",
       "executable": false
     },
     "src/lanyard/domain/notice-subjects.ts": {
@@ -1582,7 +1586,7 @@
       "executable": false
     },
     "src/lanyard/domain/paytemplates.ts": {
-      "sha256": "addd8b2ce7cc3c8d455dbce6b90cc2d6ec4cc2ee0dc57fff4deff6ed20462e6e",
+      "sha256": "bc6bf39a942f0cd1d39ad526b97e5a91806a7928704996708a526bf9cd4254d6",
       "executable": false
     },
     "src/lanyard/domain/payxlsx.ts": {
@@ -1594,7 +1598,7 @@
       "executable": false
     },
     "src/lanyard/domain/periods.ts": {
-      "sha256": "3a45f634ab4bc74f006661bc04c2be41a15b3f00e1836f7b03f296637d6b3b3c",
+      "sha256": "10e5cc1450872de1db84268a8d3c2763654b551ed5f4d75151770f3c62dea17c",
       "executable": false
     },
     "src/lanyard/domain/photos.ts": {
@@ -1818,7 +1822,7 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "c6437622b17376a61eeffa81fa782e24ea0477a39b18b16697968fa85b028077",
+      "sha256": "764c08d741f4b5dfad695bc9d7bb5bfd2efa3bd7d8c7f8f76b0db02e51c9276d",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
@@ -1943,6 +1947,10 @@
     },
     "src/lanyard/ui/contacts.ts": {
       "sha256": "4edc67ff04bfeb92c5d46446822007ad3a5e9c2b623a22bb194cd777a88cd64b",
+      "executable": false
+    },
+    "src/lanyard/ui/cutoff.ts": {
+      "sha256": "f2d882d3154f252456738c00d679a0f93f6711ec499d1bee1c3bd690abdb2c95",
       "executable": false
     },
     "src/lanyard/ui/dashboard.ts": {
@@ -2070,11 +2078,11 @@
       "executable": false
     },
     "src/lanyard/ui/payiif.ts": {
-      "sha256": "4c53e9ce2aca6667c6faf4b4711428a50a73ef71e386bb1c45293ae1356c25ed",
+      "sha256": "acc660b717968829d01e973636244a5bed683170ebfb0cfb580b02cf78c6c4d6",
       "executable": false
     },
     "src/lanyard/ui/payroll.ts": {
-      "sha256": "dfe4c4f58fc826ace54311af1ca4dc6cc9dda5aeceef3a0ac4538e278fe87217",
+      "sha256": "3e6245788519263936bd610725d7d5e96d490a978322615ad3ef387ae836571f",
       "executable": false
     },
     "src/lanyard/ui/payschedules.ts": {
@@ -2086,7 +2094,7 @@
       "executable": false
     },
     "src/lanyard/ui/periods.ts": {
-      "sha256": "50ec230c225cb335d89eaefef9253a648f31a1ae5b1c346c968c6e4f04a51565",
+      "sha256": "a28b56c655a5e4a9e16af903538eb0636b0da93e1efae06ed3955d9b76e0f4fc",
       "executable": false
     },
     "src/lanyard/ui/photos.ts": {
@@ -2098,7 +2106,7 @@
       "executable": false
     },
     "src/lanyard/ui/policies.ts": {
-      "sha256": "7fa41d1949524ccb8c4fe0882b67ee6b13873cb501a4156b9f6e64791618d214",
+      "sha256": "d43e20d2e373143ef61388b3a8bc5c5ee8e866c457f9d26a8077a662fed1406e",
       "executable": false
     },
     "src/lanyard/ui/policy-alternate.ts": {
@@ -2194,7 +2202,7 @@
       "executable": false
     },
     "src/lanyard/ui/time.ts": {
-      "sha256": "cdb04633593b492070d891448383626242869a2046b64349d670a2eee51f61a7",
+      "sha256": "c64e537cc2fc72eb09e99977a948630d7827bafd17ebbabfcfc4d992450a2df6",
       "executable": false
     },
     "src/lanyard/ui/tipcredit.ts": {
@@ -4105,6 +4113,10 @@
       "sha256": "13ffb9835f1ad97e16b9a661ef71507d23eebbb4e43b2a6cfb4003b5cc684b1f",
       "executable": false
     },
+    "tests/cutoff-journey.mjs": {
+      "sha256": "bdfa41862680b2b67428a97288e4a96c8000f94022cac42db71994252c85f4f9",
+      "executable": false
+    },
     "tests/demand-journey.mjs": {
       "sha256": "ecfeb0f7497a1e59e7dba8e08c8b1bf604494d79a4df1fe2140219fc7548f967",
       "executable": false
@@ -4178,7 +4190,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "969aa674475ce6233003233afef9bbaa14d4ab7902de513e58f010d7b9f409e9",
+      "sha256": "d53f91646df52c5609a1d03744b5ad4bae062fcbb84bacfb9acc8cc7106e3f84",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -4226,7 +4238,7 @@
       "executable": false
     },
     "tests/partner-api-journey.mjs": {
-      "sha256": "0697ed00321e75ca8d0fae390f5d81af7360bb2730c6c083074a37ea7510fea4",
+      "sha256": "edad0d38ab9ef663e10044b070019e432a0226852fa5c8e06fa8a042e2de37d4",
       "executable": false
     },
     "tests/payiif-journey.mjs": {

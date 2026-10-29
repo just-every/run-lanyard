@@ -5,17 +5,17 @@ import {chromium} from '@playwright/test'
 import {harness} from './harness.mjs'
 import {iconTooltips} from './browser-controls.mjs'
 
-const path='/api/lanyard/partner/v1',pin=r=>({id:r.id,revision:r.revision})
+const now='2026-10-05T12:00:00Z',path='/api/lanyard/partner/v1',pin=r=>({id:r.id,revision:r.revision})
 async function fixture(h){
  await h.cmd('settings.save',{timezone:'UTC'})
  const alex=await h.person('synthetic-lanyard-1'),foreign=await h.person('synthetic-lanyard-2'),manager=await h.person('synthetic-lanyard-3','manager')
  for(const p of [alex,foreign,manager])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site:p===foreign?'West':'East',hourlyRate:'23.47',position:'Service'})
- for(const p of [alex,foreign])await h.cmd('availability.save',{staffId:p.id,start:'2026-10-01T00:00:00Z',end:'2026-11-01T00:00:00Z'})
+ for(const p of [alex,foreign])await h.cmd('availability.save',{staffId:p.id,start:'2026-10-01T00:00:00Z',end:'2026-12-01T00:00:00Z'})
  const shift=(p=alex,site=p===foreign?'West':'East')=>({staffId:p.id,site,start:'2026-10-12T08:00:00Z',end:'2026-10-12T16:00:00Z',breakMinutes:30,label:'Service'})
  const create=async(site='East')=>h.cmd('partner.create',{label:'synthetic-lanyard-4',site,requestId:crypto.randomUUID()})
  const context=async(key,status=200)=>{const r=await h.send(path+'/context',undefined,'',{authorization:`Bearer ${key.token}`});assert.equal(r.status,status,r.text);return r.value}
  const post=async(key,body,identity=crypto.randomUUID(),status=200,version='v1')=>{
-  const response=await h.mf.dispatchFetch(h.origin+`/api/lanyard/partner/${version}/roster-drafts`,{method:'POST',headers:{authorization:`Bearer ${key.token}`,'content-type':'application/json','idempotency-key':identity},body:typeof body==='string'?body:JSON.stringify(body)})
+  const response=await h.mf.dispatchFetch(h.origin+`/api/lanyard/partner/${version}/roster-drafts`,{method:'POST',headers:{authorization:`Bearer ${key.token}`,'content-type':'application/json','idempotency-key':identity,'x-test-now':String(Date.parse(now))},body:typeof body==='string'?body:JSON.stringify(body)})
   const value=await response.json();assert.equal(response.status,status,JSON.stringify(value));return value
  }
  const body=async(key,shifts=[shift()],week='2026-10-12')=>({contextVersion:(await context(key)).contextVersion,week,shifts})
@@ -23,7 +23,7 @@ async function fixture(h){
 }
 
 export async function partnerApiJourney(){
- const h=await harness()
+ const h=await harness({now})
  try{
   const f=await fixture(h),{alex,foreign,manager,create,context,post,body,shift}=f,key=await create(),legacy=await h.cmd('agent.create',{label:'synthetic-lanyard-5'})
   const ctx=await context(key),serialized=JSON.stringify(ctx)
@@ -65,6 +65,32 @@ export async function partnerApiJourney(){
   const foreignDraft=await h.cmd('roster.prepare',{week:'2026-10-19',shifts:[{...shift(foreign),start:'2026-10-19T08:00:00Z',end:'2026-10-19T16:00:00Z'}]})
   await refused(async()=>post(key,await body(key,[{...shift(),start:'2026-10-19T08:00:00Z',end:'2026-10-19T16:00:00Z'}],'2026-10-19'),crypto.randomUUID(),403))
   assert.equal((await h.state()).rosters.find(r=>r.id===foreignDraft.id).revision,foreignDraft.revision)
+  // Foreign unassigned coverage is protected even without a linked roster or assigned staff.
+  const open=async(site,date)=>h.cmd('openshift.post',{site,position:'Service',start:date+'T08:00:00Z',end:date+'T16:00:00Z',breakMinutes:30,label:'synthetic-lanyard-8',approval:'manager'})
+  const foreignOpen=await open('West','2026-11-02')
+  await refused(async()=>post(key,await body(key,[{...shift(),start:'2026-11-02T08:00:00Z',end:'2026-11-02T16:00:00Z'}],'2026-11-02'),crypto.randomUUID(),403))
+  assert.equal((await h.state()).openshifts.find(o=>o.id===foreignOpen.id).status,'open')
+  const foreignTemplate=await h.cmd('template.save',{name:'synthetic-lanyard-9',week:'2026-11-02'})
+  const openDraft=await h.cmd('template.apply',{id:foreignTemplate.id,week:'2026-11-09'})
+  assert.equal(openDraft.shifts.length,0);assert.equal(openDraft.openShifts.length,1)
+  await refused(async()=>post(key,await body(key,[{...shift(),start:'2026-11-09T08:00:00Z',end:'2026-11-09T16:00:00Z'}],'2026-11-09'),crypto.randomUUID(),403))
+  const beforeRestart=await persisted();await h.restart()
+  await refused(async()=>post(key,await body(key,[{...shift(),start:'2026-11-09T08:00:00Z',end:'2026-11-09T16:00:00Z'}],'2026-11-09'),crypto.randomUUID(),403))
+  assert.deepEqual(await persisted(),beforeRestart,'foreign open coverage and its private draft survive restart unchanged')
+  // The narrower grant still allows its own cafe to retain open coverage through human publication.
+  await open('East','2026-11-16')
+  const ownTemplate=await h.cmd('template.save',{name:'synthetic-lanyard-10',week:'2026-11-16'})
+  const ownOpenDraft=await h.cmd('template.apply',{id:ownTemplate.id,week:'2026-11-23'})
+  const ownRequest=await body(key,[{...shift(),start:'2026-11-23T08:00:00Z',end:'2026-11-23T16:00:00Z'}],'2026-11-23'),ownIdentity=crypto.randomUUID()
+  const ownDraft=(await post(key,ownRequest,ownIdentity)).result
+  assert.deepEqual(ownDraft.conflicts,[]);assert.equal(ownDraft.revision,ownOpenDraft.revision+1)
+  const coverage=(await h.state()).openshifts.filter(o=>o.week==='2026-11-23'&&o.status==='draft')
+  assert.equal(coverage.length,1);assert.equal(coverage[0].site,'East');assert.equal(coverage[0].minutes,450)
+  assert.deepEqual((await h.state(alex.cookie)).openshifts.filter(o=>o.week==='2026-11-23'),[],'partner preparation cannot publish open coverage')
+  const publication=await h.cmd('roster.publish',pin(ownDraft));assert.equal(publication.status,'published')
+  const finalCoverage=(await h.state()).openshifts.filter(o=>o.week==='2026-11-23'&&o.status==='open')
+  assert.equal(finalCoverage.length,1);assert.equal(finalCoverage[0].minutes,450)
+  await h.restart();await refused(async()=>assert.equal((await post(key,ownRequest,ownIdentity)).result.id,ownDraft.id))
   for(const column of ['expires_at','scope','api_version','owner_version','site']){
    const original=await h.db.prepare(`SELECT ${column} AS value FROM l_partner_keys WHERE id=?`).bind(key.id).first(),values={expires_at:1,scope:'time.prepare',api_version:'v2',owner_version:-1,site:'West'}
    await h.db.prepare(`UPDATE l_partner_keys SET ${column}=? WHERE id=?`).bind(values[column],key.id).run()
