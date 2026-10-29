@@ -1518,7 +1518,7 @@
       "executable": false
     },
     "src/lanyard/domain/model.ts": {
-      "sha256": "aaf1f9ff3ac43b71009b4514642b520fe2e247973bb6360b6ea8c3b1a33925fa",
+      "sha256": "bd2c31b6998be00700807e3c366c4f36366563c0d8f018ac30a4d2a7a51d70fb",
       "executable": false
     },
     "src/lanyard/domain/notice-subjects.ts": {
