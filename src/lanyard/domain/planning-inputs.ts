@@ -22,7 +22,7 @@ export function planningDemand(s:State,week:string,site:string,rows:Row[],dates?
   versions.push({id:v.id,revision:v.revision,version:v.version,digest:v.digest,status:v.status,date:v.date,source:v.source})
   if(v.status!=='complete'){unknown.push({date,reason:'Incomplete forecast: '+v.reasons.join('; ')});continue}
   if(!v.hours.some((x:any)=>x.roles?.length)){unknown.push({date,reason:'No saved role requirements'});continue}
-  for(const h of v.hours)for(const role of h.roles??[]) {
+  for(const h of v.hours)for(const role of dates?v.assumptions.roles.map((r:any)=>({position:r.position,requiredMinutes:h.roles?.find((x:any)=>x.position===r.position)?.requiredMinutes??0})):h.roles??[]) {
    const start=instantAt(date,h.time,s.timezone),next=h.hour===23?instantAt(datePlus(date,1),'00:00',s.timezone):instantAt(date,`${String(h.hour+1).padStart(2,'0')}:00`,s.timezone)
    const contributions=rows.filter(x=>x.site===site&&(s.jobs.find(j=>j.id===x.job)?.name??s.staff.find(p=>p.id===x.staffId)?.position??'')===role.position).flatMap(x=>{
     const overlap=Math.max(0,Math.min(Date.parse(x.end),Date.parse(next))-Math.max(Date.parse(x.start),Date.parse(start)))
