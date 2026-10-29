@@ -7,7 +7,7 @@
     "node": "22.20.0"
   },
   "scripts": {
-    "build": "rer build",
+    "build": "node scripts/check-staff-strings.mjs && rer build",
     "dev": "rer dev",
     "preview": "rer preview",
     "typecheck": "tsc --build --incremental",
@@ -16,7 +16,7 @@
     "deploy": "rer deploy",
     "test:runtime": "rer queue test:runtime -- sh -c \"node tests/runtime.mjs\"",
     "onboard": "node scripts/install.mjs",
-    "build:app": "rer queue build:app -- sh -c \"vite build\"",
+    "build:app": "rer queue build:app -- sh -c \"node scripts/check-staff-strings.mjs && vite build\"",
     "verify:app": "node scripts/verify-app.mjs",
     "reset": "rer reset",
     "export": "rer export",
@@ -35,7 +35,8 @@
     "test:lanyard:planning": "node scripts/test-lanyard.mjs planning",
     "test:lanyard:rules": "node scripts/test-lanyard.mjs rules",
     "delivery:spec": "node scripts/build-deployment-spec.mjs",
-    "check:deployment-spec": "node scripts/build-deployment-spec.mjs --check"
+    "check:deployment-spec": "node scripts/build-deployment-spec.mjs --check",
+    "check:staff-strings": "node scripts/check-staff-strings.mjs"
   },
   "dependencies": {
     "@tanstack/react-router": "1.170.41",
