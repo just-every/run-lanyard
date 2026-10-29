@@ -46,7 +46,7 @@ export async function harness(options = {}) {
     if (bootstrap && !auth.RER_OWNER_CLAIM_PUBLIC_KEYS) {
       // The fixture owner explicitly chooses autonomous preparation. Native
       // human approval requirements remain in the application services.
-      const policy = await mf.dispatchFetch(origin + '/agents/api/policy', {method:'PUT', headers:{origin,cookie:owner,'content-type':'application/json'}, body:JSON.stringify({document:{schema:'rer-agent-policy/1',catalogue:'rer-agent-classes/1',rules:[{id:'preparation',class:'*',do:'autonomous'}],spend:{none:true}}})})
+      const policy = await mf.dispatchFetch(origin + '/agents/api/policy', {method:'PUT', headers:{origin,cookie:owner,'content-type':'application/json',...(options.now?{'x-test-now':String(Date.parse(options.now))}:{})}, body:JSON.stringify({document:{schema:'rer-agent-policy/1',catalogue:'rer-agent-classes/1',rules:[{id:'preparation',class:'*',do:'autonomous'}],spend:{none:true}}})})
       assert.equal(policy.status,200,await policy.text())
     }
     const cmd = async (name, input, cookie = owner, status = 200, headers = {}) => {

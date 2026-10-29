@@ -1,6 +1,7 @@
 import { ToolRefusal, type ToolDefinition, type ToolContext } from '../../modules/agent-door/index.ts'
 import { command } from '../domain'
 import { load } from '../domain/storage'
+import { learnEvaluate, learnDigest } from '../domain/learn-propose'
 import { comparisonRead } from '../comparison-read'
 import { agentDemandRead, agentLearnRead } from '../agent-demand'
 import { comparisonActor, preparationActor } from './people.ts'
@@ -38,9 +39,20 @@ export function tools(env: Bindings): ToolDefinition[] {
   async revision(_args, ctx) {return (await load(ctx.db)).version},
   async summary(args, ctx) {
    await preparationActor(ctx)
-   const s = await load(ctx.db), ids = item.name === 'roster.prepare' ? (args.shifts as any[]).map(x => x.staffId) : item.name === 'time.prepare' ? [args.staffId] : []
-   const people = ids.map(id => s.staff.find(p => p.id === id)?.name ?? 'Unavailable person')
-   return {target: {name: item.name === 'roster.prepare' ? `Schedule draft ${args.week}` : item.name === 'learn.propose' ? `Learning proposal for ${args.site}` : item.title}, items: people.length ? people : item.name === 'payroll.prepare' ? (args.ids as string[] | undefined) ?? s.timesheets.filter(t => t.status === 'approved').map(t => t.id) : [String(args.digest)]}
+   const s = await load(ctx.db), name = (id: unknown) => s.staff.find(p => p.id === id)?.name ?? 'Unavailable person'
+   if (item.name === 'learn.propose') {
+    const actor = await comparisonActor(ctx, String(args.site))
+    const evidence = learnEvaluate(s, {...actor, role:'owner'}, String(args.site), Number(args.weeks), new Date(ctx.now()).toISOString())
+    if (await learnDigest(evidence) !== args.digest || evidence.status !== 'proposal' || !evidence.proposal) throw new ToolRefusal('native_conflict')
+    return {target:{name:`Learning proposal for ${args.site}`},items:[`Growth ${evidence.proposal.from}% to ${evidence.proposal.to}%`,evidence.proposal.explanation]}
+   }
+   const items = item.name === 'roster.prepare'
+    ? (args.shifts as any[]).map(row => `${name(row.staffId)}: ${row.start} to ${row.end}; unpaid break ${row.breakMinutes} minutes; ${row.site ?? ''} ${row.job ?? ''}`)
+    : item.name === 'time.prepare'
+     ? [`${name(args.staffId)}: ${args.start} to ${args.end}; unpaid break ${args.breakMinutes} minutes${args.corrects ? `; correction of ${args.corrects}` : ''}`]
+     : s.timesheets.filter(t => t.status === 'approved' && !s.claims.some(c => c.time_id === t.id && c.time_revision === t.revision) && (!args.ids || (args.ids as unknown[]).includes(t.id))).map(t => `${name(t.staffId)}: ${t.start} to ${t.end}; ${t.minutes} approved minutes; source ${t.id} revision ${t.revision}`)
+   return {target:{name:item.name === 'roster.prepare' ? `Schedule draft ${args.week}` : item.title},items}
+
   },
   async run(args, ctx) {
    const a = item.name === 'learn.propose' ? await comparisonActor(ctx, String(args.site)) : await preparationActor(ctx)

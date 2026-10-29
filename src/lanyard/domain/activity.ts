@@ -29,6 +29,9 @@ function subject(s:State,index:Map<string,[string,Row]>,id:string):Subject {
 
 /** The newest 100 events this reader may read. */
 export function readable(s:State,a:Actor,events:Event[]):Event[] {
+ // Preserve the native person-event projection. Delegated rows carry their
+ // actual agent metadata; historical/person rows do not gain empty fields.
+ events=events.map(({agentId,agentName,sponsorName,operationId,...record})=>agentId?{...record,agentId,agentName,sponsorName,operationId}:record)
  if(a.role==='owner')return events.filter(e=>e.actorId===a.id||!privateEntity(s,e.entityId)).slice(0,100)
  if(a.role==='agent')return []
  const index=new Map<string,[string,Row]>(kinds.flatMap(k=>s[k].map(r=>[r.id,[k,r]] as [string,[string,Row]])))
