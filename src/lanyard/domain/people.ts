@@ -33,14 +33,14 @@ export async function people(c:Context,name:string,p:Record<string,any>) {
  if(name==='staff.erase') {
   need(c.a.role==='owner','Owner required',403);keys(p,['id','revision']);const old=c.s.staff.find(s=>s.id===text(p.id,'id'));need(old,'Staff not found',404);need(!old.erased_at,'Staff already erased',409);need(integer(p.revision,'revision',1,Number.MAX_SAFE_INTEGER)===old.version,'Staff changed; reload',409)
   // COVER-004's employment record (type, start date) is not history: it never blocks erasure and is erased with the person.
-  const unusedSql=`NOT EXISTS(SELECT 1 FROM l_records r,json_tree(r.data) j WHERE r.kind<>'employment' AND j.key IN ('staffId','donorId','recipientId') AND j.value=?)
+  const unusedSql=`NOT EXISTS(SELECT 1 FROM l_agent_custody WHERE staff_id=?) AND NOT EXISTS(SELECT 1 FROM (SELECT outcome AS content FROM agent_door_calls UNION ALL SELECT saved FROM agent_door_reviews UNION ALL SELECT saved FROM agent_door_approvals UNION ALL SELECT result FROM agent_door_approvals) WHERE instr(COALESCE(content,''),?)>0) AND NOT EXISTS(SELECT 1 FROM l_records r,json_tree(r.data) j WHERE r.kind<>'employment' AND j.key IN ('staffId','donorId','recipientId') AND j.value=?)
    AND NOT EXISTS(SELECT 1 FROM oa_operators WHERE email=? COLLATE NOCASE)
    AND NOT EXISTS(SELECT 1 FROM ik_provenance WHERE destination='lanyard:staff' AND target_kind='staff' AND target_id=?)
    AND NOT EXISTS(SELECT 1 FROM ik_d1_history WHERE destination='lanyard:staff' AND target_kind='staff' AND target_id=?)
    AND NOT EXISTS(SELECT 1 FROM l_import_staff_revisions WHERE staff_id=?)`
-  const values=[old.id,old.email,old.id,old.id,old.id]
+  const values=[old.id,old.id,old.id,old.email,old.id,old.id,old.id]
   const unused=await c.db.prepare(`SELECT CASE WHEN (${unusedSql}) THEN 1 ELSE 0 END AS ok`).bind(...values).first<{ok:number}>()
-  need(unused?.ok===1,'Only unused, uninvited, non-imported staff can be erased; deactivate staff with employment history',409)
+  need(unused?.ok===1,'Only unused, uninvited, non-imported staff without retained agent evidence can be erased; deactivate staff with employment or agent history',409)
   c.sql.push(c.db.prepare(`INSERT INTO l_guard(id,ok) VALUES(?,CASE WHEN (${unusedSql}) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(),...values))
   const portability=await createPortability({db:c.db,buckets:{FILES:c.files!},policy:archivePolicy})
   c.sql.push(...await portability.redactionStatements(),...await portability.invalidateTransfersStatements())
