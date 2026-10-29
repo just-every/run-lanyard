@@ -131,3 +131,16 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | TRADEOFF-001 | Explain cost fairness and service alternatives | partial |
 | CUTOFF-001 | Resolve payroll exceptions before the cutoff | partial |
 | LEARN-001 | Learn from forecast errors and unresolved outcomes | partial |
+| BASE-AGENT-001 | One MCP door per seed | missing |
+| BASE-AGENT-002 | The seed's jobs are tools, through the UI's own actions | missing |
+| BASE-AGENT-003 | Records are resources | missing |
+| BASE-AGENT-004 | Business identity and short-lived, audience-bound tokens | missing |
+| BASE-AGENT-005 | An agent acts as a person in a role, never more | missing |
+| BASE-AGENT-006 | Every action declares its risk class | missing |
+| BASE-AGENT-007 | The company's policy decides, at one chokepoint | missing |
+| BASE-AGENT-008 | Truthful attribution | missing |
+| BASE-AGENT-009 | Every agent action is audited with its class and decision | missing |
+| BASE-AGENT-010 | Agents can follow changes | missing |
+| BASE-AGENT-011 | Limits are policy, and Pause stops everything | missing |
+| BASE-AGENT-012 | Writes are idempotent and conflict-safe | missing |
+| BASE-AGENT-013 | Manifest, docs and the conformance journey | missing |
