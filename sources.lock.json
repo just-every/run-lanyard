@@ -1385,6 +1385,10 @@
       "sha256": "905deefbaed62c4b5d2681c9563feba3ca9856b3ea1987882bd4b6c7cb7d9faf",
       "executable": false
     },
+    "src/lanyard/domain/demand-generator.ts": {
+      "sha256": "e58abb298c6ef8d18e5969d94c906436761e610439adf54aab22ae52a381a778",
+      "executable": false
+    },
     "src/lanyard/domain/demand.ts": {
       "sha256": "4e904978f2a4b8f38d230fe8a360e77263b5e99f5be7278310f6fbca1c06504e",
       "executable": false
@@ -1454,7 +1458,7 @@
       "executable": false
     },
     "src/lanyard/domain/index.ts": {
-      "sha256": "e769698247591c4ceef54542ce0d0b93a41b07db7431b72a65bb76681617b4cd",
+      "sha256": "418bc203866bcd2baf96c1bb8713b7870644efdc4ac0369436e1e3241455e6db",
       "executable": false
     },
     "src/lanyard/domain/intervals.ts": {
@@ -1598,7 +1602,7 @@
       "executable": false
     },
     "src/lanyard/domain/planning-inputs.ts": {
-      "sha256": "3feef864ed2e5f34e2832800bf5f4f1df3ea47031066d47be3f17a3b6b27af56",
+      "sha256": "1b43e00352c3d7af0786d9d13c242f42191c3d59206395073b237a26a303891a",
       "executable": false
     },
     "src/lanyard/domain/policy-alternate-regional.ts": {
@@ -1814,7 +1818,7 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "f59881b53ea7f2421b9c62ac62de6574419cd296b1413734b7a9a681420152fa",
+      "sha256": "489fa3ac623aa934025a92648b2b84b3e8d730bc20674a9f772a9dbe73292d86",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
@@ -1950,7 +1954,7 @@
       "executable": false
     },
     "src/lanyard/ui/fairness-compare.ts": {
-      "sha256": "f795acbd3ad6fdd0c62db8e9ffb94921830eec8138c6ac645c80afa6effc3691",
+      "sha256": "50cb4fa67bb9b6603a8edc28d43c1de08d4f136c2dc388c4068bf229fbc24f58",
       "executable": false
     },
     "src/lanyard/ui/fairness.ts": {
@@ -2146,7 +2150,7 @@
       "executable": false
     },
     "src/lanyard/ui/schedule.ts": {
-      "sha256": "955c84a20c61ac5c385e58430e872f2216d4d542233ed3cddc32ed627b75c8c7",
+      "sha256": "2d32d8837b9530a3310a3023e739088a8b55ec66b90d1368ec59b60406b6635b",
       "executable": false
     },
     "src/lanyard/ui/shared.ts": {
