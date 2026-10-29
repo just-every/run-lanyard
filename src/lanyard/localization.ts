@@ -26,6 +26,13 @@ export const localWeekday=(s:any,date:string)=>new Intl.DateTimeFormat(languageO
 
 /** Translate generated clock flags without changing authored exception wording. */
 export function punchFlag(s:any,value:string){
+ if(value==='location unavailable')return t(s,'location unavailable')
+ if(value==='location permission denied')return t(s,'location permission denied')
+ if(value==='location consent declined')return t(s,'location consent declined')
+ if(value==='poor location accuracy')return t(s,'poor location accuracy')
+ if(value==='out-of-zone punch')return t(s,'out-of-zone punch')
+ if(value==='inside geofence')return t(s,'inside geofence')
+ if(value==='geofence boundary uncertain')return t(s,'geofence boundary uncertain')
  if(value==='missed break reported')return t(s,'missed break reported')
  if(value==='punch photo unavailable: camera denied')return t(s,'punch photo unavailable: camera denied')
  if(value==='punch photo unavailable: camera failed')return t(s,'punch photo unavailable: camera failed')
@@ -38,4 +45,16 @@ export function punchFlag(s:any,value:string){
  if(value==='short rest break')return t(s,'short rest break')
  if(value==='late meal break')return t(s,'late meal break')
  return value
+}
+
+/** Localize first-party capture verbs; captured records keep their original command names. */
+export function captureName(s:any,value:string){
+ switch(value){
+  case 'clock.in':return t(s,'Clock in')
+  case 'clock.out':return t(s,'Clock out')
+  case 'clock.breakStart':return t(s,'Start break')
+  case 'clock.breakEnd':return t(s,'End break')
+  case 'clock.transfer':return t(s,'Change job')
+  default:return value
+ }
 }
