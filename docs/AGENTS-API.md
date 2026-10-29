@@ -126,3 +126,19 @@ Each scoped read is recorded in owner activity with key, cafe and week. Revocati
 Under the same `comparison.read` grant and named cafe limit, use `GET /api/lanyard/agent/demand?site=CAFE&date=YYYY-MM-DD` for forecast versions, hourly role demand and observed demand delta. Missing or incomplete inputs remain explicit. This projection omits raw sales rows, source identifiers, human free-text override reasons, personal attendance and labor cost fields.
 
 Use `GET /api/lanyard/agent/learning/proposals?site=CAFE&weeks=8` to inspect comparable days, excluded/unknown outcomes, the holdout comparison and the evidence digest. Then send `learn.propose` with `site`, `weeks` and that exact `digest` to the agent command endpoint. Changed evidence or assumptions require a fresh read. Recording a proposal never changes an assumption. Its audit identifies the key and role, with the measured reason retained on the proposal. Only a native owner or that cafe's manager approves, declines or reverts; even a scoped key cannot save or override a forecast or decide a proposal. Every scoped read is audited and the live grant is rechecked when recording a proposal.
+
+## Verification limits at the current Base pin
+
+Normal `rer verify` runs the production build and the declared journey. The
+native journey proves distinct time intervals under autonomous and review
+policies, overlapping-time refusal without an effect, and insufficient learning
+history remaining unknown without a proposal. It also proves native identity,
+exact-summary named approval, replay, conflicts, stale revisions and Pause.
+
+Base 0.2.86 conformance still needs phase-specific time arguments: its second
+policy phase submits the same interval with a new operation key. Learning needs
+a supported disposable history/clock lifecycle so forecasts can genuinely
+precede completed service days. The audit harness also expects review rows for
+the resulting native refusals. The five failures retain the normal nonzero
+verification exit and PARTIAL contract judgments. No native guard is relaxed,
+no historical evidence is manufactured, and no optional family is claimed.
