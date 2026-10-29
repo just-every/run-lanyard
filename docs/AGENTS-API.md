@@ -1,7 +1,7 @@
 # Company agent door
 
 Lanyard serves one shared `/mcp` door using Base's agent-door runtime at
-`f96363bf919ea3e7ed1837daba6894810a50e4a6` and the released rer 0.2.86 CLI.
+`114ef7a61f080da053af783c5fbe06f625d692cc` and the released rer 0.2.88 CLI.
 It supports MCP 2026-07-28 and 2025-11-25. Discovery and canonical OAuth resource
 metadata describe the same registry. Company policy, Pause, named approvals,
 reviews and audit are at `/agents`; an agent credential cannot decide for a person.
@@ -17,9 +17,10 @@ the native owner. Local preparation keys keep their original reduced authority.
 The declared adoption is CORE: tools, policy, Pause, audit and idempotency,
 with principal authorization always enforced. Events/subscriptions, multiple
 sponsors, outside mail and resource refresh are not claimed as adopted families.
-The pinned Base runtime still advertises its own optional transport capabilities;
-a per-family switch awaits Base. Existing native mail, devices, imports,
-connectors and installation commands keep their own purposes.
+The runtime declares the same CORE set as the manifest. Optional events,
+resources, prompts and subscriptions are omitted and typed-refused. Existing
+native mail, devices, imports, connectors and installation commands keep their
+own purposes.
 
 Policy starts unset and refuses effects. Paired policy arrives as signed JWS at
 `POST /api/rer/agent-policy`; a standalone owner configures policy through the
@@ -37,7 +38,6 @@ time approval, payroll export and learning decisions remain separate.
 | `lanyard.demand.read` | `comparison.read` | standard | DEMAND-001, LEARN-001 |
 | `lanyard.learn.read` | `comparison.read` | standard | LEARN-001, TRADEOFF-001 |
 | `lanyard.learn.propose` | `comparison.read` | standard | AGENT-001, LEARN-001, TRADEOFF-001 |
-| `lanyard.events.list` (Base built-in) | `events:read` | standard | BASE-AGENT-010 |
 
 These tools call the existing native services. Standard reflects their actual
 internal preparation or reduced read, with no wage movement, external recipient,
@@ -50,13 +50,14 @@ retain the original operation identity, so door recovery cannot duplicate a draf
 No provider cost or spend reservation is registered: spend is explicitly none.
 No Undo is offered where the native service has no reversal.
 
-The preparation resources are `lanyard://people/{id}`,
-`lanyard://weeks/{week}`, `lanyard://shifts/{id}`, `lanyard://time/{id}`,
-`lanyard://payroll/{id}` and `lanyard://leave/{id}`. Consented forecast and
-learning views use `lanyard://forecasts/{id}` and `lanyard://learning/{id}`.
-They retain native projection and cafe fences. Missing and hidden records have
-the same refusal. Source text is untrusted. Keys, bearer credentials, payroll
-identifiers, rates, private contacts and download bytes are not returned.
+The declared capabilities are tools, policy, pause, audit and idempotency.
+Events, resources, prompts and subscriptions are undeclared: discovery omits
+them and their public calls return typed `capability_not_declared` refusals.
+The eight native resource readers remain internal visibility adapters; the
+public resource catalogue and returned resource links are empty. Record access
+for this adoption uses the reduced context and consented comparison tools.
+Source text is untrusted. Keys, bearer credentials, payroll identifiers, rates,
+private contacts and download bytes are not returned.
 
 To let company agents use comparison reads, the owner must separately grant
 `comparison.read`, name cafes, consent to aggregate cost disclosure and check
@@ -73,11 +74,12 @@ outcomes, while excluding active policy, Business binding, agent registration,
 pending approval/review authority and usage. Restore requires fresh pairing and
 policy. This is a custody limit, not completed employee-rights fulfillment.
 
-The `prepare_service_week` prompt reads current source facts, prepares supported
+The workforce coordinator reads current source facts, prepares supported
 drafts and hands exact revisions to native people. It refuses to invent worked
 time or treat a payroll file as proof of wages paid. Learning proposals require
 real pre-service forecast history, observed sales and an improved holdout result;
-a fresh installation cannot manufacture that history.
+a fresh installation cannot manufacture that history. Prompt retrieval is
+undeclared in this CORE adoption.
 
 The proposed broader contract surface is not a grant. Workforce administration,
 publication, authoritative approval, payroll transfer, staff contact and erasure
@@ -135,10 +137,18 @@ policies, overlapping-time refusal without an effect, and insufficient learning
 history remaining unknown without a proposal. It also proves native identity,
 exact-summary named approval, replay, conflicts, stale revisions and Pause.
 
-Base 0.2.86 conformance still needs phase-specific time arguments: its second
-policy phase submits the same interval with a new operation key. Learning needs
-a supported disposable history/clock lifecycle so forecasts can genuinely
-precede completed service days. The audit harness also expects review rows for
-the resulting native refusals. The five failures retain the normal nonzero
-verification exit and PARTIAL contract judgments. No native guard is relaxed,
-no historical evidence is manufactured, and no optional family is claimed.
+The 0.2.88 phase fixture supplies distinct native time intervals for successive
+policy rounds. Learning still requires a supported disposable history/clock
+lifecycle so saved forecasts genuinely precede completed service days. Native
+insufficient-history refusals remain intact; any conformance failures retain
+the normal nonzero exit and PARTIAL contract judgments. Multi-sponsor, mail
+edges, resource refresh, timed and queued lifecycles, dual-host operation and
+owner-native administration are unproved. No provider cost or spend is claimed.
+
+The measured conformance result is **620/623 points**. Every subset refusal
+check and the specialist native journey passes. The remaining points are
+`BASE-AGENT-013.4.autonomous.proposal`,
+`BASE-AGENT-013.4.held.proposal` (no pre-service forecast history) and
+`BASE-AGENT-009.4.review.37` (Base expects a review row for that native refusal).
+The missing history/clock hook and refusal-review expectation are reported to
+Base; this candidate retains the ordinary failed verification exit.

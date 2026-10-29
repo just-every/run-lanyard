@@ -1,4 +1,4 @@
-import { createAgentDoor, type Trust, type AgentDoor } from '../../modules/agent-door/index.ts'
+import { createAgentDoor, CORE_CAPABILITIES, type Trust, type AgentDoor } from '../../modules/agent-door/index.ts'
 import { businessSettings, runtimeBindings, type Bindings } from '../../auth.server'
 import { people, localCredentials, LOCAL_KEY_SCOPE } from './people.ts'
 import { tools } from './tools.ts'
@@ -14,6 +14,7 @@ export function agentDoor(env: Bindings): AgentDoor {
  }
  return createAgentDoor({
   seed: 'lanyard', name: 'Lanyard', specialist: 'workforce coordinator', db: env.DB, origin: env.AUTH_ORIGIN, trust,
+  capabilities: CORE_CAPABILITIES,
   people: people(env), tools: tools(env), resources,
   localCredentials: request => localCredentials(request, env),
   async currentScopes(principal) {

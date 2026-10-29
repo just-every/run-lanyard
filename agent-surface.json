@@ -98,17 +98,6 @@
         "LEARN-001",
         "TRADEOFF-001"
       ]
-    },
-    {
-      "name": "lanyard.events.list",
-      "scope": "events:read",
-      "readOnly": true,
-      "classes": [
-        "standard"
-      ],
-      "clauses": [
-        "BASE-AGENT-010"
-      ]
     }
   ],
   "notTools": [
@@ -156,16 +145,7 @@
       "reason": "connector"
     }
   ],
-  "resources": [
-    "lanyard://people/{id}",
-    "lanyard://weeks/{week}",
-    "lanyard://shifts/{id}",
-    "lanyard://time/{id}",
-    "lanyard://payroll/{id}",
-    "lanyard://leave/{id}",
-    "lanyard://forecasts/{id}",
-    "lanyard://learning/{id}"
-  ],
+  "resources": [],
   "witness": {
     "tool": "lanyard.context.read",
     "args": {}
@@ -185,7 +165,10 @@
         "roster"
       ]
     },
-    "journey": "tests/agent-native.mjs"
+    "journey": "tests/agent-native.mjs",
+    "fixtures": {
+      "module": "tests/agent-phase-fixtures.mjs"
+    }
   },
   "journey": [
     {
@@ -243,8 +226,14 @@
           "$from": "context",
           "pointer": "/staff/0/id"
         },
-        "start": "2026-01-06T10:00:00Z",
-        "end": "2026-01-06T12:00:00Z",
+        "start": {
+          "$fixture": "time",
+          "pointer": "/start"
+        },
+        "end": {
+          "$fixture": "time",
+          "pointer": "/end"
+        },
         "breakMinutes": 0,
         "reason": "Synthetic omitted punch for review, not approved time"
       },
@@ -338,24 +327,16 @@
           }
         }
       ]
-    },
-    {
-      "id": "events",
-      "tool": "lanyard.events.list",
-      "args": {
-        "limit": 200
-      },
-      "expect": [
-        {
-          "class": "standard",
-          "facts": {
-            "measure": 1
-          }
-        }
-      ]
     }
   ],
   "spend": {
     "none": true
-  }
+  },
+  "capabilities": [
+    "tools",
+    "policy",
+    "pause",
+    "audit",
+    "idempotency"
+  ]
 }
