@@ -11,7 +11,7 @@ function hour(x:any) {
  return {hour:x.hour,time:x.time,samples:x.samples,baseCents:x.baseCents,lowCents:x.lowCents,highCents:x.highCents,
   confidence:x.confidence,salesCents:x.salesCents,roles:x.roles,overridden:Boolean(x.override)}
 }
-function forecast(f:any) {
+export function forecast(f:any) {
  return f?{id:f.id,revision:f.revision,version:f.version,kind:f.kind,status:f.status,reasons:f.reasons,
   savedAt:f.savedAt,source:f.source,hours:f.hours.map(hour),totals:f.totals}:null
 }

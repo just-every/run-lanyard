@@ -5,8 +5,8 @@ import {day,hours} from './format'
 
 function latestDraft(s:any) {
  const items=[
-  ...rows(s,'rosters').filter(r=>r.status==='draft').map(r=>({at:r.preparedAt,text:`Drafted: week of ${day(r.week)} · ${rows(s,'shifts').filter(x=>x.rosterId===r.id&&x.status==='draft').length} shifts, revision ${r.revision}`,href:`/app/schedule?week=${r.week}&view=draft`})),
-  ...rows(s,'batches').filter(b=>b.status==='draft').map(b=>({at:b.preparedAt,text:`Drafted: payroll batch · ${(b.lines??[]).length} entries, ${hours((b.lines??[]).reduce((n:number,l:any)=>n+l.minutes,0))} hrs`,href:'/app/payroll'})),
+  ...rows(s,'rosters').filter(r=>r.status==='draft').map(r=>({at:r.preparedAt,text:`Drafted: week of ${day(r.week)} · ${rows(s,'shifts').filter(x=>x.rosterId===r.id&&x.status==='draft').length} shifts, revision ${r.revision}${r.preparedByLabel?` · ${r.preparedByLabel}`:''}`,href:`/app/schedule?week=${r.week}&view=draft`})),
+  ...rows(s,'batches').filter(b=>b.status==='draft').map(b=>({at:b.preparedAt,text:`Drafted: payroll batch · ${(b.lines??[]).length} entries, ${hours((b.lines??[]).reduce((n:number,l:any)=>n+l.minutes,0))} hrs${b.preparedByLabel?` · ${b.preparedByLabel}`:''}`,href:'/app/payroll'})),
  ]
  const submitted=rows(s,'timesheets').filter(t=>t.status==='submitted'&&t.staffId!==s.actor.staffId)
  if(submitted.length)items.push({at:submitted.map(t=>t.submittedAt).sort().at(-1),text:`Drafted: ${submitted.length} timesheet${submitted.length===1?'':'s'} to approve`,href:'/app/time#approve'})
