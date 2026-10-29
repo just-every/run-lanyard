@@ -1,4 +1,5 @@
 import {demandGenerationRead} from './domain'
+import {cutoffReports} from './domain/cutoff'
 import {reportDeliveryCsv} from './report-delivery'
 import {auditRestricted} from './domain/audit-access'
 import {retainedAuditRead} from './domain/audit-retention'
@@ -99,6 +100,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   if (!request.headers.get('content-type')?.includes('application/x-www-form-urlencoded')) fail('Use JSON or a form', 415)
   const params = new URLSearchParams(raw), input: Record<string, unknown> = Object.fromEntries(params)
   policyForm(input,params)
+  if(params.has('cutoffTemplate')){const [id,revision]=String(input.cutoffTemplate).split('|');input.templateId=id;input.templateRevision=Number(revision);delete input.cutoffTemplate}
   if(new URL(request.url).searchParams.get('name')==='organization.member.save')for(const key of ['locationIds','departmentIds'])input[key]=params.getAll(key)
   if(params.has('draftStaff')){
     const row={staffId:String(input.draftStaff),start:String(input.draftStart),end:String(input.draftEnd),breakMinutes:Number(input.draftBreak),site:String(input.draftSite),job:String(input.draftJob??'')}
@@ -127,7 +129,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
     input.contacts = names.map((name, i) => ({ name, relationship: relations[i] ?? '', phone: phones[i] ?? '' })).filter(x => x.name || x.relationship || x.phone)
     for (const key of ['contactName', 'contactRelationship', 'contactPhone']) delete input[key]
   }
-  for (const key of ['revision', 'shiftRevision', 'breakMinutes', 'minutes', 'closeOpenHours']) if (key in input) input[key] = Number(input[key])
+  for (const key of ['periodRevision','templateRevision','revision', 'shiftRevision', 'breakMinutes', 'minutes', 'closeOpenHours']) if (key in input) input[key] = Number(input[key])
   if(params.has('completed'))input.completed=params.getAll('completed');else if(new URL(request.url).searchParams.get('name')==='shiftwork.respond')input.completed=[]
   if(params.has('taskLines')){input.tasks=String(input.taskLines).split(/\r?\n/).map(v=>v.trim()).filter(Boolean);delete input.taskLines}
   if(params.has('taskText')){input.tasks=params.getAll('taskText').filter(v=>v.trim());delete input.taskText}
@@ -164,6 +166,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     if (request.method === 'GET') {
       const custom=await customMode(env,who)
       if(custom&&!auditOnly&&!['/api/lanyard/intervals','/app/intervals','/app','/app/schedule','/app/time','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path)&&!/^\/api\/lanyard\/batches\/[\w-]+\.(csv|tsv|txt|xlsx|iif)$/.test(path))fail('This read is unavailable to custom levels',403)
+      if(path==='/api/lanyard/cutoffs'){if(who.role!=='owner')fail('Only the owner monitors payroll cutoffs',403);return json(await cutoffReports(await load(env.DB),who,new Date().toISOString(),env.DB,url.searchParams.get('periodId')??undefined))}
       const retainedAudit=path.match(/^\/api\/lanyard\/audit-packets\/([\w-]+)(\.csv)?$/)
       if(retainedAudit){
        const packet=await retainedAuditRead(env.DB,who,retainedAudit[1],Boolean(retainedAudit[2]))

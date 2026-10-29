@@ -352,3 +352,23 @@ Each due occurrence is attempted once. Settings distinguishes blocked, accepted,
 rejected, rate-limited and uncertain outcomes. Provider acceptance does not prove
 mailbox delivery. A failed or uncertain attempt is never automatically retried;
 review its result before explicitly approving a new schedule.
+
+## Native payroll cutoff review
+
+The owner can review a pay period's deadline under **Settings → Payroll cutoffs**.
+Enter an exact UTC instant and select a current, owner-approved export template.
+The saved review retains the period and template revisions and the owner's reason.
+A changed configuration or stale form must be reviewed again before saving.
+
+**Payroll → Payroll cutoff monitoring** recomputes native readiness from current
+punches, time and break cases, employee confirmations, independent approvals,
+signoffs and template mappings. Follow each **Review source** link to the existing
+time, period or mapping door. Monitoring never creates worked hours, approves time,
+exports a batch or contacts anyone. Changed time invalidates earlier signoffs;
+closed-period corrections still follow the existing signed-adjustment flow.
+
+No configured cutoff, time remaining, the exact deadline and a passed deadline
+are distinct states. Native review completion does not establish provider readiness:
+provider acceptance, application and partial rejection remain **unknown**, even
+when an owner records a provider reference. Consented external outreach, agent
+orchestration and provider reconciliation remain unsupported.

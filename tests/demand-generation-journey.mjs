@@ -51,6 +51,18 @@ export async function demandGenerationApi(){
   }
   assert.deepEqual([breaks.service.scheduledMinutes,breaks.service.excessMinutes,breaks.cost.costCents],[300,120,10000])
   assert.equal(breaks.cost.costCents,breaks.generated.reduce((n,x)=>n+Math.round(((Date.parse(x.end)-Date.parse(x.start))/60000-x.breakMinutes)*2000/60),0))
+  // Saving identical generated rows through the ordinary editor cannot discard stale budget review.
+  const generated=await f.prepare(await f.read(),f.manager.cookie)
+  await h.cmd('forecast.save',{week,site,days:[1000,0,0,0,0,0,0],budgetPercent:1})
+  let unchanged=safetyState(await h.state())
+  await h.cmd('roster.publish',pin(generated),f.manager.cookie,409)
+  assert.deepEqual(safetyState(await h.state()),unchanged)
+  const edited=await h.cmd('roster.prepare',{week,shifts:c.generated},f.manager.cookie)
+  await h.restart()
+  unchanged=safetyState(await h.state())
+  await h.cmd('roster.publish',pin(edited),f.manager.cookie,409)
+  assert.deepEqual(safetyState(await h.state()),unchanged,'ordinary editor cannot publish the $60 generated schedule against the changed $10 budget')
+  await h.cmd('forecast.save',{week,site,days:[1000,0,0,0,0,0,0],budgetPercent:30})
   const refuse=async(candidate,pattern)=>{assert.equal(candidate.feasible,false);assert.match(JSON.stringify([...candidate.infeasible,...candidate.rejections]),pattern);const before=safetyState(await h.state());await f.prepare(candidate,h.owner,409);assert.deepEqual(safetyState(await h.state()),before)}
   await refuse(await f.read({...f.input,dates:[days(week,2)]}),/complete saved hourly forecast/)
   await h.cmd('forecast.save',{week,site,days:[1000,0,0,0,0,0,0],budgetPercent:1})
@@ -96,6 +108,7 @@ export async function demandGenerationApi(){
   await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:'staff',active:true,site,position:'Counter',hourlyRate:'21.00'})
   const stale=safetyState(await h.state());await h.cmd('roster.publish',pin(draft),f.manager.cookie,409);assert.deepEqual(safetyState(await h.state()),stale)
   draft=await f.prepare(await f.read(),f.manager.cookie)
+  draft=await h.cmd('roster.prepare',{week,shifts:draft.shifts.map(({staffId,start,end,breakMinutes,label,site,job})=>({staffId,start,end,breakMinutes,label,site,job}))},f.manager.cookie)
   await h.restart();await h.cmd('roster.publish',pin(draft),f.manager.cookie)
   const published=(await h.state()).shifts.filter(x=>x.status==='published');assert.equal(published.length,2);assert.ok(published.some(x=>x.end===local(week,'12:00')))
   // Keep foreign and unselected published rows, private draft rows and open positions.
