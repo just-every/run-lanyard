@@ -101,13 +101,13 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  need(commands.includes(name)||['aca.plan.save','aca.credit.save','job.save','workforce.save','shiftwork.save','shiftwork.respond'].includes(name),'Unknown command',404);const a=await live(db,identity),p=object(input)
  if(a.role==='agent')need(['roster.prepare','time.prepare','payroll.prepare','learn.propose'].includes(name),'Agents may prepare drafts only; a human manager must approve',403)
  need(!auditRestricted(await load(db),a),'Audit readers cannot perform operational mutations',403)
- const commandId=name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID(),digest=await sha(canonical({name,input:p,...(kiosk?{kioskDevice:kiosk.deviceId,photoDigest:kiosk.photo?await sha(kiosk.photo):null,photoFailure:kiosk.photoFailure??null}:{})}))
+ const commandId=a.delegation?.operationId??(name.startsWith('clock.')?text(p.commandId,'commandId',120):crypto.randomUUID()),digest=await sha(canonical({name,input:p,...(kiosk?{kioskDevice:kiosk.deviceId,photoDigest:kiosk.photo?await sha(kiosk.photo):null,photoFailure:kiosk.photoFailure??null}:{})}))
  // Kiosk authority is rechecked before returning a saved result.
- const previous=kiosk?null:await saved(db,commandId,a,digest);if(previous){locationReplay(await load(db),previous,net);return previous}
+ const previous=kiosk?null:await saved(db,commandId,name==='learn.propose'&&a.agentKeyId?{...a,id:a.agentKeyId}:a,digest);if(previous){locationReplay(await load(db),previous,net);return previous}
  const before=await load(db),s=structuredClone(before),c:Context={a:fresh(a,s),s,db,now:new Date().toISOString(),sql:[],entity:'',secret,net,files,kiosk,rollback:[]}
  try {
  await kioskCheck(c,name,p)
- if(kiosk){const previous=await saved(db,commandId,a,digest);if(previous)return previous}
+ if(kiosk){const previous=await saved(db,commandId,name==='learn.propose'&&a.agentKeyId?{...a,id:a.agentKeyId}:a,digest);if(previous)return previous}
  authorizeCommand(c,name,p)
  const pendingLocation=locationBefore(c,name,p)
  const pendingPhoto=photoBefore(c,name,p)
@@ -211,7 +211,7 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  }
 }
 export async function snapshot(db:D1Database,identity:Actor,secret?:string,earningsWeek?:string):Promise<object> {
- const a0=await live(db,identity),events=a0.role==='agent'?null:db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at FROM l_events ORDER BY at DESC,id DESC').all<Event>()
+ const a0=await live(db,identity),events=a0.role==='agent'?null:db.prepare('SELECT id,actor_id AS actorId,actor_role AS actorRole,action,entity_id AS entityId,at,agent_id AS agentId,agent_name AS agentName,sponsor_name AS sponsorName,operation_id AS operationId FROM l_events ORDER BY at DESC,id DESC').all<Event>()
  const s=await load(db),native=fresh(a0,s),a=restricted(s,native)?{...native,role:'staff' as const}:native,manages=['owner','manager'].includes(a.role),agent=a.role==='agent'
  const staff=s.staff.filter(p=>manages||agent||p.id===a.staffId).map(p=>agent?{id:p.id,name:p.name,active:!!p.active,position:p.position,site:p.site}:{id:p.id,name:p.name,email:p.email,payrollId:p.payroll_id,role:p.role,active:!!p.active,revision:p.version,erasedAt:p.erased_at,position:p.position,site:p.site,...(mayReadPerson(s,a,p.id)||(p.id===a.staffId&&earnSettings(s.earnings).estimates)?{hourlyRateCents:p.rate_cents}:{})})
  const requested=earningsWeek&&/^\d{4}-\d{2}-\d{2}$/.test(earningsWeek)&&new Date(earningsWeek+'T00:00:00Z').getUTCDay()===1&&new Date(earningsWeek+'T00:00:00Z').toISOString().slice(0,10)===earningsWeek?earningsWeek:undefined

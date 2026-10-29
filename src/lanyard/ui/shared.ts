@@ -28,3 +28,6 @@ export const avatar = (name:string,cls='') => `<span class="avatar${cls?' '+h(cl
 export const outcome = (extras:any) => extras.result?.result ?? extras.result
 /** Screen title row: the claret serif title and the venue's current time. */
 export const titleRow = (title:string,s:any,now:number) => `<div class="title-row"><h1>${h(title)}</h1><p class="now">${h(stamp(now,venue(s)))}</p></div>`
+
+/** Native preparation attribution; the later human decision keeps its own actor. */
+export function prepared(r:any) { return r.preparedByLabel ? `<small>Prepared by ${h(r.preparedByLabel)}</small>${r.policyApprovers?.length?`<small>Policy approved by ${r.policyApprovers.map((p:any)=>h(p.name)).join(', ')}</small>`:''}` : '' }
