@@ -230,7 +230,8 @@ export async function scheduleNoticesApi(h){
  assert.equal(cancellation.assignment,null);assert.equal(cancellation.assignmentSource,null);assert.equal(cancellation.previous.start,'2026-11-04T10:00:00.000Z')
  assert.ok(!JSON.stringify(await notices(ben)).includes(cy.id));assert.ok(!JSON.stringify(await notices(ben)).includes('Private'))
  assert.equal((await notices(cy))[0].assignment.start,'2026-11-04T10:00:00.000Z')
- await cmd('schedule.notice.acknowledge',pin(cancellation),ben.cookie)
+ const cancellationReceipt=await cmd('schedule.notice.acknowledge',pin(cancellation),ben.cookie)
+ assert.ok(!('decision' in cancellationReceipt));assert.equal(cancellationReceipt.assignmentSource,null);assert.ok(!JSON.stringify(cancellationReceipt).includes(cy.id))
  const cyNotice=(await notices(cy))[0]
  await cmd('shift.cancel',{...pin(reassigned.shift),reason:'Private cancellation reason'},manager.cookie)
  assert.equal((await notices(cy)).find(n=>n.id===cyNotice.id).status,'superseded')
