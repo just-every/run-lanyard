@@ -1,3 +1,4 @@
+import {localDay,localWeekday,html,t as tr} from '../localization'
 // JOURNAL-001 screens: the employee journal on People for the owner and cafe managers (add,
 // edit, attachment, prior versions), and the notes shared with an employee on their Time page.
 import {h,rows,hidden,card,empty,person,disclosure,textarea,field,status} from './shared'
@@ -24,5 +25,5 @@ export function journalCard(s:any) {
 export function sharedNotesCard(s:any) {
  const list=rows(s,'notes').filter(n=>n.staffId===s.actor.staffId&&n.visibility==='employee')
  if(!list.length)return ''
- return card('Notes shared with you',`<ul class="journal">${list.map(n=>`<li>${h(day(n.date))} · ${h(label(n.category))}<p>${h(n.text)}</p>${fileLink(n,n.attachment)}</li>`).join('')}</ul>`,'','shared-notes')
+ return card(tr(s,'Notes shared with you'),html(s)`<ul class="journal">${list.map(n=>html(s)`<li>${h(localDay(s,n.date))} · ${h(label(n.category))}<p>${h(n.text)}</p>${fileLink(n,n.attachment)}</li>`).join('')}</ul>`,'','shared-notes')
 }
