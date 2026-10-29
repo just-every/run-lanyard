@@ -55,6 +55,9 @@ on the exact tree before every public push; no exclusions or force pushes.
 
 ## Contract documents
 
+Lander-Regenerate: node scripts/contract-docs.mjs write
+Lander-Check: node scripts/contract-docs.mjs check
+
 After changing CONTRACT.md, run `node scripts/contract-docs.mjs write CLAUSE-ID`, then
 `node scripts/contract-docs.mjs check CLAUSE-ID` for the changed clauses.
 Omit the identifiers to refresh every metadata row. Existing journey wording is

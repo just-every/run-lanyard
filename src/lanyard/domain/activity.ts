@@ -6,7 +6,7 @@ import {type Actor,type State,type Row,kinds} from './model'
 import {privateEntity} from './feedback'
 import {privateNote} from './journal'
 
-export type Event={id:string;actorId:string;actorRole:string;action:string;entityId:string;at:string}
+export type Event={agentId?:string|null;agentName?:string|null;sponsorName?:string|null;operationId?:string|null;id:string;actorId:string;actorRole:string;action:string;entityId:string;at:string}
 type Subject={people:Set<string>;sites:Set<string>;person:string|null}
 
 /** The people and cafes an event's subject record is about, and the one person whose own record it is (a staff record or a record with a staffId); empty for installation settings and records no longer present. */
