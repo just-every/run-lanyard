@@ -45,7 +45,7 @@ export function tools(env: Bindings): ToolDefinition[] {
   async run(args, ctx) {
    const a = item.name === 'learn.propose' ? await comparisonActor(ctx, String(args.site)) : await preparationActor(ctx)
    const result = await native(() => command(ctx.db, a, item.name, args, env.SESSION_SECRET, undefined, env.FILES))
-   const row = (result as any).result, area = item.name === 'roster.prepare' ? 'weeks' : item.name === 'time.prepare' ? 'time' : item.name === 'payroll.prepare' ? 'payroll' : null
+   const row = (result as any).result, area = item.name === 'roster.prepare' ? 'weeks' : item.name === 'time.prepare' ? 'time' : item.name === 'payroll.prepare' ? 'payroll' : 'learning'
    if (area) ctx.emit(item.name, `lanyard://${area}/${encodeURIComponent(area === 'weeks' ? row.week : row.id)}`, {id: row.id, revision: row.revision})
    return {result, ...(area ? {resources: [{uri: `lanyard://${area}/${encodeURIComponent(area === 'weeks' ? row.week : row.id)}`, name: item.title}]} : {})}
   },

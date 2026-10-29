@@ -327,6 +327,6 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       return url.searchParams.get('name')?.startsWith('report.')?new Response(page.body,{status,headers:page.headers}):page
     }
     if (pages.has(path) && status === 401) return new Response(null, { status: 303, headers: { ...headers, location: '/signin?returnTo=' + encodeURIComponent(path) } })
-    return json({ error: message }, status)
+    return json({ code: status === 401 ? 'unauthenticated' : status === 403 ? 'native_authority_required' : status === 404 ? 'resource_unavailable' : status === 409 ? 'native_conflict' : status < 500 ? 'invalid_arguments' : 'native_unavailable', error: message }, status)
   }
 }

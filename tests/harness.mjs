@@ -43,7 +43,7 @@ export async function harness(options = {}) {
     const bootstrap = options.owner || options.unclaimed ? null : await send('/auth/bootstrap', { token: auth.SETUP_TOKEN, displayName: 'Jordan Venue' })
     if (bootstrap) assert.equal(bootstrap.status, 303, bootstrap.text)
     const owner = options.owner ?? bootstrap?.cookie
-    if (bootstrap) {
+    if (bootstrap && !auth.RER_OWNER_CLAIM_PUBLIC_KEYS) {
       // The fixture owner explicitly chooses autonomous preparation. Native
       // human approval requirements remain in the application services.
       const policy = await mf.dispatchFetch(origin + '/agents/api/policy', {method:'PUT', headers:{origin,cookie:owner,'content-type':'application/json'}, body:JSON.stringify({document:{schema:'rer-agent-policy/1',catalogue:'rer-agent-classes/1',rules:[{id:'preparation',class:'*',do:'autonomous'}],spend:{none:true}}})})
