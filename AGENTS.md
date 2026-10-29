@@ -67,3 +67,20 @@ the contract, then regenerate the edition source lock last.
 For `sources.lock.json`, regenerate last with `node scripts/edition-authoring/cli.mjs lock`,
 then run `node scripts/edition-authoring/cli.mjs check`. This is the same freshness
 check used by Verify; keep the current Base selection when refreshing the lock.
+
+## Agent door verification
+
+`agent-surface.json` declares the native preparation journey included in normal
+`rer verify`. Its owner initializer and native identity fixture use production
+HTTP handlers, real account admission and D1; fixture signing and mail receipts
+stay outside the production dependency graph. For a focused native identity,
+approval, replay and Pause diagnosis, run:
+
+```sh
+node --input-type=module -e "import {identityProof} from './tests/agent-native.mjs'; await identityProof()"
+```
+
+Retain native overlapping-time and historical-learning refusals when the shared
+harness cannot prepare their real lifecycle. Keep the ordinary verification
+failure exit and the contract gaps; never replace the native checks with fixture
+success or introduce a production verification route.
