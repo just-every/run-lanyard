@@ -100,8 +100,22 @@ export async function cutoffApi(){
   assert.ok((await read()).issues.some(i=>i.kind==='manager_signoff'))
   await h.cmd('period.lock',pin(period),h.owner,409)
   if(corrected.exceptions?.length)corrected=await h.cmd('time.resolve',{...pin(corrected),reason:'Reasoned break review on the corrected facts'},manager.cookie)
-  for(const cookie of [alex.cookie,manager.cookie])period=await h.cmd('period.signoff',pin(period),cookie)
+  let personalSignoff
+  for(const cookie of [alex.cookie,manager.cookie]){
+   period=await h.cmd('period.signoff',pin(period),cookie)
+   if(cookie===alex.cookie)personalSignoff=period
+  }
   const retained=structuredClone(period.signoffHistory)
+  const beforePrivateReads=await sourceBytes(h)
+  assert.deepEqual((await h.state()).periods.find(p=>p.id===period.id).signoffHistory,retained,'owner retains the full manager review history')
+  for(const person of [alex,bea]){
+   const visible=(await h.state(person.cookie)).periods.find(p=>p.id===period.id)
+   assert.deepEqual(visible.signoffHistory,retained.filter(x=>x.role==='employee'&&x.staffId===person.id))
+   assert.ok(!JSON.stringify(visible).includes(person===alex?second.id:corrected.id),'snapshot excludes coworker revisions after renewed signoff')
+  }
+  assert.ok(!JSON.stringify(personalSignoff).includes(second.id),'employee signoff response excludes coworker time and manager sources')
+  assert.ok(personalSignoff.signoffHistory.length>0,'employee keeps their earlier signoff')
+  assert.equal(await sourceBytes(h),beforePrivateReads,'private reads preserve retained review history')
   assert.ok(retained.some(x=>x.role==='manager'&&x.sources.includes(second.id)),'renewed manager signoff retains the actual earlier sources')
   const privatePeriod=async(cookie,foreign)=>{
    const p=(await h.state(cookie)).periods.find(p=>p.id===period.id)
@@ -163,6 +177,7 @@ export async function cutoffApi(){
   await h.cmd('staff.save',{...pin(currentAlex),name:alex.name,email:alex.email,payrollId:alex.payrollId,role:'staff',active:false})
   await read(alex.cookie,403)
   await h.restart();assert.equal((await read()).nativeReadiness,'ready');assert.equal((await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,h.owner)).text,exported.csv)
+  assert.ok(!(await h.state(bea.cookie)).periods.some(p=>JSON.stringify(p.signoffHistory).includes(corrected.id)),'private history remains filtered after restart')
   assert.equal(second.minutes,60)
  }finally{await h.close()}
 }
@@ -247,9 +262,13 @@ export async function cutoffBrowser(){
    assert.equal(new URL(page.url()).pathname,'/app/settings')
    await mappings.locator('summary').click()
    assert.equal(await mappings.getByLabel('Earning code · overtime',{exact:true}).count(),1,'generated overtime has a native correction field')
+   const beforeOTMapping=await h.state()
    await mappings.getByLabel('Earning code · overtime',{exact:true}).fill('OT')
    await mappings.getByRole('checkbox').check();await mappings.getByRole('button',{name:'Approve export mappings'}).click();await page.waitForLoadState('networkidle')
    assert.equal(await page.locator('.notice.error').count(),0)
+   const afterOTMapping=await h.state()
+   assert.deepEqual(afterOTMapping.timesheets,beforeOTMapping.timesheets)
+   assert.deepEqual(afterOTMapping.batches,beforeOTMapping.batches)
    await open('/app/settings#pay-cutoffs');await page.locator('#pay-cutoffs summary').click()
    await configure.getByLabel('Review reason',{exact:true}).fill('Reviewed generated overtime mapping')
    await configure.getByRole('checkbox').check();await configure.getByRole('button',{name:'Save reviewed cutoff'}).click();await page.waitForLoadState('networkidle')
@@ -257,10 +276,14 @@ export async function cutoffBrowser(){
    await monitor.locator('li').filter({hasText:'Unmapped earning code: double time'}).getByRole('link',{name:'Review source'}).click();await page.waitForLoadState('networkidle')
    await mappings.locator('summary').click()
    assert.equal(await mappings.getByLabel('Earning code · overtime',{exact:true}).inputValue(),'OT')
+   const beforeDTMapping=await h.state()
    await mappings.getByLabel('Earning code · double time',{exact:true}).fill('DT')
    await proof('cutoff-generated-mappings')
    await mappings.getByRole('checkbox').check();await mappings.getByRole('button',{name:'Approve export mappings'}).click();await page.waitForLoadState('networkidle')
    assert.equal(await page.locator('.notice.error').count(),0)
+   const afterDTMapping=await h.state()
+   assert.deepEqual(afterDTMapping.timesheets,beforeDTMapping.timesheets)
+   assert.deepEqual(afterDTMapping.batches,beforeDTMapping.batches)
    await h.restart()
    await open('/app/settings#pay-cutoffs');await page.locator('#pay-cutoffs summary').click()
    await configure.getByLabel('Review reason',{exact:true}).fill('Reviewed all generated earning mappings after reload')
@@ -271,10 +294,16 @@ export async function cutoffBrowser(){
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
    await iconTooltips(page);assert.deepEqual(errors,[])
    await proof('cutoff-native-review-complete')
+   await h.restart()
+   const template=(await h.state()).paytemplates.find(t=>t.id===f.template.id)
+   assert.deepEqual(template.codes,{regular:'REG',overtime:'OT','double time':'DT'})
    const batch=await h.cmd('payroll.prepare',{templateId:f.template.id})
    assert.deepEqual(batch.classificationLines.filter(l=>l.staffId===alex.id).map(l=>[l.earningCode,l.minutes,l.costCents]),[['regular',480,16000],['overtime',240,12000],['double time',60,4000]])
    assert.ok(batch.csvPreview.split('\r\n').includes('synthetic-lanyard-30,OT,240'))
    assert.ok(batch.csvPreview.split('\r\n').includes('synthetic-lanyard-30,DT,60'))
+   const exported=await h.cmd('payroll.export',pin(batch))
+   for(const row of ['synthetic-lanyard-30,REG,480','synthetic-lanyard-30,OT,240','synthetic-lanyard-30,DT,60','synthetic-lanyard-31,REG,60'])assert.ok(exported.csv.split('\r\n').includes(row),row)
+   assert.equal((await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,h.owner)).text,exported.csv)
   }finally{await context.close()}
  }finally{await browser.close();await h.close()}
 }
