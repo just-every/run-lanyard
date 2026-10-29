@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "4ae5f6ac006ebfb4c95ec74d26688f23969b35f6e2f0883e6ef77f84044045c7",
+      "sha256": "a55a97a7f54c235f086e75ef35f7cd81fe59ee855deae6ef20e6122996866217",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "289b3b24a0f1d4ff0af6fe098c9c066691fbcc69af269880de49f46fc8d19ebd",
+      "sha256": "90247e63b735cab1a9562c5fca8c0589e7d42eae59091e53e9741cca1ff569d1",
       "executable": false
     },
     "DEMO.md": {
@@ -4070,7 +4070,7 @@
       "executable": false
     },
     "tests/archive.test.mjs": {
-      "sha256": "bb912a5b6aaa288cb69419f848b6b2816b768c3ac05854856e74d9ac556332af",
+      "sha256": "6fd805f0b7dcb239326b6e514548063fed87f083024dd8f46467ea4cbf9daac8",
       "executable": false
     },
     "tests/audit-report-journey.mjs": {
@@ -4246,7 +4246,7 @@
       "executable": false
     },
     "tests/partner-api-journey.mjs": {
-      "sha256": "4bae311ec9b7d1116b5372e59bef727a7a7eab23701d16f45e96155ea412ea21",
+      "sha256": "0697ed00321e75ca8d0fae390f5d81af7360bb2730c6c083074a37ea7510fea4",
       "executable": false
     },
     "tests/payiif-journey.mjs": {

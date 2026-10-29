@@ -33,7 +33,7 @@ export async function partnerApiJourney(){
   await context(legacy,401)
   for(const cookie of [alex.cookie,manager.cookie])await h.cmd('partner.create',{label:'synthetic-lanyard-6',site:'East',requestId:crypto.randomUUID()},cookie,403)
   await h.cmd('partner.create',{label:'synthetic-lanyard-6',site:'West',scope:'payroll.prepare',requestId:crypto.randomUUID()},h.owner,400)
-  const protectedBefore=await h.state()
+  const protectedBefore=await h.state(),claimsBefore=(await h.db.prepare('SELECT * FROM l_payroll_claims').all()).results
   const persisted=async()=>h.db.batch(['l_meta','l_staff','l_records','l_payroll_claims','l_events','l_commands','l_partner_keys'].map(table=>h.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`))).then(results=>results.map(r=>r.results))
   const refused=async(fn)=>{const before=await persisted();await fn();assert.deepEqual(await persisted(),before,'refused partner request changes nothing')}
   await refused(()=>post(key,{contextVersion:ctx.contextVersion,week:'2026-10-12',shifts:[shift(foreign)]},crypto.randomUUID(),403))
@@ -46,7 +46,8 @@ export async function partnerApiJourney(){
   assert.equal(draft.status,'draft');assert.equal(draft.approvalRequired,'roster.publish');assert.deepEqual(draft.conflicts,[])
   for(const value of [alex.email,alex.payrollId,'rateBasis','2347','costCents','policyWarnings'])assert.ok(!JSON.stringify(draft).includes(value),value)
   const prepared=await h.state();assert.equal(prepared.rosters.length,1);assert.equal(prepared.shifts.filter(s=>s.status==='draft').length,1)
-  for(const kind of ['timesheets','batches','claims'])assert.deepEqual(prepared[kind],protectedBefore[kind])
+  for(const kind of ['timesheets','batches'])assert.deepEqual(prepared[kind],protectedBefore[kind])
+  assert.deepEqual((await h.db.prepare('SELECT * FROM l_payroll_claims').all()).results,claimsBefore)
   assert.deepEqual((await h.state(alex.cookie)).shifts,[],'preparation never publishes')
   await h.restart();await refused(async()=>assert.deepEqual(await post(key,request,identity),results[0]))
   await refused(()=>post(key,JSON.stringify(request)+' ',identity,409))
@@ -54,6 +55,9 @@ export async function partnerApiJourney(){
   await refused(()=>post(key,request,crypto.randomUUID(),409))
   const published=await h.cmd('roster.publish',pin(draft));assert.equal(published.status,'published')
   assert.deepEqual((await h.state(alex.cookie)).shifts.map(s=>[s.start,s.end,s.breakMinutes]),[['2026-10-12T08:00:00.000Z','2026-10-12T16:00:00.000Z',30]])
+  await h.db.prepare('UPDATE l_staff SET erased_at=? WHERE id=?').bind('2026-10-12T17:00:00Z',alex.id).run()
+  await refused(()=>post(key,request,identity,403));assert.ok(!(await context(key)).staff.some(p=>p.id===alex.id),'erasure fences context and saved responses')
+  await h.db.prepare('UPDATE l_staff SET erased_at=NULL WHERE id=?').bind(alex.id).run()
   const otherKey=await create();await refused(()=>post(otherKey,request,identity,409))
   const replace=await h.cmd('roster.prepare',{week:'2026-10-12',shifts:[shift(),shift(foreign)]})
   await h.cmd('roster.publish',pin(replace))
@@ -79,11 +83,10 @@ export async function partnerApiJourney(){
   for(const row of rows)for(const token of [key.token,rotated.token])assert.ok(!JSON.stringify(row).includes(token),'clear credential never persisted')
   await h.cmd('partner.revoke',{id:rotated.id});await context(rotated,401)
   
-  const person=(await h.state()).staff.find(p=>p.id===alex.id)
-  await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:'staff',active:false,site:'East'})
-  await refused(()=>post(otherKey,request,identity,409))
-  const ownerKey=await create();await h.db.prepare('UPDATE oa_operators SET version=version+1 WHERE id=(SELECT owner_id FROM l_partner_keys WHERE id=?)').bind(ownerKey.id).run()
-  await context(ownerKey,401);await post(key,request,identity,401)
+  const ownerKey=await create(),ownerRequest=await body(ownerKey,[{...shift(),start:'2026-10-26T08:00:00Z',end:'2026-10-26T16:00:00Z'}],'2026-10-26'),ownerIdentity=crypto.randomUUID()
+  await post(ownerKey,ownerRequest,ownerIdentity);
+  await h.db.prepare('UPDATE oa_operators SET version=version+1 WHERE id=(SELECT owner_id FROM l_partner_keys WHERE id=?)').bind(ownerKey.id).run()
+  await context(ownerKey,401);await refused(()=>post(ownerKey,ownerRequest,ownerIdentity,401))
  }finally{await h.close()}
 }
 
