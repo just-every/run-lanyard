@@ -234,6 +234,12 @@ async function generationFairnessReview(){
   const capped=await f.read({...f.input,priority:'high',weeks:8});assert.equal(capped.feasible,true);assert.equal(capped.cost.costCents,6000);assert.equal(capped.generated[0].staffId,f.people[0].id)
   assert.equal(capped.objectives.high.measures.totals.spread,8,'fairness cannot waive the reviewed USD budget')
   await h.cmd('forecast.save',{week,site,days:[1000,0,0,0,0,0,0],budgetPercent:30})
+  // The fairness objective cannot buy an unavailable assignment or exceed a weekly maximum.
+  await h.cmd('pattern.save',{from:week,blocks:full+'\nMon unavailable 08:00-11:00',preferredHours:3,maxHours:40},f.people[1].cookie)
+  const unavailable=await f.read({...f.input,priority:'high'});assert.equal(unavailable.feasible,true);assert.equal(unavailable.generated[0].staffId,f.people[0].id)
+  await h.cmd('pattern.save',{from:week,blocks:full,preferredHours:0,maxHours:0},f.people[1].cookie)
+  const maximum=await f.read({...f.input,priority:'high'});assert.equal(maximum.feasible,true);assert.equal(maximum.generated[0].staffId,f.people[0].id)
+  await h.cmd('pattern.save',{from:week,blocks:full,preferredHours:3,maxHours:40},f.people[1].cookie)
   let reviewed=await f.read({...f.input,priority:'high'}),draft=await f.prepare(reviewed,f.manager.cookie)
   // Changed preferences invalidate both preparation and publication without draft writes.
   await h.cmd('pattern.save',{from:week,blocks:full,preferredHours:2,maxHours:40},f.people[1].cookie)
@@ -244,16 +250,38 @@ async function generationFairnessReview(){
   const rule=(await h.state()).fairnesspolicies[0]
   await h.cmd('fairness.policy.save',{...{site,revision:rule.revision},tags:['closing'],closingTime:'10:00',openingTime:'08:00',closeOpenHours:12})
   unchanged=safetyState(await h.state());await h.cmd('roster.publish',pin(draft),f.manager.cookie,409);assert.deepEqual(safetyState(await h.state()),unchanged)
+  // Reconfirming cohorts retains historical fairness but still requires a fresh human review.
+  reviewed=await f.read({...f.input,priority:'high'});draft=await f.prepare(reviewed,f.manager.cookie)
+  await h.cmd('fairness.cohort.save',{site,position:'Counter',from:days(f.first,28),staffIds:f.people.map(x=>x.id)})
+  unchanged=safetyState(await h.state());await f.prepare(reviewed,h.owner,409);await h.cmd('roster.publish',pin(draft),f.manager.cookie,409);assert.deepEqual(safetyState(await h.state()),unchanged)
+  assert.deepEqual((await f.read({...f.input,priority:'high'})).objectives.high.measures.totals,reviewed.objectives.high.measures.totals)
   // Feedback and actual worked time remain absent from generated-objective inputs.
   reviewed=await f.read({...f.input,priority:'high'})
   await h.cmd('clock.in',{commandId:crypto.randomUUID(),capturedAt:local(f.first,'08:00')},f.people[0].cookie)
   const clock=await h.cmd('clock.out',{commandId:crypto.randomUUID(),capturedAt:local(f.first,'11:00'),breakMinutes:0},f.people[0].cookie)
   await h.cmd('feedback.submit',{timesheetId:clock.timesheet.id,rating:1,flags:['safety'],comment:'Review separately'},f.people[0].cookie)
   assert.deepEqual(await f.read({...f.input,priority:'high'}),reviewed)
-  draft=await f.prepare(reviewed,f.manager.cookie);await h.restart();await h.cmd('roster.publish',pin(draft),f.manager.cookie)
+  const offered=await h.cmd('openshift.post',{site,position:'Counter',job:f.job.id,start:local(days(week,1),'10:00'),end:local(days(week,1),'11:00'),breakMinutes:0,approval:'manager',order:'tiers',rule:'custom',ranking:f.people.map(x=>x.id),size:1,minutes:1440})
+  assert.deepEqual(offered.tiers.flatMap(x=>x.staffIds).sort(),f.people.map(x=>x.id).sort());assert.equal(offered.tiers.length,2)
+  reviewed=await f.read({...f.input,priority:'high'});draft=await f.prepare(reviewed,f.manager.cookie)
+  const advanced={'x-test-now':String(Date.parse('2026-11-02T12:00:00Z'))}
+  unchanged=safetyState(await h.state())
+  await h.cmd('demand.generate.prepare',{...f.input,priority:'high',weeks:8,digest:reviewed.digest},f.manager.cookie,409,advanced)
+  await h.cmd('roster.publish',pin(draft),f.manager.cookie,409,advanced)
+  assert.deepEqual(safetyState(await h.state()),unchanged,'an opened offer tier requires fresh review even without any changed source row')
+  await h.restart();await h.cmd('roster.publish',pin(draft),f.manager.cookie)
   const report=await h.send(`/api/lanyard/fairness?week=${week}&site=Ocean%20Beach&weeks=8`,undefined,h.owner)
   assert.deepEqual(report.value.totals,reviewed.objectives.high.measures.totals,'actual published FAIR-001 measures match the reviewed projection')
   const state=await h.state();assert.deepEqual(state.sales,sources.sales);assert.deepEqual(state.demandforecasts,sources.demandforecasts)
+  // A tempting high-fairness move also rechecks a prior-week, other-cafe rest interval.
+  const blairProfile=(await h.state()).workforce.find(x=>x.staffId===f.people[1].id)
+  await h.cmd('workforce.save',{...pin(blairProfile),staffId:f.people[1].id,jobs:[f.job.id],skills:['service'],certifications:[],sites:[site,'Mission'],preferences:[],minHours:0,maxHours:40,classification:'hourly',rates:[{job:f.job.id,from:'2026-01-01',cents:2500}]})
+  const previous=days(week,-7),priorShifts=(await h.state()).shifts.filter(x=>x.status==='published'&&x.start===local(previous,'08:00')).map(({staffId,start,end,breakMinutes,site,job,label})=>({staffId,start,end,breakMinutes,site,job,label}))
+  const prior=await h.cmd('roster.prepare',{week:previous,shifts:[...priorShifts,{staffId:f.people[1].id,site:'Mission',job:f.job.id,start:local(days(week,-1),'20:00'),end:local(week,'02:00'),breakMinutes:0}]})
+  await h.cmd('roster.publish',pin(prior))
+  const policy=(await h.state()).policies[0]
+  await h.cmd('policy.save',{...pin(policy),site,from:'2026-01-01',preset:'federal',minimumRestMinutes:600,reviewReason:'Reviewed required rest between cafes'})
+  const rested=await f.read({...f.input,priority:'high'});assert.equal(rested.feasible,true,JSON.stringify(rested.infeasible));assert.equal(rested.generated[0].staffId,f.people[0].id,'higher fairness cannot waive the ten-hour minimum after other-cafe work ending at 02:00')
   // Incomplete window evidence refuses the high objective, keeping costs and measures honest.
   const missing=await f.read({...f.input,priority:'high',weeks:9});assert.equal(missing.feasible,false);assert.match(missing.infeasible.join('; '),/confirmed FAIR-001/)
   unchanged=safetyState(await h.state());await f.prepare(missing,h.owner,409);assert.deepEqual(safetyState(await h.state()),unchanged)

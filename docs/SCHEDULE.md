@@ -120,3 +120,9 @@ complete statutory premiums, separate job budget caps, wider site-role scopes
 and provider-applied reconciliation remain open. **Approved time** never means
 paid wages. Entered-sales ratios use worked estimates when worked cost exists;
 missing rates or classifications keep amounts unknown.
+
+## Generated assignment priorities
+
+In **Generate from demand**, select the service dates, review shift lengths and unpaid breaks, then preview the saved hourly role requirements. **Low** fairness priority reduces scheduled cost through feasible assignment moves. **High** starts with that alternative and improves the confirmed FAIR-001 measures while retaining its generated boundaries, breaks and service coverage and staying within the reviewed budget. The comparison shows both costs, the difference and the projected trailing-window measures. Inspect the retained inputs before preparing a private draft, then review the complete schedule diff and publish separately.
+
+High priority requires confirmed role cohorts, published history, stable preferred weekly hours and the employer's undesirable-shift tags for the selected window. Missing evidence stays unknown and refuses high-priority preparation. Offered-hours equity comes from actual opened offers; assigning a generated shift never creates an offer. Changed preferences, cohorts, pay rules, forecasts, budgets or newly opened offer tiers require fresh review. Availability, leave, qualifications, weekly maxima and supported policy constraints apply to every reassignment. Unsupported required constraints refuse generation. The bounded search does not establish a global optimum, connected POS acceptance or legal compliance.
