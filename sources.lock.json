@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "435e20ff6cd0089d644c27be1e4f008dc7dd274a22bfbc33c1c6e83dc4c16a8a",
+      "sha256": "9ac113883b86a2ec8c68f38c08d4ee52590f69a0e2e855c2b018f1ad22fa470b",
       "executable": false
     },
     "agent-surface.json": {
@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "b44d817a68fd212b46643a2af8c48617044637238926b6dc52abc0999003d676",
+      "sha256": "10530aa5c8392be34e333d610e65de71d7a51a7878611fe3d0570cd694fefd0e",
       "executable": false
     },
     "DEMO.md": {
@@ -402,7 +402,7 @@
       "executable": false
     },
     "docs/AGENTS-API.md": {
-      "sha256": "a23fd9f23afe49fdb9b262753fb6bd026811981ff71139cc932d6c3b104704a8",
+      "sha256": "e0d8f1b31a7f24fbc16ceacb98dcc8ded794125f50059a9ed66189e0b17a8b91",
       "executable": false
     },
     "docs/BACKUP-RESTORE.md": {
@@ -4430,7 +4430,7 @@
       "executable": false
     },
     "tests/agent-native.mjs": {
-      "sha256": "b40ef38dce433f4e5fcf49326bac42fbbcdb3a99debedae3ed84693552772960",
+      "sha256": "fe5cfc82c78b22824027d7109298c5d5f14b30eb6165f35d9552d9ee9f40053e",
       "executable": false
     },
     "tests/agent-owner.mjs": {
