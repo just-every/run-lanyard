@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "46c56b64f1598b0bbcf56db93da32651246c01a27396b0e87c0ff388b75e15b2",
+      "sha256": "4c8edf423495240a0526fb0e78f89afa12092361fc6c71400d94d4f04f66ba0f",
       "executable": false
     },
     "AGENTS.md": {
@@ -730,7 +730,7 @@
       "executable": false
     },
     "public/kiosk.js": {
-      "sha256": "7d3385570c9cc2e067de0c84c3b1bdc6df4269a4c8b11e4b9c8a1eaa51c838f1",
+      "sha256": "447e378a5fe3d50d18d7ff38714009318b3a7a536b1ff5f8726b3bb802a1a3c5",
       "executable": false
     },
     "public/labor-cost-settings.js": {
@@ -1870,7 +1870,7 @@
       "executable": false
     },
     "src/lanyard/staff-catalog.json": {
-      "sha256": "edcd290a0955fe12c1cb701a5fa06aea4f69b2dec3222c220864fab7b8b0a1ce",
+      "sha256": "2db740895c2f534d41a368fe4f14dbd53f6e27001dbba984f7ade0824bb5a0ba",
       "executable": false
     },
     "src/lanyard/ui/aca.ts": {
