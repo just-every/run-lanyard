@@ -76,10 +76,6 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     // New product records travel, while kiosk authentication must be re-established.
     const kioskPerson=await h.person('KioskArchive')
     await h.cmd('staff.save',{id:kioskPerson.id,revision:1,name:kioskPerson.name,email:kioskPerson.email,payrollId:kioskPerson.payrollId,role:'staff',active:true,site:'Archive cafe'})
-    const partnerKey=await h.cmd('partner.create',{label:'synthetic-lanyard-90',site:'Archive cafe',requestId:crypto.randomUUID()})
-    const partnerHeaders={authorization:`Bearer ${partnerKey.token}`,'idempotency-key':'synthetic-lanyard-91'},partnerContext=(await h.send('/api/lanyard/partner/v1/context',undefined,'',partnerHeaders)).value
-    const partnerBody={contextVersion:partnerContext.contextVersion,week:'2026-11-02',shifts:[{staffId:kioskPerson.id,site:'Archive cafe',start:'2026-11-02T14:00:00Z',end:'2026-11-02T18:00:00Z',breakMinutes:0}]}
-    const partnerDraft=await h.send('/api/lanyard/partner/v1/roster-drafts',partnerBody,'',partnerHeaders);assert.equal(partnerDraft.status,200,partnerDraft.text)
     const level=await h.cmd('access.level.save',{name:'Archive shift lead',site:'Archive cafe',permissions:['draft.edit']})
     await h.cmd('access.grant',{levelId:level.id,site:'Archive cafe',staffId:kioskPerson.id})
     const thread=await h.cmd('chat.create',{kind:'announcement',site:'Archive cafe',title:'Archive operational handover'})
@@ -142,7 +138,7 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     await h.close();h=null
     const old=join(temporary,'before.rer'),later=join(temporary,'later.rer'),again=join(temporary,'again.rer')
     await command(source,['export','--output',old,'--no-queue'])
-    const bytes=await readFile(old,'utf8');assert.ok(bytes.includes('Temporary joiner'));assert.ok(!bytes.includes('Excluded secret'));assert.ok(!bytes.includes('token_hash'));assert.ok(!bytes.includes(partnerKey.token));assert.ok(!bytes.includes('synthetic-lanyard-90'));assert.ok(!bytes.includes('scopes_json'));assert.ok(!bytes.includes('comparison.read'));for(const table of ['l_partner_keys','l_kiosk_devices','l_kiosk_pins','l_kiosk_sessions','l_kiosk_attempts'])assert.equal(bytes.split('\n').filter(Boolean).map(JSON.parse).filter(p=>p.kind==='part').flatMap(p=>p.items).some(i=>i.kind==='row'&&i.table===table),false,table)
+    const bytes=await readFile(old,'utf8');assert.ok(bytes.includes('Temporary joiner'));assert.ok(!bytes.includes('Excluded secret'));assert.ok(!bytes.includes('token_hash'));assert.ok(!bytes.includes('scopes_json'));assert.ok(!bytes.includes('comparison.read'));for(const table of ['l_kiosk_devices','l_kiosk_pins','l_kiosk_sessions','l_kiosk_attempts'])assert.equal(bytes.split('\n').filter(Boolean).map(JSON.parse).filter(p=>p.kind==='part').flatMap(p=>p.items).some(i=>i.kind==='row'&&i.table===table),false,table)
     await command(restored,['import','--input',old,'--yes','--no-queue'])
     await command(restored,['export','--output',again,'--no-queue'])
     const rows=text=>text.split('\n').filter(Boolean).map(JSON.parse).filter(r=>r.kind==='part')
@@ -153,10 +149,6 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.equal((await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agentKey.token}`})).status,401)
     const owner=await h.signIn(h.auth.OWNER_EMAIL),back=await h.state(owner)
     assert.deepEqual(back.agentKeys,[])
-    assert.deepEqual(back.partnerKeys,[])
-    assert.equal((await h.send('/api/lanyard/partner/v1/context',undefined,'',partnerHeaders)).status,401)
-    assert.equal((await h.send('/api/lanyard/partner/v1/roster-drafts',partnerBody,'',partnerHeaders)).status,401)
-    assert.ok(back.rosters.some(r=>r.id===partnerDraft.value.result.id),'non-executable draft data survives restore')
     assert.deepEqual(back.kiosks,[])
     assert.equal((await h.send('/api/lanyard/kiosk/state',undefined,kioskCookie)).status,403)
     assert.equal((await h.send('/api/lanyard/kiosk/signin',{email:kioskPerson.email,pin:'123456'},enrolled.cookie)).status,403)
@@ -277,4 +269,40 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     try { assert.equal((await proxy.env.DB.prepare('SELECT name FROM l_staff WHERE id=?').bind(p.id).first()).name,'Erased staff') }
     finally { await proxy.dispose() }
   } finally { if(h)await h.close();await rm(temporary,{recursive:true,force:true}) }
+})
+
+test('LINK-001: public CLI archive round trip preserves a partner draft and replay data while excluding partner credential authority', {timeout:300_000}, async()=>{
+ const temporary=await mkdtemp(join(tmpdir(),'lanyard-partner-archive-')),source=join(temporary,'source'),restored=join(temporary,'restored')
+ let h
+ try{
+  for(const root of [source,restored])await checkout(root)
+  await exec(process.execPath,[resolve('node_modules/wrangler/bin/wrangler.js'),'d1','migrations','apply','foundation','--local'],{cwd:source,env:{...process.env,CI:'true',WRANGLER_SEND_METRICS:'false'},maxBuffer:2e6})
+  h=await harness({root:source})
+  const person=await h.person('synthetic-lanyard-90'),site='synthetic-lanyard-91'
+  await h.cmd('staff.save',{id:person.id,revision:person.revision,name:person.name,email:person.email,payrollId:person.payrollId,role:'staff',active:true,site})
+  await h.cmd('availability.save',{staffId:person.id,start:'2026-10-12T00:00:00Z',end:'2026-10-19T23:00:00Z'})
+  const create={label:'synthetic-lanyard-92',site,requestId:crypto.randomUUID()},key=await h.cmd('partner.create',create)
+  const headers={authorization:`Bearer ${key.token}`,'idempotency-key':'synthetic-lanyard-93'},context=(await h.send('/api/lanyard/partner/v1/context',undefined,'',headers)).value
+  const input={contextVersion:context.contextVersion,week:'2026-10-12',shifts:[{...work(person.id),site}]}
+  const draft=await h.send('/api/lanyard/partner/v1/roster-drafts',input,'',headers)
+  assert.equal(draft.status,200,draft.text);assert.equal(draft.value.result.status,'draft')
+  assert.deepEqual((await h.send('/api/lanyard/partner/v1/roster-drafts',input,'',headers)).value,draft.value)
+  const original=await h.state(),identity={auth:h.auth,owner:h.owner}
+  await h.close();h=null
+  const archive=join(temporary,'partner.rer')
+  await command(source,['export','--output',archive,'--no-queue'])
+  const bytes=await readFile(archive,'utf8'),rows=bytes.split('\n').filter(Boolean).map(JSON.parse).filter(p=>p.kind==='part').flatMap(p=>p.items)
+  assert.ok(rows.some(r=>r.kind==='row'&&r.table==='l_records'),'real installation records are exported')
+  assert.ok(!rows.some(r=>r.kind==='row'&&r.table==='l_partner_keys'),'populated partner credentials never travel')
+  for(const value of [key.token,'token_hash','synthetic-lanyard-92'])assert.ok(!bytes.includes(value),value==='token_hash'?value:'private partner credential data')
+  await command(restored,['import','--input',archive,'--yes','--no-queue'])
+  h=await harness({root:restored,...identity});await h.state(identity.owner,401)
+  const owner=await h.signIn(h.auth.OWNER_EMAIL),back=await h.state(owner)
+  assert.deepEqual(back.partnerKeys,[]);assert.deepEqual(back.rosters,original.rosters);assert.deepEqual(back.shifts,original.shifts)
+  assert.equal((await h.send('/api/lanyard/partner/v1/context',undefined,'',headers)).status,401)
+  assert.equal((await h.send('/api/lanyard/partner/v1/roster-drafts',input,'',headers)).status,401)
+  const fresh=await h.cmd('partner.create',{...create,requestId:crypto.randomUUID()},owner),freshHeaders={...headers,authorization:`Bearer ${fresh.token}`}
+  assert.equal((await h.send('/api/lanyard/partner/v1/roster-drafts',input,'',freshHeaders)).status,409,'another credential cannot inherit an archived replay identity')
+  const after=await h.state(owner);assert.deepEqual(after.rosters,back.rosters);assert.deepEqual(after.shifts,back.shifts)
+ }finally{if(h)await h.close();await rm(temporary,{recursive:true,force:true})}
 })
