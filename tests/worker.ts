@@ -3,6 +3,7 @@ import {lanyardScheduled} from '../src/lanyard/scheduled'
 import { authResponse, type Bindings } from '../src/auth.server'
 import { installedHomeResponse } from '../src/installed-home'
 import { lanyardResponse } from '../src/lanyard/http'
+import { agentResponse } from '../src/lanyard/agent-door/index.ts'
 export default { scheduled: lanyardScheduled, async fetch(request: Request, env: Bindings) {
   // Test clock edge only: exercise the production credential expiry without database edits.
   const realDate=Date, now=Date.now, testTime=request.headers.get('x-test-now')
@@ -10,5 +11,5 @@ export default { scheduled: lanyardScheduled, async fetch(request: Request, env:
     globalThis.Date=new Proxy(realDate,{construct(target,args,newTarget){return Reflect.construct(target,args.length?args:[Number(testTime)],newTarget)}})
     Date.now=()=>Number(testTime)
   }
-  try { return await authResponse(request, env) ?? await lanyardResponse(request, env) ?? await installedHomeResponse(request, env) ?? new Response('Not found', { status: 404 }) } finally { if(testTime!==null){globalThis.Date=realDate;Date.now=now} }
+  try { return await agentResponse(request, env) ?? await authResponse(request, env) ?? await lanyardResponse(request, env) ?? await installedHomeResponse(request, env) ?? new Response('Not found', { status: 404 }) } finally { if(testTime!==null){globalThis.Date=realDate;Date.now=now} }
 } }

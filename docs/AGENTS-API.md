@@ -1,4 +1,95 @@
-# Preparation API
+# Company agent door
+
+Lanyard serves one shared `/mcp` door using Base's agent-door runtime at
+`f96363bf919ea3e7ed1837daba6894810a50e4a6` and the released rer 0.2.86 CLI.
+It supports MCP 2026-07-28 and 2025-11-25. Discovery and canonical OAuth resource
+metadata describe the same registry. Company policy, Pause, named approvals,
+reviews and audit are at `/agents`; an agent credential cannot decide for a person.
+
+A paired installation accepts owner-bound Business tokens with explicit consent.
+The signed settings roster binds Business subjects to native operator ids. A
+matching email never selects an account. Workforce admission and native roles
+are re-read; an inactive or unlinked person cannot sponsor. Business team admin
+means Business policy editor only through the signed mapping; it does not create
+a workforce owner or manager. Current workforce preparation authority belongs to
+the native owner. Local preparation keys keep their original reduced authority.
+
+The declared adoption is CORE: tools, policy, Pause, audit and idempotency,
+with principal authorization always enforced. Events/subscriptions, multiple
+sponsors, outside mail and resource refresh are not claimed as adopted families.
+The pinned Base runtime still advertises its own optional transport capabilities;
+a per-family switch awaits Base. Existing native mail, devices, imports,
+connectors and installation commands keep their own purposes.
+
+Policy starts unset and refuses effects. Paired policy arrives as signed JWS at
+`POST /api/rer/agent-policy`; a standalone owner configures policy through the
+person JSON door. There is no policy bypass for legacy keys. An autonomous
+company rule permits preparation; Lanyard's native human-only publication,
+time approval, payroll export and learning decisions remain separate.
+
+| Tool | Scope | Class | Native clauses |
+| --- | --- | --- | --- |
+| `lanyard.context.read` | `workforce:read` | standard | AGENT-001 |
+| `lanyard.roster.prepare` | `workforce:prepare` | standard | AGENT-001, ROSTER-002, SCHEDULE-001 |
+| `lanyard.time.prepare` | `workforce:prepare` | standard | AGENT-001, TIME-002 |
+| `lanyard.payroll.prepare` | `workforce:prepare` | standard | AGENT-001, PAYROLL-001 |
+| `lanyard.tradeoff.compare` | `comparison.read` | standard | TRADEOFF-001 |
+| `lanyard.demand.read` | `comparison.read` | standard | DEMAND-001, LEARN-001 |
+| `lanyard.learn.read` | `comparison.read` | standard | LEARN-001, TRADEOFF-001 |
+| `lanyard.learn.propose` | `comparison.read` | standard | AGENT-001, LEARN-001, TRADEOFF-001 |
+| `lanyard.events.list` (Base built-in) | `events:read` | standard | BASE-AGENT-010 |
+
+These tools call the existing native services. Standard reflects their actual
+internal preparation or reduced read, with no wage movement, external recipient,
+access grant or production publication. Classification uses current native
+records and proposed items; caller flags cannot lower it. Writes carry a
+server-generated summary and the native aggregate revision. Supply
+`idempotency_key` on writes and `expected_revision` when pinning the source.
+A changed key body conflicts; a stale source refuses. Native commands also
+retain the original operation identity, so door recovery cannot duplicate a draft.
+No provider cost or spend reservation is registered: spend is explicitly none.
+No Undo is offered where the native service has no reversal.
+
+The preparation resources are `lanyard://people/{id}`,
+`lanyard://weeks/{week}`, `lanyard://shifts/{id}`, `lanyard://time/{id}`,
+`lanyard://payroll/{id}` and `lanyard://leave/{id}`. Consented forecast and
+learning views use `lanyard://forecasts/{id}` and `lanyard://learning/{id}`.
+They retain native projection and cafe fences. Missing and hidden records have
+the same refusal. Source text is untrusted. Keys, bearer credentials, payroll
+identifiers, rates, private contacts and download bytes are not returned.
+
+To let company agents use comparison reads, the owner must separately grant
+`comparison.read`, name cafes, consent to aggregate cost disclosure and check
+**Also allow signed company agents** in Agent access. Existing grants do not
+acquire this permission. Revocation, expiry and owner-version changes remove it.
+A Business token cannot borrow a local key's grant, even by naming that key.
+
+Native drafts and activity retain the agent, native sponsor, operation and named
+policy approvers; the draft says `<agent> for <person>`. A later native approval
+has its human actor. Shared-door records are retained; identities disclosed into
+retained door content cannot use unused-person erasure until coordinated
+redaction exists. Archives retain custody fences, audit, events and cached
+outcomes, while excluding active policy, Business binding, agent registration,
+pending approval/review authority and usage. Restore requires fresh pairing and
+policy. This is a custody limit, not completed employee-rights fulfillment.
+
+The `prepare_service_week` prompt reads current source facts, prepares supported
+drafts and hands exact revisions to native people. It refuses to invent worked
+time or treat a payroll file as proof of wages paid. Learning proposals require
+real pre-service forecast history, observed sales and an improved holdout result;
+a fresh installation cannot manufacture that history.
+
+The proposed broader contract surface is not a grant. Workforce administration,
+publication, authoritative approval, payroll transfer, staff contact and erasure
+are not agent tools under the currently judged AGENT-001. The conformance
+manifest declares only real native preparation and consented reads.
+
+## Compatibility preparation API
+
+The existing endpoints below translate into the same shared door. They require
+an adopted policy and respect Pause, current authority, approval and audit.
+An `Idempotency-Key` header pins a compatibility mutation. Refusals include a
+machine `code`; MCP uses `_meta["com.runeditrun/error"]`.
 
 The owner creates a key in **Agent access** (in the account menu, top right). It expires after 30 days and can be revoked immediately. Keep it in a private `LANYARD_AGENT_TOKEN` environment variable; never log it. `LANYARD_ORIGIN` is the exact app origin.
 
@@ -35,3 +126,19 @@ Each scoped read is recorded in owner activity with key, cafe and week. Revocati
 Under the same `comparison.read` grant and named cafe limit, use `GET /api/lanyard/agent/demand?site=CAFE&date=YYYY-MM-DD` for forecast versions, hourly role demand and observed demand delta. Missing or incomplete inputs remain explicit. This projection omits raw sales rows, source identifiers, human free-text override reasons, personal attendance and labor cost fields.
 
 Use `GET /api/lanyard/agent/learning/proposals?site=CAFE&weeks=8` to inspect comparable days, excluded/unknown outcomes, the holdout comparison and the evidence digest. Then send `learn.propose` with `site`, `weeks` and that exact `digest` to the agent command endpoint. Changed evidence or assumptions require a fresh read. Recording a proposal never changes an assumption. Its audit identifies the key and role, with the measured reason retained on the proposal. Only a native owner or that cafe's manager approves, declines or reverts; even a scoped key cannot save or override a forecast or decide a proposal. Every scoped read is audited and the live grant is rechecked when recording a proposal.
+
+## Verification limits at the current Base pin
+
+Normal `rer verify` runs the production build and the declared journey. The
+native journey proves distinct time intervals under autonomous and review
+policies, overlapping-time refusal without an effect, and insufficient learning
+history remaining unknown without a proposal. It also proves native identity,
+exact-summary named approval, replay, conflicts, stale revisions and Pause.
+
+Base 0.2.86 conformance still needs phase-specific time arguments: its second
+policy phase submits the same interval with a new operation key. Learning needs
+a supported disposable history/clock lifecycle so forecasts can genuinely
+precede completed service days. The audit harness also expects review rows for
+the resulting native refusals. The five failures retain the normal nonzero
+verification exit and PARTIAL contract judgments. No native guard is relaxed,
+no historical evidence is manufactured, and no optional family is claimed.
