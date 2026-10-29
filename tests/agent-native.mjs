@@ -30,7 +30,8 @@ export async function identityProof() {
   assert.equal((await call({sub:member,email:'sasha@synthetic.example.invalid',act:{sub:'synthetic-member-agent',name:'River',specialist:'workforce coordinator'}})).status,401,'an OA account without native workforce admission cannot sponsor')
   assert.equal((await call({consent:undefined})).status,401,'Business consent is required')
   const moved=await call({email:'renamed@synthetic.example.invalid'})
-  assert.equal(moved.value.result.structuredContent.actor.id,nativeId,'email never moves the Business binding')
+  assert.equal(moved.status,401,'a changed token email is refused without moving the Business binding')
+  assert.equal((await call()).value.result.structuredContent.actor.id,nativeId,'the original native sponsor binding remains unchanged')
   await h.confirmMail('sasha@synthetic.example.invalid')
   const staff=await h.cmd('staff.save',{name:'Sasha Kim',email:'sasha@synthetic.example.invalid',payrollId:'SASHA',active:true,role:'manager'})
   const nativeEditor=await h.signIn('sasha@synthetic.example.invalid')
@@ -100,6 +101,6 @@ export async function identityProof() {
   console.log('PASS LANYARD-NATIVE: exact-summary named approval; agent decision refused; native attribution and approver; one-effect replay; argument conflict; stale revision; Pause without an effect')
   const audit=(await h.send('/agents/api/audit',undefined,h.owner)).value
   assert.equal(audit.differs_from_policy,0)
-  console.log('PASS LANYARD-IDENTITY: valid scoped owner; unknown subject; inadmissible workforce member; missing consent; stable binding across token email changes; native admin limits; immediate deactivation; audit differs_from_policy=0')
+  console.log('PASS LANYARD-IDENTITY: valid scoped owner; unknown subject; inadmissible workforce member; missing consent; changed-email refusal with unchanged binding; native admin limits; immediate deactivation; audit differs_from_policy=0')
  } finally {await h.close()}
 }

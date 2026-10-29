@@ -1,7 +1,7 @@
 # Company agent door
 
 Lanyard serves one shared `/mcp` door using Base's agent-door runtime at
-`114ef7a61f080da053af783c5fbe06f625d692cc` and the released rer 0.2.88 CLI.
+`2135c394939f4a737adabdc8003b0e667b31ac5a` and the released rer 0.2.91 CLI.
 It supports MCP 2026-07-28 and 2025-11-25. Discovery and canonical OAuth resource
 metadata describe the same registry. Company policy, Pause, named approvals,
 reviews and audit are at `/agents`; an agent credential cannot decide for a person.
@@ -9,8 +9,9 @@ reviews and audit are at `/agents`; an agent credential cannot decide for a pers
 A paired installation accepts owner-bound Business tokens with explicit consent.
 The signed settings roster binds Business subjects to native operator ids. A
 matching email never selects an account. Workforce admission and native roles
-are re-read; an inactive or unlinked person cannot sponsor. Business team admin
-means Business policy editor only through the signed mapping; it does not create
+are re-read; an inactive or unlinked person cannot sponsor. A token whose email
+differs from that native person is refused without moving the subject binding.
+Business team admin means Business policy editor only through the signed mapping; it does not create
 a workforce owner or manager. Current workforce preparation authority belongs to
 the native owner. Local preparation keys keep their original reduced authority.
 
@@ -137,7 +138,7 @@ policies, overlapping-time refusal without an effect, and insufficient learning
 history remaining unknown without a proposal. It also proves native identity,
 exact-summary named approval, replay, conflicts, stale revisions and Pause.
 
-The 0.2.88 phase fixture supplies distinct native time intervals for successive
+The 0.2.91 phase fixture supplies distinct native time intervals for successive
 policy rounds. Learning still requires a supported disposable history/clock
 lifecycle so saved forecasts genuinely precede completed service days. Native
 insufficient-history refusals remain intact; any conformance failures retain
@@ -145,10 +146,16 @@ the normal nonzero exit and PARTIAL contract judgments. Multi-sponsor, mail
 edges, resource refresh, timed and queued lifecycles, dual-host operation and
 owner-native administration are unproved. No provider cost or spend is claimed.
 
-The measured conformance result is **620/623 points**. Every subset refusal
-check and the specialist native journey passes. The remaining points are
-`BASE-AGENT-013.4.autonomous.proposal`,
-`BASE-AGENT-013.4.held.proposal` (no pre-service forecast history) and
-`BASE-AGENT-009.4.review.37` (Base expects a review row for that native refusal).
-The missing history/clock hook and refusal-review expectation are reported to
-Base; this candidate retains the ordinary failed verification exit.
+The measured conformance result is **643/645 points** using
+`SEED_VERIFY_SHARD=app pnpm exec rer verify`. Every subset refusal check and the
+specialist native journey passes. The former refusal-review mismatch is fixed:
+a native refusal opens no review and retains its refused audit. Changed-email
+admission is refused with the original native binding unchanged.
+
+The only remaining points are `BASE-AGENT-013.4.autonomous.proposal` and
+`BASE-AGENT-013.4.held.proposal`, both returning `native_conflict` without enough
+pre-service forecast history. The 0.2.91 hooks expose disposable SELECT state
+and the current verifier time; they neither write native history nor advance
+the clock. The hosted database boundary refuses history writes with
+`hosted_database_invalid`. No production backdate route or test-only authority
+is added. This Base history gap retains the ordinary failed verification exit.
