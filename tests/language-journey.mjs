@@ -134,7 +134,7 @@ export async function languageJourney(){
 export async function untranslatedBuildRefusal(){
  const root=await mkdtemp(join(tmpdir(),'lanyard-language-'))
  try{
-  for(const path of ['src/lanyard/ui','src/lanyard/localization.ts','src/lanyard/staff-catalog.json','public'])await cp(path,join(root,path),{recursive:true})
+  for(const path of ['./src/lanyard/ui','src/lanyard/localization.ts','src/lanyard/staff-catalog.json','public'])await cp(path,join(root,path),{recursive:true})
   const run=()=>spawnSync(process.execPath,['scripts/check-staff-strings.mjs','--root',root],{encoding:'utf8'})
   assert.equal(run().status,0)
   const file=join(root,'src/lanyard/ui/swaps.ts'),source=await readFile(file,'utf8')
