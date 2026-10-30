@@ -80,7 +80,10 @@ approval, replay and Pause diagnosis, run:
 node --input-type=module -e "import {identityProof} from './tests/agent-native.mjs'; await identityProof()"
 ```
 
-Retain native overlapping-time and historical-learning refusals when the shared
-harness cannot prepare their real lifecycle. Keep the ordinary verification
-failure exit and the contract gaps; never replace the native checks with fixture
-success or introduce a production verification route.
+Retain native overlapping-time and insufficient-history refusals. The isolated
+`verification.history` fixture supplies only dated native sales and forecasts;
+it never writes protocol, account, audit, approval or receipt state. Regenerate
+its JavaScript from current native calculation code with
+`node scripts/build-agent-history.mjs`. The held round decides the preceding
+proposal through the native human door before proposing again. Keep the normal
+verification failure exit; never introduce a production verification route.

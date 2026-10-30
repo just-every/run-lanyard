@@ -1,7 +1,7 @@
 # Company agent door
 
 Lanyard serves one shared `/mcp` door using Base's agent-door runtime at
-`2135c394939f4a737adabdc8003b0e667b31ac5a` and the released rer 0.2.91 CLI.
+`e881e6f66ce7cd737d17dbeb945995aab83c30d8` and the released rer 0.2.94 CLI.
 It supports MCP 2026-07-28 and 2025-11-25. Discovery and canonical OAuth resource
 metadata describe the same registry. Company policy, Pause, named approvals,
 reviews and audit are at `/agents`; an agent credential cannot decide for a person.
@@ -130,50 +130,37 @@ Under the same `comparison.read` grant and named cafe limit, use `GET /api/lanya
 
 Use `GET /api/lanyard/agent/learning/proposals?site=CAFE&weeks=8` to inspect comparable days, excluded/unknown outcomes, the holdout comparison and the evidence digest. Then send `learn.propose` with `site`, `weeks` and that exact `digest` to the agent command endpoint. Changed evidence or assumptions require a fresh read. Recording a proposal never changes an assumption. Its audit identifies the key and role, with the measured reason retained on the proposal. Only a native owner or that cafe's manager approves, declines or reverts; even a scoped key cannot save or override a forecast or decide a proposal. Every scoped read is audited and the live grant is rechecked when recording a proposal.
 
-## Verification limits at the current Base pin
+## Verification at the current Base pin
 
-Normal `rer verify` runs the production build and the declared journey. The
-native journey proves distinct time intervals under autonomous and review
-policies, overlapping-time refusal without an effect, and insufficient learning
-history remaining unknown without a proposal. It also proves native identity,
-exact-summary named approval, replay, conflicts, stale revisions and Pause.
+Normal `rer verify` runs the production build and declared CORE journey. The
+measured result on released rer 0.2.94 is **724/724 points**, with
+`CI=true SEED_VERIFY_SHARD=app pnpm exec rer verify --no-queue`. Both
+`BASE-AGENT-013.4.autonomous.proposal` and
+`BASE-AGENT-013.4.held.proposal` pass, as does the specialist native journey.
+The successful proposal paths add output and audit checks, so this is the
+measured dynamic count rather than the earlier 643/645 result.
 
-The 0.2.91 phase fixture supplies distinct native time intervals for successive
-policy rounds. Learning still requires a supported disposable history/clock
-lifecycle so saved forecasts genuinely precede completed service days. Native
-insufficient-history refusals remain intact; any conformance failures retain
-the normal nonzero exit and PARTIAL contract judgments. Multi-sponsor, mail
-edges, resource refresh, timed and queued lifecycles, dual-host operation and
-owner-native administration are unproved. No provider cost or spend is claimed.
+`verification.history` declares a contained, isolated test Worker and two narrow
+INSERT statements for native sales and forecast records. It creates 35 dated
+sales observations and seven pre-service forecasts, calculated and digested by
+Lanyard's native code. It never writes accounts, policy, approval, audit or
+protocol receipts and never advances the runtime clock. The autonomous and held
+rounds use the same retained history. Between them, the native owner declines
+the preceding open proposal through the production person command; the next
+proposal still follows the real learning, authority, policy and audit paths.
+Regenerate the Worker after changing native calculations with
+`node scripts/build-agent-history.mjs`.
 
-The measured conformance result is **643/645 points** using
-`CI=true SEED_VERIFY_SHARD=app pnpm exec rer verify --no-queue`. Every subset refusal check and the
-specialist native journey passes. The former refusal-review mismatch is fixed:
-a native refusal opens no review and retains its refused audit. Changed-email
-admission is refused with the original native binding unchanged.
+The separate native journey uses its own real installation with an explicit UTC
+venue timezone. `tests/agent-history.mjs` previews/imports observed sales, saves
+a current forecast and proves that saving a completed-day forecast returns HTTP
+400 without changing the native revision. Entered sales alone still yield zero
+comparable days and no proposal. Distinct time intervals succeed under both
+policies; overlaps remain refused. Identity, named exact-summary approval,
+attribution, one-effect replay, argument and revision conflicts, Pause and
+zero differs_from_policy all pass. Production backdating is unchanged.
 
-The only remaining points are `BASE-AGENT-013.4.autonomous.proposal` and
-`BASE-AGENT-013.4.held.proposal`, both returning `native_conflict` without enough
-pre-service forecast history. The 0.2.91 hooks expose disposable SELECT state
-and the current verifier time; they neither write native history nor advance
-the clock. The hosted database boundary refuses history writes with
-`hosted_database_invalid`. No production backdate route or test-only authority
-is added. This Base history gap retains the ordinary failed verification exit.
-
-The native `demand.save` command accepts today or a future service date and
-records its server time. Running that command now cannot establish a forecast
-before an already completed day. The required Base follow-up is an explicit
-conformance-only native-history capability at the hosted database boundary,
-protected against direct or trigger-mediated writes to agent-door state.
-A current-time reader alone cannot close these two proposal points. Keep the
-real proposal tool and its success requirements, and retain the normal failed
-verification exit until that lifecycle is available.
-
-The owner initializer exercises this distinction through `tests/agent-history.mjs`:
-it previews and imports 21 days of entered sales through the native HTTP door,
-reads a complete current forecast and saves its exact digest. Saving a forecast
-for a completed day must return HTTP 400 with the native revision unchanged.
-Learning must still report zero comparable days and no proposal. Entered sales
-are observations, not evidence that a forecast existed before service. This
-fixture supplies the state the production lifecycle permits while preserving
-that distinction in both conformance policy rounds.
+Events, resources, prompts and subscriptions remain undeclared and typed-refused.
+Multi-sponsor, mail edges, resource refresh, timed/queued lifecycles, dual host
+and owner-native administration remain unproved; shared clauses stay PARTIAL.
+No provider cost, enforceable spend cap or broader AGENT-001 authority is claimed.

@@ -168,6 +168,22 @@
     "journey": "tests/agent-native.mjs",
     "fixtures": {
       "module": "tests/agent-phase-fixtures.mjs"
+    },
+    "history": {
+      "module": "tests/agent-learning-history.mjs",
+      "steps": [
+        "learning"
+      ],
+      "statements": {
+        "sale": {
+          "binding": "DB",
+          "sql": "INSERT INTO l_records(kind,id,revision,data) VALUES ('sales',?,1,?)"
+        },
+        "forecast": {
+          "binding": "DB",
+          "sql": "INSERT INTO l_records(kind,id,revision,data) VALUES ('demandforecasts',?,1,?)"
+        }
+      }
     }
   },
   "journey": [

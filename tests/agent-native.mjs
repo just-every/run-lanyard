@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict'
 import {randomUUID,webcrypto} from 'node:crypto'
 import {harness} from './harness.mjs'
+import initializeHistory from './agent-history.mjs'
 import {signJws,policyEnvelope,autonomousPolicy} from '../src/modules/agent-door/conformance/crypto.mjs'
 
 export default async function ({tool}) {
@@ -85,6 +86,8 @@ export async function identityProof() {
   assert.equal(second.value.result.isError,false,'a distinct native interval succeeds under review policy')
   assert.equal((await h.state()).timesheets.filter(t=>t.staffId===worker.id).length,2)
   await h.cmd('agent.create',{label:'Company learning reader',scopes:['comparison.read'],cafes:['Ocean Beach'],comparisonConsent:true,companyAgents:true})
+  await h.cmd('settings.save',{timezone:'UTC'})
+  await initializeHistory({request:(url,options)=>h.mf.dispatchFetch(url,options),origin:h.origin,cookie:h.owner})
   const evidence=await call({scope:'comparison.read'},'lanyard.learn.read',{site:'Ocean Beach',weeks:2})
   assert.equal(evidence.value.result.isError,false)
   const learning=evidence.value.result.structuredContent
