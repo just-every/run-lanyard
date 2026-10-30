@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "a55a97a7f54c235f086e75ef35f7cd81fe59ee855deae6ef20e6122996866217",
+      "sha256": "2e1f22561b3956d1574f11c0dfc24790d9516f127375722abab6337c6fbef892",
       "executable": false
     },
     "AGENTS.md": {
@@ -374,7 +374,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "90247e63b735cab1a9562c5fca8c0589e7d42eae59091e53e9741cca1ff569d1",
+      "sha256": "82b4a1b51577db5c4906767b0fc961918cf9a495289e6d219847c766823e0503",
       "executable": false
     },
     "DEMO.md": {
@@ -442,7 +442,7 @@
       "executable": false
     },
     "docs/SCHEDULE.md": {
-      "sha256": "3bc79f408da86551fcdfbfbfcddaa892ebc3a7b42599e3cd373ab1f2f14b70b6",
+      "sha256": "427528bc92713feb47dd64861f63b01d6554a55d5a7be916cf4e635c2b5c8c40",
       "executable": false
     },
     "docs/SOURCES.md": {
@@ -1286,7 +1286,7 @@
       "executable": false
     },
     "src/lanyard/calendar.ts": {
-      "sha256": "686e50c51b2e9719af553656aed2d481bd834af3c6a059c74ff11bae48c5cd74",
+      "sha256": "164e82a340cf798532dc6c0147be106010c42601d844568aba961b0bd85dbb2d",
       "executable": false
     },
     "src/lanyard/clockbrowsers.ts": {
@@ -1838,7 +1838,7 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "8e26e8f5bfe0e56f7e870c8018ec919a49f9f5370b5e105951af4ab279fb8003",
+      "sha256": "9af5c413fbedbd100993c96d30cd0feee969ef78d0618879f41692b647142f7d",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
@@ -4086,7 +4086,7 @@
       "executable": false
     },
     "tests/archive.test.mjs": {
-      "sha256": "ee59ef50c15e2e5a605581d502ca71ebc1e3e71007ad1b2b4f08765e7baafd82",
+      "sha256": "35eec37e5969c956d7a852da447a03543d3fb9bb609777ad388cfc45da7fa41f",
       "executable": false
     },
     "tests/audit-report-journey.mjs": {
@@ -4114,7 +4114,7 @@
       "executable": false
     },
     "tests/calendar-journey.mjs": {
-      "sha256": "9fe00b1db14c70164c50bf72f6152516d6ca33bab948b596d60de32810a37334",
+      "sha256": "c7c2bc59b827d2c87bb3f8a3f78114a4562609aa973161487ad7284db13f7702",
       "executable": false
     },
     "tests/chat-membership-journey.mjs": {

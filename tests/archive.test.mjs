@@ -134,13 +134,14 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.deepEqual(scopedAudit.value.rows.map(r=>r.sourceId).sort(),[kioskOut.value.result.timesheet.id,nativeOut.timesheet.id].sort())
     const quarterPackets=await auditLargeQuarter(h)
     const originalChat=(await h.send('/api/lanyard/chat',undefined,h.owner)).value,originalAccess=(await h.send('/api/lanyard/access',undefined,h.owner)).value
+    const calendarDigest=(await h.db.prepare('SELECT token_hash FROM l_calendar_feeds WHERE staff_id=?').bind(alex.id).first()).token_hash
     const calendarBefore=await h.send(calendarPath);assert.equal(calendarBefore.status,200);assert.ok(calendarBefore.text.includes('BEGIN:VEVENT'))
     const journal=await h.cmd('import.journal',{jobId:imported.job.id}),original=await h.state()
     const identity={auth:h.auth,owner:h.owner}
     await h.close();h=null
     const old=join(temporary,'before.rer'),later=join(temporary,'later.rer'),again=join(temporary,'again.rer')
     await command(source,['export','--output',old,'--no-queue'])
-    const bytes=await readFile(old,'utf8');assert.ok(!bytes.includes('l_calendar_feeds'));assert.ok(!bytes.includes(calendarPath.split('/').at(-1).replace('.ics','')));assert.ok(bytes.includes('Temporary joiner'));assert.ok(!bytes.includes('Excluded secret'));assert.ok(!bytes.includes('token_hash'));assert.ok(!bytes.includes('scopes_json'));assert.ok(!bytes.includes('comparison.read'));for(const table of ['l_kiosk_devices','l_kiosk_pins','l_kiosk_sessions','l_kiosk_attempts'])assert.equal(bytes.split('\n').filter(Boolean).map(JSON.parse).filter(p=>p.kind==='part').flatMap(p=>p.items).some(i=>i.kind==='row'&&i.table===table),false,table)
+    const bytes=await readFile(old,'utf8');assert.ok(!bytes.includes(calendarPath.split('/').at(-1).replace('.ics','')));assert.ok(!bytes.includes(calendarDigest));assert.ok(bytes.includes('Temporary joiner'));assert.ok(!bytes.includes('Excluded secret'));assert.ok(!bytes.includes('token_hash'));assert.ok(!bytes.includes('scopes_json'));assert.ok(!bytes.includes('comparison.read'));for(const table of ['l_calendar_feeds','l_kiosk_devices','l_kiosk_pins','l_kiosk_sessions','l_kiosk_attempts'])assert.equal(bytes.split('\n').filter(Boolean).map(JSON.parse).filter(p=>p.kind==='part').flatMap(p=>p.items).some(i=>i.kind==='row'&&i.table===table),false,table)
     await command(restored,['import','--input',old,'--yes','--no-queue'])
     await command(restored,['export','--output',again,'--no-queue'])
     const rows=text=>text.split('\n').filter(Boolean).map(JSON.parse).filter(r=>r.kind==='part')
