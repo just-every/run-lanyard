@@ -1,9 +1,9 @@
-import {html,t as tr} from '../localization'
-import {h,rows,card,person,manager,form,exact,field,moment} from './shared'
+import {captureName,staffError,html,t as tr} from '../localization'
+import {h,rows,card,person,manager,form,exact,field,moment,status} from './shared'
 // Original capture facts stay alongside the review; resolution never silently applies time.
 export function offlineCard(s:any,tz:string,back:string) {
  const issues=rows(s,'clockissues');if(!issues.length)return ''
- return card(tr(s,'Offline capture review'),html(s)`<p class="note">Device-reported captures below did not become time. Review the original facts and record missing or corrected time separately before resolving.</p><ul class="swap-list">${issues.map(r=>html(s)`<li><strong>${h(person(s,r.staffId))}</strong> · ${h(r.capture.name)} · captured ${moment(r.capture.input.capturedAt,tz,s)} · received ${moment(r.receivedAt,tz,s)}<p>${h(r.error)} · ${h(r.status)}</p><details><summary>Original capture</summary><pre>${h(JSON.stringify(r.capture,null,2))}</pre></details>${r.resolution?html(s)`<p>Resolved: ${h(r.resolution.reason)}</p>`:manager(s)&&r.staffId!==s.actor.staffId?form('clockissue.resolve',back,exact(r)+field('reason',tr(s,'Resolution'),'','text','required maxlength="500"'),tr(s,'Resolve capture'),'','secondary'):''}</li>`).join('')}</ul>`,'','offline-review')
+ return card(tr(s,'Offline capture review'),html(s)`<p class="note">Device-reported captures below did not become time. Review the original facts and record missing or corrected time separately before resolving.</p><ul class="swap-list">${issues.map(r=>html(s)`<li><strong>${h(person(s,r.staffId))}</strong> · ${h(captureName(s,r.capture.name))} · captured ${moment(r.capture.input.capturedAt,tz,s)} · received ${moment(r.receivedAt,tz,s)}<p>${h(staffError(s,r.error))} · ${status(r.status,r.status==='unresolved'?tr(s,'unresolved'):tr(s,'resolved'))}</p><details><summary>Original capture</summary><pre>${h(JSON.stringify({capture:r.capture,error:r.error},null,2))}</pre></details>${r.resolution?html(s)`<p>Resolved: ${h(r.resolution.reason)}</p>`:manager(s)&&r.staffId!==s.actor.staffId?form('clockissue.resolve',back,exact(r)+field('reason',tr(s,'Resolution'),'','text','required maxlength="500"'),tr(s,'Resolve capture'),'','secondary'):''}</li>`).join('')}</ul>`,'','offline-review')
 }
 
 export function captureReceipts(s:any,clock:any,tz:string) {
