@@ -22,7 +22,7 @@ export function demandOutcome(s:State,site:string,date:string,asOf:string) {
  }).filter((x:any)=>x.forecastCents!==null||x.actualCents!==null||x.overridden)
  const seen=hours.filter((x:any)=>x.errorCents!==null),staffed=hours.filter((x:any)=>x.requiredMinutes!==null),sum=(list:any[],k:string)=>list.reduce((n,x)=>n+x[k],0)
  const overrides=seen.filter((x:any)=>x.overridden&&x.computedCents!==null).map((x:any)=>({hour:x.hour,computedErrorCents:x.actualCents-x.computedCents,overrideErrorCents:x.errorCents}))
- return {status:seen.length&&seen.length===hours.filter((x:any)=>x.forecastCents!==null).length?'compared':'partial',reasons:[],version:version.version,versionId:version.id,savedAt:version.savedAt,forecastStatus:version.status,hours,
+ return {status:seen.length&&seen.length===hours.filter((x:any)=>x.forecastCents!==null).length?'compared':'partial',reasons:[],version:version.version,versionId:version.id,savedAt:version.savedAt,forecastStatus:version.status,seasonality:version.assumptions.seasonality??null,hours,
   summary:{observedHours:seen.length,unknownHours:hours.length-seen.length,meanAbsoluteErrorCents:seen.length?Math.round(sum(seen,'absoluteErrorCents')/seen.length):null,signedErrorCents:seen.length?sum(seen,'errorCents'):null,errorSign:'actual minus forecast',
    staffing:{hours:staffed.length,requiredMinutes:sum(staffed,'requiredMinutes'),scheduledMinutes:Math.round(sum(staffed,'scheduledMinutes')),actualMinutes:Math.round(sum(staffed,'actualMinutes'))},overrides}}
 }

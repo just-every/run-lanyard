@@ -111,3 +111,5 @@ main[data-page="settings"] pre{white-space:pre-wrap;overflow-wrap:anywhere;max-w
 main[data-page="settings"] fieldset{min-inline-size:0}
 /* Demand generation retains readable labels in the phone coverage tables. */
 #demand-generation td[data-label]::before{font-size:13px}
+
+main[data-page="demand"] table.list.stack td[data-label]::before{font-size:13px}
