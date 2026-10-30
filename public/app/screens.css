@@ -40,6 +40,7 @@ html.rer-themed .lanyard-app dl.command-docs{display:block}
  .batch-side{border-left:0;border-top:1px solid var(--rule);padding:16px 0 0}
 }
 @media(max-width:760px){
+ table.list.earnings th{display:block;width:100%;white-space:normal;overflow-wrap:anywhere}
  .clock{grid-template-columns:1fr}
  html.rer-themed .lanyard-app .clock form{display:grid}
  .fields{grid-template-columns:1fr}
