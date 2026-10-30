@@ -2112,3 +2112,6 @@ test('CAL-001: private calendar lifecycle preserves published event identities, 
 test('CAL-001: employee calendar Settings issue, replace, stale refusal and revoke through the browser',async()=>{const {calendarBrowser}=await import('./calendar-journey.mjs');await calendarBrowser()})
 test('LANG-001: native staff assignment changes and encrypted clock replay use each employee language without translating authored facts',async()=>{const {languageJourney}=await import('./language-journey.mjs');await languageJourney()})
 test('LANG-001: the inventoried staff journey refuses a build with untranslated first-party text',async()=>{const {untranslatedBuildRefusal}=await import('./language-journey.mjs');await untranslatedBuildRefusal()})
+
+test('TIPS-001: exact-source pool approvals reconcile retained declarations, earnings, reports and once-only mapped corrections',async()=>{const {reportsPoolApi}=await import('./report-pool-journey.mjs');await reportsPoolApi()})
+test('TIPS-001: owner prepares reviews approves and corrects pools through Payroll controls with stale recovery and private restart history',async()=>{const {tipPoolsBrowser}=await import('./report-pool-journey.mjs');await tipPoolsBrowser()})
