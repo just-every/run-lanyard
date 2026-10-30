@@ -332,7 +332,15 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     const status = Number((error as any)?.status) || 500
     const message = status < 500 ? (error as Error).message : 'Could not save this change. Refresh and try again.'
     if (path === '/app/action' && who && !auditOnly) {
-      const page=await renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message, ...((policyInput||workerInput)?{result:{policyInput,workerInput}}:{}) })
+      let demandResult
+      if([400,409].includes(status)&&/^(demand|learn)/.test(url.searchParams.get('name')??'')&&['owner','manager'].includes(who.role)&&!await customMode(env,who)&&new URL(back,url.origin).pathname==='/app/demand'){
+        const q=new URL(back,url.origin).searchParams
+        try{
+          const demand=await demandRead(env.DB,who,q.get('site')??'',q.get('date')??'')
+          demandResult={demand,learning:await learnProposalRead(env.DB,who,demand.site,8)}
+        }catch{/* A refused current read keeps the original error without forecast data. */}
+      }
+      const page=await renderApp(await state(request,env,who,back.startsWith('/app/chat')), back, { error: message, ...((demandResult||policyInput||workerInput)?{result:demandResult??{policyInput,workerInput}}:{}) })
       return url.searchParams.get('name')?.startsWith('report.')?new Response(page.body,{status,headers:page.headers}):page
     }
     if (pages.has(path) && status === 401) return new Response(null, { status: 303, headers: { ...headers, location: '/signin?returnTo=' + encodeURIComponent(path) } })
