@@ -1,3 +1,4 @@
+import {html,t as tr} from '../localization'
 import {h,rows,owner,card,disclosure,form,field,exact} from './shared'
 import {money,span} from './format'
 export function differentialsCard(s:any){
@@ -7,4 +8,4 @@ export function differentialsCard(s:any){
  return card('Shift differentials',`<p class="note">Additional pay within approved job/area minutes. Venue time, inclusive effective dates and start, exclusive end. Split overnight windows into two rules. Multipliers act after earlier additions. Equal order uses rule ID. Payroll must confirm regular-rate and overtime treatment; these lines do not certify it.</p>${rows(s,'differentials').map(r=>disclosure(`${r.name} · ${r.from} · ${r.mode==='added'?money(r.value)+'/hour':r.value+'×'} · ${r.code}`,editor(r))).join('')}${disclosure('Add a differential',editor())}`,'','differentials')
 }
 
-export function differentialNote(r:any,tz:string){return (r.differentialBasis??[]).filter((p:any)=>p.additions?.some((a:any)=>a.code)).map((p:any)=>`<small>${h(p.area||'Whole shift')} · ${h(span(p.start,p.end,tz))} · ${h(p.minutes)} payable min · ${p.additions.map((a:any)=>`${h(a.code)} ${h(money(a.costCents))}`).join(' + ')}</small>`).join('')}
+export function differentialNote(s:any,r:any,tz:string){return (r.differentialBasis??[]).filter((p:any)=>p.additions?.some((a:any)=>a.code)).map((p:any)=>html(s)`<small>${h(p.area||tr(s,'Whole shift'))} · ${h(span(p.start,p.end,tz))} · ${h(p.minutes)} payable min · ${p.additions.map((a:any)=>`${h(a.code)} ${h(money(a.costCents))}`).join(' + ')}</small>`).join('')}

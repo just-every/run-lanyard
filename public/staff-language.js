@@ -19,15 +19,23 @@
       const translated = translate(catalog, language, source, params)
       return text.slice(0, text.indexOf(trimmed)) + translated + text.slice(text.indexOf(trimmed) + trimmed.length)
     }
-    const result = skeleton.replace(/<[^>]*>|[^<]+/g, part => part.startsWith('<') ? part.replace(/(aria-label|data-tooltip|data-label|placeholder|title|alt)="([^"]*)"/g, (_, name, text) => name + '="' + phrase(text) + '"') : phrase(part))
+    const result = skeleton.replace(/<[^>]*>|[^<]+/g, part => part.startsWith('<') ? part.replace(/(aria-label|data-tooltip|data-label|placeholder|title|alt)="([^"]*)"/g, (_, name, text) => name + '="' + phrase(text).replace(/"/g,'&quot;') + '"') : phrase(part))
     return result.replace(/\u0001(\d+)\u0002/g, (_, index) => String(values[Number(index)] ?? ''))
   }
   globalThis.LanyardI18n = {translate, template}
   if (typeof document !== 'undefined') {
     const node = document.querySelector('#staff-catalog')
     if (!node) throw new Error('Staff language catalog is unavailable')
-    const catalog = JSON.parse(node.textContent)
+    const catalog = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(JSON.parse(node.textContent)),character=>character.charCodeAt(0))))
     const language = () => document.documentElement.lang.startsWith('es') ? 'es' : 'en'
+    document.addEventListener('invalid', event => {
+      const field=event.target
+      if(language()!=='es'||field.validity.customError)return
+      const source=field.validity.valueMissing?'Complete this field.':field.validity.typeMismatch||field.validity.patternMismatch?'Enter a valid value.':'Review this number.'
+      field.setCustomValidity(translate(catalog,language(),source));field.dataset.staffValidity='true'
+    },true)
+    const clearValidity=event=>{const field=event.target;if(field.dataset?.staffValidity){field.setCustomValidity('');delete field.dataset.staffValidity}}
+    document.addEventListener('input',clearValidity);document.addEventListener('change',clearValidity)
     globalThis.LanyardStaff = {
       t: (source, values) => translate(catalog, language(), source, values),
       text: (strings, ...values) => template(catalog, language(), strings, values),

@@ -1,4 +1,4 @@
-import {html,t} from '../localization'
+import {html,t as tr} from '../localization'
 // BREAK-002 screens: the owner's meal deduction per cafe (on People), the question the
 // phone clock asks at clock-out, and what each timesheet recorded about the deduction.
 import {h,rows,form,field,hidden,card,disclosure,empty,staffOf} from './shared'
