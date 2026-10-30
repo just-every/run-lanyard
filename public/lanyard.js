@@ -1,10 +1,11 @@
 /* Form conveniences. Application authorization stays on the server. */
 (() => {
+  const t=(source,values)=>window.LanyardStaff.t(source,values),text=(strings,...values)=>window.LanyardStaff.text(strings,...values),errorText=source=>window.LanyardStaff.error(source)
   document.querySelector('[data-signout]')?.addEventListener('click', async event => {
     const button = event.currentTarget; button.disabled = true
     try {
       await window.LanyardClock.signOut(button)
-    } catch { button.disabled = false; button.textContent = 'Retry sign out' }
+    } catch { button.disabled = false; button.textContent = t('Retry sign out') }
   })
   // Shared icon-control tooltip: delayed pointer hover, immediate keyboard focus.
   const tooltip = document.createElement('span')
@@ -41,10 +42,10 @@
   }
   function localToUTC(value) {
     const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::(\d{2})(\.\d{1,3})?)?$/.exec(value)
-    if (!match) throw new Error('Enter a complete local date and time.')
+    if (!match) throw new Error(t('Enter a complete local date and time.'))
     const wall = `${match[1]}:${match[2] || '00'}`
     const naive = Date.parse(`${wall}${match[3] || ''}Z`)
-    if (!Number.isFinite(naive) || new Date(naive).toISOString().slice(0,19) !== wall) throw new Error('Enter a valid date and time.')
+    if (!Number.isFinite(naive) || new Date(naive).toISOString().slice(0,19) !== wall) throw new Error(t('Enter a valid date and time.'))
     // Discover both offsets surrounding a transition instead of guessing the device offset.
     // A venue wall time is valid only when exactly one resulting instant formats back to it.
     const offsets = new Set()
@@ -54,8 +55,8 @@
       offsets.add(Date.parse(`${wallAt(sample)}Z`) - sample)
     }
     const candidates = [...offsets].map(offset => naive - offset).filter(candidate => wallAt(candidate) === wall)
-    if (!candidates.length) throw new Error(`This time does not exist in ${timezone} because the clocks move forward. Choose a valid time outside the daylight-saving transition.`)
-    if (candidates.length !== 1) throw new Error(`This time occurs twice in ${timezone} because the clocks move back. Choose an unambiguous boundary outside the daylight-saving transition.`)
+    if (!candidates.length) throw new Error(text`This time does not exist in ${timezone} because the clocks move forward. Choose a valid time outside the daylight-saving transition.`)
+    if (candidates.length !== 1) throw new Error(text`This time occurs twice in ${timezone} because the clocks move back. Choose an unambiguous boundary outside the daylight-saving transition.`)
     return new Date(candidates[0]).toISOString()
   }
   const toAPI = input => input.dataset.utc && input.value === input.dataset.initialLocal ? new Date(input.dataset.utc).toISOString() : localToUTC(input.value)
@@ -131,7 +132,7 @@
     write()
     payroll.addEventListener('submit', event => {
       write()
-      if (!boxes.some(box => box.checked)) { boxes[0].setCustomValidity('Choose at least one row to include.'); boxes[0].reportValidity(); event.preventDefault() }
+      if (!boxes.some(box => box.checked)) { boxes[0].setCustomValidity(t('Choose at least one row to include.')); boxes[0].reportValidity(); event.preventDefault() }
     })
   }
   const clock = document.querySelector('[data-clock]')
