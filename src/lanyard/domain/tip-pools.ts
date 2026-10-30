@@ -9,6 +9,15 @@ export const approvedTipPools=(s:State)=>s.tippools.filter(p=>p.status==='approv
 const poolSources=(s:State,p:Record<string,any>)=>s.timesheets.filter(t=>t.status==='approved'&&p.participants.includes(t.staffId)).flatMap(t=>tipPieces(s,t).filter(x=>x.date===p.date&&x.site===p.site&&p.jobs.includes(x.job)&&x.minutes>0).map(x=>({timeId:t.id,revision:t.revision,staffId:t.staffId,job:x.job,minutes:x.minutes}))).sort((a,b)=>canonical(a).localeCompare(canonical(b)))
 // Compare the complete eligible work set: additions change the denominator too.
 export const tipPoolCurrent=(s:State,p:Row)=>canonical(poolSources(s,p))===canonical(p.sources)
+// Owner-only screen projection uses the same retained work pieces as approval.
+export function tipPoolReviewSources(s:State) {
+ const work=s.timesheets.filter(t=>t.status==='approved').flatMap(t=>tipPieces(s,t).map(x=>({...x,timeId:t.id,revision:t.revision,staffId:t.staffId})))
+ const declarations=s.timesheets.filter(t=>t.rootId===t.id).flatMap(t=>{
+  const answers=(t.answers??[]).filter((a:any)=>a.kind==='tips'&&typeof a.value==='number')
+  return answers.length?[{timeId:t.id,revision:t.revision,staffId:t.staffId,cents:answers.reduce((n:number,a:any)=>n+a.value,0),work:work.filter(x=>s.timesheets.find(v=>v.id===x.timeId)?.rootId===t.id)}]:[]
+ })
+ return {work,declarations,current:Object.fromEntries(s.tippools.map(p=>[p.id,tipPoolCurrent(s,p)]))}
+}
 export const pooledDeclarations=(s:State)=>new Set(approvedTipPools(s).flatMap(p=>p.declarations.map((d:any)=>d.timeId)))
 const unique=(value:unknown,label:string)=>{
  need(Array.isArray(value)&&value.length>0&&value.length<=100,`Choose 1–100 ${label}`)

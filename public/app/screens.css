@@ -114,3 +114,9 @@ main[data-page="settings"] fieldset{min-inline-size:0}
 #demand-generation td[data-label]::before{font-size:13px}
 
 main[data-page="demand"] table.list.stack td[data-label]::before{font-size:13px}
+
+/* Pool identifiers and source digests remain readable at phone widths. */
+#tip-pools fieldset{min-inline-size:0;margin:16px 0}
+#tip-pools p,#tip-pools td,#tip-pools a{overflow-wrap:anywhere}
+#tip-pools article{margin:20px 0}
+#tip-pools .tip-digest{font-size:13px}

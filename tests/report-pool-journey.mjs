@@ -273,3 +273,157 @@ async function poolPayrollReview(){
   assert.equal(next.lines.reduce((n,l)=>n+l.minutes,0),60);await h.cmd('payroll.export',pin(next))
  }finally{await h.close()}
 }
+
+// Real controls create the review and separately approve its pinned revision.
+export async function tipPoolsBrowser(){
+ const {chromium}=await import('@playwright/test')
+ const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
+ const h=await harness({now:'2026-10-26T12:00:00Z'})
+ let context
+ try{
+  const f=await poolFixture(h),{people,day,job}=f
+  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+  context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse('2026-10-26T12:00:00Z'))}})
+  const {readFile,mkdir}=await import('node:fs/promises'),{join}=await import('node:path'),{iconTooltips}=await import('./browser-controls.mjs')
+  await context.route('**/*',async route=>{
+   const p=new URL(route.request().url()).pathname
+   if(p.startsWith('/fonts/')||p.startsWith('/brand/')||/\.(css|js)$/.test(p))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',p.slice(1))),contentType:p.endsWith('.css')?'text/css':p.endsWith('.js')?'application/javascript':p.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}
+   await route.continue()
+  })
+  const signIn=async cookie=>{const [name,...value]=cookie.split('=');await context.clearCookies();await context.addCookies([{name,value:value.join('='),url:h.origin}])}
+  await signIn(h.owner)
+  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message))
+  const panel=page.locator('#tip-pools'),editor=panel.locator('[data-tip-prepare]'),review=panel.locator('[data-tip-review]')
+  const records=async()=>JSON.stringify((await h.db.prepare('SELECT kind,id,revision,data FROM l_records ORDER BY kind,id').all()).results)
+  const timeRecords=async()=>JSON.stringify((await h.db.prepare("SELECT kind,id,revision,data FROM l_records WHERE kind IN ('timesheets','clocks') ORDER BY kind,id").all()).results)
+  const poolUrl=h.origin+'/app/payroll?'+new URLSearchParams({tipSite:'East',tipDate:day})+'#tip-pools'
+  const proof=async label=>{
+   await iconTooltips(page)
+   for(const width of [1440,390]){
+    await page.setViewportSize({width,height:1000})
+    if(process.env.REPORT_SCREENS){await mkdir(process.env.REPORT_SCREENS,{recursive:true});await panel.screenshot({path:join(process.env.REPORT_SCREENS,label+'-'+width+'.png')})}
+   }
+   await page.setViewportSize({width:1440,height:1000})
+  }
+  const submit=async(form,name)=>{
+   await Promise.all([page.waitForNavigation({waitUntil:'networkidle'}),form.getByRole('button',{name,exact:true}).click()])
+  }
+  const prepare=()=>submit(editor,'Prepare pool review')
+  const approve=async()=>{await review.getByRole('checkbox').check();await submit(review,'Approve reviewed pool')}
+  await page.goto(poolUrl,{waitUntil:'networkidle'})
+  assert.equal(await editor.locator('[name=participants]').count(),3,'Owner and manager roles never enter the eligible selection')
+  await editor.locator('[name=jobs][value="'+job.id+'"]').check()
+  for(const p of people)await editor.locator('[name=participants][value="'+p.id+'"]').check()
+  await editor.locator('[name=declarationIds][value="'+f.times[0].id+'"]').check()
+  await editor.getByLabel('Source reference',{exact:true}).fill(f.input.inputs[0].reference)
+  await editor.getByLabel('Amount (USD cents)',{exact:true}).fill('700')
+  await editor.getByLabel('Eligibility and source review reason').fill(f.input.reason)
+  const unchanged=await timeRecords()
+  // A failed money write must leave all entered selections and amounts available.
+  await context.route('**/api/lanyard/command',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Synthetic unavailable command'})}),{times:1})
+  const beforeFailure=await records()
+  await editor.getByRole('button',{name:'Prepare pool review',exact:true}).click()
+  await editor.locator('[data-tip-status]').filter({hasText:'Synthetic unavailable command'}).waitFor()
+  assert.equal(await editor.getByLabel('Amount (USD cents)',{exact:true}).inputValue(),'700')
+  assert.equal(await editor.locator('[name=participants]:checked').count(),3)
+  assert.equal(await records(),beforeFailure)
+  await prepare()
+  let state=await h.state(),draft=state.tippools.find(p=>p.status==='draft')
+  assert.equal(draft.totalMinutes,360);assert.equal(draft.declarations[0].cents,301);assert.equal(draft.inputs[0].cents,700)
+  assert.equal(state.payinputs.length,0,'Preparing a draft creates no approved money')
+  const checkShares=async(values,minutes,total)=>{
+   assert.match(await review.locator('[data-tip-total]').innerText(),new RegExp('\\$'+total.replace('.','\\.')+'.*'+minutes+' approved minutes'))
+   for(const [i,cents] of values.entries()){
+    const row=review.locator('[data-tip-allocation="'+people[i].id+'"]')
+    assert.equal(await row.locator('[data-label=Allocation]').innerText(),'$'+(cents/100).toFixed(2))
+   }
+  }
+  await checkShares([167,334,500],360,'10.01')
+  await review.getByText('Inputs and source revisions',{exact:true}).click()
+  for(const t of f.times)assert.ok((await review.innerText()).includes(t.id+' · revision '+t.revision))
+  assert.ok((await review.innerText()).includes('Whole declaration'))
+  await proof('tip-pool-draft')
+  await page.reload({waitUntil:'networkidle'});await h.restart();await page.reload({waitUntil:'networkidle'})
+  assert.equal(new URL(page.url()).searchParams.get('tipReview'),draft.id)
+  await checkShares([167,334,500],360,'10.01')
+  await approve()
+  state=await h.state();const approved=state.tippools.find(p=>p.id===draft.id)
+  assert.equal(approved.status,'approved')
+  assert.deepEqual(people.map(p=>state.payinputs.find(v=>v.staffId===p.id).amountCents),[167,334,500])
+  assert.equal(await timeRecords(),unchanged,'Tip administration never rewrites worked time')
+  await proof('tip-pool-approved')
+  // Exact original exported bytes survive a later correction.
+  const template=await h.cmd('payroll.template.save',{approved:true,name:'Reviewed tips',header:true,columns:[{field:'employee',header:'Employee'},{field:'code',header:'Earning'},{field:'amount',header:'USD'}],groupBy:[],employees:Object.fromEntries([...people,f.foreign].map((p,i)=>[p.id,{id:'synthetic-lanyard-'+(150+i),workflow:'W-2'}])),codes:{regular:'REG',tips:'TIP'},jobs:{[job.id]:'SERVICE'},locations:{East:'EAST',West:'WEST'}})
+  const batch=await h.cmd('payroll.prepare',{templateId:template.id});await h.cmd('payroll.export',pin(batch))
+  const original=(await h.send('/api/lanyard/batches/'+batch.id+'.csv',undefined,h.owner)).text
+  await page.goto(poolUrl,{waitUntil:'networkidle'})
+  await editor.locator('[name=jobs][value="'+job.id+'"]').check()
+  for(const p of people)await editor.locator('[name=participants][value="'+p.id+'"]').check()
+  await editor.locator('[name=declarationIds][value="'+f.times[0].id+'"]').check()
+  await editor.getByLabel('Source reference',{exact:true}).fill(f.input.inputs[0].reference)
+  await editor.getByLabel('Amount (USD cents)',{exact:true}).fill('700')
+  await editor.getByLabel('Eligibility and source review reason').fill('Duplicate sources must be refused')
+  const beforeDuplicate=await records()
+  await editor.getByRole('button',{name:'Prepare pool review',exact:true}).click()
+  await editor.locator('[data-tip-status]').filter({hasText:'already belongs to an approved pool'}).waitFor()
+  assert.equal(await editor.getByLabel('Amount (USD cents)',{exact:true}).inputValue(),'700');assert.equal(await records(),beforeDuplicate)
+  await panel.getByRole('link',{name:'Prepare correction',exact:true}).click();await page.waitForLoadState('networkidle')
+  assert.equal(await editor.getByLabel('Amount (USD cents)',{exact:true}).inputValue(),'700')
+  await editor.getByLabel('Amount (USD cents)',{exact:true}).fill('999')
+  await editor.getByLabel('Eligibility and source review reason').fill('Corrected employer cash total')
+  await prepare()
+  state=await h.state();const stale=state.tippools.find(p=>p.status==='draft')
+  assert.equal(stale.corrects,approved.id)
+  const extra=await h.cmd('time.prepare',{staffId:people[2].id,site:'East',job:job.id,start:day+'T12:00:00Z',end:day+'T13:00:00Z',breakMinutes:0,reason:'Additional reviewed work'})
+  await h.cmd('time.approve',pin(extra))
+  const beforeStale=await records(),currentTime=await timeRecords()
+  await review.getByRole('checkbox').check()
+  await review.getByRole('button',{name:'Approve reviewed pool',exact:true}).click()
+  await review.locator('[data-tip-status]').filter({hasText:'changed; prepare again'}).waitFor()
+  assert.equal(await records(),beforeStale,'Changed-source approval changes neither money nor source records')
+  assert.equal(await editor.getByLabel('Amount (USD cents)',{exact:true}).inputValue(),'999')
+  assert.equal(await editor.locator('[name=declarationIds]:checked').count(),1)
+  assert.equal(await editor.getByLabel('Eligibility and source review reason').inputValue(),'Corrected employer cash total')
+  await proof('tip-pool-stale-review')
+  await prepare()
+  await checkShares([186,371,743],420,'13.00')
+  await approve()
+  state=await h.state();const corrected=state.tippools.find(p=>p.status==='approved'&&p.corrects===approved.id)
+  assert.equal(await panel.locator('[data-tip-history]').count(),3)
+  assert.equal(state.tippools.find(p=>p.id===approved.id).totalCents,1001)
+  assert.equal(await timeRecords(),currentTime)
+  const delta=await h.cmd('payroll.prepare',{templateId:template.id})
+  assert.deepEqual(people.map(p=>delta.lines.find(l=>l.payInputId&&l.staffId===p.id).costCents),[19,37,243])
+  assert.equal(delta.lines.filter(l=>l.payInputId).reduce((n,l)=>n+l.costCents,0),299)
+  await h.cmd('payroll.export',pin(delta))
+  assert.equal((await h.send('/api/lanyard/batches/'+batch.id+'.csv',undefined,h.owner)).text,original)
+  const beforeRepeat=await records();await h.cmd('payroll.prepare',{templateId:template.id},h.owner,409);assert.equal(await records(),beforeRepeat,'Settled pool differences never export twice')
+  await h.restart();await page.reload({waitUntil:'networkidle'})
+  await checkShares([186,371,743],420,'13.00');await proof('tip-pool-correction')
+  assert.equal((await h.state()).tippools.find(p=>p.id===corrected.id).status,'approved')
+  for(const cookie of [f.manager.cookie,people[0].cookie]){
+   await signIn(cookie);await page.goto(poolUrl,{waitUntil:'networkidle'});await page.reload({waitUntil:'networkidle'})
+   assert.equal(await page.locator('#tip-pools').count(),0)
+   const scoped=(await h.send('/api/lanyard/state',undefined,cookie)).value
+   assert.equal(scoped.tipPoolSources,undefined);assert.deepEqual(scoped.tippools,[])
+   const before=await records()
+   await h.cmd('tip.pool.prepare',f.input,cookie,403);await h.cmd('tip.pool.approve',{...pin(stale),consent:true},cookie,403)
+   assert.equal(await records(),before)
+  }
+  await signIn(h.owner);await page.goto(poolUrl,{waitUntil:'networkidle'});await page.reload({waitUntil:'networkidle'})
+  assert.equal(await panel.count(),1,'Owner returns to the saved Payroll panel')
+  await editor.locator('[name=jobs][value="'+job.id+'"]').check()
+  for(const p of people)await editor.locator('[name=participants][value="'+p.id+'"]').check()
+  await editor.getByLabel('Source reference',{exact:true}).fill('synthetic-lanyard-199')
+  await editor.getByLabel('Amount (USD cents)',{exact:true}).fill('501')
+  await editor.getByLabel('Eligibility and source review reason').fill('Retain inputs after session revocation')
+  const signout=await h.send('/auth/signout',{},h.owner);assert.equal(signout.status,204)
+  const beforeRevoked=await records()
+  await editor.getByRole('button',{name:'Prepare pool review',exact:true}).click()
+  await editor.locator('[data-tip-status]').filter({hasText:'entered inputs are still here'}).waitFor()
+  assert.equal(await editor.getByLabel('Amount (USD cents)',{exact:true}).inputValue(),'501')
+  await h.cmd('tip.pool.approve',{...pin(stale),consent:true},h.owner,401)
+  assert.equal((await h.send('/api/lanyard/state',undefined,h.owner)).status,401)
+  assert.equal(await records(),beforeRevoked);assert.deepEqual(errors,[])
+ }finally{await context?.close();await h.close();await browser.close()}
+}

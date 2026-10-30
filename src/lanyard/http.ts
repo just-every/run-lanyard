@@ -1,4 +1,5 @@
 import {cutoffReports} from './domain/cutoff'
+import {tipPoolReviewSources} from './domain/tip-pools'
 import {demandGenerationRead} from './domain'
 import {partnerApi} from './partner-api'
 import {partnerKeys,partnerCredentialCommand} from './partner-credentials'
@@ -51,7 +52,8 @@ async function state(request:Request,env: Bindings, who: Actor, withChat=false) 
   const revokedKiosks=who.role==='owner'||who.role==='manager'?(await env.DB.prepare('SELECT id,site FROM l_kiosk_devices WHERE revoked_at IS NOT NULL OR locked=1').all<{id:string;site:string}>()).results.filter(d=>who.role==='owner'||d.site===(snap as any).staff.find((p:any)=>p.id===who.staffId)?.site).map(d=>d.id):[]
   const photoDevices=who.role==='agent'?[]:(await networkOf(request,env)).browsers.map(b=>({site:b.site,type:b.type}))
   const revokedSessions=await revokedKioskSessions(env,who,(snap as any).staff.find((p:any)=>p.id===who.staffId)?.site??'')
-  return { ...snap, reportDeliveryConfigured:who.role==='owner'&&env.MAIL_PROVIDER==='sendgrid'&&Boolean(env.MAIL_FROM&&env.MAIL_API_KEY), photoDevices,revokedKiosks,revokedKioskSessions:revokedSessions,kiosks:who.role==='owner'?(await env.DB.prepare('SELECT id,site,label,photo,locked,revoked_at FROM l_kiosk_devices').all()).results:[], ...(withChat?{chat:chatRead(await load(env.DB),who)}:{}), agentKeys: keys, partnerKeys:partners, clockBrowsers: browsers, importJobs: jobs ? jobs.results : [] }
+  const tipPoolSources=who.role==='owner'?tipPoolReviewSources(await load(env.DB)):undefined
+  return { ...snap, ...(tipPoolSources?{tipPoolSources}:{}), reportDeliveryConfigured:who.role==='owner'&&env.MAIL_PROVIDER==='sendgrid'&&Boolean(env.MAIL_FROM&&env.MAIL_API_KEY), photoDevices,revokedKiosks,revokedKioskSessions:revokedSessions,kiosks:who.role==='owner'?(await env.DB.prepare('SELECT id,site,label,photo,locked,revoked_at FROM l_kiosk_devices').all()).results:[], ...(withChat?{chat:chatRead(await load(env.DB),who)}:{}), agentKeys: keys, partnerKeys:partners, clockBrowsers: browsers, importJobs: jobs ? jobs.results : [] }
 }
 
 async function execute(request: Request, env: Bindings, who: Actor, name: string, input: Record<string, unknown>) {
