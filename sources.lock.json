@@ -2050,7 +2050,7 @@
       "executable": false
     },
     "src/lanyard/ui/index.ts": {
-      "sha256": "04637083642782f060db9662e7f13e77e44c129d7d57e55f69e9895833961667",
+      "sha256": "3ce65f0a6040e39b9784cbd363aba443dc2cd1d59a87ded30dd36744d3353c79",
       "executable": false
     },
     "src/lanyard/ui/intervals.ts": {
@@ -2218,7 +2218,7 @@
       "executable": false
     },
     "src/lanyard/ui/shell.ts": {
-      "sha256": "0a5006433c191db2b1bb57d9368d9779f51697dfbbd82de4f1bf4f3461db713b",
+      "sha256": "bc2f8a590205544c27acd8ad49027c942177de07c4840cb37bc556c94dfc6288",
       "executable": false
     },
     "src/lanyard/ui/shiftwork.ts": {
