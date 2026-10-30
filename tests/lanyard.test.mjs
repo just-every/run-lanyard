@@ -2099,3 +2099,5 @@ test('MOBILE-001 MOBILE-002: phone shift change, offline unsent state, current a
 
 test('CUTOFF-001: owner cutoff monitoring follows native facts, exact approvals and mappings without submitting payroll or rewriting paid history',async()=>{const {cutoffApi}=await import('./cutoff-journey.mjs');await cutoffApi()})
 test('CUTOFF-001: owner reviews cutoff Settings and source-linked payroll readiness',async()=>{const {cutoffBrowser}=await import('./cutoff-journey.mjs');await cutoffBrowser()})
+test('CAL-001: private calendar lifecycle preserves published event identities, DST instants and cancellations with live personal authority',async()=>{const {calendarApi}=await import('./calendar-journey.mjs');await calendarApi()})
+test('CAL-001: employee calendar Settings issue, replace, stale refusal and revoke through the browser',async()=>{const {calendarBrowser}=await import('./calendar-journey.mjs');await calendarBrowser()})

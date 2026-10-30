@@ -1,3 +1,4 @@
+import {calendarStatements} from '../calendar-events'
 // Adapted from saved siblings glove-storage.ts: a false CHECK guard rolls back
 // the complete D1 batch, including source claims, audit and idempotent outcome.
 import {type Actor,type State,type Context,type Staff,kinds,need,fail,sha} from './model'
@@ -38,7 +39,7 @@ export async function commit(c:Context,before:State,name:string,commandId:string
  if(c.a.role==='agent'&&name==='learn.propose')guard(`EXISTS(${comparisonGrant})`,c.a.agentKeyId,c.a.id,Date.now(),c.s.learnproposals.find(r=>r.id===c.entity)?.site)
  if(c.kiosk)guard(`EXISTS(SELECT 1 FROM l_kiosk_sessions k JOIN l_kiosk_devices d ON d.id=k.device_id JOIN l_kiosk_pins p ON p.staff_id=k.staff_id WHERE k.token_hash=? AND d.id=? AND k.revoked_at IS NULL AND k.expires_at>? AND d.revoked_at IS NULL AND d.locked=0 AND p.version=k.pin_version)`,c.kiosk.sessionHash,c.kiosk.deviceId,Date.now())
  for(const k of kinds) { const old=new Map(before[k].map(r=>[r.id,JSON.stringify(r)]));for(const r of c.s[k])if(old.get(r.id)!==JSON.stringify(r))q.push(c.db.prepare('INSERT INTO l_records(kind,id,revision,data) VALUES(?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET revision=excluded.revision,data=excluded.data').bind(k,r.id,r.revision,JSON.stringify(r))) }
- q.push(...c.sql)
+ q.push(...calendarStatements(c,before),...c.sql)
  q.push(c.db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at) VALUES(?,?,?,?,?,?)').bind(crypto.randomUUID(),c.storedActor??c.a.id,c.a.nativeRole??c.a.role,name,c.entity,c.now))
  q.push(c.db.prepare('UPDATE l_meta SET version=version+1,timezone=? WHERE id=1').bind(c.s.timezone))
  const response={ok:true,result,version:before.version+1}
