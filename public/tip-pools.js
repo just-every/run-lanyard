@@ -29,7 +29,7 @@ for(const form of document.querySelectorAll('[data-tip-prepare],[data-tip-approv
    const result=await tipCommand(prepares?'tip.pool.prepare':'tip.pool.approve',input)
    const url=new URL(location.href)
    url.searchParams.delete('tipCorrects');url.searchParams.set('tipReview',result.id);url.searchParams.set('tipSite',result.site);url.searchParams.set('tipDate',result.date);url.hash='tip-pools'
-   location.assign(url)
+   if(url.href===location.href)location.reload();else location.assign(url)
   }catch(error){
    status.textContent=(error.message||'Pool review could not be saved')+'. Your entered inputs are still here. Prepare a fresh review if sources changed.'
   }finally{busy=false;controls.forEach((c,i)=>c.disabled=disabled[i])}
