@@ -306,10 +306,14 @@ export async function tipPoolsBrowser(){
    await page.setViewportSize({width:1440,height:1000})
   }
   const submit=async(form,name)=>{
-   await Promise.all([page.waitForNavigation({waitUntil:'networkidle'}),form.getByRole('button',{name,exact:true}).click()])
+   const navigation=page.waitForNavigation({waitUntil:'networkidle'}).catch(error=>error)
+   const [response]=await Promise.all([page.waitForResponse(r=>new URL(r.url()).pathname==='/api/lanyard/command'&&r.request().method()==='POST'),form.getByRole('button',{name,exact:true}).click()])
+   if(!response.ok())assert.fail(await response.text())
+   const result=await navigation
+   if(result instanceof Error)throw result
   }
   const prepare=()=>submit(editor,'Prepare pool review')
-  const approve=async()=>{await review.getByRole('checkbox').check();await submit(review,'Approve reviewed pool')}
+  const approve=async()=>{await review.getByRole('checkbox').check();await submit(review,'Approve reviewed pool');assert.equal(await review.locator('.status').innerText(),'approved')}
   await page.goto(poolUrl,{waitUntil:'networkidle'})
   assert.equal(await editor.locator('[name=participants]').count(),3,'Owner and manager roles never enter the eligible selection')
   await editor.locator('[name=jobs][value="'+job.id+'"]').check()
@@ -397,6 +401,16 @@ export async function tipPoolsBrowser(){
   assert.equal(delta.lines.filter(l=>l.payInputId).reduce((n,l)=>n+l.costCents,0),299)
   await h.cmd('payroll.export',pin(delta))
   assert.equal((await h.send('/api/lanyard/batches/'+batch.id+'.csv',undefined,h.owner)).text,original)
+  // The latest approved correction itself remains correctable through the form.
+  await editor.getByLabel('Eligibility and source review reason').fill('Retain the reviewed total after another source review')
+  await prepare();await approve()
+  const repeated=(await h.state()).tippools.find(p=>p.status==='approved'&&p.corrects===corrected.id)
+  assert.ok(repeated,'A subsequent correction names the latest approval, preserving the lineage')
+  await page.goto(poolUrl,{waitUntil:'networkidle'})
+  await panel.locator('[data-tip-history="'+approved.id+'"]').getByRole('link',{name:'Review sources and allocations'}).click()
+  await page.waitForLoadState('networkidle')
+  assert.equal(await editor.count(),0,'Historical replaced approvals cannot be prepared as current corrections')
+  await page.goto(h.origin+'/app/payroll?'+new URLSearchParams({tipSite:'East',tipDate:day,tipReview:repeated.id})+'#tip-pools',{waitUntil:'networkidle'})
   const beforeRepeat=await records();await h.cmd('payroll.prepare',{templateId:template.id},h.owner,409);assert.equal(await records(),beforeRepeat,'Settled pool differences never export twice')
   await h.restart();await page.reload({waitUntil:'networkidle'})
   await checkShares([186,371,743],420,'13.00');await proof('tip-pool-correction')
