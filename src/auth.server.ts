@@ -6,6 +6,7 @@ import { fontDocumentResponse } from './base/font-response'
 import { createOperatorAuth, createAuthHandler, createSignInHandler, devGate, devNotFound, type AuthConfig } from './modules/operator-auth/index.mjs'
 import { operatorMail } from './mail.server.mjs'
 import branding from './branding.json'
+import { createBusinessSettings } from './modules/business-settings/index.ts'
 
 // The edition's declared theme (public/rer-theme.css), as Base frames link it.
 const theme = { href: '/rer-theme.css', productName: branding.name, accentColor: branding.primaryColor }
@@ -15,6 +16,7 @@ export interface Bindings {
  FILES: R2Bucket
  /** Built browser files; hosted deploys run the Worker first (staticAssetResponse). */
  ASSETS?: Fetcher
+ RER_BUSINESS_TRUST?: string
  RER_DEPLOY_SOURCE?: string
  RER_DEPLOY_FINGERPRINT?: string
  RER_VERSION?: { id: string }
@@ -48,8 +50,12 @@ export interface Bindings {
 
 export const runtimeBindings = (env: Bindings): Bindings => env.RER_DEV_ORIGIN && env.AUTH_LOCAL === 'true' ? { ...env, AUTH_ORIGIN: env.RER_DEV_ORIGIN } : env
 export const authConfig = (env: Bindings): AuthConfig => ({ dependencies: true, origin: env.AUTH_ORIGIN, local: env.AUTH_LOCAL === 'true', OWNER_EMAIL: env.OWNER_EMAIL, SESSION_SECRET: env.SESSION_SECRET, SETUP_TOKEN: env.SETUP_TOKEN, MAIL_FROM: env.MAIL_FROM, branding: { productName: branding.name, accentColor: branding.primaryColor, signInPath: '/signin', theme: theme.href } })
+export function businessSettings(env: Bindings) {
+ const native = createOperatorAuth({ db: env.DB, config: authConfig(env), mailSender: operatorMail(env), clientIp: request => request.headers.get('CF-Connecting-IP') ?? '' })
+ return createBusinessSettings({ db: env.DB, trust: env.RER_BUSINESS_TRUST, business: {settings: 1, values: ['display_name'], team: {roles: {admin: 'admin', member: 'member'}}}, team: native.businessTeam })
+}
 export function operatorAuth(env: Bindings) {
- return createOperatorAuth({ db: env.DB, config: authConfig(env), mailSender: operatorMail(env), clientIp: request => request.headers.get('CF-Connecting-IP') ?? '' })
+ return createOperatorAuth({ db: env.DB, config: authConfig(env), mailSender: operatorMail(env), businessSettings: businessSettings(env), clientIp: request => request.headers.get('CF-Connecting-IP') ?? '' })
 }
 
 async function handleAuthResponse(request: Request, original: Bindings): Promise<Response | null> {

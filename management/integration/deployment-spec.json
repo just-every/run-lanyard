@@ -166,6 +166,60 @@
       "name": "0026_dependency_keys_sealed.sql",
       "sha256": "9c8fa5f94c48a230f326cd4d666cbc2bd1e7d5a18327b89e65b339ac6a533d9a",
       "sql": "ALTER TABLE rer_dependency_installation ADD COLUMN keys_sealed INTEGER NOT NULL DEFAULT 0 CHECK(keys_sealed IN (0,1));\n-- Nonsecret version history lets restored rows name an unavailable retired key\n-- without confusing ciphertext tampering or a wrong current secret with restore.\nALTER TABLE rer_dependency_installation ADD COLUMN key_ids TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(key_ids) AND json_type(key_ids)='array');\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0027_report_delivery_approvals.sql",
+      "sha256": "9154e0ee8fc58960d50c45a1dd5e5109a54a3101d4e4f754e898cccdebc8c8dd",
+      "sql": "-- Delivery approvals are live authority, excluded from installation archives.\nCREATE TABLE l_report_approvals (\n  schedule_id TEXT PRIMARY KEY,\n  revision INTEGER NOT NULL,\n  owner_id TEXT NOT NULL\n);\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0028_partner_roster_keys.sql",
+      "sha256": "a41f91e33fa952af84ed5734779198c88c0489aad22ec2d09892b4f35fcc0f4c",
+      "sql": "-- LINK-001: narrow partner authority never authenticates a legacy preparation route.\nCREATE TABLE l_partner_keys (\n  id TEXT PRIMARY KEY,\n  owner_id TEXT NOT NULL,\n  owner_version INTEGER NOT NULL,\n  label TEXT NOT NULL,\n  token_hash TEXT NOT NULL UNIQUE,\n  site TEXT NOT NULL,\n  scope TEXT NOT NULL,\n  api_version TEXT NOT NULL,\n  created_at INTEGER NOT NULL,\n  expires_at INTEGER NOT NULL,\n  revoked_at INTEGER,\n  create_request_id TEXT NOT NULL,\n  create_digest TEXT NOT NULL,\n  rotates_id TEXT UNIQUE,\n  UNIQUE(owner_id, create_request_id)\n);\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0029_lanyard_calendar.sql",
+      "sha256": "e6a51c4004f574b5d2d49d61c8d833dd979aa4fcd882016aa6bc5a2ad73acf9d",
+      "sql": "-- Live subscription authority never travels in an installation archive.\nCREATE TABLE l_calendar_feeds (\n staff_id TEXT PRIMARY KEY,\n operator_id TEXT NOT NULL,\n operator_version INTEGER NOT NULL,\n token_hash TEXT NOT NULL UNIQUE,\n revision INTEGER NOT NULL,\n revoked_at TEXT\n);\n-- Retained assignment projections contain no credential, private notes or coworker facts.\nCREATE TABLE l_calendar_events (\n staff_id TEXT NOT NULL,\n lineage TEXT NOT NULL,\n sequence INTEGER NOT NULL,\n data TEXT NOT NULL,\n updated_at TEXT NOT NULL,\n PRIMARY KEY(staff_id,lineage)\n);\n-- Existing published assignments start at sequence zero; no subscription existed before this migration.\nINSERT INTO l_calendar_events(staff_id,lineage,sequence,data,updated_at)\n SELECT json_extract(x.data,'$.staffId'),coalesce(json_extract(x.data,'$.lineage'),x.id),0,\n json_object('staffId',json_extract(x.data,'$.staffId'),'lineage',coalesce(json_extract(x.data,'$.lineage'),x.id),\n 'start',json_extract(x.data,'$.start'),'end',json_extract(x.data,'$.end'),\n 'site',coalesce(nullif(json_extract(x.data,'$.site'),''),nullif(json_extract(x.data,'$.rateBasis.site'),''),p.site,''),\n 'timezone',coalesce(json_extract(r.data,'$.timezone'),(SELECT timezone FROM l_meta WHERE id=1)),'status','CONFIRMED'),\n coalesce(json_extract(r.data,'$.publishedAt'),json_extract(x.data,'$.start'))\n FROM l_records x JOIN l_staff p ON p.id=json_extract(x.data,'$.staffId')\n JOIN l_records r ON r.kind='rosters' AND r.id=json_extract(x.data,'$.rosterId')\n WHERE x.kind='shifts' AND json_extract(x.data,'$.status')='published';\nCREATE TRIGGER l_calendar_staff_revocation AFTER UPDATE OF active,email,erased_at ON l_staff\n WHEN NEW.active=0 OR NEW.erased_at IS NOT NULL OR OLD.email<>NEW.email\n BEGIN UPDATE l_calendar_feeds SET revoked_at=strftime('%Y-%m-%dT%H:%M:%fZ','now'),revision=revision+1 WHERE staff_id=NEW.id AND revoked_at IS NULL; END;\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0030_0001_business_settings.sql",
+      "sha256": "a16f736a781aa3fe02a2e090c993f8c360c904f9fb6d86126acdab6e1f24e773",
+      "sql": "CREATE TABLE bs_settings (\n  singleton INTEGER PRIMARY KEY CHECK(singleton=1),\n  rev INTEGER NOT NULL DEFAULT 0,\n  document TEXT,\n  applied_at TEXT,\n  stopped INTEGER NOT NULL DEFAULT 0 CHECK(stopped IN(0,1)),\n  token TEXT NOT NULL DEFAULT ''\n);\nCREATE TABLE bs_overrides (\n  field TEXT PRIMARY KEY CHECK(field IN('display_name','owner_name','brand_color','logo','timezone')),\n  value TEXT NOT NULL,\n  actor TEXT NOT NULL,\n  changed_at TEXT NOT NULL\n);\nCREATE TABLE bs_logo (\n  singleton INTEGER PRIMARY KEY CHECK(singleton=1),\n  sha256 TEXT NOT NULL,\n  type TEXT NOT NULL,\n  bytes BLOB NOT NULL\n);\nCREATE TABLE bs_team (\n  email TEXT PRIMARY KEY,\n  operator_id TEXT,\n  invite INTEGER NOT NULL,\n  state TEXT NOT NULL CHECK(state IN('invited','active','inactive','conflict'))\n);\nCREATE TABLE bs_audit (\n  id INTEGER PRIMARY KEY,\n  actor TEXT NOT NULL,\n  action TEXT NOT NULL,\n  field TEXT,\n  changed_at TEXT NOT NULL\n);\n-- An INSERT of NULL fails the transaction if a concurrent write invalidated its fence.\nCREATE TABLE bs_assert (value INTEGER NOT NULL);\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0031_0002_business_people.sql",
+      "sha256": "51aa39622d866b987d71b6e37c9a8300e7f24c54a55611edaab669ed051b01cd",
+      "sql": "ALTER TABLE bs_settings ADD COLUMN owner_id TEXT CHECK(owner_id IS NULL OR owner_id <> '');\nALTER TABLE bs_team ADD COLUMN business_id TEXT CHECK(business_id IS NULL OR business_id <> '');\nALTER TABLE bs_team ADD COLUMN business_role TEXT CHECK(business_role IS NULL OR business_role IN('admin','member'));\nCREATE UNIQUE INDEX bs_team_business_id ON bs_team(business_id) WHERE business_id IS NOT NULL;\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0032_agent-door.sql",
+      "sha256": "016d8a98b964385f5c4a13447361c3c783910a76aaf4606b0e0081482bc819cc",
+      "sql": "CREATE TABLE IF NOT EXISTS agent_door_state (\n  id INTEGER PRIMARY KEY CHECK(id=1), envelope TEXT, local_document TEXT,\n  local_revision INTEGER NOT NULL DEFAULT 0, local_paused INTEGER NOT NULL DEFAULT 0,\n  decision_lock TEXT, decision_until INTEGER\n);\nCREATE TABLE IF NOT EXISTS agent_door_agents (\n  id TEXT PRIMARY KEY, name TEXT NOT NULL, specialist TEXT, sponsor TEXT NOT NULL,\n  sponsor_name TEXT NOT NULL, revoked INTEGER NOT NULL DEFAULT 0,\n  window INTEGER NOT NULL DEFAULT 0, requests INTEGER NOT NULL DEFAULT 0\n);\nCREATE TABLE IF NOT EXISTS agent_door_audit (\n  sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, at TEXT NOT NULL,\n  agent TEXT NOT NULL, classes TEXT NOT NULL, row TEXT NOT NULL, evidence TEXT\n);\nCREATE INDEX IF NOT EXISTS agent_door_audit_agent ON agent_door_audit(agent,sequence);\nCREATE TABLE IF NOT EXISTS agent_door_calls (\n  agent TEXT NOT NULL, key TEXT NOT NULL, digest TEXT NOT NULL, decision_id TEXT NOT NULL,\n  created_at INTEGER NOT NULL, state TEXT NOT NULL, outcome TEXT, PRIMARY KEY(agent,key)\n);\nCREATE TABLE IF NOT EXISTS agent_door_approvals (\n  id TEXT PRIMARY KEY, state TEXT NOT NULL, saved TEXT NOT NULL, approvals TEXT NOT NULL DEFAULT '[]',\n  result TEXT, version INTEGER NOT NULL DEFAULT 0\n);\nCREATE TABLE IF NOT EXISTS agent_door_reviews (\n  id TEXT PRIMARY KEY, state TEXT NOT NULL, saved TEXT NOT NULL, marked_by TEXT, marked_at TEXT\n);\nCREATE TABLE IF NOT EXISTS agent_door_events (\n  sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, uri TEXT NOT NULL, event TEXT NOT NULL\n);\nCREATE INDEX IF NOT EXISTS agent_door_events_uri ON agent_door_events(uri,sequence);\nCREATE TABLE IF NOT EXISTS agent_door_usage (\n  decision_id TEXT PRIMARY KEY, at INTEGER NOT NULL, seed TEXT NOT NULL, specialist TEXT, agent TEXT NOT NULL,\n  classes TEXT NOT NULL\n);\nCREATE INDEX IF NOT EXISTS agent_door_usage_day ON agent_door_usage(at);\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0033_company_comparison_grants.sql",
+      "sha256": "a0a68301e10d84557bac1dbd42ee4a2d1c425f98c95e6121ef4d67a5dd3ef4e7",
+      "sql": "ALTER TABLE l_agent_keys ADD COLUMN company_agents INTEGER NOT NULL DEFAULT 0 CHECK(company_agents IN (0,1));\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0034_native_agent_attribution.sql",
+      "sha256": "d5fe5d6830550a6a806c58bf81fae4259d8c6a63e3f4162a9f923dde0a4bbe94",
+      "sql": "ALTER TABLE l_events ADD COLUMN agent_id TEXT;\nALTER TABLE l_events ADD COLUMN agent_name TEXT;\nALTER TABLE l_events ADD COLUMN sponsor_name TEXT;\nALTER TABLE l_events ADD COLUMN operation_id TEXT;\nALTER TABLE l_events ADD COLUMN approvers TEXT;\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0035_agent_custody.sql",
+      "sha256": "b2d851e8c0f855feae670c7f4367f05d3c701ef299afd6174ff8885053c97c86",
+      "sql": "-- Retained door content is a native custody exception until a coordinated\n-- shared-door redaction/fence exists. This stores ids only, never source text.\nCREATE TABLE l_agent_custody(staff_id TEXT PRIMARY KEY, retained_at INTEGER NOT NULL);\n"
     }
   ],
   "compatibilityDate": "2026-09-08",
