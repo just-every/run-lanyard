@@ -40,7 +40,59 @@ export async function offerFixture(h,count=6,review=true) {
  const propose=async(e,c=manager.cookie,status=200)=>cmd('learn.offer.propose',{site:SITE,percentile:e.targetPercentile,targetReviewed:true,reason:'Reviewed response calibration, without a service-outcome claim',digest:e.digest},c,status)
  return {caller,responders,manager,foreign,cmd,saveRule,coverage,round,read,propose}
 }
+// Distinct later responses make fitting on held-out evidence observably wrong.
+async function offerCalibrationBoundaryApi() {
+ const h=await harness({now:NOW})
+ try{
+  const f=await offerFixture(h,0)
+  for(let d=12;d<=15;d++)await f.round(d,[1.25,4.1,10.75])
+  assert.equal((await f.read(25)).value.status,'insufficient','four rounds cannot supply a six-round comparison')
+  for(let d=16;d<=17;d++)await f.round(d,[7,8,9])
+  let e=(await f.read(60)).value
+  // Earlier 60th percentile is 4.1 minutes, rounded to 5. None of the later
+  // responses meets it: error 60 points, versus 40 at the existing 60 minutes.
+  // Pooling later evidence into fitting would choose 8 and invent improvement.
+  assert.equal(e.status,'no-improvement')
+  assert.equal(e.proposal,null)
+  assert.deepEqual([e.evaluation.trainingPercentileMinutes,e.evaluation.currentWithinMinutes,e.evaluation.candidateWithinMinutes,e.evaluation.currentCalibrationErrorPoints,e.evaluation.candidateCalibrationErrorPoints],[4.1,6,0,40,60])
+  const before=await h.state()
+  await f.propose(e,f.manager.cookie,409)
+  await unchanged(h,before)
+  e=(await f.read(25)).value
+  // Nearest-rank 25th percentile of the twelve earlier responses is 1.25,
+  // rounded up to 2 minutes. The six later responses all exceed it: 25 points
+  // from the reviewed target, improving on the current interval's 75 points.
+  assert.equal(e.status,'proposal')
+  assert.deepEqual([e.proposal.from,e.proposal.to,e.evaluation.trainingPercentileMinutes,e.evaluation.currentCalibrationErrorPoints,e.evaluation.candidateCalibrationErrorPoints],[60,2,1.25,75,25])
+  const dates=ids=>ids.map(id=>e.rounds.find(r=>r.id===id).openedAt.slice(0,10))
+  assert.deepEqual(dates(e.evaluation.trainRounds),[12,13,14,15].map(day))
+  assert.deepEqual(dates(e.evaluation.holdoutRounds),[16,17].map(day))
+  await f.round(18,[2,null,9])
+  let incomplete=(await f.read(25)).value
+  assert.deepEqual(incomplete.evaluation,e.evaluation,'a partially answered round supplies no fitting or held-out responses')
+  assert.equal(incomplete.unknownRounds,1)
+  assert.equal(incomplete.unknownResponses,1)
+  assert.ok(incomplete.rounds.some(r=>r.reason==='unanswered'&&r.status==='unknown'))
+  // Actual responses alone do not make a still-open future round completed.
+  const open=await f.round(29)
+  incomplete=(await h.send('/api/lanyard/learning/offers?site=Ocean%20Beach&percentile=25',undefined,f.manager.cookie,at('2026-10-28T20:00:00Z'))).value
+  assert.equal(incomplete.rounds.find(r=>r.responses.some(o=>o.offerId===open.offers[0].id)).reason,'round not completed')
+  assert.deepEqual(incomplete.evaluation,e.evaluation)
+  await h.restart()
+  const retained=(await f.read(25)).value
+  assert.deepEqual(retained.evaluation,e.evaluation)
+  const proposal=await f.propose(retained)
+  assert.equal(proposal.explanationVersion,retained.explanationVersion)
+  assert.equal(proposal.digest,retained.digest)
+  assert.equal(proposal.ruleDigest,retained.ruleDigest)
+  assert.deepEqual(proposal.evaluation,e.evaluation)
+  assert.deepEqual(proposal.rounds,retained.rounds)
+  assert.equal((await h.state()).offerrules[0].minutes,60,'recording calibration does not apply it')
+  console.log('PROBE LEARN-001 held-out calibration: earlier fractional responses select 2 minutes for reviewed percentile 25; later-only error 75 -> 25 points; percentile 60 refuses worsening 40 -> 60; partial and active rounds stay unknown through restart')
+ }finally{await h.close()}
+}
 export async function offerApi(h) {
+ await offerCalibrationBoundaryApi()
  const f=await offerFixture(h,2,false),{cmd,read,propose,round,manager,foreign,caller,responders,coverage,saveRule}=f
  assert.equal((await read()).value.status,'insufficient')
  assert.equal((await read(null)).value.status,'needs-target')
