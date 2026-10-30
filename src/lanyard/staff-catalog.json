@@ -519,5 +519,6 @@
   "unconfirmed meal deduction": "descuento de comida sin confirmar",
   "short meal break": "descanso de comida corto",
   "short rest break": "descanso pagado corto",
-  "late meal break": "descanso de comida tardío"
+  "late meal break": "descanso de comida tardío",
+  "employee: “{0}”": "persona: “{0}”"
 }
