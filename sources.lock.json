@@ -934,7 +934,7 @@
       "executable": false
     },
     "public/tip-pools.js": {
-      "sha256": "0777e4eba26246f575551c4ec6265b3a941b92ccd02fc2a08ac04c580ce25ce5",
+      "sha256": "b6764702889675874c18284a33fdf99e31f6ac03090a3dd6fd55b9603fad7a05",
       "executable": false
     },
     "README.md": {
@@ -2318,7 +2318,7 @@
       "executable": false
     },
     "src/lanyard/ui/tip-pools.ts": {
-      "sha256": "0c0075e30ca2a541332abc1244a96a30260f8d54390248f9a376e88ba399b6c2",
+      "sha256": "b9dc31a7bd0e7c14bc0ce8a42b693d4e821e9ac4e6c530e0f0d14e7fb5bdef34",
       "executable": false
     },
     "src/lanyard/ui/tipcredit.ts": {
@@ -4886,7 +4886,7 @@
       "executable": false
     },
     "tests/report-pool-journey.mjs": {
-      "sha256": "1f068bfd7b61e682a9dc733dc06e6b2bbb8d7f1808840a9abdbe0cf2742f0e3b",
+      "sha256": "300f2fd05f7536713e952238e3e935596f0f6ec53e1e63beadbb8dbe86e19061",
       "executable": false
     },
     "tests/reports-journey.mjs": {
