@@ -22,5 +22,5 @@ export function mealQuestion(s:any,open:any) {
 /** One line under a timesheet's source saying what happened to the deduction. */
 export function mealNote(s:any,r:any) {
  const d=r.mealDeduction;if(!d)return ''
- return html(s)`<small>${d.reversed?html(s)`Meal reported ${h(d.answer)}: ${h(d.minutes)} min deduction reversed`:d.answer==='taken'?html(s)`Meal deducted ${h(d.minutes)} min · confirmed taken`:html(s)`Meal deducted ${h(d.minutes)} min · not confirmed`}</small>`
+ return html(s)`<small>${d.reversed?html(s)`Meal reported ${h(tr(s,d.answer))}: ${h(d.minutes)} min deduction reversed`:d.answer==='taken'?html(s)`Meal deducted ${h(d.minutes)} min · confirmed taken`:html(s)`Meal deducted ${h(d.minutes)} min · not confirmed`}</small>`
 }

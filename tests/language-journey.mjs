@@ -17,6 +17,7 @@ export async function languageJourney(){
    await h.cmd('availability.save',{start:week+'T00:00:00Z',end:'2026-11-09T00:00:00Z'},p.cookie)
   }
   const startQuestion=await h.cmd('question.save',{site,when:'in',kind:'yesno',text:'Ready for work?',textEs:'¿Listo para trabajar?',required:true})
+  const injuryQuestion=await h.cmd('question.save',{site,when:'out',kind:'injury',text:'Any injury today?',textEs:'¿Alguna lesión hoy?',required:false})
   await h.cmd('breakrule.save',{site,mealAfterMinutes:300,mealMinutes:30,waiveUpTo:360,restEveryMinutes:0,restMinutes:10,premium:false})
   const q=await h.cmd('question.save',{site,when:'out',kind:'breaks',text:'Did you take all your breaks?',textEs:'¿Tomaste todos tus descansos?',required:true})
   const draft=await h.cmd('roster.prepare',{week,shifts:[{staffId:spanish.id,site,start:'2026-11-05T09:00:00Z',end:'2026-11-05T12:00:00Z',breakMinutes:0,label:'Clock in'}]})
@@ -126,6 +127,60 @@ export async function languageJourney(){
   browserNow='2026-11-04T12:49:00Z';await page.clock.setFixedTime(new Date(browserNow));await page.locator('#kiosk-questions').getByLabel('Were all your breaks taken?').selectOption('yes');await page.locator('[name=photoFailure]').selectOption('camera denied');await Promise.all([page.waitForResponse(r=>new URL(r.url()).pathname==='/api/lanyard/kiosk/capture'&&r.request().postDataJSON().name==='clock.out'),page.getByRole('button',{name:'Clock out',exact:true}).click()]);await page.waitForFunction(()=>document.querySelector('#kiosk-pending').textContent.startsWith('0 saved')&&!document.querySelector('#kiosk-clock button[name="clock.in"]').disabled)
   assert.equal((await h.state(english.cookie)).timesheets.find(t=>t.start==='2026-11-04T12:48:00.000Z').minutes,1);assert.ok((await h.state(english.cookie)).kioskreceipts.every(r=>r.staffId===english.id&&r.language==='en'))
   await page.getByRole('button',{name:'Sign out for next employee',exact:true}).click();await page.locator('#kiosk-person').waitFor({state:'hidden'});assert.equal(await page.locator('#kiosk-current').innerText(),'');assert.equal(await page.locator('#kiosk-person').isVisible(),false)
+  // Punch-specific notices and exceptions use Spanish without changing their retained facts.
+  await h.cmd('photo.save',{site,phone:true,browser:true,kiosk:false,breaks:false,retentionDays:30,consent:true})
+  await h.cmd('geofence.save',{site,latitude:37.76,longitude:-122.5,radiusMeters:200,maxAccuracyMeters:50,retentionDays:30,enabled:true,consent:true})
+  const device=await h.send('/api/lanyard/command',{name:'clockbrowser.enroll',input:{site,label:'Synthetic browser',type:'browser'}},h.owner)
+  assert.equal(device.status,200,device.text)
+  await identity(spanish.cookie);const [deviceName,...deviceValue]=device.cookie.split('=');await context.addCookies([{name:deviceName,value:deviceValue.join('='),url:h.origin,secure:true}])
+  browserNow='2026-11-04T13:00:00Z';await page.clock.setFixedTime(new Date(browserNow))
+  await page.addInitScript(()=>{
+   window.punchPermissionCalls={camera:0,location:0}
+   Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition:(_success,fail)=>{window.punchPermissionCalls.location++;fail({code:1})}}})
+   Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{getUserMedia:async()=>{window.punchPermissionCalls.camera++;throw new DOMException('Denied','NotAllowedError')}}})
+  })
+  await open('/app/time?week='+week)
+  assert.deepEqual(await page.evaluate(()=>window.punchPermissionCalls),{camera:0,location:0})
+  await clock().getByLabel('¿Listo para trabajar?').selectOption('yes')
+  const beforePrivate=(await h.state(spanish.cookie)).clocks.length
+  await clock().getByRole('button',{name:'Registrar entrada',exact:true}).click()
+  await page.waitForFunction(()=>document.querySelector('[data-clock-status]').textContent.includes('Lee y confirma el aviso de ubicación'))
+  assert.equal((await h.state(spanish.cookie)).clocks.length,beforePrivate)
+  assert.deepEqual(await page.evaluate(()=>window.punchPermissionCalls),{camera:0,location:0})
+  await clock().getByLabel('He leído el aviso de ubicación de este lugar').check()
+  // Declining location does not request it, and a missing photo notice still prevents a new capture.
+  await clock().getByRole('button',{name:'Registrar entrada',exact:true}).click()
+  await page.waitForFunction(()=>document.querySelector('[data-clock-status]').textContent.includes('Lee y confirma el aviso de fotos'))
+  assert.equal((await h.state(spanish.cookie)).clocks.length,beforePrivate)
+  assert.deepEqual(await page.evaluate(()=>window.punchPermissionCalls),{camera:0,location:0})
+  await clock().getByLabel('He leído el aviso de fotos de este lugar').check()
+  await clock().getByLabel('Doy mi consentimiento para capturar la ubicación de este registro').check()
+  await clock().getByLabel('Doy mi consentimiento para una foto de este registro').check()
+  await Promise.all([page.waitForResponse(r=>new URL(r.url()).pathname==='/api/lanyard/command'&&r.request().postDataJSON().name==='clock.in'),clock().getByRole('button',{name:'Registrar entrada',exact:true}).click()])
+  await page.waitForFunction(()=>document.querySelector('[data-clock-form]').dataset.command==='clock.out')
+  browserNow='2026-11-04T13:15:00Z';await page.clock.setFixedTime(new Date(browserNow))
+  await clock().getByLabel('¿Tomaste cada descanso?').selectOption('yes')
+  await clock().getByLabel('He leído el aviso de ubicación de este lugar').check();await clock().getByLabel('He leído el aviso de fotos de este lugar').check()
+  await clock().getByLabel('¿Alguna lesión hoy?').selectOption('yes')
+  // Refused consent remains a coordinate-free and image-free captured exception.
+  assert.equal(await clock().getByLabel('Doy mi consentimiento para capturar la ubicación de este registro').isChecked(),false)
+  assert.equal(await clock().getByLabel('Doy mi consentimiento para una foto de este registro').isChecked(),false)
+  await Promise.all([page.waitForResponse(r=>new URL(r.url()).pathname==='/api/lanyard/command'&&r.request().postDataJSON().name==='clock.out'),clock().getByRole('button',{name:'Registrar salida',exact:true}).click()])
+  await page.waitForFunction(()=>document.querySelector('[data-clock-form]').dataset.command==='clock.in')
+  const privateTime=(await h.state(spanish.cookie)).timesheets.find(t=>t.start==='2026-11-04T13:00:00.000Z')
+  assert.equal(privateTime.minutes,15);assert.ok(privateTime.exceptions.includes('location permission denied'));assert.ok(privateTime.exceptions.includes('location consent declined'));assert.ok(privateTime.exceptions.includes('punch photo unavailable: camera denied'));assert.ok(privateTime.exceptions.includes('punch photo unavailable: photo consent declined'))
+  const privatePhotos=(await h.state()).timesheets.find(t=>t.id===privateTime.id).photoReview
+  assert.equal(privatePhotos.length,2);assert.ok(privatePhotos.every(r=>!r.photoId&&!r.photoConsent));assert.equal(privateTime.photoReview,undefined,'employee snapshot retains the existing owner-only photo review boundary');assert.equal(privateTime.locationReview.length,2);assert.ok(privateTime.locationReview.every(r=>r.latitude===undefined&&r.longitude===undefined&&!r.consent))
+  const privateRow=page.locator('tr').filter({has:page.locator('.punch-locations')})
+  await privateRow.getByText('Registrar entrada · permiso de ubicación denegado',{exact:true}).waitFor()
+  await privateRow.getByText('Registrar salida · consentimiento de ubicación rechazado',{exact:true}).waitFor()
+  assert.match(await privateRow.innerText(),/permiso de cámara denegado/);assert.match(await privateRow.innerText(),/foto del registro no disponible: consentimiento rechazado/)
+  const injury=(await h.state(spanish.cookie)).injuries.find(r=>r.questionId===injuryQuestion.id&&r.answer==='yes')
+  assert.ok(injury);assert.match(await page.locator('#safety').innerText(),/¿Alguna lesión hoy\?.”? sí · abierto/)
+  await h.cmd('injury.resolve',{...pin(injury),reason:'Clock in'})
+  await open('/app/time?week='+week)
+  assert.match(await page.locator('#safety').innerText(),/resuelto: Clock in/,'generated follow-up state is translated while the authored resolution stays unchanged')
+  await shot('spanish-private-punch-exceptions')
   await context.close();assert.deepEqual(errors,[])
 
   console.log('LANG-001 native preference, assignment changes, encrypted clock replay, original text and kiosk language reset passed')
@@ -134,7 +189,7 @@ export async function languageJourney(){
 export async function untranslatedBuildRefusal(){
  const root=await mkdtemp(join(tmpdir(),'lanyard-language-'))
  try{
-  for(const path of ['./src/lanyard/ui','src/lanyard/localization.ts','src/lanyard/staff-catalog.json','public'])await cp(path,join(root,path),{recursive:true})
+  for(const path of ['./src/lanyard/ui','src/lanyard/localization.ts','src/lanyard/staff-catalog.json','src/lanyard/domain/photos.ts','src/lanyard/domain/geofence.ts','public'])await cp(path,join(root,path),{recursive:true})
   const run=()=>spawnSync(process.execPath,['scripts/check-staff-strings.mjs','--root',root],{encoding:'utf8'})
   assert.equal(run().status,0)
   const file=join(root,'src/lanyard/ui/swaps.ts'),source=await readFile(file,'utf8')
@@ -143,6 +198,14 @@ export async function untranslatedBuildRefusal(){
   const catalogFile=join(root,'src/lanyard/staff-catalog.json'),catalog=JSON.parse(await readFile(catalogFile,'utf8'));catalog['synthetic-lanyard-untranslated']='Texto de prueba';await writeFile(catalogFile,JSON.stringify(catalog));assert.equal(run().status,0,'supplying Spanish restores the build gate')
   await writeFile(file,source.replace("card(tr(s,'Shift swaps')", "card('synthetic-lanyard-helper'"))
   result=run();assert.notEqual(result.status,0);assert.match(result.stderr,/Missing Spanish.*synthetic-lanyard-helper/)
+  await writeFile(file,source)
+  const noticeFile=join(root,'src/lanyard/domain/photos.ts'),noticeSource=await readFile(noticeFile,'utf8')
+  await writeFile(noticeFile,noticeSource.replace('A still photo is captured','synthetic-lanyard-notice A still photo is captured'))
+  result=run();assert.notEqual(result.status,0);assert.match(result.stderr,/Missing Spanish.*synthetic-lanyard-notice/)
+  await writeFile(noticeFile,noticeSource)
+  const cameraFile=join(root,'public/punch-photo.js'),cameraSource=await readFile(cameraFile,'utf8')
+  await writeFile(cameraFile,cameraSource.replace('Photo is too large','synthetic-lanyard-camera message'))
+  result=run();assert.notEqual(result.status,0);assert.match(result.stderr,/Missing Spanish.*synthetic-lanyard-camera/)
 
  }finally{await rm(root,{recursive:true,force:true})}
 }
