@@ -66,22 +66,26 @@
    status.textContent=e.status===401?t('Verify your personal PIN to use this clock.'):errorText(e.message)
   }
  }
- async function sync(){if(busy||!current)return;busy=true;if(lastState)render(lastState);status.textContent='';document.querySelector('#kiosk-retry').disabled=true
-  try{await vault(async(state,save)=>{for(const e of state.events){if(state.revoked||e.status==='rejected')break;try{
-   const accepted=await request('capture',{...e.capture,photo:e.photo,photoConsent:e.photoConsent,photoFailure:e.photoFailure})
-   if(accepted.ok!==true)throw new Error('The response did not confirm the capture. Retry the saved original.')
-   current=await request('state');state.base=current.open;state.events=state.events.filter(x=>x!==e);await save();status.textContent=''
-  }catch(error){
-   if(!error.status||error.status>=500||[408,429].includes(error.status)){
-    status.textContent=current.language==='es'?'Los registros originales siguen guardados. Reintenta cuando haya conexión.':'Original captures remain saved. Retry when the connection is available.'
-    break
+ async function sync(){if(busy||!current)return;busy=true;status.textContent='';if(lastState)render(lastState)
+  try{await vault(async(state,save)=>{
+   for(const e of state.events){
+    if(state.revoked||e.status==='rejected')break
+    try{
+     const accepted=await request('capture',{...e.capture,photo:e.photo,photoConsent:e.photoConsent,photoFailure:e.photoFailure})
+     if(accepted.ok!==true)throw new Error('The response did not confirm the capture. Retry the saved original.')
+     current=await request('state');state.base=current.open;state.events=state.events.filter(x=>x!==e);await save();status.textContent=''
+    }catch(error){
+     if(!error.status||error.status>=500||[408,429].includes(error.status)){
+      status.textContent=t('Original captures remain saved. Retry when the connection is available.');break
+     }
+     e.status='rejected';e.error=error.message
+     for(const later of state.events.slice(state.events.indexOf(e)+1)){later.status='rejected';later.error='An earlier capture was refused. Owner review is required before applying dependent time.'}
+     if([401,403].includes(error.status))state.revoked=true
+     await save();status.textContent=t('Capture retained for manager review.')+' '+errorText(error.message);break
+    }
    }
-   e.status='rejected';e.error=error.message
-   for(const later of state.events.slice(state.events.indexOf(e)+1)){later.status='rejected';later.error='An earlier capture was refused. Owner review is required before applying dependent time.'}
-   if([401,403].includes(error.status))state.revoked=true
-   await save();status.textContent=current.language==='es'?'El registro se conserva para revisión del encargado.':'Capture retained for manager review. '+error.message;break
-  }}render(state)})}
-  catch(e){status.textContent=errorText(e.message)}finally{busy=false;if(lastState)render(lastState);document.querySelector('#kiosk-retry').disabled=false}
+   render(state)
+  })}catch(e){status.textContent=errorText(e.message)}finally{busy=false;if(lastState)render(lastState)}
  }
  login.addEventListener('submit',async event=>{event.preventDefault();try{await request('signin',Object.fromEntries(new FormData(login)));login.reset();status.textContent='';await load()}catch(e){status.textContent=errorText(e.message)}})
  form.addEventListener('submit',async event=>{event.preventDefault();if(!current||busy)return;busy=true;if(lastState)render(lastState)

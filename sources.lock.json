@@ -738,7 +738,7 @@
       "executable": false
     },
     "public/kiosk.js": {
-      "sha256": "7d3385570c9cc2e067de0c84c3b1bdc6df4269a4c8b11e4b9c8a1eaa51c838f1",
+      "sha256": "447e378a5fe3d50d18d7ff38714009318b3a7a536b1ff5f8726b3bb802a1a3c5",
       "executable": false
     },
     "public/labor-cost-settings.js": {
@@ -1910,7 +1910,7 @@
       "executable": false
     },
     "src/lanyard/staff-catalog.json": {
-      "sha256": "bab454fa0deac13de8998e4fdc127db53853fb7858dd77bcf1181a5e9ebfd56b",
+      "sha256": "1fea5c95112b72770504c717df30cb1eb600d0154a6336eeaed552484b21d486",
       "executable": false
     },
     "src/lanyard/ui/aca.ts": {
