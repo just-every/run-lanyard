@@ -168,3 +168,12 @@ protected against direct or trigger-mediated writes to agent-door state.
 A current-time reader alone cannot close these two proposal points. Keep the
 real proposal tool and its success requirements, and retain the normal failed
 verification exit until that lifecycle is available.
+
+The owner initializer exercises this distinction through `tests/agent-history.mjs`:
+it previews and imports 21 days of entered sales through the native HTTP door,
+reads a complete current forecast and saves its exact digest. Saving a forecast
+for a completed day must return HTTP 400 with the native revision unchanged.
+Learning must still report zero comparable days and no proposal. Entered sales
+are observations, not evidence that a forecast existed before service. This
+fixture supplies the state the production lifecycle permits while preserving
+that distinction in both conformance policy rounds.

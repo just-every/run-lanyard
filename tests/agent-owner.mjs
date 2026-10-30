@@ -1,6 +1,7 @@
 // Disposable conformance data through the production owner/setup and workforce
 // HTTP lifecycle. No direct database writes, alternate auth or test routes.
 import assert from 'node:assert/strict'
+import initializeHistory from './agent-history.mjs'
 export default async function ({request,origin,claim,displayName,returnTo}) {
  const bootstrap=await request(origin+claim.path,{method:'POST',redirect:'manual',headers:{origin,'content-type':'application/json'},body:JSON.stringify({token:claim.token,displayName,returnTo})})
  assert.equal(bootstrap.status,303)
@@ -19,6 +20,7 @@ export default async function ({request,origin,claim,displayName,returnTo}) {
   await cmd('time.approve',{id:time.id,revision:time.revision})
  }
  await cmd('agent.create',{label:'Company forecast coordinator',scopes:['comparison.read'],cafes:['Ocean Beach'],comparisonConsent:true,companyAgents:true})
+ await initializeHistory({request,origin,cookie})
  // The original native final owner response retains its genuine session cookie.
  return bootstrap
 }
