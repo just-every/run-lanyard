@@ -10,6 +10,7 @@ import { deploymentHealth } from './base/deployment-health'
 import { installedHomeResponse } from './installed-home'
 import { authResponse, type Bindings } from './auth.server'
 import { lanyardResponse } from './lanyard/http'
+import { agentResponse } from './lanyard/agent-door/index.ts'
 
 const api = new Hono<{ Bindings: Bindings }>()
 api.get('/health', (context) => context.json({ status: 'ok', ...deploymentHealth(context.env) }))
@@ -28,6 +29,8 @@ export default withDemo({
   async fetch(request, env, execution) {
     const asset = await staticAssetResponse(request, env)
     if (asset) return asset
+    const agent = await agentResponse(request, env)
+    if (agent) return agent
     const auth = await authResponse(request, env)
     if (auth) return auth
     const app = await lanyardResponse(request, env)
