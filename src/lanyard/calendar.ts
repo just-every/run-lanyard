@@ -13,8 +13,8 @@ async function employee(env:Bindings,a:Actor) {
  return a.staffId
 }
 export async function calendarStatus(env:Bindings,a:Actor) {
- const id=await employee(env,a),row=await env.DB.prepare('SELECT revision,revoked_at FROM l_calendar_feeds WHERE staff_id=?').bind(id).first<any>()
- return {revision:row?.revision??0,active:Boolean(row&&!row.revoked_at)}
+ const id=await employee(env,a),row=await env.DB.prepare('SELECT revision,revoked_at,operator_id,operator_version FROM l_calendar_feeds WHERE staff_id=?').bind(id).first<any>()
+ return {revision:row?.revision??0,active:Boolean(row&&!row.revoked_at&&row.operator_id===a.id&&row.operator_version===a.ownerVersion)}
 }
 /** The clear capability appears once, only in the explicit issuance response. */
 export async function calendarCommand(env:Bindings,a:Actor,name:string,input:Record<string,unknown>) {

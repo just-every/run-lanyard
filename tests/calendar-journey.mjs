@@ -6,7 +6,7 @@ import {harness} from './harness.mjs'
 const pin=row=>({id:row.id,revision:row.revision})
 const now='2026-10-01T12:00:00Z'
 const place='synthetic-lanyard-1, East; \\ patio '+ 'é'.repeat(20)
-const shift=(staffId,start,end)=>({staffId,start,end,site:place,breakMinutes:0})
+const shift=(staffId,start,end)=>({staffId,start:new Date(start).toISOString(),end:new Date(end).toISOString(),site:place,breakMinutes:0})
 const own=(staffId)=>shift(staffId,'2026-11-01T06:30:00Z','2026-11-01T11:30:00Z')
 const steady=(staffId)=>shift(staffId,'2026-10-29T16:00:00Z','2026-10-29T20:00:00Z')
 const other=(staffId)=>shift(staffId,'2026-10-30T16:00:00Z','2026-10-30T20:00:00Z')
@@ -14,7 +14,10 @@ function events(text){return [...text.replace(/\r\n /g,'').matchAll(/BEGIN:VEVEN
 const path=url=>new URL(url).pathname
 async function fixture(h){
  const alex=await h.person('CalendarAlex'),ben=await h.person('CalendarBen')
- for(const person of [alex,ben])await h.cmd('availability.save',{staffId:person.id,start:'2026-10-26T07:00:00Z',end:'2026-11-02T08:00:00Z'})
+ for(const person of [alex,ben]){
+  await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:'staff',active:true,site:place})
+  await h.cmd('availability.save',{staffId:person.id,start:'2026-10-26T07:00:00Z',end:'2026-11-02T08:00:00Z'})
+ }
  const publish=async shifts=>{const draft=await h.cmd('roster.prepare',{week:'2026-10-26',shifts});return h.cmd('roster.publish',pin(draft))}
  await publish([own(alex.id),steady(alex.id),other(ben.id)])
  let row=(await h.state()).shifts.find(x=>x.start===own(alex.id).start&&x.status==='published')
@@ -27,6 +30,9 @@ export async function calendarApi(){
   const {alex,ben,publish}=await fixture(h),status=async person=>(await h.send('/api/lanyard/calendar',undefined,person.cookie)).value
   assert.equal((await h.send('/api/lanyard/calendar',undefined,'')).status,401)
   await h.cmd('calendar.issue',{revision:0,consent:'yes'},h.owner,403)
+  const level=await h.cmd('access.level.save',{name:'synthetic-lanyard-8',site:place,permissions:['draft.view']})
+  await h.cmd('access.grant',{levelId:level.id,site:place,staffId:ben.id})
+  assert.deepEqual(await status(ben),{revision:0,active:false},'a scoped employee retains personal calendar self-service')
   const beforeAuthority=await h.db.prepare('SELECT count(*) AS n FROM l_calendar_feeds').first()
   await h.cmd('calendar.issue',{revision:0,consent:'yes',staffId:alex.id},ben.cookie,400)
   await h.cmd('calendar.issue',{revision:0},alex.cookie,400)
@@ -38,7 +44,7 @@ export async function calendarApi(){
   assert.equal(initial.length,2)
   const overnight=initial.find(e=>e.DTSTART==='20261101T063000Z'),unchanged=initial.find(e=>e.DTSTART==='20261029T160000Z')
   assert.equal(overnight.DTEND,'20261101T113000Z');assert.equal(overnight.SEQUENCE,'0');assert.equal(overnight.STATUS,'CONFIRMED')
-  assert.equal(overnight.LOCATION,place.replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,'))
+  assert.equal(overnight.LOCATION,'synthetic-lanyard-1\\, East\\; \\\\ patio '+'é'.repeat(20))
   assert.ok(response.text.includes('X-WR-TIMEZONE:America/Los_Angeles'))
   assert.ok(response.text.split('\r\n').every(line=>Buffer.byteLength(line)<=75),'UTF-8 calendar lines are folded without splitting code points')
   for(const secret of [alex.name,ben.name,ben.id,'synthetic-lanyard-2','synthetic-lanyard-3','20261030T160000Z'])assert.ok(!response.text.includes(secret),'only personal assignment facts leave the calendar door')
@@ -99,7 +105,7 @@ export async function calendarBrowser(){
  try {
   const {alex}=await fixture(h)
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
-  const context=await browser.newContext({viewport:{width:1440,height:1000}})
+  const context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse(now))}})
   try {
    const [name,...value]=alex.cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
    await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
@@ -113,7 +119,7 @@ export async function calendarBrowser(){
    const field=page.getByRole('textbox',{name:'Private subscription link'});await field.waitFor();const first=await field.inputValue()
    assert.equal((await h.send(path(first))).status,200)
    await capture('calendar-issued')
-   await page.reload({waitUntil:'networkidle'});assert.equal(await field.count(),0,'ordinary Settings reads do not redisclose credentials')
+   await page.goto(h.origin+'/app/settings',{waitUntil:'networkidle'});assert.equal(await field.count(),0,'ordinary Settings reads do not redisclose credentials')
    await card.getByRole('checkbox').check();await card.getByRole('button',{name:'Replace private link'}).click()
    await field.waitFor();const second=await field.inputValue();assert.notEqual(second,first);assert.equal((await h.send(path(first))).status,404)
    await capture('calendar-replaced')
