@@ -1,3 +1,6 @@
+import {clockQuestions} from './ui/questions'
+import {mealQuestion} from './ui/mealrules'
+import {breakQuestions} from './ui/breaks'
 import {operatorAuth,type Bindings} from '../auth.server'
 import {type Actor,command} from './domain'
 import {load,actor} from './domain/storage'
@@ -76,8 +79,9 @@ export async function kioskResponse(request:Request,env:Bindings):Promise<Respon
   }
   const s=await load(env.DB),policy=s.photopolicies.find(p=>p.site===d.site),photoRequired=Boolean(d.photo||policy?.kiosk),photoBreaks=Boolean(d.photo||policy?.kiosk&&policy.breaks),language=s.clocklanguages.find(x=>x.staffId===current.a.staffId)?.language??'en'
   if(path==='/api/lanyard/kiosk/state'&&request.method==='GET'){
-   const open=s.clocks.find(k=>k.staffId===current.a.staffId&&k.status==='open')
-   return json({actorId:current.a.id,staffId:current.a.staffId,deviceId:d.id,sessionId:await sha(current.hash),open:open?{start:open.start,status:open.status,breaks:open.breaks??[],transfers:open.transfers??[],...startOf(s,open)}:null,language,photoRequired,photoEnrollmentNeeded:photoRequired&&!d.photo_consent,photoBreaks,photoTransfers:Boolean(d.photo),site:d.site,jobs:s.jobs.filter(j=>!s.workforce.find(w=>w.staffId===current.a.staffId)?.jobs.length||s.workforce.find(w=>w.staffId===current.a.staffId)?.jobs.includes(j.id)).map(j=>({id:j.id,name:j.name})),clocks:s.clocks.filter(k=>k.staffId===current.a.staffId),receipts:s.kioskreceipts.filter(k=>k.staffId===current.a.staffId)})
+   const open=s.clocks.find(k=>k.staffId===current.a.staffId&&k.status==='open'),view={...s,actor:current.a,settings:{timezone:s.timezone}}
+   const fields={in:clockQuestions(view,null,'in'),out:mealQuestion(view,open??{})+breakQuestions(view,open??{})+clockQuestions(view,open??{},'out')}
+   return json({fields,actorId:current.a.id,staffId:current.a.staffId,deviceId:d.id,sessionId:await sha(current.hash),open:open?{start:open.start,status:open.status,breaks:open.breaks??[],transfers:open.transfers??[],...startOf(s,open)}:null,language,photoRequired,photoEnrollmentNeeded:photoRequired&&!d.photo_consent,photoBreaks,photoTransfers:Boolean(d.photo),site:d.site,jobs:s.jobs.filter(j=>!s.workforce.find(w=>w.staffId===current.a.staffId)?.jobs.length||s.workforce.find(w=>w.staffId===current.a.staffId)?.jobs.includes(j.id)).map(j=>({id:j.id,name:j.name})),clocks:s.clocks.filter(k=>k.staffId===current.a.staffId),receipts:s.kioskreceipts.filter(k=>k.staffId===current.a.staffId)})
   }
   if(path==='/api/lanyard/kiosk/capture'&&request.method==='POST'){
    keys(p,['name','input','photo','photoConsent','photoFailure']);need(['clock.in','clock.out','clock.breakStart','clock.breakEnd','clock.transfer'].includes(p.name),'Kiosk may capture time only',403)
