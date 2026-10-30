@@ -170,7 +170,7 @@
       form.dataset.command = !projected ? 'clock.in' : onBreak ? 'clock.breakEnd' : 'clock.out'
       submit.textContent = onBreak ? text`End ${t(onBreak.kind)} break` : names[form.dataset.command]
       const heading = clock.querySelector('.clock-state strong')
-      if (heading) heading.textContent = projected ? text`Clocked in at ${display(projected.start)}${onBreak ? texttext` · on ${t(onBreak.kind)} break` : ''}` : t('You are clocked out.')
+      if (heading) heading.textContent = projected ? text`Clocked in at ${display(projected.start)}${onBreak ? text` · on ${t(onBreak.kind)} break` : ''}` : t('You are clocked out.')
       const staleBreaks = clock.querySelector(':scope > .breaks'); if (staleBreaks) staleBreaks.hidden = true
       events.replaceChildren()
       for (const item of state.events) {
@@ -233,7 +233,7 @@
               state.events = state.events.filter(event => event !== item)
               await save(); render(state); notify(actor); continue
             }
-            if (result.response.status < 400 || result.response.status >= 500 || [408,429].includes(result.response.status)) throw new Error(text`${result.error} The original captures remain queued.`)
+            if (result.response.status < 400 || result.response.status >= 500 || [408,429].includes(result.response.status)) throw new Error(text`${errorText(result.error)} The original captures remain queued.`)
             item.status = 'rejected'; item.error = result.error; item.reportId = crypto.randomUUID(); item.reported = false
             blockedBy = item.capture.input.commandId
             await save(); render(state); notify(actor)
@@ -243,7 +243,7 @@
           }
           render(state)
         })
-      } catch (error) { syncError = text`${error.message || t('Connection failed.')} Original captures remain on this device.` }
+      } catch (error) { syncError = text`${errorText(error.message) || t('Connection failed.')} Original captures remain on this device.` }
       finally { syncing = false; if (snapshot) { retry.disabled = false; show(text`${snapshot.events.filter(item => item.status === 'pending').length} pending · ${snapshot.events.filter(item => item.status === 'rejected').length} unresolved${syncError ? ` · ${syncError}` : ''}`) } }
       if (acceptedChange && !snapshot.events.length && !capturing) window.location.reload()
     }

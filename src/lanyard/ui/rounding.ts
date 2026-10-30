@@ -1,3 +1,4 @@
+import {html,t as tr} from '../localization'
 // TIME-005 screens: the owner's punch rounding rules per cafe (on People), the paid time beside
 // each captured timesheet, and the week's per-employee rounding report (on Time).
 import {h,rows,form,field,card,disclosure,empty,person} from './shared'
@@ -16,11 +17,11 @@ export function roundRulesCard(s:any) {
  return card('Punch rounding',`<p class="note">Rounding rounds both up and down; snap-to-schedule never removes early-arrival minutes. Captured times are always kept beside the paid time, manual entries are never rounded, and a new rule never changes approved time.</p>${table}${disclosure('Add a rule',form('roundrule.save','people',fields(s),'Save rule','','secondary'))}`,'','round-rules')
 }
 /** The paid span under a captured one, with the minutes rounding added or removed. */
-export function paidNote(r:any,tz:string) {
+export function paidNote(s:any,r:any,tz:string) {
  if(!r.rounding)return ''
- if(!r.payable)return `<small>Rounded at approval</small>`
+ if(!r.payable)return html(s)`<small>Rounded at approval</small>`
  const d=r.minutes-r.rounding.capturedMinutes
- return `<small>Paid ${h(span(r.payable.start,r.payable.end,tz))} (${d>0?'+':d<0?'−':'±'}${Math.abs(d)} min)</small>`
+ return html(s)`<small>Paid ${h(span(r.payable.start,r.payable.end,tz))} (${d>0?'+':d<0?'−':'±'}${Math.abs(d)} min)</small>`
 }
 export function neutralityCard(s:any,week:any[]) {
  const net=[...neutrality(week)]

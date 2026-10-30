@@ -1,4 +1,4 @@
-import {t,languageOf} from '../localization'
+import {t as tr,languageOf} from '../localization'
 import {emptyIcon} from './icons'
 import {initials,stamp} from './format'
 const escapes:Record<string,string> = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}
@@ -30,4 +30,4 @@ export const outcome = (extras:any) => extras.result?.result ?? extras.result
 /** Screen title row: the claret serif title and the venue's current time. */
 export const titleRow = (title:string,s:any,now:number) => `<div class="title-row"><h1>${h(title)}</h1><p class="now">${h(languageOf(s)==='es'?new Intl.DateTimeFormat('es-US',{timeZone:venue(s),dateStyle:'full',timeStyle:'short'}).format(new Date(now)):stamp(now,venue(s)))}</p></div>`
 
-export const staffStatus=(s:any,value:any,label=value)=>status(value,t(s,label))
+export const staffStatus=(s:any,value:any,label=value)=>status(value,tr(s,label))
