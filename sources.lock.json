@@ -4481,6 +4481,10 @@
       "sha256": "0c1ed5df3ee2b64fa5004e26549a71c54e1fc5fce683b0d4b668bdb495e7b139",
       "executable": false
     },
+    "tests/agent-history.mjs": {
+      "sha256": "430369e9feb3e73e9410a82f233b91ad467f11f377b39c54f0ad22ceae7957b7",
+      "executable": false
+    },
     "tests/agent-native.mjs": {
       "sha256": "6aa8cb76b186971cf53d691c511150bfe6a42f824efecf9122b1cf9e8f037774",
       "executable": false
