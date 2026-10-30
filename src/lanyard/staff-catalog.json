@@ -507,5 +507,19 @@
   "not sent: in-app schedule only until NOTICE-001": "no enviado: solo en el horario de Lanyard hasta NOTICE-001",
   "missed break reported": "descanso omitido reportado",
   "My calendar": "Mi calendario",
-  "Manage my calendar subscription": "Administrar mi suscripción al calendario"
+  "Manage my calendar subscription": "Administrar mi suscripción al calendario",
+  "The response could not be confirmed. Retry the saved original.": "No se pudo confirmar la respuesta. Reintenta el registro original guardado.",
+  "The response did not confirm the capture. Retry the saved original.": "La respuesta no confirmó el registro. Reintenta el original guardado.",
+  "An earlier capture was refused. Owner review is required before applying dependent time.": "Se rechazó un registro anterior. El propietario debe revisarlo antes de aplicar las horas que dependen de él.",
+  "Original captures remain saved. Retry when the connection is available.": "Los registros originales siguen guardados. Reintenta cuando haya conexión.",
+  "punch photo unavailable: camera denied": "foto del registro no disponible: permiso de cámara denegado",
+  "punch photo unavailable: camera failed": "foto del registro no disponible: falló la cámara",
+  "punch photo unavailable: photo consent declined": "foto del registro no disponible: consentimiento rechazado",
+  "unscheduled punch": "registro fuera del horario programado",
+  "early clock-in": "entrada anticipada",
+  "missed meal": "comida omitida",
+  "unconfirmed meal deduction": "descuento de comida sin confirmar",
+  "short meal break": "descanso de comida corto",
+  "short rest break": "descanso pagado corto",
+  "late meal break": "descanso de comida tardío"
 }
