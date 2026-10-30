@@ -8,7 +8,7 @@ const SITE='Ocean Beach',NOW='2026-10-28T12:00:00Z'
 const at=time=>({'x-test-now':String(Date.parse(time))})
 const day=n=>`2026-10-${String(n).padStart(2,'0')}`
 const protectedFields=['rosters','shifts','offers','forecasts','demandrules','demandforecasts','sales','clocks','timesheets','batches','claims']
-async function unchanged(h,before){const after=await h.state();for(const field of protectedFields)assert.deepEqual(after[field],before[field],field);return after}
+async function unchanged(h,before,learningChanged=false){const after=await h.state();for(const field of [...protectedFields,...(learningChanged?[]:['offerrules','learnoffers','version'])])assert.deepEqual(after[field],before[field],field);return after}
 export async function offerFixture(h,count=6,review=true) {
  const cmd=(n,p,c=h.owner,status=200,time=NOW)=>h.cmd(n,p,c,status,at(time))
  await cmd('settings.save',{timezone:'UTC'})
@@ -21,7 +21,7 @@ export async function offerFixture(h,count=6,review=true) {
  await saveRule()
  const coverage=async(employees=10,preset='Oregon')=>{const old=(await h.state()).fairworkpolicies.find(r=>r.site===SITE);return cmd('fairwork.save',{site:SITE,...(old?{revision:old.revision}:{}),preset,industry:'food-service',employees,locations:1,localEmployees:10,reason:'Owner reviewed the current employer facts'})}
  if(review)await coverage()
- const dates=[12,13,14,15,16,17,18,19,20,21,29,30]
+ const dates=[12,13,14,15,16,17,18,19,20,21,29,30,31]
  for(const [week,days] of [['2026-10-12',dates.filter(d=>d<=18)],['2026-10-19',dates.filter(d=>d>=19&&d<=21)],['2026-10-26',dates.filter(d=>d>=29)]]){
   const draft=await cmd('roster.prepare',{week,shifts:days.map(d=>({staffId:caller.id,site:SITE,start:day(d)+'T09:00:00Z',end:day(d)+'T12:00:00Z',breakMinutes:0}))})
   await cmd('roster.publish',pin(draft))
@@ -29,7 +29,7 @@ export async function offerFixture(h,count=6,review=true) {
  const round=async(d,latencies=[2,5,9],approve=false)=>{
   const shift=(await h.state()).shifts.find(r=>r.start===day(d)+'T09:00:00.000Z')
   assert.ok(shift,day(d))
-  const out=await cmd('shift.callout',{...pin(shift),note:'Native call-out'},caller.cookie,200,day(d)+'T06:00:00Z')
+  const out=await cmd('shift.callout',{...pin(shift),note:'Native call-out'},caller.cookie,200,d>=29?NOW:day(d)+'T06:00:00Z')
   assert.deepEqual(out.offers.map(o=>o.staffId),responders.map(p=>p.id))
   for(let i=0;i<latencies.length;i++)if(latencies[i]!==null){const o=out.offers[i];out.offers[i]=await cmd('cover.respond',{...pin(o),decision:i===0?'accepted':'declined'},responders[i].cookie,200,new Date(Date.parse(o.opensAt)+latencies[i]*60000).toISOString())}
   if(approve)await cmd('cover.approve',pin(out.offers[0]),h.owner,200,day(d)+'T06:03:00Z')
@@ -91,6 +91,8 @@ export async function offerApi(h) {
  const approved=await cmd('time.approve',pin(sheet))
  const batch=await cmd('payroll.prepare',{ids:[approved.id]})
  await cmd('payroll.export',pin(batch))
+ const outstanding=await round(31,[])
+ assert.deepEqual(outstanding.offers.map(o=>(Date.parse(o.opensAt)-Date.parse(o.createdAt))/60000),[0,60,120])
  e=(await read()).value;p=await propose(e)
  before=await h.state();const originalRule=before.offerrules[0]
  for(const [cookie,status] of [[caller.cookie,403],[foreign.cookie,404]]){
@@ -103,13 +105,15 @@ export async function offerApi(h) {
  assert.equal((await bearer('/api/lanyard/learning/offers?site=Ocean%20Beach&percentile=60')).status,401)
  assert.equal((await bearer('/api/lanyard/agent/learning/offers?site=Ocean%20Beach&percentile=60')).status,404)
  for(const action of ['propose','decide','revert'])assert.equal((await bearer('/api/lanyard/agent/command',{name:'learn.offer.'+action,input:{...pin(p),site:SITE,digest:e.digest,percentile:60,targetReviewed:true,reason:'Agent attempt'}})).status,403)
- assert.deepEqual((await bearer('/api/lanyard/agent/context')).value.learnoffers,[])
+ const context=(await bearer('/api/lanyard/agent/context')).value
+ assert.deepEqual(context.learnoffers,[])
+ assert.ok(context.offers.every(o=>!('offerRule' in o)&&!('roundId' in o)&&!('response' in o)&&!('site' in o)),'retained calibration facts add no agent access')
  assert.deepEqual((await h.state(caller.cookie)).learnoffers,[])
  assert.deepEqual((await h.state(foreign.cookie)).learnoffers,[])
  await h.restart()
  assert.equal((await read()).value.proposals.find(r=>r.id===p.id).digest,p.digest)
  p=await cmd('learn.offer.decide',{...pin(p),decision:'approved',reason:'Reviewed calibration improves on later rounds'},manager.cookie)
- let after=await unchanged(h,before)
+ let after=await unchanged(h,before,true)
  const {id,revision,savedBy,savedAt,minutes,...original}=originalRule,{id:nextId,revision:nextRevision,savedBy:by,savedAt:when,minutes:nextMinutes,...next}=after.offerrules[0]
  assert.deepEqual(next,original);assert.equal(nextMinutes,5);assert.equal(nextRevision,revision+1)
  await cmd('learn.offer.decide',{...pin(p),decision:'approved',reason:'Repeated approval'},manager.cookie,409)
@@ -118,7 +122,7 @@ export async function offerApi(h) {
  const issuedBefore=await h.state()
  await h.restart()
  p=await cmd('learn.offer.revert',{...pin(p),reason:'Restore the earlier interval'},manager.cookie)
- after=await unchanged(h,issuedBefore);assert.equal(after.offerrules[0].minutes,60)
+ after=await unchanged(h,issuedBefore,true);assert.equal(after.offerrules[0].minutes,60)
  const restored=await round(30,[])
  assert.deepEqual(restored.offers.map(o=>(Date.parse(o.opensAt)-Date.parse(o.createdAt))/60000),[0,60,120])
  assert.deepEqual((await h.state()).offers.filter(o=>issued.offers.some(x=>x.id===o.id)),issuedBefore.offers.filter(o=>issued.offers.some(x=>x.id===o.id)))
@@ -158,24 +162,45 @@ export async function offerApi(h) {
  owned=await cmd('learn.offer.decide',{...pin(owned),decision:'approved',reason:'Owner reviewed future minutes'})
  owned=await cmd('learn.offer.revert',{...pin(owned),reason:'Owner restored the future interval'})
  assert.equal(owned.status,'reverted')
+ const fresh=(await read(60,h.owner)).value;let changed=await propose(fresh,h.owner)
+ changed=await cmd('learn.offer.decide',{...pin(changed),decision:'approved',reason:'Owner checks revert guards'})
+ await coverage(500)
+ before=await h.state()
+ await cmd('learn.offer.revert',{...pin(changed),reason:'Covered consent and timing unavailable'},h.owner,409)
+ await unchanged(h,before)
+ await coverage()
+ await saveRule({minutes:7})
+ before=await h.state()
+ await cmd('learn.offer.revert',{...pin(changed),reason:'Cannot overwrite a later manual rule'},h.owner,409)
+ await unchanged(h,before)
+ assert.equal((await h.state()).offerrules[0].minutes,7)
  for(const o of responders)assert.deepEqual((await h.state(o.cookie)).learnoffers,[])
- console.log('PROBE LEARN-001 native timing: 6 training-window rounds, independent 60th-percentile and later calibration, unknown and unsafe refusals, restart, audit, approval and revert passed')
+ console.log('PROBE LEARN-001 native timing: 6 comparable rounds, independent 60th-percentile and later calibration, unknown and unsafe refusals, restart, audit, approval and revert passed')
 }
 export async function offerBrowser(width=1440) {
  const h=await harness({now:NOW}),browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try{
-  const f=await offerFixture(h),e=(await f.read()).value;await f.propose(e)
+  const f=await offerFixture(h)
   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
   const context=await browser.newContext({viewport:{width,height:1100},extraHTTPHeaders:at(NOW)})
   const [name,...value]=f.manager.cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
   await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||path.endsWith('.css')||path.endsWith('.js'))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
   const page=await context.newPage(),errors=[];page.on('pageerror',x=>errors.push(x.message))
-  await page.goto(h.origin+'/app/demand?site=Ocean%20Beach&date=2026-10-28&percentile=60',{waitUntil:'networkidle'})
-  const card=page.locator('#offer-learning'),text=await card.innerText()
+  await page.goto(h.origin+'/app/demand?site=Ocean%20Beach&date=2026-10-28',{waitUntil:'networkidle'})
+  const card=page.locator('#offer-learning')
+  assert.equal(await card.locator('[name=percentile]').inputValue(),'','no implicit response target')
+  await card.locator('[name=percentile]').fill('60')
+  await Promise.all([page.waitForNavigation(),card.getByRole('button',{name:'Review timing',exact:true}).click()])
+  const text=await card.innerText()
   for(const expected of ['6 comparable completed rounds','4 earlier rounds (12 responses)','2 later rounds (6 responses)','60 to 5 minutes','unknown responses are excluded'])assert.ok(text.includes(expected),expected)
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
   const shot=async state=>{if(process.env.LEARN_OFFERS_SCREENS){await mkdir(process.env.LEARN_OFFERS_SCREENS,{recursive:true});await card.screenshot({path:join(process.env.LEARN_OFFERS_SCREENS,`${state}-${width}.png`)})}}
   await shot('review')
+  const record=card.locator('form[action*="name=learn.offer.propose"]')
+  await record.locator('[name=reason]').fill('Reviewed the response-percentile target')
+  await record.locator('[name=targetReviewed]').check()
+  await Promise.all([page.waitForNavigation(),record.getByRole('button',{name:'Record timing proposal'}).click()])
+  assert.equal((await h.state()).learnoffers.length,1)
   const decision=card.locator('form[action*="name=learn.offer.decide"]');await decision.locator('[name=reason]').fill('Reviewed the later calibration')
   await Promise.all([page.waitForNavigation(),decision.getByRole('button',{name:'Decide timing'}).click()])
   assert.equal((await h.state()).offerrules[0].minutes,5)

@@ -83,7 +83,7 @@ export async function offerTimingCommand(c:Context,name:string,p:Record<string,a
   need(e.status==='proposal'&&e.proposal,`No change to propose: ${e.reason}`,409)
   const prior=c.s.learnoffers.filter(r=>r.site===site)
   need(!prior.some(r=>r.status==='proposed'),'Decide the open timing proposal first',409)
-  return put(c,'learnoffers',{site,version:prior.length+1,status:'proposed',explanationVersion:VERSION,targetPercentile:e.targetPercentile,targetReview:{by:c.a.id,at:c.now,reason},change:e.proposal,evaluation:e.evaluation,rounds:e.rounds,evidence:e.evidence,digest,ruleDigest:await sha(canonical({rule:e.rule,revision:e.ruleRevision,policy:e.policy})),ruleRevision:e.ruleRevision,proposedBy:c.a.id,proposedRole:c.a.role,proposedAt:c.now,decision:null})
+  return put(c,'learnoffers',{site,version:prior.length+1,status:'proposed',explanationVersion:VERSION,targetPercentile:e.targetPercentile,targetReview:{by:c.a.id,role:c.a.role,at:c.now,reason},change:e.proposal,evaluation:e.evaluation,rounds:e.rounds,evidence:e.evidence,digest,ruleDigest:await sha(canonical({rule:e.rule,revision:e.ruleRevision,policy:e.policy})),rule:e.rule,ruleRevision:e.ruleRevision,policyId:e.policy?.id??null,policyRevision:e.policyRevision,proposedBy:c.a.id,proposedRole:c.a.role,proposedAt:c.now,decision:null})
  }
  keys(p,['id','revision','decision','reason'])
  const r=c.s.learnoffers.find(r=>r.id===p.id);need(r,'Timing proposal not found',404);scope(c.s,c.a,r.site)
@@ -93,14 +93,14 @@ export async function offerTimingCommand(c:Context,name:string,p:Record<string,a
   need(r.status==='approved','Only an approved timing proposal can be reverted',409)
   need(rule?.revision===r.appliedRuleRevision,'The offer rule changed after approval; review it directly',409)
   const restored=setMinutes(c,r.site,r.change.from)
-  return put(c,'learnoffers',{...r,status:'reverted',decision:{...r.decision,revertedBy:c.a.id,revertedAt:c.now,revertReason:reason,restoredRuleRevision:restored.revision}},r)
+  return put(c,'learnoffers',{...r,status:'reverted',decision:{...r.decision,revertedBy:c.a.id,revertedRole:c.a.role,revertedAt:c.now,revertReason:reason,restoredRuleRevision:restored.revision}},r)
  }
  need(name==='learn.offer.decide','Unknown timing command',404)
  need(r.status==='proposed','This timing proposal is already decided',409)
  need(['approved','declined'].includes(p.decision),'Choose approved or declined')
- if(p.decision==='declined')return put(c,'learnoffers',{...r,status:'declined',decision:{decision:p.decision,reason,by:c.a.id,at:c.now}},r)
+ if(p.decision==='declined')return put(c,'learnoffers',{...r,status:'declined',decision:{decision:p.decision,reason,by:c.a.id,role:c.a.role,at:c.now}},r)
  const e=offerTimingEvaluate(c.s,c.a,r.site,r.targetPercentile,c.now)
  need(await offerTimingDigest(e)===r.digest,'The evidence, coverage review or offer rule changed; decline and review again',409)
  const applied=setMinutes(c,r.site,r.change.to)
- return put(c,'learnoffers',{...r,status:'approved',appliedRuleRevision:applied.revision,decision:{decision:p.decision,reason,by:c.a.id,at:c.now}},r)
+ return put(c,'learnoffers',{...r,status:'approved',appliedRuleRevision:applied.revision,decision:{decision:p.decision,reason,by:c.a.id,role:c.a.role,at:c.now}},r)
 }
