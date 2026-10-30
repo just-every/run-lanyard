@@ -2101,3 +2101,5 @@ test('CUTOFF-001: owner cutoff monitoring follows native facts, exact approvals 
 test('CUTOFF-001: owner reviews cutoff Settings and source-linked payroll readiness',async()=>{const {cutoffBrowser}=await import('./cutoff-journey.mjs');await cutoffBrowser()})
 test('LINK-001: a single-cafe partner prepares one replay-safe roster draft for separate human publication and current authority refuses unsafe retries',async()=>{const {partnerApiJourney}=await import('./partner-api-journey.mjs');await partnerApiJourney()})
 test('LINK-001: the owner issues, rotates and revokes a narrow partner credential in Settings',async()=>{const {partnerBrowser}=await import('./partner-api-journey.mjs');await partnerBrowser()})
+test('CAL-001: private calendar lifecycle preserves published event identities, DST instants and cancellations with live personal authority',async()=>{const {calendarApi}=await import('./calendar-journey.mjs');await calendarApi()})
+test('CAL-001: employee calendar Settings issue, replace, stale refusal and revoke through the browser',async()=>{const {calendarBrowser}=await import('./calendar-journey.mjs');await calendarBrowser()})

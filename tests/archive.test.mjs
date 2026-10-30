@@ -39,6 +39,7 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     const agentKey=await h.cmd('agent.create',{label:'Excluded secret',scopes:['comparison.read'],cafes:['synthetic-scope-cafe'],comparisonConsent:true})
     // A working installation: an active employee on a published week, approved and corrected hours exported twice, and a staff CSV import with its journal.
     const alex=await h.person('Alex')
+    const personalCalendar=await h.cmd('calendar.issue',{revision:0,consent:'yes'},alex.cookie),calendarPath=new URL(personalCalendar.url).pathname
     await h.cmd('staff.save',{id:alex.id,revision:1,name:alex.name,email:alex.email,payrollId:alex.payrollId,role:'staff',active:true,hourlyRate:'20.00'})
     await h.cmd('availability.save',{staffId:alex.id,start:'2026-10-12T07:00:00Z',end:'2026-10-19T07:00:00Z'})
     const week=await h.cmd('roster.prepare',{week:'2026-10-12',shifts:[{...work(alex.id),label:'Morning service'}]});await h.cmd('roster.publish',{id:week.id,revision:week.revision})
@@ -133,12 +134,13 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.deepEqual(scopedAudit.value.rows.map(r=>r.sourceId).sort(),[kioskOut.value.result.timesheet.id,nativeOut.timesheet.id].sort())
     const quarterPackets=await auditLargeQuarter(h)
     const originalChat=(await h.send('/api/lanyard/chat',undefined,h.owner)).value,originalAccess=(await h.send('/api/lanyard/access',undefined,h.owner)).value
+    const calendarBefore=await h.send(calendarPath);assert.equal(calendarBefore.status,200);assert.ok(calendarBefore.text.includes('BEGIN:VEVENT'))
     const journal=await h.cmd('import.journal',{jobId:imported.job.id}),original=await h.state()
     const identity={auth:h.auth,owner:h.owner}
     await h.close();h=null
     const old=join(temporary,'before.rer'),later=join(temporary,'later.rer'),again=join(temporary,'again.rer')
     await command(source,['export','--output',old,'--no-queue'])
-    const bytes=await readFile(old,'utf8');assert.ok(bytes.includes('Temporary joiner'));assert.ok(!bytes.includes('Excluded secret'));assert.ok(!bytes.includes('token_hash'));assert.ok(!bytes.includes('scopes_json'));assert.ok(!bytes.includes('comparison.read'));for(const table of ['l_kiosk_devices','l_kiosk_pins','l_kiosk_sessions','l_kiosk_attempts'])assert.equal(bytes.split('\n').filter(Boolean).map(JSON.parse).filter(p=>p.kind==='part').flatMap(p=>p.items).some(i=>i.kind==='row'&&i.table===table),false,table)
+    const bytes=await readFile(old,'utf8');assert.ok(!bytes.includes('l_calendar_feeds'));assert.ok(!bytes.includes(calendarPath.split('/').at(-1).replace('.ics','')));assert.ok(bytes.includes('Temporary joiner'));assert.ok(!bytes.includes('Excluded secret'));assert.ok(!bytes.includes('token_hash'));assert.ok(!bytes.includes('scopes_json'));assert.ok(!bytes.includes('comparison.read'));for(const table of ['l_kiosk_devices','l_kiosk_pins','l_kiosk_sessions','l_kiosk_attempts'])assert.equal(bytes.split('\n').filter(Boolean).map(JSON.parse).filter(p=>p.kind==='part').flatMap(p=>p.items).some(i=>i.kind==='row'&&i.table===table),false,table)
     await command(restored,['import','--input',old,'--yes','--no-queue'])
     await command(restored,['export','--output',again,'--no-queue'])
     const rows=text=>text.split('\n').filter(Boolean).map(JSON.parse).filter(r=>r.kind==='part')
@@ -149,6 +151,9 @@ test('ARCHIVE-001, AUDIT-001, LOG-001, SCHEDULE-004, PAY-009, PAYRULE-002, PAYRU
     assert.equal((await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${agentKey.token}`})).status,401)
     const owner=await h.signIn(h.auth.OWNER_EMAIL),back=await h.state(owner)
     assert.deepEqual(back.agentKeys,[])
+    assert.equal((await h.send(calendarPath)).status,404,'archived calendar credentials grant no restored authority')
+    const restoredAlex=await h.signIn(alex.email),freshCalendar=await h.cmd('calendar.issue',{revision:0,consent:'yes'},restoredAlex),restoredCalendar=await h.send(new URL(freshCalendar.url).pathname)
+    assert.equal(restoredCalendar.status,200);assert.equal(restoredCalendar.text,calendarBefore.text,'retained event identities, instants and sequences survive restore under new authority')
     assert.deepEqual(back.kiosks,[])
     assert.equal((await h.send('/api/lanyard/kiosk/state',undefined,kioskCookie)).status,403)
     assert.equal((await h.send('/api/lanyard/kiosk/signin',{email:kioskPerson.email,pin:'123456'},enrolled.cookie)).status,403)
