@@ -46,7 +46,7 @@ The [Lanyard guide](docs/README.md) is built into the public site's `/docs` page
 3. **Schedule**: staff add availability and request time off. Managers decide time off, prepare shifts for a Monday-starting week, review conflicts, then publish. Check the venue time zone in **People** (for example America/Los_Angeles) before publishing the first schedule. Forms and weeks use venue time; stored timestamps and payroll CSV use UTC. The time zone is fixed after the first publication. Ambiguous or missing DST wall times are refused; use a clear boundary. Publication refuses shifts outside availability, approved time off or overlapping shifts. Staff see and confirm only their own published shifts.
 4. **Time**: staff clock in and out, entering unpaid break minutes when clocking out. An opened clock queues encrypted clock and break captures through connectivity loss and keeps them across page closure or restart. Reopen the app when connected and retry the original captures; accepted captures cannot duplicate time. Rejected captures remain unresolved for manager review. Managers prepare missed time with a reason, approve hours, or correct the latest approved record. Corrections keep the prior record and need fresh approval.
 5. **Payroll**: prepare approved hours, review the exact CSV, and explicitly export. Download and import into payroll once; re-downloads return identical bytes and do not create new batches. Record the provider acknowledgement reference yourself. A correction to exported time carries only the positive or negative difference. This is Lanyard's documented CSV format: map it to your provider before using real data. Lanyard cannot prevent someone uploading a downloaded file twice externally.
-6. **Agent access**: the owner creates a revocable, 30-day preparation key. [Agent commands](docs/AGENTS-API.md) prepare work; a native human session approves it. Keep keys out of logs.
+6. **Agent access**: company agents use the shared `/mcp` door and `/agents` policy controls. The owner can also create a revocable, 30-day preparation key. [Agent commands](docs/AGENTS-API.md) prepare work; a native human session approves it. Keep keys out of logs.
 
 ## Back up, restore and remove access
 
@@ -87,7 +87,7 @@ Dry run validates/builds without provider requests. Real deploy provisions resou
 `rer dev` also prints `RER_SITE`, the local marketing homepage, `/run` and on-site docs. `rer build --site` writes the checked static site to `dist/site`. Run-site publishing is opt-in through `RUN_SITE_DEPLOY`; its domain declaration remains separate from the installed app.
 
 
-Package mode pins `@runeditrun/rer` to `0.2.80`, which supplies native hosted demos and silently successful demo invitations and sign-in links. Foundation: `runeditrun/base@3478fc15bb18c2f74def8e8906bd308320c7953b`. [Source reuse](docs/SOURCES.md), [operations](RUN-LOCALLY.md), [agent guide](AGENTS.md).
+Package mode pins `@runeditrun/rer` to `0.2.94`, which supplies native hosted demos and silently successful demo invitations and sign-in links. Foundation: `runeditrun/base@3478fc15bb18c2f74def8e8906bd308320c7953b`. Agent door and Business settings runtime: `runeditrun/base@e881e6f66ce7cd737d17dbeb945995aab83c30d8`. [Source reuse](docs/SOURCES.md), [operations](RUN-LOCALLY.md), [agent guide](AGENTS.md).
 
 ```sh
 pnpm run test:lanyard

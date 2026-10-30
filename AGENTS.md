@@ -55,6 +55,9 @@ on the exact tree before every public push; no exclusions or force pushes.
 
 ## Contract documents
 
+Lander-Regenerate: node scripts/contract-docs.mjs write
+Lander-Check: node scripts/contract-docs.mjs check
+
 After changing CONTRACT.md, run `node scripts/contract-docs.mjs write CLAUSE-ID`, then
 `node scripts/contract-docs.mjs check CLAUSE-ID` for the changed clauses.
 Omit the identifiers to refresh every metadata row. Existing journey wording is
@@ -64,3 +67,23 @@ the contract, then regenerate the edition source lock last.
 For `sources.lock.json`, regenerate last with `node scripts/edition-authoring/cli.mjs lock`,
 then run `node scripts/edition-authoring/cli.mjs check`. This is the same freshness
 check used by Verify; keep the current Base selection when refreshing the lock.
+
+## Agent door verification
+
+`agent-surface.json` declares the native preparation journey included in normal
+`rer verify`. Its owner initializer and native identity fixture use production
+HTTP handlers, real account admission and D1; fixture signing and mail receipts
+stay outside the production dependency graph. For a focused native identity,
+approval, replay and Pause diagnosis, run:
+
+```sh
+node --input-type=module -e "import {identityProof} from './tests/agent-native.mjs'; await identityProof()"
+```
+
+Retain native overlapping-time and insufficient-history refusals. The isolated
+`verification.history` fixture supplies only dated native sales and forecasts;
+it never writes protocol, account, audit, approval or receipt state. Regenerate
+its JavaScript from current native calculation code with
+`node scripts/build-agent-history.mjs`. The held round decides the preceding
+proposal through the native human door before proposing again. Keep the normal
+verification failure exit; never introduce a production verification route.
