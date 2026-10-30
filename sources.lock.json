@@ -905,6 +905,10 @@
       "sha256": "4fd7796b78c6726ad04208b78e2f52181638b9275b58e8d6d8502bdb1b495dc7",
       "executable": false
     },
+    "public/tip-pools.js": {
+      "sha256": "0777e4eba26246f575551c4ec6265b3a941b92ccd02fc2a08ac04c580ce25ce5",
+      "executable": false
+    },
     "README.md": {
       "sha256": "216d49f45f6e5124d84244fdff748f33be649751bc3a594b94d25deb31239a46",
       "executable": false
@@ -2247,6 +2251,10 @@
     },
     "src/lanyard/ui/time.ts": {
       "sha256": "cc2a379679b7f0db5b0bf651a351649aacafa6cf7b693139177ac80a6f14c83e",
+      "executable": false
+    },
+    "src/lanyard/ui/tip-pools.ts": {
+      "sha256": "0c0075e30ca2a541332abc1244a96a30260f8d54390248f9a376e88ba399b6c2",
       "executable": false
     },
     "src/lanyard/ui/tipcredit.ts": {
