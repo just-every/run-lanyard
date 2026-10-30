@@ -8,7 +8,7 @@ import {holidaysCard} from './holidays'
 import {money} from './format'
 import {payGroupsCard} from './payschedules'
 import {autoRulesCard} from './autorules'
-import {h,rows,person,manager,owner,form,field,exact,disclosure,card,status,empty,titleRow,venue,avatar,moment} from './shared'
+import {prepared,h,rows,person,manager,owner,form,field,exact,disclosure,card,status,empty,titleRow,venue,avatar,moment} from './shared'
 import {addDays,dateKey,day,hours,mondayOf,span} from './format'
 import {periodsCard} from './periods'
 import {acaCard} from './aca'
@@ -23,7 +23,7 @@ function batch(s:any,b:any,tz:string,canManage:boolean) {
  const exported=b.status==='exported'||b.status==='acknowledged'
  const side=`<div class="batch-side"><h3>${exported?'Exported file':'File to review'}</h3>${disclosure(`${fileLabel}${extension==='xlsx'?' worksheet preview':''} · ${lines.length} entries`,`<pre class="csv">${h(b.csvPreview)}</pre>`,b.status==='draft')}${b.sha256?`<p class="note">SHA-256 <code>${h(b.sha256)}</code></p>`:''}${canManage&&b.status==='draft'?form('payroll.export','payroll',exact(b)+`<label class="check"><input type="checkbox" required> I reviewed this file and approve exporting this revision.</label>`,`Export reviewed ${fileLabel}`,'','primary'):''}${exported?`<p><a class="button secondary" href="/api/lanyard/batches/${encodeURIComponent(b.id)}.${extension}">Download exported ${fileLabel}</a></p>`:''}${canManage&&b.status==='exported'?disclosure('Record provider acknowledgement',`<p class="note">Once your payroll provider has accepted the file, record its reference here. Downloading is not an acknowledgement.</p>${form('payroll.acknowledge','payroll',exact(b)+field('reference','Provider reference','','text','required maxlength="120"'),'Record acknowledgement','','secondary')}`):''}${b.reference?`<p class="done">Acknowledged · ${h(b.reference)}</p>`:''}</div>`
  const when=b.acknowledgedAt??b.exportedAt??b.preparedAt
- return `<article class="card batch"><div class="card-head"><h2>Batch <code>${h(b.id.slice(0,8))}</code></h2>${status(b.status)}<p class="card-note">Revision ${h(b.revision)} · ${h(hours(total))} hrs${when?` · ${moment(when,tz)}`:''}</p></div><div class="batch-body"><div>${premiumTotals}${ledger}</div>${side}</div></article>`
+ return `<article class="card batch"><div class="card-head"><h2>Batch <code>${h(b.id.slice(0,8))}</code></h2>${status(b.status)}<p class="card-note">Revision ${h(b.revision)} · ${h(hours(total))} hrs${when?` · ${moment(when,tz)}`:''}</p></div>${prepared(b)}<div class="batch-body"><div>${premiumTotals}${ledger}</div>${side}</div></article>`
 }
 /** Approved, unexported time as a pay-week ledger: one row per person and week, hours by day, one checkbox for the row
  (enabled by lanyard.js, which writes the checked rows' timesheets into the hidden `ids` field). */

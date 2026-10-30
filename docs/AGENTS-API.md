@@ -1,4 +1,98 @@
-# Preparation API
+# Company agent door
+
+Lanyard serves one shared `/mcp` door using Base's agent-door runtime at
+`e881e6f66ce7cd737d17dbeb945995aab83c30d8` and the released rer 0.2.94 CLI.
+It supports MCP 2026-07-28 and 2025-11-25. Discovery and canonical OAuth resource
+metadata describe the same registry. Company policy, Pause, named approvals,
+reviews and audit are at `/agents`; an agent credential cannot decide for a person.
+
+A paired installation accepts owner-bound Business tokens with explicit consent.
+The signed settings roster binds Business subjects to native operator ids. A
+matching email never selects an account. Workforce admission and native roles
+are re-read; an inactive or unlinked person cannot sponsor. A token whose email
+differs from that native person is refused without moving the subject binding.
+Business team admin means Business policy editor only through the signed mapping; it does not create
+a workforce owner or manager. Current workforce preparation authority belongs to
+the native owner. Local preparation keys keep their original reduced authority.
+
+The declared adoption is CORE: tools, policy, Pause, audit and idempotency,
+with principal authorization always enforced. Events/subscriptions, multiple
+sponsors, outside mail and resource refresh are not claimed as adopted families.
+The runtime declares the same CORE set as the manifest. Optional events,
+resources, prompts and subscriptions are omitted and typed-refused. Existing
+native mail, devices, imports, connectors and installation commands keep their
+own purposes.
+
+Policy starts unset and refuses effects. Paired policy arrives as signed JWS at
+`POST /api/rer/agent-policy`; a standalone owner configures policy through the
+person JSON door. There is no policy bypass for legacy keys. An autonomous
+company rule permits preparation; Lanyard's native human-only publication,
+time approval, payroll export and learning decisions remain separate.
+
+| Tool | Scope | Class | Native clauses |
+| --- | --- | --- | --- |
+| `lanyard.context.read` | `workforce:read` | standard | AGENT-001 |
+| `lanyard.roster.prepare` | `workforce:prepare` | standard | AGENT-001, ROSTER-002, SCHEDULE-001 |
+| `lanyard.time.prepare` | `workforce:prepare` | standard | AGENT-001, TIME-002 |
+| `lanyard.payroll.prepare` | `workforce:prepare` | standard | AGENT-001, PAYROLL-001 |
+| `lanyard.tradeoff.compare` | `comparison.read` | standard | TRADEOFF-001 |
+| `lanyard.demand.read` | `comparison.read` | standard | DEMAND-001, LEARN-001 |
+| `lanyard.learn.read` | `comparison.read` | standard | LEARN-001, TRADEOFF-001 |
+| `lanyard.learn.propose` | `comparison.read` | standard | AGENT-001, LEARN-001, TRADEOFF-001 |
+
+These tools call the existing native services. Standard reflects their actual
+internal preparation or reduced read, with no wage movement, external recipient,
+access grant or production publication. Classification uses current native
+records and proposed items; caller flags cannot lower it. Writes carry a
+server-generated summary and the native aggregate revision. Supply
+`idempotency_key` on writes and `expected_revision` when pinning the source.
+A changed key body conflicts; a stale source refuses. Native commands also
+retain the original operation identity, so door recovery cannot duplicate a draft.
+No provider cost or spend reservation is registered: spend is explicitly none.
+No Undo is offered where the native service has no reversal.
+
+The declared capabilities are tools, policy, pause, audit and idempotency.
+Events, resources, prompts and subscriptions are undeclared: discovery omits
+them and their public calls return typed `capability_not_declared` refusals.
+The eight native resource readers remain internal visibility adapters; the
+public resource catalogue and returned resource links are empty. Record access
+for this adoption uses the reduced context and consented comparison tools.
+Source text is untrusted. Keys, bearer credentials, payroll identifiers, rates,
+private contacts and download bytes are not returned.
+
+To let company agents use comparison reads, the owner must separately grant
+`comparison.read`, name cafes, consent to aggregate cost disclosure and check
+**Also allow signed company agents** in Agent access. Existing grants do not
+acquire this permission. Revocation, expiry and owner-version changes remove it.
+A Business token cannot borrow a local key's grant, even by naming that key.
+
+Native drafts and activity retain the agent, native sponsor, operation and named
+policy approvers; the draft says `<agent> for <person>`. A later native approval
+has its human actor. Shared-door records are retained; identities disclosed into
+retained door content cannot use unused-person erasure until coordinated
+redaction exists. Archives retain custody fences, audit, events and cached
+outcomes, while excluding active policy, Business binding, agent registration,
+pending approval/review authority and usage. Restore requires fresh pairing and
+policy. This is a custody limit, not completed employee-rights fulfillment.
+
+The workforce coordinator reads current source facts, prepares supported
+drafts and hands exact revisions to native people. It refuses to invent worked
+time or treat a payroll file as proof of wages paid. Learning proposals require
+real pre-service forecast history, observed sales and an improved holdout result;
+a fresh installation cannot manufacture that history. Prompt retrieval is
+undeclared in this CORE adoption.
+
+The proposed broader contract surface is not a grant. Workforce administration,
+publication, authoritative approval, payroll transfer, staff contact and erasure
+are not agent tools under the currently judged AGENT-001. The conformance
+manifest declares only real native preparation and consented reads.
+
+## Compatibility preparation API
+
+The existing endpoints below translate into the same shared door. They require
+an adopted policy and respect Pause, current authority, approval and audit.
+An `Idempotency-Key` header pins a compatibility mutation. Refusals include a
+machine `code`; MCP uses `_meta["com.runeditrun/error"]`.
 
 The owner creates a key in **Agent access** (in the account menu, top right). It expires after 30 days and can be revoked immediately. Keep it in a private `LANYARD_AGENT_TOKEN` environment variable; never log it. `LANYARD_ORIGIN` is the exact app origin.
 
@@ -84,3 +178,38 @@ This native API establishes no external workflow connection or delivery.
 Signed event webhooks, observable provider delivery and reconciliation,
 authorized Zapier and Make event-to-draft workflows, and broader versioned
 time, coverage and report APIs remain open under LINK-001.
+
+## Verification at the current Base pin
+
+Normal `rer verify` runs the production build and declared CORE journey. The
+measured result on released rer 0.2.94 is **724/724 points**, with
+`CI=true SEED_VERIFY_SHARD=app pnpm exec rer verify --no-queue`. Both
+`BASE-AGENT-013.4.autonomous.proposal` and
+`BASE-AGENT-013.4.held.proposal` pass, as does the specialist native journey.
+The successful proposal paths add output and audit checks, so this is the
+measured dynamic count rather than the earlier 643/645 result.
+
+`verification.history` declares a contained, isolated test Worker and two narrow
+INSERT statements for native sales and forecast records. It creates 35 dated
+sales observations and seven pre-service forecasts, calculated and digested by
+Lanyard's native code. It never writes accounts, policy, approval, audit or
+protocol receipts and never advances the runtime clock. The autonomous and held
+rounds use the same retained history. Between them, the native owner declines
+the preceding open proposal through the production person command; the next
+proposal still follows the real learning, authority, policy and audit paths.
+Regenerate the Worker after changing native calculations with
+`node scripts/build-agent-history.mjs`.
+
+The separate native journey uses its own real installation with an explicit UTC
+venue timezone. `tests/agent-history.mjs` previews/imports observed sales, saves
+a current forecast and proves that saving a completed-day forecast returns HTTP
+400 without changing the native revision. Entered sales alone still yield zero
+comparable days and no proposal. Distinct time intervals succeed under both
+policies; overlaps remain refused. Identity, named exact-summary approval,
+attribution, one-effect replay, argument and revision conflicts, Pause and
+zero differs_from_policy all pass. Production backdating is unchanged.
+
+Events, resources, prompts and subscriptions remain undeclared and typed-refused.
+Multi-sponsor, mail edges, resource refresh, timed/queued lifecycles, dual host
+and owner-native administration remain unproved; shared clauses stay PARTIAL.
+No provider cost, enforceable spend cap or broader AGENT-001 authority is claimed.
