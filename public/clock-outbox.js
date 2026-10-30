@@ -1,11 +1,12 @@
 /* Actor-scoped encrypted captures. The server alone decides whether a capture is accepted. */
 (() => {
-  const names = {'clock.in':'Clock in','clock.out':'Clock out','clock.breakStart':'Start break','clock.breakEnd':'End break','clock.transfer':'Change job'}
+  const t=(source,values)=>window.LanyardStaff.t(source,values),text=(strings,...values)=>window.LanyardStaff.text(strings,...values),errorText=source=>window.LanyardStaff.error(source)
+  const names = {'clock.in':t('Clock in'),'clock.out':t('Clock out'),'clock.breakStart':t('Start break'),'clock.breakEnd':t('End break'),'clock.transfer':t('Change job')}
   const encoder = new TextEncoder(), decoder = new TextDecoder()
   const stopped = new Set(), channels = new Map()
   const databaseName = actor => `lanyard.clock.outbox.${actor}`
   const request = value => new Promise((resolve, reject) => { value.onsuccess = () => resolve(value.result); value.onerror = () => reject(value.error) })
-  const completed = tx => new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = tx.onabort = () => reject(tx.error || new Error('Browser storage failed.')) })
+  const completed = tx => new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = tx.onabort = () => reject(tx.error || new Error(t('Browser storage failed.'))) })
   const channelFor = actor => {
     if (!channels.has(actor) && window.BroadcastChannel) {
       const channel = new BroadcastChannel(databaseName(actor))
@@ -19,9 +20,9 @@
   }
   const notify = actor => channelFor(actor)?.postMessage('changed')
   function exclusive(actor, work) {
-    if (!navigator.locks || !window.indexedDB || !crypto.subtle) return Promise.reject(new Error('Secure browser storage and Web Locks are required to capture time on this device.'))
+    if (!navigator.locks || !window.indexedDB || !crypto.subtle) return Promise.reject(new Error(t('Secure browser storage and Web Locks are required to capture time on this device.')))
     return navigator.locks.request(databaseName(actor), async () => {
-      if (stopped.has(actor)) throw new Error('You have signed out. Sign in again before using the clock.')
+      if (stopped.has(actor)) throw new Error(t('You have signed out. Sign in again before using the clock.'))
       return work()
     })
   }
@@ -41,13 +42,13 @@
     const tx = db.transaction('vault', 'readonly'), done = completed(tx), store = tx.objectStore('vault')
     const [key, sealed] = await Promise.all([request(store.get('key')), request(store.get('state'))])
     await done
-    if (sealed && !key) throw new Error('The saved clock encryption key is missing. The saved captures cannot be read.')
+    if (sealed && !key) throw new Error(t('The saved clock encryption key is missing. The saved captures cannot be read.'))
     const secret = key || await crypto.subtle.generateKey({name:'AES-GCM',length:256}, false, ['encrypt','decrypt'])
     let state = {base:initial,events:[]}
     if (sealed) {
       const plain = await crypto.subtle.decrypt({name:'AES-GCM',iv:sealed.iv,additionalData:encoder.encode(actor)}, secret, sealed.data)
       state = JSON.parse(decoder.decode(plain))
-      if (!Array.isArray(state.events) || state.events.some(event => !validCapture(event.capture) || !['pending','rejected'].includes(event.status))) throw new Error('The saved clock queue cannot be read.')
+      if (!Array.isArray(state.events) || state.events.some(event => !validCapture(event.capture) || !['pending','rejected'].includes(event.status))) throw new Error(t('The saved clock queue cannot be read.'))
     }
     return {state,secret}
   }
@@ -71,7 +72,7 @@
       const legacy = localStorage.getItem(databaseName(actor))
       if (legacy) {
         const parsed = JSON.parse(legacy), captures = Array.isArray(parsed) ? parsed : [parsed]
-        if (!captures.every(validCapture)) throw new Error('The legacy clock queue cannot be read. It has been kept on this device.')
+        if (!captures.every(validCapture)) throw new Error(t('The legacy clock queue cannot be read. It has been kept on this device.'))
         for (const capture of captures) if (!state.events.some(event => event.capture.input.commandId === capture.input.commandId)) state.events.push({capture,status:'pending'})
         await save()
         localStorage.removeItem(databaseName(actor))
@@ -85,12 +86,12 @@
     const clock = base ? structuredClone(base) : null, at = capture.input.capturedAt
     const current = clock?.breaks?.find(item => !item.end)
     if (capture.name === 'clock.in' && !clock) return {start:at,status:'open',breaks:[],job:capture.input.job ?? '',site:capture.input.site ?? ''}
-    if (!clock || at < clock.start) throw new Error('This event does not follow the current clock. Resolve the earlier captures first.')
+    if (!clock || at < clock.start) throw new Error(t('This event does not follow the current clock. Resolve the earlier captures first.'))
     if (capture.name === 'clock.out' && !current && at > clock.start && (clock.transfers || []).every(item => at > item.at) && (clock.breaks || []).every(item => at >= item.end)) return null
     if (capture.name === 'clock.breakStart' && !current && ['meal','rest'].includes(capture.input.kind)) {
       const last = clock.breaks?.at(-1)
-      if (last?.end && at < last.end) throw new Error('A break must follow the previous break.')
-      if ((clock.transfers || []).some(item => at < item.at)) throw new Error('A break must follow the last job change.')
+      if (last?.end && at < last.end) throw new Error(t('A break must follow the previous break.'))
+      if ((clock.transfers || []).some(item => at < item.at)) throw new Error(t('A break must follow the last job change.'))
       clock.breaks = [...(clock.breaks || []),{kind:capture.input.kind,start:at,end:null}]
       return clock
     }
@@ -99,7 +100,7 @@
       clock.transfers = [...(clock.transfers || []),{at,job:capture.input.job,site:capture.input.site ?? null}]
       return clock
     }
-    throw new Error('This event does not follow the current clock. Resolve the earlier captures first.')
+    throw new Error(t('This event does not follow the current clock. Resolve the earlier captures first.'))
   }
   function project(state) {
     let clock = state.base
@@ -115,7 +116,7 @@
       const response = await fetch('/api/lanyard/command', {method:'POST',headers:{'content-type':'application/json'},credentials:'same-origin',signal:controller.signal,body:JSON.stringify(capture)})
       let payload
       try { payload = await response.json() } catch { payload = null }
-      const error = typeof payload?.error === 'string' ? payload.error : payload?.error?.message || payload?.message || `Request failed (${response.status}).`
+      const error = typeof payload?.error === 'string' ? payload.error : payload?.error?.message || payload?.message || text`Request failed (${response.status}).`
       return {response,payload,error}
     } finally { clearTimeout(timeout) }
   }
@@ -126,7 +127,7 @@
   }
   function fieldsFor(clock, phase) {
     const template = clock.querySelector(`template[data-clock-fields="${phase}"]`)
-    if (!template) throw new Error('Clock fields are missing. Reload before capturing time.')
+    if (!template) throw new Error(t('Clock fields are missing. Reload before capturing time.'))
     return template.content.cloneNode(true)
   }
   function start(clock) {
@@ -135,9 +136,9 @@
     const show = text => { status.textContent = text }
     let initial
     try {
-      if (!Object.hasOwn(clock.dataset, 'state')) throw new Error('Clock state is missing. Reload before capturing time.')
+      if (!Object.hasOwn(clock.dataset, 'state')) throw new Error(t('Clock state is missing. Reload before capturing time.'))
       initial = JSON.parse(clock.dataset.state)
-    } catch (error) { show(error.message); form.querySelectorAll('button').forEach(button => { button.disabled = true }); return }
+    } catch (error) { show(errorText(error.message)); form.querySelectorAll('button').forEach(button => { button.disabled = true }); return }
     let fields
     try { fields = {in:fieldsFor(clock, 'in'),out:fieldsFor(clock, 'out')} } catch (error) { show(error.message); form.querySelectorAll('button').forEach(button => { button.disabled = true }); return }
     const primary = form.querySelector('button.primary') || form.querySelector('button[type="submit"]')
@@ -149,7 +150,7 @@
     retry.after(events)
     let phase = '', snapshot, syncing = false, capturing = false, ready = false, failed = false
     const timezone = document.body.dataset.timezone
-    const display = at => `${new Intl.DateTimeFormat('en-US', {timeZone:timezone,dateStyle:'medium',timeStyle:'short'}).format(new Date(at))} (${timezone})`
+    const display = at => `${new Intl.DateTimeFormat(document.documentElement.lang, {timeZone:timezone,dateStyle:'medium',timeStyle:'short'}).format(new Date(at))} (${timezone})`
     function render(state) {
       snapshot = structuredClone(state)
       const projected = project(state), onBreak = projected?.breaks?.find(item => !item.end), next = !projected ? 'in' : onBreak ? 'break' : 'out'
@@ -159,7 +160,7 @@
         actions.replaceChildren()
         if (next === 'out') for (const kind of ['meal','rest']) {
           const button = document.createElement('button')
-          Object.assign(button,{type:'submit',className:'secondary',textContent:`Start ${kind} break`,formNoValidate:true})
+          Object.assign(button,{type:'submit',className:'secondary',textContent:text`Start ${t(kind)} break`,formNoValidate:true})
           button.dataset.command = 'clock.breakStart'; button.dataset.kind = kind; actions.append(button)
         }
       }
@@ -167,35 +168,35 @@
       const meal = fieldset.querySelector('[name="breakMinutes"]')
       if (meal) { meal.readOnly = Boolean(timedMeal); if (timedMeal) meal.value = '0' }
       form.dataset.command = !projected ? 'clock.in' : onBreak ? 'clock.breakEnd' : 'clock.out'
-      submit.textContent = onBreak ? `End ${onBreak.kind} break` : names[form.dataset.command]
+      submit.textContent = onBreak ? text`End ${t(onBreak.kind)} break` : names[form.dataset.command]
       const heading = clock.querySelector('.clock-state strong')
-      if (heading) heading.textContent = projected ? `Clocked in at ${display(projected.start)}${onBreak ? ` · on ${onBreak.kind} break` : ''}` : 'You are clocked out.'
+      if (heading) heading.textContent = projected ? text`Clocked in at ${display(projected.start)}${onBreak ? texttext` · on ${t(onBreak.kind)} break` : ''}` : t('You are clocked out.')
       const staleBreaks = clock.querySelector(':scope > .breaks'); if (staleBreaks) staleBreaks.hidden = true
       events.replaceChildren()
       for (const item of state.events) {
         const li = document.createElement('li'), capture = item.capture
-        li.append(`${names[capture.name]}${capture.name === 'clock.breakStart' ? ` (${capture.input.kind})` : ''} · ${display(capture.input.capturedAt)} · ${item.status === 'rejected' ? `Unresolved: ${item.error}${item.reported ? ' Reported for manager review.' : ' Kept on this device; not yet reported.'}` : 'Pending sync.'}`)
+        li.append(`${names[capture.name]}${capture.name === 'clock.breakStart' ? ` (${t(capture.input.kind)})` : ''} · ${display(capture.input.capturedAt)} · ${item.status === 'rejected' ? text`Unresolved: ${errorText(item.error)}${item.reported ? t(' Reported for manager review.') : t(' Kept on this device; not yet reported.')}` : t('Pending sync.')}`)
         if (item.status === 'rejected') {
           const discard = document.createElement('button')
-          Object.assign(discard,{type:'button',className:'secondary small',textContent:'Discard local copy'})
+          Object.assign(discard,{type:'button',className:'secondary small',textContent:t('Discard local copy')})
           discard.addEventListener('click', () => discardEvent(capture.input.commandId)); li.append(' ',discard)
         }
         events.append(li)
       }
       retry.hidden = !state.events.length; retry.disabled = syncing
-      retry.textContent = 'Retry queued clock events'
+      retry.textContent = t('Retry queued clock events')
       form.querySelectorAll('button').forEach(button => { button.disabled = capturing || !ready || failed || state.events.some(item => item.status === 'rejected') })
-      show(`${state.events.filter(item => item.status === 'pending').length} pending · ${state.events.filter(item => item.status === 'rejected').length} unresolved${syncing ? ' · Syncing…' : ''}`)
+      show(text`${state.events.filter(item => item.status === 'pending').length} pending · ${state.events.filter(item => item.status === 'rejected').length} unresolved${syncing ? t(' · Syncing…') : ''}`)
     }
     function failure(error) {
       failed = true; form.querySelectorAll('button').forEach(button => { button.disabled = true })
-      show(`${error.message || 'Browser storage failed.'} Your saved clock events have not been discarded. Reload before capturing more time.`)
+      show(text`${errorText(error.message) || t('Browser storage failed.')} Your saved clock events have not been discarded. Reload before capturing more time.`)
     }
     async function refresh() {
       try { await withState(actor, initial, async state => { render(state) }) } catch (error) { failure(error) }
     }
     async function discardEvent(id) {
-      if (!confirm('Discard this unresolved capture from this device? This cannot be undone. A report already sent to your manager is retained there.')) return
+      if (!confirm(t('Discard this unresolved capture from this device? This cannot be undone. A report already sent to your manager is retained there.'))) return
       try {
         await withState(actor, initial, async (state, save) => { state.events = state.events.filter(item => item.capture.input.commandId !== id || item.status !== 'rejected'); await save(); render(state) })
         notify(actor)
@@ -215,7 +216,7 @@
               continue
             }
             if (blockedBy) {
-              item.status = 'rejected'; item.error = `Not replayed because earlier capture ${blockedBy} was rejected. Ask your manager to reconcile these original captures.`
+              item.status = 'rejected'; item.error = text`Not replayed because earlier capture ${blockedBy} was rejected. Ask your manager to reconcile these original captures.`
               item.reportId = crypto.randomUUID(); item.reported = false
               await save(); render(state); notify(actor)
               const sent = await report(item); await save()
@@ -225,14 +226,14 @@
             const result = await post(item.capture)
             if (result.response.ok && result.payload?.ok === true) {
               const accepted = result.payload.result?.clock || result.payload.result
-              if (!accepted || typeof accepted.status !== 'string') throw new Error('The server response did not include the accepted clock state. Retry uses the same capture ID.')
+              if (!accepted || typeof accepted.status !== 'string') throw new Error(t('The server response did not include the accepted clock state. Retry uses the same capture ID.'))
               state.base = accepted.status === 'open' ? accepted : null
               state.version = result.payload.version
               acceptedChange = true
               state.events = state.events.filter(event => event !== item)
               await save(); render(state); notify(actor); continue
             }
-            if (result.response.status < 400 || result.response.status >= 500 || [408,429].includes(result.response.status)) throw new Error(`${result.error} The original captures remain queued.`)
+            if (result.response.status < 400 || result.response.status >= 500 || [408,429].includes(result.response.status)) throw new Error(text`${result.error} The original captures remain queued.`)
             item.status = 'rejected'; item.error = result.error; item.reportId = crypto.randomUUID(); item.reported = false
             blockedBy = item.capture.input.commandId
             await save(); render(state); notify(actor)
@@ -242,8 +243,8 @@
           }
           render(state)
         })
-      } catch (error) { syncError = `${error.message || 'Connection failed.'} Original captures remain on this device.` }
-      finally { syncing = false; if (snapshot) { retry.disabled = false; show(`${snapshot.events.filter(item => item.status === 'pending').length} pending · ${snapshot.events.filter(item => item.status === 'rejected').length} unresolved${syncError ? ` · ${syncError}` : ''}`) } }
+      } catch (error) { syncError = text`${error.message || t('Connection failed.')} Original captures remain on this device.` }
+      finally { syncing = false; if (snapshot) { retry.disabled = false; show(text`${snapshot.events.filter(item => item.status === 'pending').length} pending · ${snapshot.events.filter(item => item.status === 'rejected').length} unresolved${syncError ? ` · ${syncError}` : ''}`) } }
       if (acceptedChange && !snapshot.events.length && !capturing) window.location.reload()
     }
     form.addEventListener('submit', async event => {
@@ -271,14 +272,14 @@
       capturing = true; if (snapshot) render(snapshot)
       try {
         await withState(actor, initial, async (state, save) => {
-          if (state.events.some(item => item.status === 'rejected')) throw new Error('Resolve the saved rejected captures before recording more events.')
+          if (state.events.some(item => item.status === 'rejected')) throw new Error(t('Resolve the saved rejected captures before recording more events.'))
           Object.assign(input, await window.LanyardPunchLocation?.capture(clock,name,input.capturedAt) ?? {})
           Object.assign(input, await window.LanyardPunchPhoto?.capture(clock,name) ?? {})
           apply(project(state), capture)
           state.events.push({capture,status:'pending'}); await save(); render(state)
         })
         notify(actor); sync()
-      } catch (error) { show(`${error.message} This new event was not queued or sent.`) }
+      } catch (error) { show(text`${errorText(error.message)} This new event was not queued or sent.`) }
       finally { capturing = false; form.querySelectorAll('button').forEach(button => { button.disabled = !ready || failed || snapshot?.events.some(item => item.status === 'rejected') }) }
     })
     retry.addEventListener('click', sync)
@@ -302,14 +303,14 @@
     const actor = document.querySelector('[data-clock]')?.dataset.actor || button.dataset.actor || document.body.dataset.actor
     const send = async () => {
       const response = await fetch('/auth/signout', {method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:'{}'})
-      if (!response.ok) throw new Error('Could not sign out')
+      if (!response.ok) throw new Error(t('Could not sign out'))
     }
-    if (!actor) throw new Error('Your clock identity is missing. Reload before signing out.')
+    if (!actor) throw new Error(t('Your clock identity is missing. Reload before signing out.'))
     let signedOut = false
     await exclusive(actor, async () => {
       await openedState(actor, null, async state => {
         const count = state.events.length
-        if (count && !confirm(`There ${count === 1 ? 'is 1 saved clock event' : `are ${count} saved clock events`} on this device, including pending and unresolved captures. Signing out will delete these local originals. Cancel to keep them and sync or ask your manager first. Sign out and delete?`)) return
+        if (count && !confirm(text`There ${count === 1 ? t('is 1 saved clock event') : text`are ${count} saved clock events`} on this device, including pending and unresolved captures. Signing out will delete these local originals. Cancel to keep them and sync or ask your manager first. Sign out and delete?`)) return
         await send(); stopped.add(actor); signedOut = true
       })
       if (signedOut) {
