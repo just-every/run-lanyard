@@ -1,3 +1,4 @@
+import {tipPoolsCard} from './tip-pools'
 import {cutoffCard} from './cutoff'
 import {sickPoliciesCard} from './sick'
 import {differentialsCard} from './differentials'
@@ -38,7 +39,7 @@ function ledger(s:any,eligible:any[],tz:string) {
    return `<tr><td class="pick"><input type="checkbox" data-payroll-id="${h(mine.map(r=>r.id).join(','))}" checked disabled aria-label="Include ${h(person(s,id))}, week of ${h(day(week))}"></td><td class="who">${avatar(person(s,id))}<span>${h(person(s,id))}</span></td>${cells}<td class="num hrs" data-label="Hours"><strong>${h(hours(mine.reduce((n,r)=>n+minutes(r),0)))}</strong></td></tr>`
   }).join('')}</tbody>`}).join('')}</table>`
 }
-export function payroll(s:any,now:number) {
+export function payroll(s:any,now:number,q=new URLSearchParams()) {
  const tz=venue(s),canManage=manager(s),claimed=(r:any)=>rows(s,'batches').some(b=>['exported','acknowledged'].includes(b.status)&&(b.lines??[]).some((l:any)=>l.timeId===r.id&&l.revision===r.revision))
  const eligible=rows(s,'timesheets').filter(r=>r.status==='approved'&&!claimed(r))
  const sickInputs=rows(s,'sickuses').filter(u=>u.status==='approved'&&!rows(s,'batches').some(b=>['exported','acknowledged'].includes(b.status)&&b.lines.some((l:any)=>l.sickUseId===u.id&&l.revision===u.revision)))
@@ -47,5 +48,5 @@ export function payroll(s:any,now:number) {
  const choose=eligible.length||adjustments.length?form('payroll.prepare','payroll',templates+(eligible.length?ledger(s,eligible,tz):'')+`<p class="note">${h(workweekInputs.length)} closed-workweek premium input${workweekInputs.length===1?'':'s'} waiting for review. These are additional half-rate premiums, separate from worked hours.</p><p class="note">${h(holidayInputs.length)} reviewed non-work holiday pay input${holidayInputs.length===1?'':'s'} waiting for export, separate from worked time.</p>`+`<input type="hidden" ${eligible.length?'name="ids"':''} value="${h(JSON.stringify(eligible.map(r=>r.id)))}" data-payroll-ids><noscript><p class="note">Without JavaScript the batch takes every row above.</p></noscript>`,'Prepare batch','data-payroll-form','primary'):empty('No approved time is waiting. Approve timesheets in Time, then prepare a batch here.')
  const total=eligible.reduce((n,r)=>n+(r.exportMinutes??r.minutes),0)
  const list=rows(s,'batches')
- return `${titleRow(`Payroll · ${hours(total)} hrs to export`,s,now)}${canManage?`<p><a class="text-link" href="/app/reports">Operational reports</a> · <a class="text-link" href="/app/audit?site=${encodeURIComponent(s.staff.find((p:any)=>p.id===s.actor.staffId)?.site??'')}">Audit records</a></p>`:''}${owner(s)?cutoffCard(s):''}${canManage?card('Prepare payroll',choose,`<p class="card-note">${h(eligible.length)} approved, not exported</p>`):''}${canManage?sickPoliciesCard(s)+differentialsCard(s)+premiumsCard(s)+holidaysCard(s)+payGroupsCard(s)+periodsCard(s,tz)+(owner(s)?autoRulesCard(s):''):''}${list.length?[...list].sort((a,b)=>String(b.preparedAt??'').localeCompare(String(a.preparedAt??''))).map(b=>batch(s,b,tz,canManage)).join(''):card('Batches',empty('No payroll batches yet. Prepare one from approved time.'))}${canManage?tipCreditCard(s):''}${acaCard(s)}`
+ return `${titleRow(`Payroll · ${hours(total)} hrs to export`,s,now)}${canManage?`<p><a class="text-link" href="/app/reports">Operational reports</a> · <a class="text-link" href="/app/audit?site=${encodeURIComponent(s.staff.find((p:any)=>p.id===s.actor.staffId)?.site??'')}">Audit records</a></p>`:''}${owner(s)?tipPoolsCard(s,q,now)+cutoffCard(s):''}${canManage?card('Prepare payroll',choose,`<p class="card-note">${h(eligible.length)} approved, not exported</p>`):''}${canManage?sickPoliciesCard(s)+differentialsCard(s)+premiumsCard(s)+holidaysCard(s)+payGroupsCard(s)+periodsCard(s,tz)+(owner(s)?autoRulesCard(s):''):''}${list.length?[...list].sort((a,b)=>String(b.preparedAt??'').localeCompare(String(a.preparedAt??''))).map(b=>batch(s,b,tz,canManage)).join(''):card('Batches',empty('No payroll batches yet. Prepare one from approved time.'))}${canManage?tipCreditCard(s):''}${acaCard(s)}`
 }

@@ -16,14 +16,26 @@ provider reconciliation.
 
 ## Reviewed pool sources
 
-The native owner can prepare a pool through the existing authenticated command
-endpoint, `POST /api/lanyard/command`. There is no automatic pool creation or
+The native owner opens **Payroll → Tip pools**, chooses a cafe and completed
+service date, and selects eligible jobs and ordinary hourly employees explicitly.
+Choose whole clock-out declarations, enter manual cash or card sources in USD
+cents, and record the employer's eligibility and source review reason. **Prepare
+pool review** saves a draft without changing approved earnings. Inspect its
+allocations, total approved minutes, tip inputs and source revisions, then check
+the explicit approval and choose **Approve reviewed pool** as a separate action.
+
+The panel retains draft and approved history. **Prepare correction** starts a
+complete replacement of the latest approved pool at its original cafe and date.
+Failed preparation or approval keeps the entered inputs available; changed
+sources require a fresh review. Reloading or restarting retains saved reviews.
+The same workflow is available through the authenticated command endpoint,
+`POST /api/lanyard/command`. There is no automatic pool creation or
 payment. This interim workflow supports one completed venue date and one cafe,
 ordinary hourly employees whose eligibility the employer has reviewed, and
 allocation proportional to actual approved minutes in explicitly chosen jobs.
 Owner and manager roles cannot participate. It does not verify legal eligibility
-or import POS tips. Other contribution rules, dedicated pool administration and
-employee discrepancy review remain open.
+or import POS tips. Other contribution rules and employee discrepancy review remain open.
+This panel adds no readers, delegated authority or eligibility variants.
 
 Send `tip.pool.prepare` with this input shape, substituting current record IDs:
 
