@@ -30,7 +30,7 @@ import { timezone as zone } from './domain/settings'
 
 const headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin' }
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers })
-const pages = new Set(['/app', '/app/schedule', '/app/time', '/app/payroll', '/app/people', '/app/settings', '/app/import', '/app/agent', '/app/wall', '/app/access', '/app/chat'])
+const pages = new Set(['/app', '/app/schedule', '/app/time', '/app/payroll', '/app/people', '/app/calendar', '/app/settings', '/app/import', '/app/agent', '/app/wall', '/app/access', '/app/chat'])
 // The screen a form returns to, with its own query (week, cafe, day) but never another origin or path.
 function returnTo(value: string | null): string {
   if (!value?.startsWith('/app')) return '/app'
@@ -173,7 +173,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     if(auditOnly&&(request.method!=='GET'||!['/app/audit','/api/lanyard/audit','/api/lanyard/audit.csv'].includes(path)))fail('Audit authority grants only report reads and downloads',403)
     if (request.method === 'GET') {
       const custom=await customMode(env,who)
-      if(custom&&!auditOnly&&!['/api/lanyard/intervals','/app/intervals','/app','/app/schedule','/app/time','/app/settings','/api/lanyard/calendar','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path)&&!/^\/api\/lanyard\/batches\/[\w-]+\.(csv|tsv|txt|xlsx|iif)$/.test(path))fail('This read is unavailable to custom levels',403)
+      if(custom&&!auditOnly&&!['/api/lanyard/intervals','/app/intervals','/app','/app/schedule','/app/time','/app/calendar','/api/lanyard/calendar','/app/access','/api/lanyard/state','/api/lanyard/access','/app/chat','/api/lanyard/chat'].includes(path)&&!path.startsWith('/api/lanyard/chat/messages/')&&!/^\/api\/lanyard\/kiosk-photos\/[\w-]+$/.test(path)&&!/^\/(app|api\/lanyard)\/contacts\/[\w-]+$/.test(path)&&!/^\/api\/lanyard\/batches\/[\w-]+\.(csv|tsv|txt|xlsx|iif)$/.test(path))fail('This read is unavailable to custom levels',403)
       if(path==='/api/lanyard/cutoffs'){if(who.role!=='owner')fail('Only the owner monitors payroll cutoffs',403);return json(await cutoffReports(await load(env.DB),who,new Date().toISOString(),env.DB,url.searchParams.get('periodId')??undefined))}
       const retainedAudit=path.match(/^\/api\/lanyard\/audit-packets\/([\w-]+)(\.csv)?$/)
       if(retainedAudit){
@@ -210,7 +210,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if(path==='/api/lanyard/calendar'){if(url.search)fail('Calendar reads are personal',400);return json(await calendarStatus(env,who))}
       if (pages.has(path)) {
         const view:any=await state(request,env,who)
-        if(path==='/app/settings'&&who.staffId)view.calendar=await calendarStatus(env,who)
+        if(path==='/app/calendar'&&who.staffId)view.calendar=await calendarStatus(env,who)
         if(path==='/app/schedule'&&!custom&&['owner','manager'].includes(who.role)) {
           const {weekModel}=await import('./ui/week'),w=weekModel(view,Date.now(),url.searchParams,true)
           const site=who.role==='manager'?view.staff.find((p:any)=>p.id===view.actor.staffId)?.site??'':w.site

@@ -124,7 +124,7 @@ missing rates or classifications keep amounts unknown.
 ## Your private calendar subscription
 
 From your schedule, choose **Manage my calendar subscription**, or open
-**Settings** from your account menu. Under **My calendar**, confirm the private
+**My calendar** from your account menu. Under **My calendar**, confirm the private
 link warning and choose **Create private link**. Copy the link when it appears;
 normal page reads never show it again. Anyone holding it can read your published
 assignment times and cafe names, so keep it private.

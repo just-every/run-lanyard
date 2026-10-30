@@ -29,6 +29,8 @@ export async function calendarApi(){
  try {
   const {alex,ben,publish}=await fixture(h),status=async person=>(await h.send('/api/lanyard/calendar',undefined,person.cookie)).value
   assert.equal((await h.send('/api/lanyard/calendar',undefined,'')).status,401)
+  assert.equal((await h.send('/app/settings',undefined,alex.cookie)).status,403,'personal calendar access preserves the owner Settings boundary')
+  assert.equal((await h.send('/app/calendar',undefined,alex.cookie)).status,200)
   await h.cmd('calendar.issue',{revision:0,consent:'yes'},h.owner,403)
   const level=await h.cmd('access.level.save',{name:'synthetic-lanyard-8',site:place,permissions:['draft.view']})
   await h.cmd('access.grant',{levelId:level.id,site:place,staffId:ben.id})
@@ -119,7 +121,7 @@ export async function calendarBrowser(){
    const field=page.getByRole('textbox',{name:'Private subscription link'});await field.waitFor();const first=await field.inputValue()
    assert.equal((await h.send(path(first))).status,200)
    await capture('calendar-issued')
-   await page.goto(h.origin+'/app/settings',{waitUntil:'networkidle'});assert.equal(await field.count(),0,'ordinary Settings reads do not redisclose credentials')
+   await page.goto(h.origin+'/app/calendar',{waitUntil:'networkidle'});assert.equal(await field.count(),0,'ordinary Settings reads do not redisclose credentials')
    await card.getByRole('checkbox').check();await card.getByRole('button',{name:'Replace private link'}).click()
    await field.waitFor();const second=await field.inputValue();assert.notEqual(second,first);assert.equal((await h.send(path(first))).status,404)
    await capture('calendar-replaced')
