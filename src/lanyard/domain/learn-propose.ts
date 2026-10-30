@@ -34,7 +34,7 @@ export function learnEvaluate(s:State,a:Actor,site:string,weeks:number,asOf:stri
   const attendance=report.days.find((d:any)=>d.date===date)?.attendance,noShows=attendance?.unresolvedNoShows?.length??0
   const version=s.demandforecasts.find(v=>v.id===o.versionId)!
   const computed=seen.reduce((n:number,x:any)=>n+x.computedCents,0),actual=seen.reduce((n:number,x:any)=>n+x.actualCents,0)
-  const sources=[...(version.assumptions.seasonality?[`employer-reviewed seasonality: ${version.assumptions.seasonality.reason}`]:[]),...(version.assumptions.event?[`event day: ${version.assumptions.event.name}`]:[]),...(o.hours.some((x:any)=>x.overridden)?['manager override (not used to fit the model)']:[]),...(o.summary.unknownHours?[`${o.summary.unknownHours} hours without entered sales (unknown, not counted)`]:[]),...(noShows?[`${noShows} unresolved no-show signal${noShows===1?'':'s'} (unobserved; absence not assumed)`]:[])]
+  const sources=[...(version.assumptions.seasonality?['employer-reviewed monthly seasonality']:[]),...(version.assumptions.event?[`event day: ${version.assumptions.event.name}`]:[]),...(o.hours.some((x:any)=>x.overridden)?['manager override (not used to fit the model)']:[]),...(o.summary.unknownHours?[`${o.summary.unknownHours} hours without entered sales (unknown, not counted)`]:[]),...(noShows?[`${noShows} unresolved no-show signal${noShows===1?'':'s'} (unobserved; absence not assumed)`]:[])]
   hoursOf[date]=seen.map((x:any)=>({computed:x.computedCents,actual:x.actualCents}))
   days.push({date,version:o.version,observedHours:seen.length,computedCents:computed,actualCents:actual,errorCents:actual-computed,biasPercent:Math.round((actual/computed-1)*1000)/10,sources:sources.length?sources:['unattributed']})
  }

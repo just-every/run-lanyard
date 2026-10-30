@@ -175,7 +175,13 @@ export async function learnSeasonality(h) {
  const f=await learnFixture(h,true),{cmd,read,priya}=f,before=await h.state(),seasonal=before.demandrules[0].seasonality
  let e=(await read()).value
  assert.equal(e.proposal.to,30)
- assert.ok(e.days.every(d=>d.sources.some(x=>x.includes('employer-reviewed seasonality: Employer reviewed autumn trading'))))
+ const key=await h.cmd('agent.create',{label:'Seasonal evidence reader',scopes:['comparison.read'],cafes:['Ocean Beach'],comparisonConsent:true})
+ const agent=await h.send('/api/lanyard/agent/learning/proposals?site=Ocean%20Beach&weeks=2',undefined,'',{...f.stamp(f.today),authorization:`Bearer ${key.token}`})
+ assert.equal(agent.status,200)
+ assert.ok(!agent.text.includes(seasonal.reason),'agent learning read withholds seasonal review free text')
+ const native=await h.send(`/api/lanyard/demand?site=Ocean%20Beach&date=${f.window[0]}`,undefined,h.owner,f.stamp(f.today))
+ assert.equal(native.value.saved.assumptions.seasonality.reason,seasonal.reason)
+ assert.ok(e.days.every(d=>d.sources.includes('employer-reviewed monthly seasonality')))
  let p=await cmd('learn.propose',{site:'Ocean Beach',weeks:2,digest:e.digest},priya.cookie)
  p=await cmd('learn.decide',{...pin(p),decision:'approved',reason:'Reviewed seasonal forecast errors'},priya.cookie)
  assert.equal((await h.state()).demandrules[0].growthPercent,30)
