@@ -24,8 +24,6 @@ import { importCommand } from './movein'
 import { agentKeys, credentialCommand, fail, principal } from './credentials'
 import { renderApp } from './ui'
 import { clockBrowserCommand, clockBrowsers, clockCookie, networkOf } from './clockbrowsers'
-import { comparisonRead } from './comparison-read'
-import {agentDemandRead,agentLearnRead} from './agent-demand'
 import { timezone as zone } from './domain/settings'
 
 const headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin' }
@@ -151,7 +149,8 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
 export async function lanyardResponse(request: Request, original: Bindings): Promise<Response | null> {
   const url = new URL(request.url), path = url.pathname
   if (!path.startsWith('/api/lanyard/') && path !== '/app' && !path.startsWith('/app/')) return null
-  const env = runtimeBindings(original), isAgent = path.startsWith('/api/lanyard/agent/')
+  if (path.startsWith('/api/lanyard/agent/')) return null
+  const env = runtimeBindings(original)
   let who: Actor | undefined
   let auditOnly=false
   let policyInput: Record<string, unknown> | undefined
@@ -161,14 +160,14 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
     if (url.origin !== env.AUTH_ORIGIN || (request.headers.has('host') && request.headers.get('host') !== url.host)) fail('Wrong application origin', 403)
     if (!['GET', 'POST'].includes(request.method)) return json({ error: 'Method not allowed' }, 405)
     // Bearer-only agent routes have no ambient browser authority. Human mutations require Origin.
-    if (request.method === 'POST' && !isAgent && !path.startsWith('/api/lanyard/partner/') && (request.headers.get('origin') !== env.AUTH_ORIGIN || request.headers.get('sec-fetch-site') === 'cross-site')) fail('Cross-site request refused', 403)
+    if (request.method === 'POST' && !path.startsWith('/api/lanyard/partner/') && (request.headers.get('origin') !== env.AUTH_ORIGIN || request.headers.get('sec-fetch-site') === 'cross-site')) fail('Cross-site request refused', 403)
     // The schedule was called the roster; old links keep working.
     if (path === '/app/roster' && request.method === 'GET') return new Response(null, { status: 301, headers: { ...headers, location: '/app/schedule' + url.search } })
     if(path.startsWith('/api/lanyard/partner/'))return json(await partnerApi(request,env.DB))
     const feed=path.match(/^\/api\/lanyard\/calendar\/([^/]+)\.ics$/)
     if(feed&&request.method==='GET')return calendarFeed(request,env,feed[1])
     const kiosk=await kioskResponse(request,env);if(kiosk)return kiosk
-    who = await principal(request, env, isAgent)
+    who = await principal(request, env)
     auditOnly=auditRestricted(await load(env.DB),who)
     if(auditOnly&&(request.method!=='GET'||!['/app/audit','/api/lanyard/audit','/api/lanyard/audit.csv'].includes(path)))fail('Audit authority grants only report reads and downloads',403)
     if (request.method === 'GET') {
@@ -222,9 +221,6 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         }
         return renderApp(view,path+url.search)
       }
-      if (path === '/api/lanyard/agent/demand') return json(await agentDemandRead(env.DB,who,url.searchParams.get('site')??'',url.searchParams.get('date')??''))
-      if (path === '/api/lanyard/agent/learning/proposals') return json(await agentLearnRead(env.DB,who,url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
-      if (path === '/api/lanyard/agent/fairness/compare') return json(await comparisonRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       const delivery=path.match(/^\/api\/lanyard\/report-deliveries\/([\w-]+)\.csv$/)
       if(delivery){
        const csv=await reportDeliveryCsv(env,who,delivery[1],url.searchParams.get('token')??'',new Date().toISOString())
@@ -252,7 +248,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       const card = path.match(/^\/(app|api\/lanyard)\/contacts\/([\w-]+)$/)
       if (card?.[1] === 'app') { const contactCard = await contactRead(env.DB, who, card[2]); return renderApp(await state(request,env,who), path, { result: { contactCard } }) }
       if (card) return json(await contactRead(env.DB, who, card[2]))
-      if (path === '/api/lanyard/state' || path === '/api/lanyard/agent/context') return json(await state(request,env,who))
+      if (path === '/api/lanyard/state') return json(await state(request,env,who))
       const aca = path.match(/^\/api\/lanyard\/aca\/([\w-]+)(\.csv)?$/)
       if (aca) {
         const report=await acaRead(env.DB,who,aca[1],url.searchParams.get('asOf')??new Date().toISOString(),aca[2]?'csv':'json')
@@ -324,10 +320,9 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         if(name==='kiosk.enroll')response.headers.append('set-cookie',String((result as any).cookie))
         return response
       }
-      if (path === '/api/lanyard/command' || path === '/api/lanyard/agent/command') {
+      if (path === '/api/lanyard/command') {
         const body = await inputBody(request)
         if (typeof body.name !== 'string' || !body.input || typeof body.input !== 'object' || Array.isArray(body.input)) fail('Provide a command name and input object')
-        if (isAgent && !['roster.prepare', 'time.prepare', 'payroll.prepare', 'learn.propose'].includes(String(body.name))) fail('Agents can only prepare drafts', 403)
         const result = await execute(request, env, who, String(body.name), body.input as Record<string, unknown>)
         if (String(body.name).startsWith('clockbrowser.')) { const { token, ...shown } = result as Record<string, unknown>; return withClockCookie(json(shown), result) }
         if(String(body.name)==='kiosk.enroll'){const {cookie,...shown}=result as any;const response=json(shown);response.headers.append('set-cookie',cookie);return response}
@@ -353,6 +348,6 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       return url.searchParams.get('name')?.startsWith('report.')?new Response(page.body,{status,headers:page.headers}):page
     }
     if (pages.has(path) && status === 401) return new Response(null, { status: 303, headers: { ...headers, location: '/signin?returnTo=' + encodeURIComponent(path) } })
-    return json({ error: message }, status)
+    return json({ code: status === 401 ? 'unauthenticated' : status === 403 ? 'native_authority_required' : status === 404 ? 'resource_unavailable' : status === 409 ? 'native_conflict' : status < 500 ? 'invalid_arguments' : 'native_unavailable', error: message }, status)
   }
 }

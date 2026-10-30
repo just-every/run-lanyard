@@ -31,3 +31,5 @@ export const outcome = (extras:any) => extras.result?.result ?? extras.result
 export const titleRow = (title:string,s:any,now:number) => `<div class="title-row"><h1>${h(title)}</h1><p class="now">${h(languageOf(s)==='es'?new Intl.DateTimeFormat('es-US',{timeZone:venue(s),dateStyle:'full',timeStyle:'short'}).format(new Date(now)):stamp(now,venue(s)))}</p></div>`
 
 export const staffStatus=(s:any,value:any,label=value)=>status(value,tr(s,label))
+
+export function prepared(r:any) { return r.preparedByLabel ? `<small>Prepared by ${h(r.preparedByLabel)}</small>${r.policyApprovers?.length?`<small>Policy approved by ${r.policyApprovers.map((p:any)=>h(p.name)).join(', ')}</small>`:''}` : '' }

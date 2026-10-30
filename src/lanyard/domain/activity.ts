@@ -6,7 +6,7 @@ import {type Actor,type State,type Row,kinds} from './model'
 import {privateEntity} from './feedback'
 import {privateNote} from './journal'
 
-export type Event={id:string;actorId:string;actorRole:string;action:string;entityId:string;at:string}
+export type Event={agentId?:string|null;agentName?:string|null;sponsorName?:string|null;operationId?:string|null;id:string;actorId:string;actorRole:string;action:string;entityId:string;at:string}
 type Subject={people:Set<string>;sites:Set<string>;person:string|null}
 
 /** The people and cafes an event's subject record is about, and the one person whose own record it is (a staff record or a record with a staffId); empty for installation settings and records no longer present. */
@@ -29,6 +29,9 @@ function subject(s:State,index:Map<string,[string,Row]>,id:string):Subject {
 
 /** The newest 100 events this reader may read. */
 export function readable(s:State,a:Actor,events:Event[]):Event[] {
+ // Preserve the native person-event projection. Delegated rows carry their
+ // actual agent metadata; historical/person rows do not gain empty fields.
+ events=events.map(({agentId,agentName,sponsorName,operationId,...record})=>agentId?{...record,agentId,agentName,sponsorName,operationId}:record)
  if(a.role==='owner')return events.filter(e=>e.actorId===a.id||!privateEntity(s,e.entityId)).slice(0,100)
  if(a.role==='agent')return []
  const index=new Map<string,[string,Row]>(kinds.flatMap(k=>s[k].map(r=>[r.id,[k,r]] as [string,[string,Row]])))
