@@ -8,7 +8,7 @@ import {qualification,rateBasis,profileOf} from './workforce'
 import {available,onLeave} from './roster'
 import {localDate} from './settings'
 import {patternFit} from './patterns'
-import {replacementOrder,tiers} from './offerorder'
+import {replacementOrder,tiers,offerRuleSnapshot} from './offerorder'
 import {siteOf} from './team'
 import {coverageCase} from './coverage'
 
@@ -52,8 +52,8 @@ function manages(c:Context,r:Row) {
  * With no saved cafe rule, the preferred-first shortlist is offered in that order;
  * an explicitly saved COVER-004 tier rule keeps its own ranking and opening times. */
 function outreach(c:Context,r:Row,list:ReturnType<typeof shortlist>) {
- const log=tiers(c.s,replacementOrder(c.s,siteOf(c.s,r)),list.qualified,r,c.now)
- return log.tiers.flatMap((t,tier)=>t.staffIds.map(id=>{const f=list.qualified.find(v=>v.staffId===id)!;return put(c,'offers',{shiftId:r.id,shiftRevision:r.revision,fromStaffId:r.staffId,staffId:id,before:f.before,after:f.after,status:'sent',createdAt:c.now,sentAt:t.opensAt,tier:tier+1,opensAt:t.opensAt,expiresAt:r.end})}))
+ const site=siteOf(c.s,r),rule=replacementOrder(c.s,site),log=tiers(c.s,rule,list.qualified,r,c.now),roundId=crypto.randomUUID(),offerRule=offerRuleSnapshot(rule)
+ return log.tiers.flatMap((t,tier)=>t.staffIds.map(id=>{const f=list.qualified.find(v=>v.staffId===id)!;return put(c,'offers',{site,roundId,offerRule,shiftId:r.id,shiftRevision:r.revision,fromStaffId:r.staffId,staffId:id,before:f.before,after:f.after,status:'sent',createdAt:c.now,sentAt:t.opensAt,tier:tier+1,opensAt:t.opensAt,expiresAt:r.end})}))
 }
 export function cover(c:Context,name:string,p:Record<string,any>) {
  if(name==='shift.callout') {
@@ -72,7 +72,7 @@ export function cover(c:Context,name:string,p:Record<string,any>) {
   const r=get(c.s,'shifts',o.shiftId);need(r.end>c.now,'This offer expired at shift end',409)
   need(r.status==='published'&&o.shiftRevision===r.revision,'The offered shift changed; ask for a fresh offer',409)
   need(['accepted','declined'].includes(p.decision),'Invalid decision');need(o.status==='sent','This offer is already answered or closed',409);need(!o.opensAt||o.opensAt<=c.now,'This offer has not reached you yet',409)
-  return put(c,'offers',{...o,status:p.decision,note:text(p.note,'note',280,true),respondedAt:c.now},o)
+  return put(c,'offers',{...o,status:p.decision,response:p.decision,note:text(p.note,'note',280,true),respondedAt:c.now},o)
  }
  if(name==='cover.reopen') {
   keys(p,['id','revision']);const r=get(c.s,'shifts',p.id);manages(c,r);exact(r,p)

@@ -52,6 +52,8 @@ export function opensFor(o:Row,staffId:string):string {
  if(!o.tiers)return ''
  return o.tiers.find((t:Tier)=>t.staffIds.includes(staffId))?.opensAt??o.everyoneAt
 }
+/** Retained native offer semantics; never reconstruct them from today's rule. */
+export const offerRuleSnapshot=(r?:Record<string,any>)=>r?.order==='tiers'?{order:'tiers',rule:r.rule,size:r.size,minutes:r.minutes,ranking:r.ranking??[],accessToHours:Boolean(r.accessToHours)}:{order:'all',accessToHours:Boolean(r?.accessToHours)}
 const ruleAt=(s:State,site:string)=>s.offerrules.find(r=>r.site===site)
 /** The cafe's call-out replacement order (all at once when none is saved). */
 export const replacementOrder=(s:State,site:string)=>{const r=ruleAt(s,site);return r?.order==='tiers'?r:{order:'all'}}
@@ -79,7 +81,7 @@ export function offerRules(c:Context,name:string,p:Record<string,any>) {
  if(old)need(integer(typeof p.revision==='string'?Number(p.revision):p.revision,'revision',1,Number.MAX_SAFE_INTEGER)===old.revision,'Offer rule changed; reload before saving',409)
  const flag=p.accessToHours===undefined?Boolean(old?.accessToHours):p.accessToHours===true||p.accessToHours==='on'
  if(flag!==Boolean(old?.accessToHours))need(c.a.role==='owner','Only the owner sets access to hours',403)
- return put(c,'offerrules',{site,...order(c,p),accessToHours:flag,savedBy:c.a.id,savedAt:c.now},old)
+ return put(c,'offerrules',{...old,site,...order(c,p),accessToHours:flag,savedBy:c.a.id,savedAt:c.now},old)
 }
 /** The employment record staff.save keeps: type, start date and when the person was added to Lanyard. */
 export function employment(c:Context,staffId:string,isNew:boolean,p:Record<string,any>) {

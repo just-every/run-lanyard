@@ -1,3 +1,4 @@
+import {offerTimingCommand} from './learn-offers'
 // LEARN-001: a measured, human-controlled change to a cafe's DEMAND-001 growth assumption. Comparable service
 // days are completed days with a complete forecast version saved before the day started and at least one hour
 // of entered sales; the model's own (pre-override) hourly forecast is compared with those sales. The earlier
@@ -59,6 +60,7 @@ function setGrowth(c:Context,site:string,growthPercent:number) {
  return put(c,'demandrules',{site,historyWeeks,minSamples,staleDays,events:old?.events??[],roles:old?.roles??[],seasonality:old?.seasonality??null,growthPercent,savedBy:c.a.id,savedAt:c.now},old)
 }
 export async function learnCommand(c:Context,name:string,p:Record<string,any>) {
+ if(name.startsWith('learn.offer.'))return offerTimingCommand(c,name,p)
  if(name==='learn.propose') {
   if(c.a.role!=='agent')manager(c.a);keys(p,['site','weeks','digest'])
   const site=text(p.site,'site',80,true),weeks=integer(typeof p.weeks==='string'?Number(p.weeks):p.weeks??8,'weeks',1,26)

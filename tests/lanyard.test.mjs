@@ -2112,3 +2112,6 @@ test('CAL-001: private calendar lifecycle preserves published event identities, 
 test('CAL-001: employee calendar Settings issue, replace, stale refusal and revoke through the browser',async()=>{const {calendarBrowser}=await import('./calendar-journey.mjs');await calendarBrowser()})
 test('LANG-001: native staff assignment changes and encrypted clock replay use each employee language without translating authored facts',async()=>{const {languageJourney}=await import('./language-journey.mjs');await languageJourney()})
 test('LANG-001: the inventoried staff journey refuses a build with untranslated first-party text',async()=>{const {untranslatedBuildRefusal}=await import('./language-journey.mjs');await untranslatedBuildRefusal()})
+
+test('LEARN-001: native offer timing learns an explicit response percentile on earlier rounds, holds out later rounds and preserves authority and history through approval and revert',()=>run(async h=>{const {offerApi}=await import('./learn-offers-journey.mjs');await offerApi(h)},{now:'2026-10-28T12:00:00Z'}))
+test('LEARN-001: native offer timing review and attributed decisions through the demand screen',async()=>{const {offerBrowser}=await import('./learn-offers-journey.mjs');await offerBrowser()})

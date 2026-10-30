@@ -1,3 +1,4 @@
+import {offerTimingRead} from './learn-offers'
 import {generateDemand,demandGenerationCommand,generationPublication} from './demand-generator'
 import {currentPartner} from '../partner-scope'
 import {partnerRoster,partnerDraft,partnerReplay,type PartnerRequest} from './partner-roster'
@@ -94,7 +95,7 @@ import {holidayPay} from './holiday-pay'
 import {holidayReviews} from './holidays'
 export {actor}
 export type {Actor} from './model'
-const commands=['demand.generate.prepare','cutoff.save','schedule.notice.acknowledge','tip.pool.prepare','tip.pool.approve','report.schedule.save','report.schedule.pause','report.delivery.revoke','privacy.recordDuty','privacy.records.review','access.audit.grant','access.audit.revoke','audit.retain','organization.business.save','organization.location.save','organization.department.save','organization.member.save','fairwork.save','fairwork.preview','ai.consent','ai.extract','ai.review','ai.prepare','ai.erase','payroll.input.save','payroll.template.save','privacy.review','privacy.retention','privacy.hold','privacy.export','privacy.erase','policy.save','policy.preview','policy.review','policy.worker.preview','policy.worker.save','geofence.save','location.review','location.hold','location.erase','photo.save','photo.hold','photo.erase','sicktransfer.prepare','sicktransfer.withdraw','sicktransfer.consent','sicktransfer.decide','sickpolicy.save','sickworker.save','sick.request','sick.decide','sick.correct','minor.save','differential.save','clocklanguage.save','chat.create','chat.removeMember','chat.leave','chat.send','chat.acknowledge','access.level.save','access.defaults.create','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
+const commands=['learn.offer.propose','learn.offer.decide','learn.offer.revert','demand.generate.prepare','cutoff.save','schedule.notice.acknowledge','tip.pool.prepare','tip.pool.approve','report.schedule.save','report.schedule.pause','report.delivery.revoke','privacy.recordDuty','privacy.records.review','access.audit.grant','access.audit.revoke','audit.retain','organization.business.save','organization.location.save','organization.department.save','organization.member.save','fairwork.save','fairwork.preview','ai.consent','ai.extract','ai.review','ai.prepare','ai.erase','payroll.input.save','payroll.template.save','privacy.review','privacy.retention','privacy.hold','privacy.export','privacy.erase','policy.save','policy.preview','policy.review','policy.worker.preview','policy.worker.save','geofence.save','location.review','location.hold','location.erase','photo.save','photo.hold','photo.erase','sicktransfer.prepare','sicktransfer.withdraw','sicktransfer.consent','sicktransfer.decide','sickpolicy.save','sickworker.save','sick.request','sick.decide','sick.correct','minor.save','differential.save','clocklanguage.save','chat.create','chat.removeMember','chat.leave','chat.send','chat.acknowledge','access.level.save','access.defaults.create','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -206,7 +207,13 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
   const {csvPreview,csv,lines,...safe}=result as Record<string,any>
   result={...safe,lines:lines.map(({payrollId,rateBasis,...line}:any)=>withoutRates(line))}
  }
- if(!['owner','manager'].includes(a.role))result=hideRates(result)
+ if(!['owner','manager'].includes(a.role)) {
+  result=hideRates(result)
+  // Retained calibration rules stay behind the native review door, including command receipts.
+  const personalOffer=({offerRule,roundId,site,response,...o}:any)=>o
+  if(name==='shift.callout')result={...result,offers:result.offers.map(personalOffer)}
+  if(name==='cover.respond')result=personalOffer(result)
+ }
  if(restricted(s,a)&&!commandTargets(s,name,p).every(x=>allowed(s,a,'wages.view',siteOf(s,x),x.staffId)))result=wageRedact(result)
  if(a.partner)result=partnerDraft(result)
  await reconcileScheduleNotices(c,before,name,p)
@@ -244,7 +251,7 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string,earni
  result.notices=noticesFor(s,a,new Date().toISOString())
  result.schedulenotices=scheduleNoticesFor(s,a)
  // DEMAND-001: assumptions and saved forecast versions are read with SALES-001's scope; staff and agents none.
- for(const k of ['forecasts','demandrules','demandforecasts','learnproposals'] as const)result[k]=manages?s[k].filter(r=>salesSite(s,a,r.site)):[]
+ for(const k of ['forecasts','demandrules','demandforecasts','learnproposals','learnoffers'] as const)result[k]=manages?s[k].filter(r=>salesSite(s,a,r.site)):[]
  result.noticerules=manages?s.noticerules.filter(r=>salesSite(s,a,r.site)):[]
  for(const k of ['fairnesspolicies','fairnesscohorts'] as const)result[k]=manages?s[k].filter(r=>salesSite(s,a,r.site)):[]
  result.fairnessrequests=agent?[]:s.fairnessrequests.filter(r=>r.staffId===a.staffId||manages&&mayReadPerson(s,a,r.staffId))
@@ -323,6 +330,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string,earni
    const moves=[...(give?[{to:w.toId,shift:give,skip:take?[take.id]:[]}]:[]),...(take&&give?[{to:w.fromId,shift:take,skip:[give.id]}]:[])]
    return {...w,cost:moves.map(m=>cost(project(s,m.to,localDate(m.shift.start,s.timezone),now,[m.shift],m.skip)))}})
  }
+ // Retained learning facts grant no new offer-log access to agents or foreign readers.
+ result.offers=result.offers.map((o:any)=>{if(manages&&salesSite(s,a,o.site??siteOf(s,s.shifts.find(r=>r.id===o.shiftId)??{})))return o;const {offerRule,roundId,site,response,...personal}=o;return personal})
  // COVER-003: pending offers expire at shift end; history stays intact.
  result.offers=result.offers.map((o:any)=>{const x=s.shifts.find(x=>x.id===o.shiftId);return x?{...o,legacy:!Number.isInteger(o.shiftRevision),expiresAt:x.end,status:['sent','accepted'].includes(o.status)&&x.end<=new Date().toISOString()?'expired':o.status}:o})
  if(!manages)result.coverageCases=[]
@@ -464,6 +473,11 @@ export async function learnProposalRead(db:D1Database,identity:Actor,site:string
  need(f.role==='owner'||site===''||site===home,'Not found',404)
  const e=learnEvaluate(s,f,f.role==='owner'?site:home,weeks,new Date().toISOString())
  return {...e,digest:await learnDigest(e),proposals:s.learnproposals.filter(r=>r.site===e.site).sort((x,y)=>y.version-x.version)}
+}
+/** Human-only native timing review; comparison scopes grant no offer-log access. */
+export async function learnOfferRead(db:D1Database,identity:Actor,site:string,percentile:unknown) {
+ const a=await live(db,identity),s=await load(db),f=fresh(a,s)
+ return offerTimingRead(s,f,site,percentile,new Date().toISOString())
 }
 /** AUTO-001: what a rule would approve now and why the rest stays for a human; it writes nothing. */
 export async function autoRulePreview(db:D1Database,identity:Actor,id:string) {
