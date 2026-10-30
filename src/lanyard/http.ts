@@ -30,7 +30,7 @@ import { timezone as zone } from './domain/settings'
 
 const headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'referrer-policy': 'strict-origin' }
 const json = (value: unknown, status = 200) => Response.json(value, { status, headers })
-const pages = new Set(['/app', '/app/schedule', '/app/time', '/app/payroll', '/app/people', '/app/calendar', '/app/settings', '/app/import', '/app/agent', '/app/wall', '/app/access', '/app/chat'])
+const pages = new Set(['/app', '/app/schedule', '/app/time', '/app/payroll', '/app/people', '/app/settings', '/app/settings/language', '/app/calendar', '/app/import', '/app/agent', '/app/wall', '/app/access', '/app/chat'])
 // The screen a form returns to, with its own query (week, cafe, day) but never another origin or path.
 function returnTo(value: string | null): string {
   if (!value?.startsWith('/app')) return '/app'
