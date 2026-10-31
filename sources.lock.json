@@ -2082,7 +2082,7 @@
       "executable": false
     },
     "src/lanyard/ui/fairness-compare.ts": {
-      "sha256": "3b7d09e63bd6089667c0183f73a4da6707fe989f0592e62eb6cee0c7538d516f",
+      "sha256": "889402056fbc8089f04a4345afd71804232af76a13d20ca3574dcc4a0c1f5552",
       "executable": false
     },
     "src/lanyard/ui/fairness.ts": {
@@ -4938,7 +4938,7 @@
       "executable": false
     },
     "tests/tradeoff-journey.mjs": {
-      "sha256": "e9ebc90bb10637637cd995ab9284ca2b2a2be87bbb3313cdaa4ef2c157b9d20f",
+      "sha256": "f4d9e961d96e286f604b51cd9c83361088f8844b9e569f8f985bcedc79d2564d",
       "executable": false
     },
     "tests/transfer-journey.mjs": {

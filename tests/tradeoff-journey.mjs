@@ -310,6 +310,8 @@ export async function generatedTradeoffApi(){
   assert.equal(boundary.b.service.scheduledMinutes,420);assert.equal(boundary.b.service.excessMinutes,240);assert.equal(boundary.b.cost.costCents,17500)
   assert.ok(boundary.changes.added.every(x=>x.end===local(f.week,'12:00')),'Changed shift-length review explains changed generated boundaries')
   assert.deepEqual(await h.state(),before,'Comparison writes no data')
+  await h.cmd('demand.generate.prepare',{...Object.fromEntries(['week','site','dates','minShiftMinutes','maxShiftMinutes','breakAfterMinutes','breakMinutes'].map(k=>[k,c.b[k]])),minShiftMinutes:240,maxShiftMinutes:240,digest:c.b.digest},f.manager.cookie,409)
+  assert.deepEqual(await h.state(),before,'Changed configuration cannot reuse the chosen review')
   const selected=await f.prepare(c.b,f.manager.cookie)
   const drafted=await h.state();assert.equal(drafted.rosters.find(r=>r.id===selected.id).status,'draft');assert.equal(drafted.shifts.filter(x=>x.status==='published').length,0)
   assert.deepEqual(projectionState(drafted),projectionState(before))
@@ -362,7 +364,7 @@ export async function generatedTradeoffBrowser(){
    await generation.getByRole('button',{name:'Compare generator configurations',exact:true}).click();await page.waitForLoadState('networkidle')
    const panel=page.locator('#demand-comparison')
    const shot=async key=>{await (key==='comparison'?panel:page.locator('main')).scrollIntoViewIfNeeded();if(process.env.TRADEOFF_SCREENS){await mkdir(process.env.TRADEOFF_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.TRADEOFF_SCREENS,`generated-${key}-${width}.png`)})}}
-   if(width===1440){assert.equal(await panel.isVisible(),true);const text=await panel.innerText();for(const v of ['$60.00','$100.00','180','300','120','Candidate A','Candidate B'])assert.ok(text.includes(v),v);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)}
+   if(width===1440){assert.equal(await panel.isVisible(),true);const text=await panel.innerText();for(const v of ['$60.00','$100.00','180','300','120','Candidate A','Candidate B'])assert.ok(text.includes(v),v);const changes=panel.locator('details').filter({has:page.locator('summary',{hasText:'Inspect changed boundaries and assignments'})});await changes.locator('summary').click();assert.ok((await changes.innerText()).includes('Only A'));assert.ok((await changes.innerText()).includes('Only B'));for(const person of f.people)assert.ok((await changes.innerText()).includes(person.name));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)}
    await shot('comparison')
    const [download]=await Promise.all([page.waitForEvent('download'),panel.getByRole('link',{name:'Download generated comparison (JSON)'}).click()])
    const exported=JSON.parse(await readFile(await download.path(),'utf8'))
