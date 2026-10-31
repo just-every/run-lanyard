@@ -545,5 +545,7 @@
   "In Lanyard only; push, email and SMS delivery is not configured here.": "Solo en Lanyard; aquí no está configurado el envío por notificaciones push, correo electrónico ni SMS.",
   "In Lanyard: superseded; external delivery not attempted": "En Lanyard: reemplazado; no se intentó el envío externo",
   "In Lanyard: employee acknowledged; external delivery not attempted": "En Lanyard: confirmado por la persona empleada; no se intentó el envío externo",
-  "In Lanyard: available; not acknowledged; external delivery not attempted": "En Lanyard: disponible; sin confirmar; no se intentó el envío externo"
+  "In Lanyard: available; not acknowledged; external delivery not attempted": "En Lanyard: disponible; sin confirmar; no se intentó el envío externo",
+  "Review linked demand case": "Revisar caso de demanda vinculado",
+  "Fresh source review required": "Se requiere revisar las fuentes actuales"
 }
