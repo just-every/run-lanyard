@@ -49,6 +49,8 @@ export function preferenceReport(s:State,a:Actor,week:string,site:string,weeks=8
 export function projectedPreferenceReport(s:State,a:Actor,week:string,site:string,rows:Row[]){
  const last=dayAfter(week,6),id='candidate-week'
  const projected={...s,rosters:[...s.rosters.filter(r=>r.week!==week||r.status!=='published'),{id,revision:1,week,status:'published'}],
-  shifts:[...s.shifts.filter(x=>!(x.status==='published'&&shiftSite(s,x)===site&&localDate(x.start,s.timezone)>=week&&localDate(x.start,s.timezone)<=last)),...rows.map(x=>({...x,rosterId:id,status:'published'}))]}
+  // Retain factual shift identities for cover-offer lookups without counting
+  // their scheduled minutes alongside the hypothetical candidate assignments.
+  shifts:[...s.shifts.map(x=>x.status==='published'&&shiftSite(s,x)===site&&localDate(x.start,s.timezone)>=week&&localDate(x.start,s.timezone)<=last?{...x,status:'superseded'}:x),...rows.map(x=>({...x,rosterId:id,status:'published'}))]}
  return {...preferenceReport(projected,a,week,site,1),basis:'Hypothetical candidate cafe week; retained FAIR-001 cohort, preference, tag and offer facts; no publication or extra-hours offer is inferred'}
 }

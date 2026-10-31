@@ -1518,7 +1518,7 @@
       "executable": false
     },
     "src/lanyard/domain/fairness.ts": {
-      "sha256": "938a1118cbe59d8fa7c973e4985bb4548eb806ab9e25da05d759babaa3477a2f",
+      "sha256": "cce93791998d41f90a02a4d0965cbfa7271194f58142a681a8fc5cf39fcd2b57",
       "executable": false
     },
     "src/lanyard/domain/fairwork-catalog.ts": {
@@ -4938,7 +4938,7 @@
       "executable": false
     },
     "tests/tradeoff-journey.mjs": {
-      "sha256": "f4d9e961d96e286f604b51cd9c83361088f8844b9e569f8f985bcedc79d2564d",
+      "sha256": "122c55f33a1f3f8dae0e543d2fcf668b63fa0d62043f41bc997b871c36394452",
       "executable": false
     },
     "tests/transfer-journey.mjs": {

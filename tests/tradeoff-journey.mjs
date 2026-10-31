@@ -277,6 +277,7 @@ async function confirmGeneratedFairness(h,f){
  for(const p of f.people)await h.cmd('pattern.save',{from:days(f.week,-1),blocks,preferredHours:3,maxHours:40},p.cookie)
 }
 export async function generatedTradeoffApi(){
+ await retainedCoverTradeoff()
  const h=await harness({now:generationNow})
  try{
   const f=await generatedComparisonFixture(h)
@@ -346,6 +347,46 @@ export async function generatedTradeoffApi(){
   await f.prepare(c.a,f.manager.cookie,403);await f.prepare(c.a,person.cookie,403);await f.prepare(c.a,f.foreign.cookie,404);assert.deepEqual(await h.state(),state)
   await h.cmd('access.revoke',pin(grant));assert.equal((await h.send(f.path(),undefined,f.manager.cookie)).status,403)
   console.log('PROBE TRADEOFF-001 generated comparison: empty week -> A 180 paid minutes, B 300, break coverage 180 required and 120 excess, holiday USD 75 and 125; B separately prepared and published after restart; stale, unsupported and authority refusals preserve source data')
+ }finally{await h.close()}
+}
+
+async function retainedCoverTradeoff(){
+ const h=await harness({now:generationNow})
+ try{
+  const f=await generatedComparisonFixture(h)
+  for(const person of f.people){
+   const p=(await h.state()).staff.find(x=>x.id===person.id)
+   await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site:f.site,position:'Counter',hourlyRate:'20.00',employmentType:'part-time'})
+  }
+  await confirmGeneratedFairness(h,f)
+  for(const [i,p] of f.people.entries())await h.cmd('fairness.request.save',{staffId:p.id,from:f.week,minutes:i?180:60},p.cookie)
+  const draft=await h.cmd('roster.prepare',{week:f.week,shifts:[{staffId:f.people[0].id,site:f.site,job:f.job.id,start:local(days(f.week,1),'08:00'),end:local(days(f.week,1),'09:00'),breakMinutes:0}]})
+  await h.cmd('roster.publish',pin(draft))
+  const shift=(await h.state()).shifts.find(x=>x.status==='published')
+  const called=await h.cmd('shift.callout',{...pin(shift),note:'Tuesday cover needed'},f.people[0].cookie)
+  assert.equal(called.offers.length,1)
+  const offer=called.offers[0]
+  assert.equal(offer.staffId,f.people[1].id)
+  await h.cmd('cover.respond',{...pin(offer),decision:'declined'},f.people[1].cookie)
+  const native=await h.send('/api/lanyard/fairness?'+new URLSearchParams({week:f.week,site:f.site,weeks:1}),undefined,f.manager.cookie)
+  assert.equal(native.status,200,native.text)
+  const equity=native.value.equity,group=equity.groups.find(x=>x.position==='Counter')
+  assert.equal(group.totalOfferedMinutes,60);assert.equal(group.totalRequestedMinutes,240)
+  assert.deepEqual(group.rows.map(x=>[x.staffId,x.offeredMinutes,x.offeredShare,x.requestedShare,x.shareGap]).sort(),[[f.people[0].id,0,0,.25,-.25],[f.people[1].id,60,1,.75,.25]].sort())
+  assert.ok(equity.inputs.some(x=>x.id===offer.id&&x.shiftId===called.shift.id&&x.shiftRevision===called.shift.revision&&x.included))
+  const before=await h.state()
+  for(const c of [await f.read(),await f.read(f.input,h.owner)])for(const candidate of [c.a,c.b]){
+   assert.equal(candidate.feasible,true,JSON.stringify(candidate.infeasible))
+   assert.equal(candidate.preserved.length,1)
+   assert.equal(candidate.measures.rows.reduce((n,x)=>n+x.scheduledMinutes,0),candidate===c.a?240:360,'Retained offer sources must not duplicate scheduled minutes')
+   assert.equal(candidate.measures.equity.groups.find(x=>x.position==='Counter').totalOfferedMinutes,60,'Monday generation must retain Tuesday cover-offer equity')
+   assert.deepEqual(candidate.measures.equity,equity,'Candidate assignments must retain native offer and request facts')
+  }
+  await h.restart()
+  const restarted=await f.read()
+  for(const candidate of [restarted.a,restarted.b])assert.deepEqual(candidate.measures.equity,equity)
+  assert.deepEqual(await h.state(),before,'Comparison and restart preserve the unselected shift, offers and all source records')
+  console.log('PROBE TRADEOFF-001 BLOCKING-A: native HTTP Tuesday call-out with reached 60-minute declined offer; compare Monday configurations as manager and owner -> both retain 60 offered minutes, requested shares and source revisions after restart, with no writes')
  }finally{await h.close()}
 }
 
