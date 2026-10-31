@@ -128,7 +128,7 @@ async function threePersonTotals(h) {
 }
 
 export async function comparisonScopeBrowser() {
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const browser=await chromium.launch({headless:true,...(process.env.LANYARD_CHROMIUM?{executablePath:process.env.LANYARD_CHROMIUM}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try{for(const width of [1440,390]){
   const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
   try{

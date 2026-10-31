@@ -1,3 +1,4 @@
+import {compareDemand} from './demand-tradeoff'
 import {generateDemand,demandGenerationCommand,generationPublication} from './demand-generator'
 import {currentPartner} from '../partner-scope'
 import {partnerRoster,partnerDraft,partnerReplay,type PartnerRequest} from './partner-roster'
@@ -545,3 +546,5 @@ export async function customAccessRead(db:D1Database,identity:Actor){
 }
 
 export async function demandGenerationRead(db:D1Database,identity:Actor,p:Record<string,any>){const a=await live(db,identity),s=await load(db);return generateDemand(s,fresh(a,s),p)}
+
+export async function demandComparisonRead(db:D1Database,identity:Actor,p:Record<string,any>){const a=await live(db,identity),s=await load(db);return compareDemand(s,fresh(a,s),p)}

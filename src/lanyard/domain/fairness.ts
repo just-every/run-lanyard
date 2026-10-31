@@ -1,5 +1,5 @@
 // FAIR-001: four reproducible measures. No wage, protected-trait or feedback inputs.
-import {type State,type Actor,manager,need,integer,text} from './model'
+import {type State,type Actor,type Row,manager,need,integer,text} from './model'
 import {date,dayAfter} from './aca'
 import {localDate} from './settings'
 import {salesSite} from './sales'
@@ -42,4 +42,13 @@ export function preferenceReport(s:State,a:Actor,week:string,site:string,weeks=8
   gapSamples:gaps.length,gapExcluded:unique.size-gaps.length,reasons:[...(!windows.length?['Historical eligibility is unknown; current display gaps are excluded from objective totals']:[]),...(missingDates.length?['Historical cohort membership is missing on some window dates']:[]),...(unconfirmedShifts.length?['Some assignments are outside confirmed historical cohorts']:[]),...(!undesirable.policy?['Employer has not selected undesirable tags']:[]),...(undesirable.groups.some(g=>g.reasons.length)?['Some cohort spread inputs are incomplete']:[])]}
  return {site,timezone:s.timezone,first,last,week,weeks,cohort:windows.length?'Employer-confirmed effective role/site eligibility; unconfirmed current display rows remain explicitly unknown':'Current home cafe and position; historical eligibility is not reconstructed',groups,legacyGroups:windows.length?preferenceGroups(rows.filter(r=>r.membership!=='confirmed')):[],rows,totals,undesirable,violations:{...violations,groups:cohortViolations},equity,
   cohorts:{records:windows.map(({record:c,dates})=>({...c,dates})),unknownMembership,missingDates,unconfirmedShifts,definition:'A cohort retains the complete employer-confirmed population and source qualifications for its effective dates. Certificate expiry is evaluated on each shift date. Current staff fields do not reconstruct earlier eligibility.'}}
+}
+
+// Substitute the candidate cafe week only for this calculation. No publication,
+// offer, preference or historical cohort record is persisted or inferred.
+export function projectedPreferenceReport(s:State,a:Actor,week:string,site:string,rows:Row[]){
+ const last=dayAfter(week,6),id='candidate-week'
+ const projected={...s,rosters:[...s.rosters.filter(r=>r.week!==week||r.status!=='published'),{id,revision:1,week,status:'published'}],
+  shifts:[...s.shifts.filter(x=>!(x.status==='published'&&shiftSite(s,x)===site&&localDate(x.start,s.timezone)>=week&&localDate(x.start,s.timezone)<=last)),...rows.map(x=>({...x,rosterId:id,status:'published'}))]}
+ return {...preferenceReport(projected,a,week,site,1),basis:'Hypothetical candidate cafe week; retained FAIR-001 cohort, preference, tag and offer facts; no publication or extra-hours offer is inferred'}
 }
