@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "f3bbee9b453a4de67657bc98d3877f6a9fc4e4b1eab47d9edc35b1bb37f3f792",
+      "sha256": "0d1148c7afb863d6402ff4336fb735615404708ef5c1876bb6bdd3431ba20d04",
       "executable": false
     },
     "DEMO.md": {
@@ -4662,7 +4662,7 @@
       "executable": false
     },
     "tests/demand-coverage-journey.mjs": {
-      "sha256": "985e1b6838a5891920c28663c0b284683aeab4b6184fbcf652f22d17a4246286",
+      "sha256": "1d52b678c7dea3fc34e14d9ae1cdef064d2505fa1185351e1450a4b5632221b4",
       "executable": false
     },
     "tests/demand-generation-journey.mjs": {
