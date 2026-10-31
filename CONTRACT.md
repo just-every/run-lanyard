@@ -555,7 +555,7 @@ Judged from the code and tests at commit `2b4aa42d25122df7ca5e209893d8182fb367eb
 | `TIME-002` | Exact time approval and linked corrections | published | done | `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `tests/lanyard.test.mjs` |  |
 | `PAYROLL-001` | Reviewed once-only payroll files and signed adjustments | published | done | `src/lanyard/domain/payroll.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` |  |
 | `PAYROLL-002` | Explicit manual provider acknowledgment | published | done | `src/lanyard/domain/payroll.ts`; `tests/lanyard.test.mjs` |  |
-| `AGENT-001` | Preparation-only delegated authority | published | done | `src/lanyard/credentials.ts`; `src/lanyard/http.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` |  |
+| `AGENT-001` | Preparation-only delegated authority | published | done | `src/lanyard/credentials.ts`; `src/lanyard/http.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs`; `src/lanyard/agent-door/`; `tests/agent-native.mjs` (native public-door identity, exact-summary approval, replay, conflict and Pause proof) |  |
 | `ARCHIVE-001` | Complete installation archive with authority exclusions | published | done | `src/lanyard/archive-policy.mjs`; `tests/archive.test.mjs`; `OPERATIONS.json` |  |
 | `ERASE-001` | Unused identity erasure and restore fence | published | done | `src/lanyard/domain/people.ts`; `tests/lanyard.test.mjs`; `tests/archive.test.mjs` |  |
 | `AUDIT-001` | Durable decisions and transactional history | published | done | `src/lanyard/domain/storage.ts`; `src/lanyard/domain/index.ts`; `src/lanyard/domain/activity.ts`; `src/lanyard/movein/index.ts`; `tests/lanyard.test.mjs`; `tests/archive.test.mjs` |  |
