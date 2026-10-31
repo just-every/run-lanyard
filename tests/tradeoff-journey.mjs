@@ -357,8 +357,8 @@ export async function generatedTradeoffOffers(){
   for(const p of (await h.state()).staff.filter(p=>f.people.some(person=>person.id===p.id)))await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:'staff',active:true,site:f.site,position:'Counter',hourlyRate:'20.00',employmentType:'part-time'})
   await confirmGeneratedFairness(h,f)
   for(const p of f.people)await h.cmd('fairness.request.save',{staffId:p.id,from:f.week,minutes:120},p.cookie)
-  const tuesday=days(f.week,1)
-  const draft=await h.cmd('roster.prepare',{week:f.week,shifts:[{staffId:f.people[0].id,site:f.site,job:f.job.id,start:local(tuesday,'08:00'),end:local(tuesday,'09:00'),breakMinutes:0}]})
+  const tuesday=days(f.week,1),tuesdayRow={staffId:f.people[0].id,site:f.site,job:f.job.id,start:local(tuesday,'08:00'),end:local(tuesday,'09:00'),breakMinutes:0}
+  const draft=await h.cmd('roster.prepare',{week:f.week,shifts:[tuesdayRow]})
   await h.cmd('roster.publish',pin(draft))
   const shift=(await h.state()).shifts.find(x=>x.status==='published')
   const callout=await h.cmd('shift.callout',{...pin(shift),note:'Unable to work Tuesday'},f.people[0].cookie)
@@ -379,7 +379,30 @@ export async function generatedTradeoffOffers(){
   await h.restart()
   const persisted=await f.read()
   for(const candidate of [persisted.a,persisted.b])assert.equal(candidate.measures.equity.groups[0].totalOfferedMinutes,60,'Restart retains the same offer in each candidate')
+  // TRADEOFF-002 owns weeks with an unpublished draft: candidates report FAIR-001 as
+  // unavailable, never zero or empty inputs, and the native report keeps the offer.
+  const nativeEquity=async()=>{const r=await h.send('/api/lanyard/fairness?'+new URLSearchParams({week:f.week,site:f.site,weeks:'1'}),undefined,f.manager.cookie);assert.equal(r.status,200,r.text);return r.value.equity}
+  const draftWeek=async open=>{
+   assert.deepEqual(await nativeEquity(),native.value.equity,'An unpublished draft leaves the native FAIR-001 measures unchanged')
+   const saved=await h.state(),c=await f.read()
+   for(const candidate of [c.a,c.b]){
+    assert.equal(candidate.feasible,true,JSON.stringify(candidate.infeasible))
+    assert.deepEqual(candidate.measures,{status:'unavailable',draft:pin(open),reason:candidate.measures.reason},'Draft-week candidates carry no zero or empty fairness inputs')
+    assert.match(candidate.measures.reason,new RegExp(`Draft revision ${open.revision} of this week is unpublished`))
+   }
+   assert.deepEqual(c.difference.fairness,c.a.measures,'Fairness differences are unavailable, never zero')
+   assert.deepEqual(await h.state(),saved,'A draft-week comparison writes nothing')
+   return c
+  }
+  const edited=await h.cmd('roster.prepare',{week:f.week,shifts:[tuesdayRow,{...tuesdayRow,staffId:f.people[1].id,start:local(days(f.week,2),'08:00'),end:local(days(f.week,2),'09:00')}]},f.manager.cookie)
+  const selected=await f.prepare((await draftWeek(edited)).a,f.manager.cookie)
+  await draftWeek(selected)
+  await h.cmd('roster.publish',pin(selected),f.manager.cookie)
+  assert.equal((await nativeEquity()).groups[0].totalOfferedMinutes,60,'Publishing the selected candidate keeps the reached offer')
+  const republished=await f.read()
+  for(const candidate of [republished.a,republished.b])assert.equal(candidate.measures.equity.groups[0].totalOfferedMinutes,60,'Without an unpublished draft the comparison projects the retained offer again')
   console.log('PROBE BLOCKING-A: GET generated comparison for Monday with a reached 60-minute Tuesday cover offer -> native report and both candidates retain 60 offered minutes and identical offer sources and shares; unchanged source records and restart')
+  console.log('PROBE TRADEOFF-001 draft week: editor draft and prepared candidate A -> both candidates FAIR-001 unavailable with the draft revision, native report unchanged at 60 offered minutes, no writes; after exact-revision publication both candidates show 60 again')
  }finally{await h.close()}
 }
 
@@ -406,6 +429,12 @@ export async function generatedTradeoffBrowser(){
    await panel.getByRole('button',{name:'Prepare candidate B',exact:true}).click();await page.waitForLoadState('networkidle')
    const prepared=await h.state(),draft=prepared.rosters.find(r=>r.week===f.week&&r.status==='draft')
    if(width===1440){assert.ok(draft);assert.equal(prepared.shifts.filter(x=>x.status==='published').length,0);assert.equal(prepared.shifts.filter(x=>x.status==='draft').length,2)}
+   // With the prepared draft open, every candidate FAIR-001 cell reads unavailable, never a number or unknown.
+   await page.goto(`${h.origin}/app/schedule?`+new URLSearchParams({...f.input,dates:f.week,demandCompare:'1'}),{waitUntil:'networkidle'})
+   assert.match(await panel.locator('[data-fairness-unavailable]').innerText(),new RegExp(`Draft revision ${draft.revision} of this week is unpublished`))
+   for(const measure of ['Undesirable-shift spread','Mean preference gap minutes','Maximum preference gap minutes','Prefer-not violations','Extra-hours equity'])assert.deepEqual(await panel.locator('tbody tr').filter({has:page.getByText(measure,{exact:true})}).locator('td').allInnerTexts().then(x=>x.slice(1)),['unavailable: unpublished draft','unavailable: unpublished draft'],measure)
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+   await shot('draft-week')
    const review=page.getByRole('link',{name:/Review draft revision/});if(await review.count())await review.click()
    await shot('draft')
    await page.getByRole('button',{name:'Publish this revision',exact:true}).click();await page.waitForLoadState('networkidle')

@@ -11,8 +11,14 @@ export function demandComparisonInputs(p:Record<string,any>){
 }
 export async function compareDemand(s:State,a:Actor,p:Record<string,any>){
  const inputs=demandComparisonInputs(p)
+ // A week with an unpublished draft preserves draft copies under new identities,
+ // so retained offers cannot resolve. TRADEOFF-002 owns that projection; until
+ // then its FAIR-001 measures are unavailable, never zero or empty inputs.
+ const draft=preservedGeneration(s,inputs.a).draft
+ const unavailable=draft?{status:'unavailable',draft:{id:draft.id,revision:draft.revision},reason:`Draft revision ${draft.revision} of this week is unpublished. Generated FAIR-001 measures are projected only for weeks without an unpublished draft; the native FAIR-001 report is unchanged.`}:null
  const candidate=async(input:ReturnType<typeof generationInput>)=>{
   const generation=await generateDemand(s,a,input)
+  if(unavailable)return {...generation,measures:unavailable as any}
   // Retained cover offers resolve through native shift identities. Only new
   // generated assignments receive hypothetical identities for this projection.
   const rows=[...preservedGeneration(s,input).rows.filter(x=>x.site===input.site),...generation.generated.map((x,i)=>({...x,id:`candidate-${i}`,revision:1}))].map(x=>({...x,minutes:(Date.parse(x.end)-Date.parse(x.start))/60000-x.breakMinutes}))
@@ -24,7 +30,7 @@ export async function compareDemand(s:State,a:Actor,p:Record<string,any>){
  return {week:first.week,site:first.site,dates:first.dates,a:first,b:second,
   method:'Two explicit shift and unpaid-break configurations over the same saved manual forecasts and weekly budget; neither is an optimized fairness objective',
   changes:{removed:first.generated.filter(x=>!right.has(identity(x))),added:second.generated.filter(x=>!left.has(identity(x))),unchanged:first.generated.filter(x=>right.has(identity(x)))},
-  difference:{costCents:delta(first.cost.costCents,second.cost.costCents),requiredMinutes:delta(first.service.requiredMinutes,second.service.requiredMinutes),scheduledMinutes:delta(first.service.scheduledMinutes,second.service.scheduledMinutes),uncoveredMinutes:delta(first.service.uncoveredMinutes,second.service.uncoveredMinutes),excessMinutes:delta(first.service.excessMinutes,second.service.excessMinutes),fairness:Object.fromEntries(['spread','meanGapMinutes','maxGapMinutes','violations'].map(k=>[k,delta((first.measures.totals as any)[k],(second.measures.totals as any)[k])]))},
+  difference:{costCents:delta(first.cost.costCents,second.cost.costCents),requiredMinutes:delta(first.service.requiredMinutes,second.service.requiredMinutes),scheduledMinutes:delta(first.service.scheduledMinutes,second.service.scheduledMinutes),uncoveredMinutes:delta(first.service.uncoveredMinutes,second.service.uncoveredMinutes),excessMinutes:delta(first.service.excessMinutes,second.service.excessMinutes),fairness:unavailable??Object.fromEntries(['spread','meanGapMinutes','maxGapMinutes','violations'].map(k=>[k,delta((first.measures.totals as any)[k],(second.measures.totals as any)[k])]))},
   uncertainty:['Manual saved demand does not establish connected POS demand or observed service outcomes.','Coverage apportions unpaid breaks evenly; it does not establish practical or statutory break placement.','Scheduled wage and holiday USD excludes actual and statutory overtime, regular-rate inclusions, burden, other premiums and unapproved exceptions.','Missing cohort, preference and extra-hours evidence remains unknown. Fairness measures describe hypothetical candidate assignments, not a published week.','Cross-site comparison and agent access to generated alternatives are unavailable.'],
   selection:'Choose a feasible candidate using its current generation digest through demand.generate.prepare. Review and publish its exact draft revision separately.'}
 }
