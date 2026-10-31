@@ -30,6 +30,7 @@ async function fixture(h){
  return {people,manager,foreign,open,increased,read,input,link}
 }
 export async function demandCoverageApi(){
+ await recoveredDeficitApi()
  const h=await harness({now})
  try{
   const f=await fixture(h),initial=await h.state(),v=(await f.read()).review
@@ -142,6 +143,71 @@ export async function demandCoverageApi(){
   assert.equal(raised.version,3)
  }finally{await h.close()}
 }
+async function recoveredDeficitFixture(h){
+ await h.cmd('settings.save',{timezone:'UTC'})
+ const people=[];for(const name of ['Avery','Blair','Gray','Declan'])people.push(await h.person(name))
+ const manager=await h.person('Marlowe','manager')
+ for(const p of [...people,manager])await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:p.role,active:true,site,position:people.includes(p)?'Barista':'Manager'})
+ for(const p of people)await h.cmd('availability.save',{staffId:p.id,start:at(date,'00:00'),end:at('2026-11-03','00:00')})
+ const draft=await h.cmd('roster.prepare',{week:date,shifts:[{staffId:people[0].id,site,start:at(date,'11:00'),end:at(date,'15:00'),breakMinutes:30}]},manager.cookie)
+ await h.cmd('roster.publish',pin(draft),manager.cookie)
+ const csv='date,hour,site,sales\n2026-10-26,12,Ocean Beach,150\n2026-10-19,12,Ocean Beach,150'
+ const parsed=await h.cmd('sales.preview',{site,csv});await h.cmd('sales.import',{site,csv,fingerprint:parsed.fingerprint})
+ await h.cmd('demandrule.save',{site,roles:'Barista|100|0',staleDays:60})
+ const live=(await h.send('/api/lanyard/demand?'+new URLSearchParams({site,date}),undefined,manager.cookie)).value.live
+ await h.cmd('demand.save',{site,date,digest:live.digest},manager.cookie)
+ const linked=await h.cmd('openshift.post',{site,position:'Barista',start:at(date,'11:00'),end:at(date,'15:00'),breakMinutes:30,approval:'manager',order:'all'},manager.cookie)
+ const read=async(openShiftId=linked.id,cookie=manager.cookie)=>(await h.send(path({hour:'12',position:'Barista',openShiftId}),undefined,cookie)).value
+ const input=v=>({site,date,hour:12,position:'Barista',openShiftId:v.openShift.id,openShiftRevision:v.openShift.revision,digest:v.digest})
+ const v=(await read()).review
+ assert.deepEqual([v.reviewed.interval.requiredMinutes,v.reviewed.interval.scheduledMinutes,v.reviewed.interval.uncoveredMinutes],[90,52.5,37.5])
+ const record=await h.cmd('demand.coverage.link',input(v),manager.cookie)
+ const winning=await h.cmd('openshift.request',pin(linked),people[2].cookie)
+ const losing=await h.cmd('openshift.request',pin(linked),people[3].cookie)
+ const ordinary=await h.cmd('openshift.post',{site,position:'Barista',start:at(date,'12:00'),end:at(date,'13:00'),breakMinutes:0,approval:'manager',order:'all'},manager.cookie)
+ const pickup=await h.cmd('openshift.request',pin(ordinary),people[1].cookie)
+ await h.cmd('openshift.approve',pin(pickup),manager.cookie)
+ return {people,manager,linked,ordinary,record,winning,losing,read,input}
+}
+async function recoveredDeficitApi(){
+ for(const approver of ['manager','owner']){
+  const h=await harness({now})
+  try{
+   const f=await recoveredDeficitFixture(h),cookie=approver==='owner'?h.owner:f.manager.cookie
+   const before=await h.state()
+   for(const actor of [f.manager.cookie,h.owner]){
+    const stale=await h.cmd('openshift.approve',pin(f.winning),actor,409)
+    assert.match(stale.error,/sources changed.*review/i)
+    await h.cmd('demand.coverage.review',{...f.input(f.record),...pin(f.record)},actor,409)
+   }
+   assert.deepEqual(await h.state(),before,'Changed coverage still requires fresh review without writes')
+   await h.restart()
+   const current=await f.read(f.linked.id,cookie)
+   assert.equal(current.error,'','An existing linked shift remains reviewable after another pickup covers the deficit')
+   assert.equal(current.cases[0].status,'review-required')
+   const review=current.review
+   assert.deepEqual([review.reviewed.interval.requiredMinutes,review.reviewed.interval.scheduledMinutes,review.reviewed.interval.uncoveredMinutes,review.plannedReductionMinutes,review.residualMinutes],[90,112.5,0,0,0])
+   const extra=await h.cmd('openshift.post',{site,position:'Barista',start:at(date,'11:00'),end:at(date,'15:00'),breakMinutes:30,approval:'manager',order:'all'},f.manager.cookie)
+   assert.match((await f.read(extra.id)).error,/no forecast deficit/,'Zero demand cannot create a new link')
+   const beforeReview=await h.state()
+   await h.cmd('demand.coverage.link',{...f.input(review),openShiftId:extra.id},cookie,409)
+   assert.deepEqual(await h.state(),beforeReview)
+   const refreshed=await h.cmd('demand.coverage.review',{...f.input(review),...pin(f.record)},cookie)
+   assert.equal(refreshed.reviews.length,2);assert.equal(refreshed.plannedReductionMinutes,0)
+   const beforeApproval=await h.state(),filled=await h.cmd('openshift.approve',pin(f.winning),cookie)
+   assert.equal(filled.shift.staffId,f.people[2].id)
+   const after=await h.state(),tracked=(await f.read()).cases[0]
+   assert.equal(tracked.status,'assigned');assert.equal(tracked.fresh,true);assert.equal(tracked.clock,null)
+   assert.equal(tracked.approvedReductionMinutes,0);assert.equal(tracked.residualMinutes,0)
+   assert.equal(after.pickups.find(x=>x.id===f.losing.id).status,'closed')
+   assert.equal(after.pickups.find(x=>x.id===f.winning.id).status,'approved')
+   assert.equal(after.shifts.filter(x=>x.openShiftId===f.linked.id).length,1)
+   assert.deepEqual(after.shifts.filter(x=>x.id!==filled.shift.id),beforeApproval.shifts)
+   assert.deepEqual(protectedSources(after),protectedSources(beforeApproval))
+   await h.restart();assert.equal((await f.read()).cases[0].assignment.shiftId,filled.shift.id)
+  }finally{await h.close()}
+ }
+}
 export async function demandCoverageBrowser({proof=false}={}){
  const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try{for(const width of proof?[1440,390]:[1440]){
@@ -181,5 +247,33 @@ export async function demandCoverageBrowser({proof=false}={}){
    if(width===1440){assert.match(await page.locator('[data-demand-coverage-case]').innerText(),/Received clock-in/);assert.match(await page.locator('[data-demand-coverage-case]').innerText(),/Residual demand: 105 minutes/)}
    await shot('arrival',page,'[data-demand-coverage-case]')
   }finally{await manager.close();await employee.close();await h.close()}
- }}finally{await browser.close()}
+ }
+ await recoveredDeficitBrowser(browser,proof)
+ }finally{await browser.close()}
+}
+async function recoveredDeficitBrowser(browser,proof){
+ for(const width of proof?[1440,390]:[1440]){
+  const h=await harness({now}),context=await browser.newContext({viewport:{width,height:1000}})
+  try{
+   const f=await recoveredDeficitFixture(h)
+   await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded',...when(now)},body:'confirm=yes',redirect:'manual'})
+   const [name,...value]=f.manager.cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
+   await context.route('**/*',async route=>{const pathname=new URL(route.request().url()).pathname;if(pathname.startsWith('/fonts/')||pathname.startsWith('/brand/')||/\.(css|js)$/.test(pathname))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',pathname.slice(1))),contentType:pathname.endsWith('.css')?'text/css':pathname.endsWith('.js')?'application/javascript':pathname.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue({headers:{...route.request().headers(),...when(now)}})})
+   const page=await context.newPage()
+   const submit=async(button,command)=>{const [response]=await Promise.all([page.waitForResponse(r=>r.url().includes('/app/action?name='+command)),button.click()]);assert.equal(response.status(),200);assert.ok(!(await response.text()).includes('class="notice error"'));await page.waitForLoadState('networkidle')}
+   const shot=async name=>{if(process.env.DEMAND_COVERAGE_SCREENS){await mkdir(process.env.DEMAND_COVERAGE_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.DEMAND_COVERAGE_SCREENS,`demand-coverage-recovered-${name}-${width}.png`)})}}
+   await page.goto(h.origin+'/app/demand?'+new URLSearchParams({site,date,hour:'12',position:'Barista',openShiftId:f.linked.id}),{waitUntil:'networkidle'})
+   const review=page.locator('[data-demand-coverage-review]')
+   await review.scrollIntoViewIfNeeded()
+   if(width===1440){const text=await review.innerText();assert.match(text,/112.5 published minutes and 0 uncovered minutes/);assert.match(text,/Planned deficit reduction: 0 minutes/)}
+   await shot('review')
+   await submit(page.getByRole('button',{name:'Confirm fresh coverage review',exact:true}),'demand.coverage.review')
+   await page.goto(h.origin+`/app/schedule?week=${date}&site=${encodeURIComponent(site)}`,{waitUntil:'networkidle'})
+   await submit(page.locator('#open-shifts .request').filter({has:page.locator(`input[name=id][value="${f.winning.id}"]`)}).getByRole('button',{name:'Approve Gray',exact:true}),'openshift.approve')
+   await page.goto(h.origin+'/app/demand?'+new URLSearchParams({site,date}),{waitUntil:'networkidle'})
+   const tracked=page.locator('[data-demand-coverage-case]');await tracked.scrollIntoViewIfNeeded()
+   if(width===1440){const text=await tracked.innerText();assert.match(text,/Assigned to Gray/);assert.match(text,/Declan: closed/);assert.match(text,/Approved deficit reduction: 0 minutes/);assert.match(text,/Residual demand: 0 minutes/);assert.match(text,/arrival unverified/)}
+   await shot('assigned')
+  }finally{await context.close();await h.close()}
+ }
 }

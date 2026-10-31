@@ -46,7 +46,10 @@ async function preview(s:State,a:Actor,p:Record<string,any>,now:string) {
  need(o.status==='open'&&o.start>now,'Choose an open shift that has not started',409)
  need(o.approval==='manager','Demand coverage requires independent manager approval',409)
  need(o.week===reviewed.roster.week&&positionOf(s,o)===position&&o.start<reviewed.interval.end&&o.end>reviewed.interval.start,'Choose this cafe and position in the reviewed interval',409)
- need(reviewed.interval.uncoveredMinutes>0,'This interval has no forecast deficit',409)
+ // A new link needs a deficit. An existing case must remain reviewable when
+ // another staffing decision covers it; its fresh digest still gates approval.
+ const linked=s.demandcoverage.some(x=>x.site===site&&x.date===date&&x.hour===hour&&x.position===position&&x.openShift.id===o.id)
+ need(reviewed.interval.uncoveredMinutes>0||linked,'This interval has no forecast deficit',409)
  const openShift=openFacts(o),plannedMinutes=contribution(o,reviewed.interval.start,reviewed.interval.end)
  const plannedReductionMinutes=Math.min(reviewed.interval.uncoveredMinutes,plannedMinutes)
  return {site,date,hour,position,reviewed,openShift,plannedMinutes,plannedReductionMinutes,residualMinutes:round(reviewed.interval.uncoveredMinutes-plannedReductionMinutes),
