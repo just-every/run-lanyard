@@ -20,7 +20,7 @@ export function openShiftCards(s:any,tz:string,back:string) {
   const open=list.filter(o=>o.status==='open')
   const items=open.map(o=>{const waiting=asks.filter(x=>x.openShiftId===o.id&&x.status==='requested')
    const linked=rows(s,'demandCoverageCases').find(x=>x.openShift.id===o.id)
-   const demandLink=linked?`<p><a class="text-link" href="/app/demand?${h(new URLSearchParams({site:linked.site,date:linked.date,hour:String(linked.hour),position:linked.position,openShiftId:o.id}).toString())}#demand-coverage">Review linked demand case</a>${linked.fresh?'':' · Fresh source review required'}</p>`:''
+   const demandLink=linked?html(s)`<p><a class="text-link" href="/app/demand?${h(new URLSearchParams({site:linked.site,date:linked.date,hour:String(linked.hour),position:linked.position,openShiftId:o.id}).toString())}#demand-coverage">Review linked demand case</a>${linked.fresh?'':' · '+tr(s,'Fresh source review required')}</p>`:''
    return html(s)`<li><strong>${h(when(s,o,tz))}</strong> · ${where(s,o)||tr(s,'Any position')} · ${o.approval==='auto'?tr(s,'approved on pickup'):tr(s,'manager approves')}${o.pool?html(s)` · ${h(o.pool.length)} in pool`:''} · ${h(orderLabel(o))}${accessLine(s,o)}${offerLog(s,o,tz)}${demandLink}${waiting.map(x=>html(s)`<div class="request">${h(person(s,x.staffId))} · ${h(hours(x.after))} hrs that week${x.overtime?' · overtime':''}${costNote(s,x.cost?[x.cost]:[])}${form('openshift.approve',back,exact(x),html(s)`Approve ${person(s,x.staffId).split(/\s+/)[0]}`,'','primary small')}</div>`).join('')}</li>`}).join('')
   return card(tr(s,'Open shifts'),html(s)`${items?html(s)`<ul class="swap-list">${items}</ul>`:html(s)`<p class="note">No open shifts are posted.</p>`}${postForm(s,back)}`,'','open-shifts')
  }

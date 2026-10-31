@@ -119,11 +119,19 @@ export async function demandCoverageApi(){
   assert.equal(tracked.requests.find(x=>x.id===losing.id).status,'closed');assert.equal(tracked.requests.find(x=>x.id===winning.id).status,'approved');assert.equal(tracked.requests.find(x=>x.id===no.id).status,'declined')
   assert.deepEqual(protectedSources(await h.state()),protectedSources(beforeApproval))
   assert.deepEqual((await h.state()).shifts.filter(x=>x.id!==filled.shift.id),beforeApproval.shifts,'Unrelated assignments remain identical')
-  const clock=await h.cmd('clock.in',{commandId:'synthetic-lanyard-1',capturedAt:at(date,'08:31')},f.people[2].cookie,200,when(at(date,'09:00')))
+  // A received capture explicitly observed at another cafe cannot prove this arrival.
+  await h.cmd('clocknet.save',{site:'Mission',mode:'flag',ranges:'203.0.113.0/24'})
+  const foreignClock=await h.cmd('clock.in',{commandId:'synthetic-lanyard-3',capturedAt:at(date,'08:31')},f.people[2].cookie,200,{...when(at(date,'08:32')),'cf-connecting-ip':'203.0.113.9'})
+  assert.equal(foreignClock.seenAt,'Mission')
+  assert.equal((await f.read({},f.manager.cookie,200,when(at(date,'08:33')))).cases[0].clock,null)
+  await h.cmd('clock.out',{commandId:'synthetic-lanyard-4',capturedAt:at(date,'08:32'),breakMinutes:0},f.people[2].cookie,200,when(at(date,'08:33')))
+  const clockInput={commandId:'synthetic-lanyard-1',capturedAt:at(date,'08:34')}
+  const clock=await h.cmd('clock.in',clockInput,f.people[2].cookie,200,when(at(date,'09:00')))
+  assert.equal((await h.cmd('clock.in',clockInput,f.people[2].cookie,200,when(at(date,'09:01')))).id,clock.id)
   const earlier=(await f.read({},f.manager.cookie,200,when(at(date,'08:45')))).cases[0]
   assert.equal(earlier.clock,null,'A capture not yet received cannot establish arrival')
   tracked=(await f.read({},f.manager.cookie,200,when(at(date,'09:05')))).cases[0]
-  assert.deepEqual([tracked.status,tracked.clock.clockId,tracked.clock.start,tracked.clock.receivedAt],['arrived',clock.id,at(date,'08:31'),at(date,'09:00')])
+  assert.deepEqual([tracked.status,tracked.clock.clockId,tracked.clock.start,tracked.clock.receivedAt],['arrived',clock.id,at(date,'08:34'),at(date,'09:00')])
   assert.equal(tracked.residualMinutes,105,'Arrival cannot erase residual demand or claim a service outcome')
   await h.restart();assert.equal((await f.read({},f.manager.cookie,200,when(at(date,'09:05')))).cases[0].clock.clockId,clock.id)
   // Deactivation fences the already-issued session on both read and mutation.
@@ -152,7 +160,9 @@ export async function demandCoverageBrowser({proof=false}={}){
    await page.locator('#demand-coverage').getByLabel('Existing open shift').selectOption(f.open.id)
    await page.locator('#demand-coverage').getByRole('button',{name:'Review selected shift',exact:true}).click();await page.waitForLoadState('networkidle')
    if(width===1440){const text=await page.locator('[data-demand-coverage-review]').innerText();assert.match(text,/180 required minutes/);assert.match(text,/45 published minutes/);assert.match(text,/reduction: 30 minutes/);assert.match(text,/Residual demand if assigned: 105 minutes/)}
+   await page.locator('[data-demand-coverage-review]').getByText('Reviewed sources',{exact:true}).click()
    await shot('review',page,'[data-demand-coverage-review]')
+   await page.locator('[data-demand-coverage-review]').getByText('Reviewed sources',{exact:true}).click()
    await submit(page,page.getByRole('button',{name:'Link reviewed open shift',exact:true}),'demand.coverage.link')
    await h.cmd('openshift.request',pin(f.open),f.people[1].cookie);await h.cmd('openshift.decline',pin(f.open),f.people[3].cookie)
    await staff.goto(h.origin+`/app/schedule?week=${date}`,{waitUntil:'networkidle'})

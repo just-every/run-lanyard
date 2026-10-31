@@ -8,8 +8,8 @@ import {weekOf} from './openshifts'
 
 /** An observed arrival needs a received capture, never an acceptance or time estimate. */
 export function receivedCoverageClock(s:State,x:Row,asOf:string) {
- const known=s.clocks.filter(k=>k.staffId===x.staffId&&k.start<=asOf&&k.receivedAt<=asOf)
- const punch=known.find(k=>k.shiftId===x.id)??known.find(k=>!k.shiftId&&Math.abs(Date.parse(k.start)-Date.parse(x.start))<=7200000)
+ const known=s.clocks.filter(k=>k.staffId===x.staffId&&k.start<=asOf&&k.receivedAt<=asOf&&(k.seenAt===undefined||k.seenAt===siteOf(s,x)))
+ const punch=known.find(k=>k.shiftId===x.id)??known.find(k=>!k.shiftId&&k.start<x.end&&Math.abs(Date.parse(k.start)-Date.parse(x.start))<=7200000)
  return punch?{clockId:punch.id,start:punch.start,receivedAt:punch.receivedAt}:null
 }
 
