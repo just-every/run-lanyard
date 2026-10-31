@@ -1,3 +1,4 @@
+import {demandCoverageCommand,demandCoverageApproval,demandCoverageCases,demandCoverageReport} from './demand-coverage'
 import {generateDemand,demandGenerationCommand,generationPublication} from './demand-generator'
 import {currentPartner} from '../partner-scope'
 import {partnerRoster,partnerDraft,partnerReplay,type PartnerRequest} from './partner-roster'
@@ -94,7 +95,7 @@ import {holidayPay} from './holiday-pay'
 import {holidayReviews} from './holidays'
 export {actor}
 export type {Actor} from './model'
-const commands=['demand.generate.prepare','cutoff.save','schedule.notice.acknowledge','tip.pool.prepare','tip.pool.approve','report.schedule.save','report.schedule.pause','report.delivery.revoke','privacy.recordDuty','privacy.records.review','access.audit.grant','access.audit.revoke','audit.retain','organization.business.save','organization.location.save','organization.department.save','organization.member.save','fairwork.save','fairwork.preview','ai.consent','ai.extract','ai.review','ai.prepare','ai.erase','payroll.input.save','payroll.template.save','privacy.review','privacy.retention','privacy.hold','privacy.export','privacy.erase','policy.save','policy.preview','policy.review','policy.worker.preview','policy.worker.save','geofence.save','location.review','location.hold','location.erase','photo.save','photo.hold','photo.erase','sicktransfer.prepare','sicktransfer.withdraw','sicktransfer.consent','sicktransfer.decide','sickpolicy.save','sickworker.save','sick.request','sick.decide','sick.correct','minor.save','differential.save','clocklanguage.save','chat.create','chat.removeMember','chat.leave','chat.send','chat.acknowledge','access.level.save','access.defaults.create','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
+const commands=['demand.coverage.link','demand.coverage.review','demand.generate.prepare','cutoff.save','schedule.notice.acknowledge','tip.pool.prepare','tip.pool.approve','report.schedule.save','report.schedule.pause','report.delivery.revoke','privacy.recordDuty','privacy.records.review','access.audit.grant','access.audit.revoke','audit.retain','organization.business.save','organization.location.save','organization.department.save','organization.member.save','fairwork.save','fairwork.preview','ai.consent','ai.extract','ai.review','ai.prepare','ai.erase','payroll.input.save','payroll.template.save','privacy.review','privacy.retention','privacy.hold','privacy.export','privacy.erase','policy.save','policy.preview','policy.review','policy.worker.preview','policy.worker.save','geofence.save','location.review','location.hold','location.erase','photo.save','photo.hold','photo.erase','sicktransfer.prepare','sicktransfer.withdraw','sicktransfer.consent','sicktransfer.decide','sickpolicy.save','sickworker.save','sick.request','sick.decide','sick.correct','minor.save','differential.save','clocklanguage.save','chat.create','chat.removeMember','chat.leave','chat.send','chat.acknowledge','access.level.save','access.defaults.create','access.grant','access.revoke','access.restore','learn.propose','learn.decide','learn.revert','demandrule.save','demand.save','demand.override','noticerule.save','fairness.policy.save','fairness.cohort.save','fairness.request.save','fairness.prepare','premiumrule.save','premium.prepare','premium.decide','holiday.seed','holiday.save','holidayrule.save','holidaypay.approve','holidaypay.correct','paygroup.save','paygroup.period','clock.report','clock.recover','clockissue.resolve','cover.reopen','autorule.save','autorule.authorize','autorule.pause','autorule.revoke','daypart.save','sales.save','sales.preview','sales.import','contact.save','log.save','log.read','period.save','period.signoff','period.lock','period.reopen','period.close','offerrule.save','openshift.decline','settings.save','staff.save','staff.erase','availability.save','leave.request','leave.decide','roster.prepare','roster.publish','shift.confirm','clock.in','clock.out','time.prepare','time.approve','payroll.prepare','payroll.export','payroll.acknowledge','forecast.save','shift.callout','cover.respond','cover.approve','team.visibility','time.approveMany','clockrule.save','leaverule.save','schedule.post','mealrule.save','template.save','template.apply','roster.copy','recurrence.save','recurrence.apply','availability.policy','pattern.save','pattern.decide','earnings.save','roundrule.save','feedback.submit','feedback.reply','feedback.settings','note.save','swap.propose','swap.respond','swap.withdraw','swap.decide','closerule.save','time.confirm','clocknet.save','openshift.post','openshift.request','openshift.approve','time.edit','time.return','time.resubmit','time.request','time.acknowledge','time.resolve','breakrule.save','clock.breakStart','clock.breakEnd','clock.transfer','overtime.substitute','shift.change','shift.cancel','question.save','injury.resolve','attendrule.save','attendance.acknowledge','tipcredit.save']
 function fresh(a:Actor,s:State) {
  if(a.role==='owner'||a.role==='agent')return a
  const person=s.staff.find(v=>v.id===a.staffId&&v.email.toLowerCase()===a.email.toLowerCase()&&v.active&&!v.erased_at)
@@ -140,6 +141,8 @@ export async function command(db:D1Database,identity:Actor,name:string,input:unk
  if(result===undefined)result=noticeCommand(c,name,p)
  if(result===undefined)result=demandRule(c,name,p)
  if(result===undefined)result=await demandCommand(c,name,p)
+ if(result===undefined)result=await demandCoverageCommand(c,name,p)
+ await demandCoverageApproval(c,name,p)
  if(result===undefined)result=await learnCommand(c,name,p)
  if(result===undefined)result=fairnessCommands(c,name,p)
  if(result===undefined)result=await fairnessPrepare(c,name,p)
@@ -235,6 +238,8 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string,earni
  result.auditgrants=a.role==='owner'?s.auditgrants:[]
  result.auditpackets=a.role==='owner'?s.auditpackets.map(({report,csv,...summary})=>summary):[]
  result.cutoffs=a.role==='owner'?s.cutoffs:[]
+ result.demandcoverage=[]
+ result.demandCoverageCases=await demandCoverageCases(s,a,new Date().toISOString())
  result.cutoffReports=a.role==='owner'?await cutoffReports(s,a,new Date().toISOString(),db):[]
  result.periodSignoffState=Object.fromEntries(s.periods.map(p=>[p.id,Object.fromEntries(p.signoffs.map((x:any)=>[x.by+'|'+x.role,signoffCurrent(s,p,x)]))]))
  result.paytemplates=a.role==='owner'?s.paytemplates:[]
@@ -451,11 +456,12 @@ export async function intervalsRead(db:D1Database,identity:Actor,site:string,dat
  return intervalReport(s,cafe,date,size,new Date().toISOString())
 }
 /** DEMAND-001: a cafe day's forecast, saved versions and outcome, for the owner and that cafe's managers. */
-export async function demandRead(db:D1Database,identity:Actor,site:string,date:string) {
+export async function demandRead(db:D1Database,identity:Actor,site:string,date:string,selection:Record<string,any>={}) {
  const a=await live(db,identity);manager(a);const s=await load(db),f=fresh(a,s);manager(f)
  const home=s.staff.find(p=>p.id===f.staffId)?.site??'',cafe=f.role==='owner'?site:home,now=new Date().toISOString()
  need(f.role==='owner'||site===''||site===home,'Not found',404)
- return demandReport(s,f,cafe,date||localDate(now,s.timezone),now)
+ const report=await demandReport(s,f,cafe,date||localDate(now,s.timezone),now)
+ return {...report,coverage:restricted(s,f)?null:await demandCoverageReport(s,f,cafe,report.date,now,selection)}
 }
 /** LEARN-001: the measured evidence and any proposal for one cafe's demand assumptions, for the owner and that cafe's managers; it writes nothing. */
 export async function learnProposalRead(db:D1Database,identity:Actor,site:string,weeks:number) {
@@ -545,3 +551,8 @@ export async function customAccessRead(db:D1Database,identity:Actor){
 }
 
 export async function demandGenerationRead(db:D1Database,identity:Actor,p:Record<string,any>){const a=await live(db,identity),s=await load(db);return generateDemand(s,fresh(a,s),p)}
+
+export async function demandCoverageRead(db:D1Database,identity:Actor,p:Record<string,any>) {
+ const a=await live(db,identity),s=await load(db)
+ return demandCoverageReport(s,fresh(a,s),text(p.site,'site',80,true),text(p.date,'date',10),new Date().toISOString(),p)
+}
