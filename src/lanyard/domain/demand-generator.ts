@@ -33,7 +33,7 @@ async function facts(s:State,week:string,ignoreDraft?:string){
   rosters:s.rosters.filter(r=>r.id!==ignoreDraft&&['draft','published'].includes(r.status)),
   shifts:s.shifts.filter(x=>x.rosterId!==ignoreDraft&&['draft','published'].includes(x.status)),openshifts:s.openshifts.filter(x=>x.rosterId!==ignoreDraft),week}))
 }
-function preserved(s:State,p:Input){
+export function preservedGeneration(s:State,p:Input){
  const draft=s.rosters.find(r=>r.week===p.week&&r.status==='draft'),published=s.rosters.find(r=>r.week===p.week&&r.status==='published')
  const candidates=s.shifts.filter(x=>[draft?.id,published?.id].includes(x.rosterId)&&['draft','published'].includes(x.status)).sort((a,b)=>Number(b.status==='draft')-Number(a.status==='draft'))
  const seen=new Set<string>(),rows=candidates.filter(x=>{const key=canonical(shiftInput(x));if(seen.has(key))return false;seen.add(key);return true})
@@ -42,7 +42,7 @@ function preserved(s:State,p:Input){
 export const generationCost=scheduledComparisonCost
 export async function generateDemand(s:State,a:Actor,input:Record<string,any>){
  const p=generationInput(input);authority(s,a,p.site)
- const source=preserved(s,p),generated:Row[]=[],issues:string[]=[],rejections=new Set<string>(),versions:Row[]=[]
+ const source=preservedGeneration(s,p),generated:Row[]=[],issues:string[]=[],rejections=new Set<string>(),versions:Row[]=[]
  const budgetSource=s.forecasts.find(f=>f.week===p.week&&f.site===p.site)
  if(!budgetSource||budgetSource.budgetPercent===null)issues.push('Review a saved weekly labor budget before generation')
  if(budgetSource&&(budgetSource.burdenPercent||budgetSource.burdenPerHourCents||budgetSource.jobBudgets?.length))issues.push('Configured burden or job caps require cost treatment beyond this generator; generation refused')
@@ -102,7 +102,7 @@ export async function demandGenerationCommand(c:Context,name:string,p:Record<str
  const preview=await generateDemand(c.s,c.a,p)
  need(preview.digest===text(p.digest,'generation review',64),'Generation facts changed; preview and review again',409)
  need(preview.feasible,preview.infeasible.join('; '),409)
- const result=draftWeek(c,preview.week,[...preserved(c.s,generationInput(p)).rows.map(shiftInput),...preview.generated])
+ const result=draftWeek(c,preview.week,[...preservedGeneration(c.s,generationInput(p)).rows.map(shiftInput),...preview.generated])
  const review={input:generationInput(p),facts:await facts(c.s,preview.week,result.id),rows:await rowDigest(result.shifts),previewDigest:preview.digest}
  put(c,'rosters',{...c.s.rosters.find(r=>r.id===result.id)!,generationReview:review},c.s.rosters.find(r=>r.id===result.id))
  const roster=c.s.rosters.find(r=>r.id===result.id)!

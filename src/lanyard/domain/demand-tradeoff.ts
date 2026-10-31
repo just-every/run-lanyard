@@ -1,7 +1,7 @@
 // TRADEOFF-001: compare reviewed inputs to the existing bounded generator.
 // This native human read grants no agent scope or new generation constraints.
 import {type State,type Actor,canonical} from './model'
-import {generationInput,generateDemand} from './demand-generator'
+import {generationInput,generateDemand,preservedGeneration} from './demand-generator'
 import {projectedPreferenceReport} from './fairness'
 
 const controls=['minShiftMinutes','maxShiftMinutes','breakAfterMinutes','breakMinutes'] as const
@@ -13,7 +13,9 @@ export async function compareDemand(s:State,a:Actor,p:Record<string,any>){
  const inputs=demandComparisonInputs(p)
  const candidate=async(input:ReturnType<typeof generationInput>)=>{
   const generation=await generateDemand(s,a,input)
-  const rows=[...generation.preserved,...generation.generated].map((x,i)=>({...x,id:`candidate-${i}`,revision:1,minutes:(Date.parse(x.end)-Date.parse(x.start))/60000-x.breakMinutes}))
+  // Retained cover offers resolve through native shift identities. Only new
+  // generated assignments receive hypothetical identities for this projection.
+  const rows=[...preservedGeneration(s,input).rows.filter(x=>x.site===input.site),...generation.generated.map((x,i)=>({...x,id:`candidate-${i}`,revision:1}))].map(x=>({...x,minutes:(Date.parse(x.end)-Date.parse(x.start))/60000-x.breakMinutes}))
   return {...generation,measures:projectedPreferenceReport(s,a,input.week,input.site,rows)}
  }
  const first=await candidate(inputs.a),second=await candidate(inputs.b)

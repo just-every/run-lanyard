@@ -277,6 +277,7 @@ async function confirmGeneratedFairness(h,f){
  for(const p of f.people)await h.cmd('pattern.save',{from:days(f.week,-1),blocks,preferredHours:3,maxHours:40},p.cookie)
 }
 export async function generatedTradeoffApi(){
+ await generatedTradeoffOffers()
  const h=await harness({now:generationNow})
  try{
   const f=await generatedComparisonFixture(h)
@@ -346,6 +347,39 @@ export async function generatedTradeoffApi(){
   await f.prepare(c.a,f.manager.cookie,403);await f.prepare(c.a,person.cookie,403);await f.prepare(c.a,f.foreign.cookie,404);assert.deepEqual(await h.state(),state)
   await h.cmd('access.revoke',pin(grant));assert.equal((await h.send(f.path(),undefined,f.manager.cookie)).status,403)
   console.log('PROBE TRADEOFF-001 generated comparison: empty week -> A 180 paid minutes, B 300, break coverage 180 required and 120 excess, holiday USD 75 and 125; B separately prepared and published after restart; stale, unsupported and authority refusals preserve source data')
+ }finally{await h.close()}
+}
+
+export async function generatedTradeoffOffers(){
+ const h=await harness({now:generationNow})
+ try{
+  const f=await generatedComparisonFixture(h)
+  for(const p of (await h.state()).staff.filter(p=>f.people.some(person=>person.id===p.id)))await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:'staff',active:true,site:f.site,position:'Counter',hourlyRate:'20.00',employmentType:'part-time'})
+  await confirmGeneratedFairness(h,f)
+  for(const p of f.people)await h.cmd('fairness.request.save',{staffId:p.id,from:f.week,minutes:120},p.cookie)
+  const tuesday=days(f.week,1)
+  const draft=await h.cmd('roster.prepare',{week:f.week,shifts:[{staffId:f.people[0].id,site:f.site,job:f.job.id,start:local(tuesday,'08:00'),end:local(tuesday,'09:00'),breakMinutes:0}]})
+  await h.cmd('roster.publish',pin(draft))
+  const shift=(await h.state()).shifts.find(x=>x.status==='published')
+  const callout=await h.cmd('shift.callout',{...pin(shift),note:'Unable to work Tuesday'},f.people[0].cookie)
+  assert.equal(callout.offers.length,1)
+  const offer=callout.offers[0],before=await h.state()
+  const native=await h.send('/api/lanyard/fairness?'+new URLSearchParams({week:f.week,site:f.site,weeks:'1'}),undefined,f.manager.cookie)
+  assert.equal(native.status,200,native.text)
+  assert.equal(native.value.equity.groups[0].totalOfferedMinutes,60,'The native report retains the reached one-hour Tuesday offer')
+  const comparison=await f.read()
+  for(const candidate of [comparison.a,comparison.b]){
+   assert.equal(candidate.feasible,true,JSON.stringify(candidate.infeasible))
+   assert.equal(candidate.measures.equity.groups[0].totalOfferedMinutes,60,'Comparing Monday configurations must retain the reached Tuesday offer')
+   assert.deepEqual(candidate.measures.equity.groups,native.value.equity.groups,'Both configurations preserve requested and offered shares for unchanged work')
+   assert.deepEqual(candidate.measures.equity.inputs,native.value.equity.inputs,'Offer source identities and revisions remain inspectable')
+   assert.equal(candidate.measures.equity.inputs.find(x=>x.id===offer.id).shiftId,shift.id)
+  }
+  assert.deepEqual(await h.state(),before,'Comparison does not write offers or source shifts')
+  await h.restart()
+  const persisted=await f.read()
+  for(const candidate of [persisted.a,persisted.b])assert.equal(candidate.measures.equity.groups[0].totalOfferedMinutes,60,'Restart retains the same offer in each candidate')
+  console.log('PROBE BLOCKING-A: GET generated comparison for Monday with a reached 60-minute Tuesday cover offer -> native report and both candidates retain 60 offered minutes and identical offer sources and shares; unchanged source records and restart')
  }finally{await h.close()}
 }
 
