@@ -3,6 +3,7 @@ import {readFile,mkdir} from 'node:fs/promises'
 import {join} from 'node:path'
 import {chromium} from '@playwright/test'
 import {harness} from './harness.mjs'
+import {generationFixture} from './demand-generation-journey.mjs'
 import {optimizationFixture} from './fairness-optimization-fixture.mjs'
 import {days,local,pin} from './workforce-journey.mjs'
 
@@ -88,7 +89,7 @@ export async function tradeoffApi(h) {
 }
 
 export async function tradeoffBrowser() {
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const browser=await chromium.launch({headless:true,...(process.env.LANYARD_CHROMIUM?{executablePath:process.env.LANYARD_CHROMIUM}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try{for(const width of [1440,390]){
   const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
   try{
@@ -232,4 +233,152 @@ export async function overtimeFixture(h,f) {
  // Effective scheduled rates vary within the workweek; the weighted base matters.
  await h.cmd('workforce.save',{staffId:f.alex.id,jobs:[],skills:[],certifications:[],sites:['Ocean Beach','Mission'],preferences:[],minHours:0,maxHours:60,classification:'hourly',rates:[{job:'',from:f.first,cents:2000},{job:'',from:days(f.week,2),cents:2400}]})
  return {shifts,publish}
+}
+
+const generationNow='2026-11-01T12:00:00Z'
+const projectionState=s=>Object.fromEntries(['sales','forecasts','demandforecasts','timesheets','clocks','claims','batches'].map(k=>[k,s[k]]))
+async function generatedComparisonFixture(h){
+ const f=await generationFixture(h),{week,site}=f.input
+ const input={week,site,dates:[week],aMinShiftMinutes:60,aMaxShiftMinutes:240,aBreakAfterMinutes:240,aBreakMinutes:0,bMinShiftMinutes:180,bMaxShiftMinutes:180,bBreakAfterMinutes:120,bBreakMinutes:30}
+ const path=(p=input)=>'/api/lanyard/demand/compare?'+new URLSearchParams({...p,dates:p.dates.join(',')})
+ const read=async(p=input,cookie=f.manager.cookie)=>{const r=await h.send(path(p),undefined,cookie);assert.equal(r.status,200,r.text);return r.value}
+ return {...f,input,path,read,week,site}
+}
+function reconcileGenerated(c,f,withHoliday=false){
+ assert.equal(c.a.feasible,true,JSON.stringify(c.a.infeasible));assert.equal(c.b.feasible,true,JSON.stringify(c.b.infeasible))
+ assert.deepEqual(c.a.versions,c.b.versions);assert.deepEqual(c.a.budget.source,c.b.budget.source)
+ assert.equal(c.a.budget.limitCents,30000);assert.equal(c.b.budget.limitCents,30000)
+ assert.equal(c.a.generated.length,1);assert.equal(c.b.generated.length,2)
+ assert.equal(new Set(c.b.generated.map(x=>x.staffId)).size,2)
+ assert.deepEqual(c.a.generated.map(x=>[x.start,x.end,x.breakMinutes]),[[local(f.week,'08:00'),local(f.week,'11:00'),0]])
+ assert.deepEqual(c.b.generated.map(x=>[x.start,x.end,x.breakMinutes]),Array.from({length:2},()=>[local(f.week,'08:00'),local(f.week,'11:00'),30]))
+ for(const v of [c.a,c.b]){
+  for(const i of v.service.intervals){
+   const start=Date.parse(local(i.date,`${String(i.hour).padStart(2,'0')}:00`)),end=start+3600000
+   const minutes=v.generated.reduce((n,x)=>{const from=Date.parse(x.start),until=Date.parse(x.end),elapsed=(until-from)/60000;return n+Math.max(0,Math.min(until,end)-Math.max(from,start))/60000*(elapsed-x.breakMinutes)/elapsed},0)
+   assert.equal(i.requiredMinutes,i.hour>=8&&i.hour<11?60:0)
+   assert.equal(i.scheduledMinutes,minutes);assert.equal(i.uncoveredMinutes,Math.max(0,i.requiredMinutes-minutes));assert.equal(i.excessMinutes,Math.max(0,minutes-i.requiredMinutes))
+  }
+  const paid=v.generated.reduce((n,x)=>n+(Date.parse(x.end)-Date.parse(x.start))/60000-x.breakMinutes,0)
+  assert.equal(v.cost.costCents,paid*(withHoliday?25:20)*100/60)
+  assert.equal(v.cost.inputs.reduce((n,x)=>n+x.basis.costCents,0),paid*2000/60)
+  assert.equal(v.cost.inputs.reduce((n,x)=>n+x.holiday.costCents,0),withHoliday?paid*500/60:0)
+ }
+ assert.deepEqual([c.a.service.requiredMinutes,c.a.service.scheduledMinutes,c.a.service.uncoveredMinutes,c.a.service.excessMinutes],[180,180,0,0])
+ assert.deepEqual([c.b.service.requiredMinutes,c.b.service.scheduledMinutes,c.b.service.uncoveredMinutes,c.b.service.excessMinutes],[180,300,0,120])
+ assert.deepEqual([c.changes.removed.length,c.changes.added.length,c.changes.unchanged.length],[1,2,0])
+ assert.deepEqual(c.changes.removed,c.a.generated);assert.deepEqual(c.changes.added,c.b.generated)
+ assert.equal(c.difference.costCents,withHoliday?5000:4000);assert.equal(c.difference.requiredMinutes,0);assert.equal(c.difference.scheduledMinutes,120);assert.equal(c.difference.uncoveredMinutes,0);assert.equal(c.difference.excessMinutes,120)
+}
+async function confirmGeneratedFairness(h,f){
+ await h.cmd('fairness.policy.save',{site:f.site,tags:['closing'],closingTime:'10:00',openingTime:'07:00',closeOpenHours:12})
+ await h.cmd('fairness.cohort.save',{site:f.site,position:'Counter',from:f.week,staffIds:f.people.map(p=>p.id)})
+ const blocks=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`${d} available 00:00-24:00`).join('\n')+'\nMon preferred 08:00-11:00\nMon prefer-not 10:00-12:00'
+ for(const p of f.people)await h.cmd('pattern.save',{from:days(f.week,-1),blocks,preferredHours:3,maxHours:40},p.cookie)
+}
+export async function generatedTradeoffApi(){
+ const h=await harness({now:generationNow})
+ try{
+  const f=await generatedComparisonFixture(h)
+  const unknown=await f.read();reconcileGenerated(unknown,f)
+  for(const v of [unknown.a,unknown.b]){assert.equal(v.measures.totals.spread,null);assert.equal(v.measures.totals.meanGapMinutes,null);assert.equal(v.measures.totals.violations,null);assert.ok(v.measures.cohorts.unknownMembership.length)}
+  await confirmGeneratedFairness(h,f)
+  await h.cmd('holiday.save',{site:f.site,date:f.week,name:'Reviewed service holiday',enabled:true})
+  await h.cmd('holidayrule.save',{site:f.site,from:'2026-01-01',mode:'added',value:500,nonWorkMinutes:0,beforeAfter:false,code:'HOL'})
+  // Nonempty worked-time and once-only payroll facts must remain untouched.
+  const person=f.people[0],workedDate=days(f.week,-7)
+  await h.cmd('clock.in',{commandId:crypto.randomUUID(),capturedAt:local(workedDate,'08:00')},person.cookie)
+  const worked=await h.cmd('clock.out',{commandId:crypto.randomUUID(),capturedAt:local(workedDate,'10:00'),breakMinutes:0},person.cookie)
+  const approved=await h.cmd('time.approve',pin(worked.timesheet))
+  const batch=await h.cmd('payroll.prepare',{ids:[approved.id]});await h.cmd('payroll.export',pin(batch))
+  const before=await h.state(),c=await f.read();reconcileGenerated(c,f,true)
+  assert.equal(before.rosters.length,0,'The comparison works in an empty unpublished week')
+  assert.deepEqual([c.a.measures.totals.spread,c.b.measures.totals.spread],[1,0])
+  assert.deepEqual([c.a.measures.totals.meanGapMinutes,c.b.measures.totals.meanGapMinutes],[90,30])
+  assert.deepEqual([c.a.measures.totals.maxGapMinutes,c.b.measures.totals.maxGapMinutes],[180,30])
+  assert.deepEqual([c.a.measures.totals.violations,c.b.measures.totals.violations],[1,2])
+  assert.deepEqual(c.difference.fairness,{spread:-1,meanGapMinutes:-60,maxGapMinutes:-150,violations:1})
+  for(const v of [c.a,c.b]){
+   assert.equal(v.measures.undesirable.inputs.length,v.generated.length)
+   assert.deepEqual(v.measures.rows.filter(r=>r.membership==='confirmed').map(r=>r.staffId).sort(),f.people.map(p=>p.id).sort())
+   for(const r of v.measures.rows.filter(r=>r.membership==='confirmed')){assert.equal(r.preferredMinutes,180);assert.equal(r.gapMinutes,Math.abs(r.scheduledMinutes-180));assert.equal(r.patterns.length,7);assert.ok(r.patterns.every(x=>x.id&&x.revision))}
+   assert.ok(v.measures.equity.groups.every(g=>g.totalRequestedMinutes===null),'Preferred hours never become extra-hours requests')
+  }
+  const boundary=await f.read({...f.input,bMinShiftMinutes:240,bMaxShiftMinutes:240})
+  assert.equal(boundary.b.feasible,true);assert.equal(boundary.b.generated.length,2)
+  assert.ok(boundary.b.generated.every(x=>x.end===local(f.week,'12:00')&&x.breakMinutes===30))
+  assert.equal(boundary.b.service.scheduledMinutes,420);assert.equal(boundary.b.service.excessMinutes,240);assert.equal(boundary.b.cost.costCents,17500)
+  assert.ok(boundary.changes.added.every(x=>x.end===local(f.week,'12:00')),'Changed shift-length review explains changed generated boundaries')
+  assert.deepEqual(await h.state(),before,'Comparison writes no data')
+  const selected=await f.prepare(c.b,f.manager.cookie)
+  const drafted=await h.state();assert.equal(drafted.rosters.find(r=>r.id===selected.id).status,'draft');assert.equal(drafted.shifts.filter(x=>x.status==='published').length,0)
+  assert.deepEqual(projectionState(drafted),projectionState(before))
+  const shape=x=>[x.staffId,x.start,x.end,x.breakMinutes,x.site,x.job]
+  assert.deepEqual(selected.shifts.map(shape).sort(),c.b.generated.map(shape).sort(),'Selection prepares B, not A')
+  await h.restart();await h.cmd('roster.publish',pin(selected),f.manager.cookie)
+  assert.deepEqual((await h.state()).shifts.filter(x=>x.status==='published').map(shape).sort(),c.b.generated.map(shape).sort())
+  const persisted=await h.state();assert.deepEqual(projectionState(persisted),projectionState(before))
+  await h.cmd('roster.publish',pin(selected),f.manager.cookie,409)
+  assert.deepEqual(await h.state(),persisted,'Exact-revision publication cannot be replayed')
+  // Each source edit invalidates both candidate digests, without draft writes.
+  const staleAfter=async edit=>{const review=await f.read();await edit();const saved=await h.state();await f.prepare(review.a,f.manager.cookie,409);await f.prepare(review.b,f.manager.cookie,409);assert.deepEqual(await h.state(),saved)}
+  await staleAfter(()=>h.cmd('forecast.save',{week:f.week,site:f.site,days:[1200,0,0,0,0,0,0],budgetPercent:30}))
+  await staleAfter(async()=>{const v=(await h.state()).demandforecasts.filter(x=>x.date===f.week).sort((a,b)=>b.version-a.version)[0];await h.cmd('demand.override',{...pin(v),hour:8,dollars:'110',reason:'Reviewed additional service demand'})})
+  await staleAfter(async()=>{const p=(await h.state()).staff.find(x=>x.id===person.id);await h.cmd('staff.save',{...pin(p),name:p.name,email:p.email,payrollId:p.payrollId,role:'staff',active:true,site:f.site,position:'Counter',hourlyRate:'21.00'})})
+  await staleAfter(async()=>{const p=(await h.state()).policies[0];await h.cmd('policy.save',{...pin(p),site:f.site,from:p.from,preset:'federal',minimumRestMinutes:600,reviewReason:'Reviewed required rest'})})
+  // Supported generator refusals are explained independently for both configurations.
+  await h.cmd('forecast.save',{week:f.week,site:f.site,days:[1000,0,0,0,0,0,0],budgetPercent:1})
+  const refuse=async pattern=>{const comparison=await f.read();for(const v of [comparison.a,comparison.b]){assert.equal(v.feasible,false);assert.match(JSON.stringify([...v.infeasible,...v.rejections]),pattern);const state=await h.state();await f.prepare(v,f.manager.cookie,409);assert.deepEqual(await h.state(),state)}}
+  await refuse(/budget/i)
+  await h.cmd('forecast.save',{week:f.week,site:f.site,days:[1000,0,0,0,0,0,0],budgetPercent:30})
+  const policy=(await h.state()).policies[0];await h.cmd('policy.save',{...pin(policy),site:f.site,from:policy.from,preset:'CA',reviewReason:'Review required statutory break placement'})
+  await refuse(/unsupported break placement/)
+  // Read and selection refuse every excluded reader without changing records.
+  const key=await h.cmd('agent.create',{label:'No generated comparison authority'})
+  for(const [cookie,status] of [[person.cookie,403],[f.foreign.cookie,404],['',401]])assert.equal((await h.send(f.path(),undefined,cookie)).status,status)
+  for(const credential of [key,await h.cmd('agent.create',{label:'Scoped fixed-slot reader',scopes:['comparison.read'],cafes:[f.site],comparisonConsent:true})])assert.equal((await h.send(f.path(),undefined,'',{authorization:`Bearer ${credential.token}`})).status,401)
+  assert.equal((await h.send('/api/lanyard/agent/command',{name:'demand.generate.prepare',input:{...c.a,digest:c.a.digest}},'',{authorization:`Bearer ${key.token}`})).status,403)
+  const level=await h.cmd('access.level.save',{name:'Reviewed draft scope',site:f.site,permissions:['draft.view','draft.edit','schedule.publish']})
+  const grant=await h.cmd('access.grant',{levelId:level.id,staffId:f.manager.id,site:f.site})
+  const state=await h.state();assert.equal((await h.send(f.path(),undefined,f.manager.cookie)).status,403)
+  await f.prepare(c.a,f.manager.cookie,403);await f.prepare(c.a,person.cookie,403);await f.prepare(c.a,f.foreign.cookie,404);assert.deepEqual(await h.state(),state)
+  await h.cmd('access.revoke',pin(grant));assert.equal((await h.send(f.path(),undefined,f.manager.cookie)).status,403)
+  console.log('PROBE TRADEOFF-001 generated comparison: empty week -> A 180 paid minutes, B 300, break coverage 180 required and 120 excess, holiday USD 75 and 125; B separately prepared and published after restart; stale, unsupported and authority refusals preserve source data')
+ }finally{await h.close()}
+}
+
+export async function generatedTradeoffBrowser(){
+ const browser=await chromium.launch({headless:true,...(process.env.LANYARD_CHROMIUM?{executablePath:process.env.LANYARD_CHROMIUM}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
+ try{for(const width of [1440,390]){
+  const h=await harness({now:generationNow}),context=await browser.newContext({viewport:{width,height:1100}})
+  try{
+   const f=await generatedComparisonFixture(h);await confirmGeneratedFairness(h,f)
+   const c=await f.read(),page=await context.newPage(),[name,...value]=f.manager.cookie.split('=')
+   await context.addCookies([{name,value:value.join('='),url:h.origin}])
+   await context.route('**/*',async route=>{const p=new URL(route.request().url()).pathname;if(p.startsWith('/fonts/')||p.startsWith('/brand/')||/\.(css|js)$/.test(p))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',p.slice(1))),contentType:p.endsWith('.css')?'text/css':p.endsWith('.js')?'application/javascript':p.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
+   await page.goto(`${h.origin}/app/schedule?week=${f.week}&site=Ocean%20Beach`,{waitUntil:'networkidle'})
+   const generation=page.locator('#demand-generation')
+   for(const detail of await generation.locator('details').all())await detail.evaluate(x=>x.open=true)
+   await generation.getByRole('button',{name:'Compare generator configurations',exact:true}).click();await page.waitForLoadState('networkidle')
+   const panel=page.locator('#demand-comparison')
+   const shot=async key=>{await (key==='comparison'?panel:page.locator('main')).scrollIntoViewIfNeeded();if(process.env.TRADEOFF_SCREENS){await mkdir(process.env.TRADEOFF_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.TRADEOFF_SCREENS,`generated-${key}-${width}.png`)})}}
+   if(width===1440){assert.equal(await panel.isVisible(),true);const text=await panel.innerText();for(const v of ['$60.00','$100.00','180','300','120','Candidate A','Candidate B'])assert.ok(text.includes(v),v);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)}
+   await shot('comparison')
+   const [download]=await Promise.all([page.waitForEvent('download'),panel.getByRole('link',{name:'Download generated comparison (JSON)'}).click()])
+   const exported=JSON.parse(await readFile(await download.path(),'utf8'))
+   if(width===1440){reconcileGenerated(exported,f);assert.deepEqual(exported.changes,c.changes);assert.equal(exported.b.digest,c.b.digest)}
+   await panel.getByRole('button',{name:'Prepare candidate B',exact:true}).click();await page.waitForLoadState('networkidle')
+   const prepared=await h.state(),draft=prepared.rosters.find(r=>r.week===f.week&&r.status==='draft')
+   if(width===1440){assert.ok(draft);assert.equal(prepared.shifts.filter(x=>x.status==='published').length,0);assert.equal(prepared.shifts.filter(x=>x.status==='draft').length,2)}
+   const review=page.getByRole('link',{name:/Review draft revision/});if(await review.count())await review.click()
+   await shot('draft')
+   await page.getByRole('button',{name:'Publish this revision',exact:true}).click();await page.waitForLoadState('networkidle')
+   await h.restart();await page.reload({waitUntil:'networkidle'});await shot('published')
+   if(width===1440)assert.deepEqual((await h.state()).shifts.filter(x=>x.status==='published').map(x=>x.breakMinutes),[30,30])
+   await h.cmd('forecast.save',{week:f.week,site:f.site,days:[1000,0,0,0,0,0,0],budgetPercent:1})
+   await page.goto(`${h.origin}/app/schedule?`+new URLSearchParams({...f.input,dates:f.week,demandCompare:'1'}),{waitUntil:'networkidle'})
+   if(width===1440){assert.match(await panel.innerText(),/Generation refused/);assert.equal(await panel.getByRole('button',{name:'Prepare candidate B',exact:true}).count(),0)}
+   await shot('refused')
+  }finally{await context.close();await h.close()}
+ }}finally{await browser.close()}
 }

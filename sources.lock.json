@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "20ed2a4754d48c8236f6f4a3e9451ce22dd758fdc4e94e8293a30415cabb55a3",
+      "sha256": "a56a0b4034064c105e67b586adc2a4d104da8dac3cb3c84b0cb5a7128c5394bc",
       "executable": false
     },
     "DEMO.md": {
@@ -1485,6 +1485,10 @@
       "sha256": "b9b34341aadf4420c97d68c077159820be03dd13800aa734672120219e06db5e",
       "executable": false
     },
+    "src/lanyard/domain/demand-tradeoff.ts": {
+      "sha256": "8734d8b15b5872d1b726094f0f949c61843735d35dcf9d106edde825bc306fc0",
+      "executable": false
+    },
     "src/lanyard/domain/demand.ts": {
       "sha256": "bd8fb402cb291430893be55ca56db67c72fcfc0da961e8169b10d0a95c26f18f",
       "executable": false
@@ -1514,7 +1518,7 @@
       "executable": false
     },
     "src/lanyard/domain/fairness.ts": {
-      "sha256": "5a2de66f867ecbd9e3a2f714323a759f39a0c0eaac0de0ee73f29dd9d442894a",
+      "sha256": "938a1118cbe59d8fa7c973e4985bb4548eb806ab9e25da05d759babaa3477a2f",
       "executable": false
     },
     "src/lanyard/domain/fairwork-catalog.ts": {
@@ -1554,7 +1558,7 @@
       "executable": false
     },
     "src/lanyard/domain/index.ts": {
-      "sha256": "5ebc9beb1a040b8ac40f89488be78cc1a591740aa37edcb615cc2e65df6f90fa",
+      "sha256": "07c9f4ab0f2ae15b72225fce5a536428f6d79bd2a32c17afc192435914ec95a1",
       "executable": false
     },
     "src/lanyard/domain/intervals.ts": {
@@ -1918,7 +1922,7 @@
       "executable": false
     },
     "src/lanyard/http.ts": {
-      "sha256": "8bbfae189eea021fdc2698335edf7e2a2bfcaee7489638e7991d2e714ec346eb",
+      "sha256": "44c2e4da6223b22e491d0a00082235feca9f226f853cf735d858a925c5c6ca9a",
       "executable": false
     },
     "src/lanyard/kiosk.ts": {
@@ -2078,7 +2082,7 @@
       "executable": false
     },
     "src/lanyard/ui/fairness-compare.ts": {
-      "sha256": "f6a66da9c5bbaff1c0767cc60295106614392c75e72333a49b41bf17446ff36c",
+      "sha256": "3b7d09e63bd6089667c0183f73a4da6707fe989f0592e62eb6cee0c7538d516f",
       "executable": false
     },
     "src/lanyard/ui/fairness.ts": {
@@ -2278,7 +2282,7 @@
       "executable": false
     },
     "src/lanyard/ui/schedule.ts": {
-      "sha256": "bed3e8fffcb2f8174ec9acb597f7325219b3db8fca040e1da677d42dd5a3be93",
+      "sha256": "2fc729644a12f9cbfe3a8543ac687a58c84eb1384d901cc146f8fc665c524328",
       "executable": false
     },
     "src/lanyard/ui/shared.ts": {
@@ -4630,7 +4634,7 @@
       "executable": false
     },
     "tests/comparison-scope-journey.mjs": {
-      "sha256": "7a78fb294b11b3e72da598de9b48d30fc60fa72be4ea3149453bf0ae725c43d8",
+      "sha256": "e8d74c266046bd12cdd9e54cb2da33e023f74b04c4e9985d8f9f88ddb6629b3e",
       "executable": false
     },
     "tests/cost-journey.mjs": {
@@ -4646,7 +4650,7 @@
       "executable": false
     },
     "tests/demand-generation-journey.mjs": {
-      "sha256": "ea2c2423d1c22ff0c99de9beb8ed3cc0267e4a4e013589d02acc259cae8361d4",
+      "sha256": "a7b1b26287fb58a1e16454e0e22fb8b2b11f6a5cfc27bf74b4e2a8c57dd427c4",
       "executable": false
     },
     "tests/demand-journey.mjs": {
@@ -4662,7 +4666,7 @@
       "executable": false
     },
     "tests/fairness-journey.mjs": {
-      "sha256": "c0a46b7f413da8f6369af977c0e23c01301811cae93f53e2ff9954f81075a46b",
+      "sha256": "b6104a14d7ea343e48a202abf57bcc2b53e17dc7a488485740bb8be46f62707a",
       "executable": false
     },
     "tests/fairness-optimization-fixture.mjs": {
@@ -4726,7 +4730,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "c59b190eb6f8543b9fc6060f773d7896d0dcaa20df26a85f99d8a8e2ba4ca3a4",
+      "sha256": "35e5d6dd13cec31d4bc6db2db443daf31fb96abdc8ce3acbfdafd0de22fe0f39",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -4934,7 +4938,7 @@
       "executable": false
     },
     "tests/tradeoff-journey.mjs": {
-      "sha256": "3a93674c6f50d93bf02ddc90e8ca2c2f46251d4f9264627e457f1290305bce70",
+      "sha256": "e9ebc90bb10637637cd995ab9284ca2b2a2be87bbb3313cdaa4ef2c157b9d20f",
       "executable": false
     },
     "tests/transfer-journey.mjs": {
