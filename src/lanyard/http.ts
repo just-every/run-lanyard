@@ -1,6 +1,6 @@
 import {cutoffReports} from './domain/cutoff'
 import {tipPoolReviewSources} from './domain/tip-pools'
-import {demandGenerationRead,demandComparisonRead} from './domain'
+import {demandGenerationRead,demandComparisonRead,demandCoverageRead} from './domain'
 import {partnerApi} from './partner-api'
 import {partnerKeys,partnerCredentialCommand} from './partner-credentials'
 import {calendarCommand,calendarFeed,calendarStatus} from './calendar'
@@ -105,6 +105,7 @@ async function inputBody(request: Request): Promise<Record<string, unknown>> {
   if (!request.headers.get('content-type')?.includes('application/x-www-form-urlencoded')) fail('Use JSON or a form', 415)
   const params = new URLSearchParams(raw), input: Record<string, unknown> = Object.fromEntries(params)
   policyForm(input,params)
+  if(params.has('coverageOpenShift')){input.openShiftId=String(input.coverageOpenShift);delete input.coverageOpenShift}
   if(params.has('cutoffTemplate')){const [id,revision]=String(input.cutoffTemplate).split('|');input.templateId=id;input.templateRevision=Number(revision);delete input.cutoffTemplate}
   if(new URL(request.url).searchParams.get('name')==='organization.member.save')for(const key of ['locationIds','departmentIds'])input[key]=params.getAll(key)
   if(params.has('draftStaff')){
@@ -245,6 +246,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       }
       if(path==='/api/lanyard/cost')return json(laborCostReport(await load(env.DB),who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',url.searchParams.get('asOf')??new Date().toISOString(),url.searchParams.get('view')==='draft'))
       if(path==='/api/lanyard/demand/compare')return json(await demandComparisonRead(env.DB,who,Object.fromEntries(url.searchParams)))
+      if(path==='/api/lanyard/demand/coverage')return json(await demandCoverageRead(env.DB,who,Object.fromEntries(url.searchParams)))
       if(path==='/api/lanyard/demand/generate')return json(await demandGenerationRead(env.DB,who,Object.fromEntries(url.searchParams)))
       if (path === '/api/lanyard/fairness/compare') return json(await fairnessCompare(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
       if (path === '/api/lanyard/fairness') return json(await fairnessRead(env.DB,who,url.searchParams.get('week')??'',url.searchParams.get('site')??'',Number(url.searchParams.get('weeks')??8)))
@@ -268,7 +270,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
         return path === '/app/intervals' ? renderApp(await state(request,env,who), path + url.search, { result: { report } }) : json(report)
       }
       if (path === '/api/lanyard/demand' || path === '/app/demand') {
-        const report = await demandRead(env.DB, who, url.searchParams.get('site') ?? '', url.searchParams.get('date') ?? '')
+        const report = await demandRead(env.DB, who, url.searchParams.get('site') ?? '', url.searchParams.get('date') ?? '',Object.fromEntries(url.searchParams))
         return path === '/app/demand' ? renderApp(await state(request,env,who), path + url.search, { result: { demand: report, learning: await learnProposalRead(env.DB, who, report.site, 8) } }) : json(report)
       }
       const ruled = path.match(/^\/api\/lanyard\/autorules\/([\w-]+)\/preview$/)
@@ -316,7 +318,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
           displayed={...displayed,fairness:await fairnessRead(env.DB,who,String(input.week??q.get('week')??''),String(input.site??q.get('site')??''),Number(input.weeks??q.get('fairWeeks')??8))}
         }
         if((name.startsWith('demand')||name.startsWith('learn'))&&['owner','manager'].includes(who.role)&&new URL(back,url.origin).pathname==='/app/demand') {
-          const q=new URL(back,url.origin).searchParams,site=q.get('site')??String(input.site??''),demand=await demandRead(env.DB,who,site,q.get('date')??'')
+          const q=new URL(back,url.origin).searchParams,site=q.get('site')??String(input.site??''),demand=await demandRead(env.DB,who,site,q.get('date')??'',Object.fromEntries(q))
           displayed={demand,learning:await learnProposalRead(env.DB,who,demand.site,8)}
         }
         if(new URL(back,url.origin).pathname==='/app/access')displayed={access:await customAccessRead(env.DB,who)}
@@ -342,7 +344,7 @@ export async function lanyardResponse(request: Request, original: Bindings): Pro
       if([400,409].includes(status)&&/^(demand|learn)/.test(url.searchParams.get('name')??'')&&['owner','manager'].includes(who.role)&&!await customMode(env,who)&&new URL(back,url.origin).pathname==='/app/demand'){
         const q=new URL(back,url.origin).searchParams
         try{
-          const demand=await demandRead(env.DB,who,q.get('site')??'',q.get('date')??'')
+          const demand=await demandRead(env.DB,who,q.get('site')??'',q.get('date')??'',Object.fromEntries(q))
           demandResult={demand,learning:await learnProposalRead(env.DB,who,demand.site,8)}
         }catch{/* A refused current read keeps the original error without forecast data. */}
       }

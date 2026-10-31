@@ -2115,3 +2115,6 @@ test('LANG-001: the inventoried staff journey refuses a build with untranslated 
 
 test('TIPS-001: exact-source pool approvals reconcile retained declarations, earnings, reports and once-only mapped corrections',async()=>{const {reportsPoolApi}=await import('./report-pool-journey.mjs');await reportsPoolApi()})
 test('TIPS-001: owner prepares reviews approves and corrects pools through Payroll controls with stale recovery and private restart history',async()=>{const {tipPoolsBrowser}=await import('./report-pool-journey.mjs');await tipPoolsBrowser()})
+
+test('DEMAND-001 COVERAGE-001: reviewed demand cases follow native pickup decisions and received arrival while fencing stale sources and private authority',async()=>{const {demandCoverageApi}=await import('./demand-coverage-journey.mjs');await demandCoverageApi()})
+test('DEMAND-001 COVERAGE-001: manager reviews a deficit, links an existing shift and independently approves an employee pickup',async()=>{const {demandCoverageBrowser}=await import('./demand-coverage-journey.mjs');await demandCoverageBrowser()})
