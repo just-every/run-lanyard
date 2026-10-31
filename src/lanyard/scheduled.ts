@@ -1,3 +1,4 @@
+import {reconcileEventNotices} from './domain/event-notices'
 import {deliverReports} from './report-delivery'
 import {type Bindings} from '../auth.server'
 import {actor,load,commit} from './domain/storage'
@@ -11,7 +12,8 @@ export async function lanyardScheduled(controller:Pick<ScheduledController,'sche
  const a=await actor(env.DB,{userId:row.id,email:row.email,isOwner:true}),before=await load(env.DB),s=structuredClone(before)
  const c:Context={a,s,db:env.DB,now:new Date(controller.scheduledTime).toISOString(),sql:[],entity:'reminder-scheduler'}
  await reconcileNotices(c,a)
- if(canonical(s.notices)!==canonical(before.notices)){
+ await reconcileEventNotices(c,a)
+ if(canonical(s.notices)!==canonical(before.notices)||canonical(s.eventnotices)!==canonical(before.eventnotices)){
   const id=crypto.randomUUID()
   await commit(c,before,'notice.tick',id,await sha(id),{processedAt:c.now})
  }
