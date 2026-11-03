@@ -99,7 +99,7 @@ export async function reportsDeliveryBrowser(browser){
  const h=await harness({now:'2026-10-26T12:00:00Z',auth:{MAIL_PROVIDER:'sendgrid'}})
  try{
   const f=await fixture(h),{manager,alex}=f
-  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+  await h.finishSetup()
   const context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse('2026-10-26T12:00:00Z'))}})
   try{
    await context.route('**/*',async route=>{

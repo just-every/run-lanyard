@@ -129,7 +129,7 @@ export async function reportsPoolBrowser(browser){
   const f=await poolFixture(h),{people,day,input}=f
   const draft=await h.cmd('tip.pool.prepare',input),approved=await h.cmd('tip.pool.approve',{...pin(draft),consent:true})
   await h.cmd('tipcredit.save',{site:'East',state:'TX',minimumWage:'10.00',from:day,tippedJobs:[f.job.id]})
-  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+  await h.finishSetup()
   const context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse('2026-10-26T12:00:00Z'))}})
   try{
    const {readFile,mkdir}=await import('node:fs/promises'),{join}=await import('node:path'),{iconTooltips}=await import('./browser-controls.mjs')
