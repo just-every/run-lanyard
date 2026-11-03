@@ -6,6 +6,7 @@ import { identity } from '../identity'
 import { docsPages } from './docs'
 import { homePageHtml } from './home'
 import run from './run.json'
+import { runPricing } from '../base/run-pricing'
 
 // Base's shared pages print British "licence"; Lanyard's heads add the site's stylesheet, in US English.
 // Their tab icons are the small ones seedIcons() freezes into every Base head.
@@ -14,7 +15,7 @@ const lanyardHead = (html: string) => html
   .replace(`${run.licence} licence<`, `${run.licence} license<`)
 
 export function sitePages({ contract }: Partial<SiteContext> = {}): SiteBuild {
-  const data: RunData = { ...run, name: identity.product }
+  const data: RunData = { ...run, name: identity.product, pricing: runPricing }
   return {
     pages: [
       { path: '/', html: homePageHtml() },
