@@ -124,7 +124,7 @@ export async function fairworkBrowser({widths=[1440]}={}){
  const h=await harness({now}),context=await browser.newContext({viewport:{width,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse(now))}})
  try{
   const f=await fixture(h);await h.cmd('fairwork.save',coverage('Seattle'))
-  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+  await h.finishSetup()
   await browserAssets(context)
   const [name,...value]=h.owner.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
   const page=await context.newPage();await page.goto(h.origin+'/app/settings?site='+encodeURIComponent(site),{waitUntil:'networkidle'})

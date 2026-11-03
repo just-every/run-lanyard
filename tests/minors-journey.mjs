@@ -14,7 +14,7 @@ export async function minorFixture(h){
  const minor=await h.cmd('minor.save',input)
  const spec=(day,start='16:00',end='19:00',person=alex)=>({staffId:person.id,start:local(day,start),end:local(day,end),breakMinutes:0,site:'Ocean Beach',label:'After school'})
  for(const p of [alex,ben])await h.cmd('availability.save',{staffId:p.id,start:local(past,'00:00'),end:local(add(week,14),'00:00')})
- await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+ await h.finishSetup()
  return {alex,ben,morgan,today,week,past,minor,input,spec}
 }
 export async function minorApi(h){
@@ -56,7 +56,7 @@ export async function minorApi(h){
 }
 export async function minorBrowser(){
  const browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
- try{const h=await harness({now:'2026-10-27T12:00:00Z'}),context=await browser.newContext({viewport:{width:1440,height:1000}})
+ try{const h=await harness({now:'2026-10-27T12:00:00Z'}),context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse('2026-10-27T12:00:00Z'))}})
  try{const f=await minorFixture(h),page=await context.newPage()
  await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
  const as=async cookie=>{const [name,...value]=cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])}

@@ -29,7 +29,7 @@ export async function tipFixture(h, today=new Date().toISOString().slice(0,10)) 
   return h.cmd('time.approve',pin(timesheet),morgan.cookie)
  }
  const approved=[await punch(shifts[0],'10.00'),await punch(shifts[1],'10.00'),await punch(shifts[2],'60.00',true),await punch(shifts[3],'50.00')]
- await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+ await h.finishSetup()
  return {riley,morgan,taylor,server,prep,first,second,approved}
 }
 
