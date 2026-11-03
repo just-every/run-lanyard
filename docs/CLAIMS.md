@@ -4,16 +4,16 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 
 | Clause | Title | Status |
 | --- | --- | --- |
-| ACCESS-001 | Native sessions and server-side authority | done |
-| PEOPLE-001 | Staff lifecycle and payroll identities | done |
+| ACCESS-001 | Native sessions and server-side authority | partial |
+| PEOPLE-001 | Staff lifecycle and payroll identities | partial |
 | MOVE-001 | Reviewed Staff CSV move-in | done |
-| ROSTER-001 | Availability and explicit leave decisions | done |
+| ROSTER-001 | Availability and explicit leave decisions | partial |
 | ROSTER-002 | Conflict-checked revision publication | done |
-| ROSTER-003 | Personal published schedule confirmation | done |
+| ROSTER-003 | Personal published schedule confirmation | partial |
 | TIME-001 | Identity-bound phone capture and replay | done |
-| TIME-002 | Exact time approval and linked corrections | done |
+| TIME-002 | Exact time approval and linked corrections | partial |
 | PAYROLL-001 | Reviewed once-only payroll files and signed adjustments | done |
-| PAYROLL-002 | Explicit manual provider acknowledgment | done |
+| PAYROLL-002 | Explicit manual provider acknowledgment | partial |
 | AGENT-001 | Preparation-only delegated authority | done |
 | ARCHIVE-001 | Complete installation archive with authority exclusions | done |
 | ERASE-001 | Unused identity erasure and restore fence | done |
@@ -26,7 +26,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | CONTACT-001 | Emergency contacts on the shift and employee card | done |
 | ACCESS-002 | Manager single sign-on and required second factor | partial |
 | ACCESS-003 | Custom access levels | partial |
-| JOURNAL-001 | Employee notes and manager journal | done |
+| JOURNAL-001 | Employee notes and manager journal | partial |
 | SCHEDULE-001 | Editable visual schedules and publication review | done |
 | SCHEDULE-002 | Reusable templates recurring shifts and duplication | done |
 | SCHEDULE-003 | Cross-site coverage and double-booking prevention | partial |
@@ -36,7 +36,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | LEAVE-002 | Time-off blackout dates limits and team leave calendar | done |
 | LEAVE-003 | Paid sick and safe leave jurisdiction presets | done |
 | MINOR-001 | Minor work-hour limits and permits | partial |
-| SCHEDULE-005 | Printable and posted schedules | done |
+| SCHEDULE-005 | Printable and posted schedules | partial |
 | SCHEDULE-006 | Schedule change history and revision compare | done |
 | COVER-001 | Employee shift swaps with final approval | done |
 | COVER-002 | Open shifts offers and pickup | done |
@@ -47,16 +47,16 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | NOTICE-002 | Reminders escalation and payroll follow-up | done |
 | NOTICE-003 | Reminder delivery under employee contact settings | missing |
 | CHAT-001 | Team messaging and operational handover | partial |
-| CAL-001 | Google and Outlook calendar subscriptions | missing |
+| CAL-001 | Google and Outlook calendar subscriptions | partial |
 | FEEDBACK-001 | Post-shift employee feedback | done |
 | LOG-001 | Manager logbook and shift handover log | done |
 | MOBILE-001 | Employee and manager mobile apps | partial |
 | MOBILE-002 | Manager mobile approvals and live attendance | partial |
-| LANG-001 | Spanish staff experience and notices | missing |
+| LANG-001 | Spanish staff experience and notices | partial |
 | CLOCK-001 | Shared kiosk clocks and device authority | partial |
 | CLOCK-002 | Durable offline capture and reconnect reconciliation | done |
 | CLOCK-003 | Geofenced mobile clocking with privacy controls | partial |
-| CLOCK-004 | Live attendance and late or no-show alerts | done |
+| CLOCK-004 | Live attendance and late or no-show alerts | partial |
 | CLOCK-005 | Punch photo verification | partial |
 | CLOCK-006 | Clock-in and clock-out questions and attestations | done |
 | CLOCK-007 | Browser time clock on approved networks | done |
@@ -64,7 +64,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | BREAK-001 | Timed meals breaks and exceptions | done |
 | BREAK-002 | Automatic meal deductions with employee attestation | done |
 | TIME-003 | Missed punches employee review and exception resolution | done |
-| TIME-004 | Payroll period locks and controlled reopening | done |
+| TIME-004 | Payroll period locks and controlled reopening | partial |
 | TIME-005 | Punch rounding and snap-to-schedule | done |
 | TIME-006 | Early clock-in window and unscheduled punches | done |
 | TIME-007 | Forgotten clock-out reminder cap and provisional close | done |
@@ -86,14 +86,14 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | DASH-001 | Manager daily operations dashboard | done |
 | EARN-001 | Employee hours and estimated earnings | done |
 | PAY-001 | Payroll-ready classified hours and pay codes | partial |
-| PAY-002 | Configurable payroll export templates | done |
+| PAY-002 | Configurable payroll export templates | partial |
 | PAY-003 | Paylocity import preset | missing |
 | PAY-004 | Paycor import preset | missing |
 | PAY-005 | Rippling import preset | missing |
 | PAY-006 | Heartland Payroll import preset | missing |
 | PAY-007 | Square Payroll hours preset | missing |
 | PAY-008 | Toast Payroll hours preset | missing |
-| PAY-009 | Pay schedules and workweeks that cross pay periods | done |
+| PAY-009 | Pay schedules and workweeks that cross pay periods | partial |
 | PAY-010 | Paychex Flex payroll import file preset | missing |
 | PAY-011 | QuickBooks Desktop Payroll IIF time export | partial |
 | SYNC-001 | Approved transfer and provider-applied reconciliation | partial |
@@ -133,14 +133,14 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | LEARN-001 | Learn from forecast errors and unresolved outcomes | partial |
 | BASE-AGENT-001 | One MCP door per seed | partial |
 | BASE-AGENT-002 | The seed's jobs are tools, through the UI's own actions | partial |
-| BASE-AGENT-003 | Records are resources | partial |
+| BASE-AGENT-003 | Records are resources | missing |
 | BASE-AGENT-004 | Business identity and short-lived, audience-bound tokens | partial |
 | BASE-AGENT-005 | An agent acts as a person in a role, never more | partial |
 | BASE-AGENT-006 | Every action declares its risk class | partial |
 | BASE-AGENT-007 | The company's policy decides, at one chokepoint | partial |
 | BASE-AGENT-008 | Truthful attribution | partial |
 | BASE-AGENT-009 | Every agent action is audited with its class and decision | partial |
-| BASE-AGENT-010 | Agents can follow changes | partial |
+| BASE-AGENT-010 | Agents can follow changes | missing |
 | BASE-AGENT-011 | Limits are policy, and Pause stops everything | partial |
 | BASE-AGENT-012 | Writes are idempotent and conflict-safe | partial |
 | BASE-AGENT-013 | Manifest, docs and the conformance journey | partial |
