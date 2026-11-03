@@ -119,7 +119,7 @@ export async function reportsBrowser(){
   await h.cmd('payroll.input.save',{staffId:alex.id,date:week,kind:'tips',minutes:0,amountCents:750,reference:'synthetic-lanyard-34',reason:'Approved tip input, not a pool'})
   await h.cmd('sales.save',{site:'East',date:week,metric:'sales',value:'1000.00'})
   const batch=await h.cmd('payroll.prepare',{ids:[f.times[0].id]});await h.cmd('payroll.export',pin(batch))
-  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+  await h.finishSetup()
   const context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse('2026-10-26T12:00:00Z'))}})
   try{
    await context.route('**/*',async route=>{

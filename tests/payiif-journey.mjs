@@ -43,9 +43,9 @@ export async function iifApi(h){
 export async function iifBrowser(){
  const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
  try{for(const width of [1440,390]){
-  const h=await harness({now:'2026-10-26T12:00:00Z'}),context=await browser.newContext({viewport:{width,height:1000}})
+  const h=await harness({now:'2026-10-26T12:00:00Z'}),context=await browser.newContext({viewport:{width,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse('2026-10-26T12:00:00Z'))}})
   try{
-   const f=await iifFixture(h);await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
+   const f=await iifFixture(h);await h.finishSetup()
    await context.route('**/*',async route=>{const path=new URL(route.request().url()).pathname;if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await (await import('node:fs/promises')).readFile(join(process.cwd(),'public',path.slice(1))),contentType:path.endsWith('.css')?'text/css':path.endsWith('.js')?'application/javascript':path.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}await route.continue()})
    await context.addCookies([{name:h.owner.split('=')[0],value:h.owner.split('=')[1],url:h.origin}]);const page=await context.newPage()
    await page.goto(h.origin+'/app/settings');await page.getByText('Configure IIF time export',{exact:true}).click()

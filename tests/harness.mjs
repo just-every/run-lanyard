@@ -43,6 +43,11 @@ export async function harness(options = {}) {
     const bootstrap = options.owner || options.unclaimed ? null : await send('/auth/bootstrap', { token: auth.SETUP_TOKEN, displayName: 'Jordan Venue' })
     if (bootstrap) assert.equal(bootstrap.status, 303, bootstrap.text)
     const owner = options.owner ?? bootstrap?.cookie
+    const finishSetup = async () => {
+      const response = await mf.dispatchFetch(origin + '/setup', { method: 'POST', headers: { origin, cookie: owner, 'content-type': 'application/x-www-form-urlencoded', ...(options.now ? { 'x-test-now': String(Date.parse(options.now)) } : {}) }, body: 'confirm=yes', redirect: 'manual' })
+      assert.equal(response.status, 303, await response.text())
+      assert.equal(response.headers.get('location'), '/app')
+    }
     if (bootstrap && !auth.RER_OWNER_CLAIM_PUBLIC_KEYS) {
       // The fixture owner explicitly chooses autonomous preparation. Native
       // human approval requirements remain in the application services.
@@ -68,7 +73,7 @@ export async function harness(options = {}) {
       return { ...staff, cookie: await confirmMail(email) }
     }
     const signIn = async (email, headers = {}) => { const response = await send('/auth/magic-link', {email}, '', headers); assert.equal(response.status,202,response.text); return confirmMail(email, headers) }
-    return { get db(){return db}, mf, origin, owner, auth, mailbox, send, cmd, state, person, signIn, confirmMail, restart:async()=>{await mf.setOptions(mfOptions);db=await mf.getD1Database('DB')}, close: async () => { await mf.dispose(); if (!options.root) await rm(dir, { recursive: true, force: true }) } }
+    return { get db(){return db}, mf, origin, owner, auth, mailbox, send, cmd, state, person, signIn, confirmMail, finishSetup, restart:async()=>{await mf.setOptions(mfOptions);db=await mf.getD1Database('DB')}, close: async () => { await mf.dispose(); if (!options.root) await rm(dir, { recursive: true, force: true }) } }
   } catch (error) {
     const collision=error?.code === 'ERR_ADDRESS_IN_USE'
     try { await mf.dispose() } catch (cleanupError) { if(!collision)throw cleanupError }

@@ -18,7 +18,7 @@ function fakeProvider(requests){return async request=>{
  return Response.json({id:'synthetic-lanyard-101',status:'completed',model:payload.model,output:[{type:'message',content:[{type:'output_text',text:JSON.stringify(output())}]}]})
 }}
 async function person(h,short,name,role='staff',cafe=site){const p=await h.person(short,role);await h.cmd('staff.save',{id:p.id,revision:p.revision,name,email:p.email,payrollId:p.payrollId,role,active:true,position:'Counter',hourlyRate:24,site:cafe});return {...p,name,site:cafe}}
-async function setup(h){await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'});await h.cmd('settings.save',{timezone});return person(h,'Alex','Alex Rivera')}
+async function setup(h){await h.finishSetup();await h.cmd('settings.save',{timezone});return person(h,'Alex','Alex Rivera')}
 const consent=()=>({week,site,request:'Use this schedule image. Set the position to Counter.',image:photo,consent:true})
 const saved=async(h,id)=>(await h.state()).aischedules.find(x=>x.id===id)
 const reviewedRow=(p,extra={})=>({sourceIndex:0,staffId:p.id,site,startLocal:'2026-11-01T01:30',endLocal:'2026-11-01T03:30',breakMinutes:30,label:'Counter',confirmed:true,...extra})
@@ -69,7 +69,7 @@ export async function aiScheduleScopeApi(){
   assert.equal((await h.send('/api/lanyard/agent/command',{name:'ai.extract',input:{id:source.id,revision:source.revision}},'',{authorization:`Bearer ${token}`})).status,403)
   const context=await h.send('/api/lanyard/agent/context',undefined,'',{authorization:`Bearer ${token}`});assert.equal(context.status,200);assert.deepEqual(context.value.aischedules,[])
   assert.equal(requests.length,0);assert.equal((await h.state()).version,version,'denials have no business writes')
-  const original=await h.mf.dispatchFetch(h.origin+`/api/lanyard/ai-schedules/${source.id}/source`,{headers:{cookie:h.owner}});assert.equal(original.status,200);assert.deepEqual(Buffer.from(await original.arrayBuffer()),Buffer.from(png,'base64'))
+  const original=await h.mf.dispatchFetch(h.origin+`/api/lanyard/ai-schedules/${source.id}/source`,{headers:{cookie:h.owner,'x-test-now':String(Date.parse('2026-10-26T12:00:00Z'))}});assert.equal(original.status,200);assert.deepEqual(Buffer.from(await original.arrayBuffer()),Buffer.from(png,'base64'))
   const extraction=await h.cmd('ai.extract',{id:source.id,revision:source.revision});assert.equal(requests.length,1)
   const sent=JSON.parse(requests[0].input[0].content[0].text);assert.ok(sent.people.some(x=>x.id===p.id));assert.ok(sent.people.every(x=>x.site===site));assert.ok(!JSON.stringify(sent).includes(foreign.id))
   await h.cmd('ai.erase',{id:source.id,revision:extraction.revision,reason:'No longer needed',consent:true})
