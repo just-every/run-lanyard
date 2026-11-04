@@ -1,27 +1,25 @@
-// A plain-text PDF: US Letter landscape pages of Helvetica text placed at fixed columns,
-// written byte for byte (WinAnsi), so the same rows always give the same file.
+// US Letter landscape, with deterministic embedded Unicode glyph subsets.
+import {embedFonts,stream} from './pdf-font'
 export type Cell=[x:number,text:string]
 export type Line={cells:Cell[];size?:number;bold?:boolean;gap?:number}
 
-const WIN:Record<string,number>={'–':0x96,'—':0x97,'‘':0x91,'’':0x92,'“':0x93,'”':0x94,'•':0x95,'…':0x85}
-function encode(text:string) {
- let out='';for(const ch of text){const c=WIN[ch]??ch.codePointAt(0)!;out+=c<=0xff&&(c>=0x20||c===0x09)?String.fromCharCode(c):'?'}
- return out.replace(/[\\()]/g,m=>'\\'+m)
-}
 export function pdf(lines:Line[]):Uint8Array<ArrayBuffer> {
+ const objects=['<< /Type /Catalog /Pages 2 0 R >>','']
+ const font=embedFonts(lines,objects)
  const W=792,H=612,M=48,pages:string[]=[];let y=H-M,body=''
  for(const l of lines) {
   const size=l.size??10,step=size*1.45+(l.gap??0)
   if(y-step<M){pages.push(body);body='';y=H-M}
   y-=step
-  for(const [x,t] of l.cells)body+=`BT /${l.bold?'F2':'F1'} ${size} Tf 1 0 0 1 ${M+x} ${y.toFixed(2)} Tm (${encode(t)}) Tj ET\n`
+  for(const [x,t] of l.cells) {
+   body+=`BT 1 0 0 1 ${M+x} ${y.toFixed(2)} Tm ${font.text(t,size,l.bold)}ET\n`
+  }
  }
  pages.push(body)
- const objects=['<< /Type /Catalog /Pages 2 0 R >>','','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>','<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>']
  const kids:number[]=[]
  for(const content of pages) {
-  objects.push(`<< /Length ${content.length} >>\nstream\n${content}endstream`)
-  objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${objects.length} 0 R >>`)
+  objects.push(stream(content))
+  objects.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << ${font.resources} >> >> /Contents ${objects.length} 0 R >>`)
   kids.push(objects.length)
  }
  objects[1]=`<< /Type /Pages /Kids [${kids.map(k=>`${k} 0 R`).join(' ')}] /Count ${kids.length} >>`

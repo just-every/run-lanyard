@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { run, harness } from './harness.mjs'
+import {pdfText} from './pdf-text.mjs'
 import {acaPeople,acaYear,acaTrending,pin as acaPin} from './aca-fixture.mjs'
 
 test('ACA-001: a year of approved service for three variable-hour people, monthly and look-back status, paid leave, scoped projections and a traced filer export',()=>run(async h=>{
@@ -345,46 +346,50 @@ test('LEAVE-002: a holiday blackout refuses requests, a two-server limit routes 
 test('SCHEDULE-005: a manager prints cafe and employee PDFs stamped with the revision, opens the wall display, and a later change moves the wall and marks both copies superseded; pay and leave reasons never print', () => run(async h => {
   const place = (p, position, site) => h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position, site, hourlyRate: '21.75' })
   const alex = await h.person('Alex'), sam = await h.person('Sam'), lee = await h.person('Lee'), priya = await h.person('Priya', 'manager')
-  await place(alex, 'Barista', 'Ocean Beach'); await place(sam, 'Kitchen', 'Ocean Beach'); await place(lee, 'Barista', 'North Park'); await place(priya, 'Manager', 'Ocean Beach')
+  alex.name='Nguyễn Thị Hương'; sam.name='김민수'; lee.name='Łukasz Żółć'
+  await place(alex, 'Barista', 'Café Hương'); await place(sam, '주방 Łódź', 'Café Hương'); await place(lee, 'Barista', 'North Park'); await place(priya, 'Manager', 'Café Hương')
   for (const p of [alex, sam, lee]) await h.cmd('availability.save', { staffId: p.id, start: '2026-10-12T07:00:00Z', end: '2026-10-19T07:00:00Z' })
   const leave = await h.cmd('leave.request', { start: '2026-10-18T15:00:00Z', end: '2026-10-18T20:00:00Z', reason: 'Dentist appointment' }, alex.cookie)
   await h.cmd('leave.decide', { id: leave.id, revision: 1, decision: 'approved' }, priya.cookie)
-  const on = (p, d, from = 14) => ({ staffId: p.id, start: `2026-10-${d}T${from}:00:00Z`, end: `2026-10-${d}T${from + 8}:00:00Z`, breakMinutes: 30, label: 'Opening' })
+  const on = (p, d, from = 14) => ({ staffId: p.id, start: `2026-10-${d}T${from}:00:00Z`, end: `2026-10-${d}T${from + 8}:00:00Z`, breakMinutes: 30, label: 'Mở cửa 開店' })
   const first = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [on(alex, 12), on(sam, 13), on(lee, 12)] })
   await h.cmd('roster.publish', { id: first.id, revision: first.revision }, priya.cookie)
   // The cafe copy through the print form, the employee copy through the command door.
-  const form = await h.mf.dispatchFetch(h.origin + '/app/action?name=schedule.post&returnTo=' + encodeURIComponent('/app/schedule?week=2026-10-12'), { method: 'POST', headers: { origin: h.origin, cookie: priya.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ week: '2026-10-12', site: 'Ocean Beach', position: '', staffId: '' }).toString() })
+  const form = await h.mf.dispatchFetch(h.origin + '/app/action?name=schedule.post&returnTo=' + encodeURIComponent('/app/schedule?week=2026-10-12'), { method: 'POST', headers: { origin: h.origin, cookie: priya.cookie, 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ week: '2026-10-12', site: 'Café Hương', position: '', staffId: '' }).toString() })
   const formHtml = await form.text(); assert.equal(form.status, 200, formHtml); assert.match(formHtml, /Download the PDF/)
   const own = await h.cmd('schedule.post', { week: '2026-10-12', staffId: alex.id }, priya.cookie)
-  await h.cmd('schedule.post', { week: '2026-10-12', site: 'Ocean Beach' }, alex.cookie, 403)
+  await h.cmd('schedule.post', { week: '2026-10-12', site: 'Café Hương' }, alex.cookie, 403)
   const site = (await h.state(priya.cookie)).postings.find(p => p.id !== own.id)
-  const download = async (id, cookie = priya.cookie) => { const r = await h.mf.dispatchFetch(`${h.origin}/api/lanyard/postings/${id}.pdf`, { headers: { cookie } }); return { status: r.status, type: r.headers.get('content-type'), bytes: Buffer.from(await r.arrayBuffer()) } }
+  const download = async (id, cookie = priya.cookie) => { const r = await h.mf.dispatchFetch(`${h.origin}/api/lanyard/postings/${id}.pdf`, { headers: { cookie } }); const bytes=Buffer.from(await r.arrayBuffer()); return { status: r.status, type: r.headers.get('content-type'), bytes, text:r.status===200?await pdfText(bytes):'' } }
   const sitePdf = await download(site.id), ownPdf = await download(own.id)
-  const role = await h.cmd('schedule.post', { week: '2026-10-12', site: 'Ocean Beach', position: 'Kitchen' }, priya.cookie)
+  const role = await h.cmd('schedule.post', { week: '2026-10-12', site: 'Café Hương', position: '주방 Łódź' }, priya.cookie)
   const rolePdf = await download(role.id)
   assert.equal(sitePdf.type, 'application/pdf'); assert.equal(sitePdf.bytes.subarray(0, 8).toString(), '%PDF-1.4')
-  const text = b => b.toString('latin1')
-  for (const pdf of [sitePdf, ownPdf]) assert.match(text(pdf.bytes), /published revision 1,/)
-  assert.match(text(sitePdf.bytes), /\(Alex\)/); assert.match(text(sitePdf.bytes), /\(Sam\)/); assert.ok(!text(sitePdf.bytes).includes('(Lee)'))
-  assert.match(text(ownPdf.bytes), /\(Alex\)/); assert.ok(!text(ownPdf.bytes).includes('(Sam)'))
-  assert.match(text(rolePdf.bytes), /\(Sam\)/); assert.ok(!text(rolePdf.bytes).includes('(Alex)') && !text(rolePdf.bytes).includes('(Lee)'))
-  assert.match(text(ownPdf.bytes), new RegExp(`posting ${own.id}`))
+  for (const pdf of [sitePdf, ownPdf]) assert.match(pdf.text, /published revision 1,/)
+  console.log('PROBE SCHEDULE-005 names: staff.save, availability.save, roster.prepare, roster.publish, schedule.post, PDF download; Nguyễn Thị Hương and 김민수 -> '+JSON.stringify(sitePdf.text))
+  for(const recorded of ['Café Hương','주방 Łódź','Mở cửa 開店']) assert.ok(sitePdf.text.includes(recorded), recorded)
+  assert.match(sitePdf.text, /Nguyễn Thị Hương/); assert.match(sitePdf.text, /김민수/); assert.ok(!sitePdf.text.includes('Łukasz Żółć'))
+  assert.match(ownPdf.text, /Nguyễn Thị Hương/); assert.ok(!ownPdf.text.includes('김민수'))
+  assert.match(rolePdf.text, /김민수/); assert.ok(!rolePdf.text.includes('Nguyễn Thị Hương') && !rolePdf.text.includes('Łukasz Żółć'))
+  assert.match(ownPdf.text, new RegExp(`posting ${own.id}`))
   assert.deepEqual((await download(own.id, h.owner)).bytes, ownPdf.bytes)
   assert.equal((await download(site.id, alex.cookie)).status, 403)
   // The wall display shows this revision, read-only, for managers.
-  const wall = async () => (await h.send('/app/wall?site=Ocean%20Beach&week=2026-10-12', undefined, priya.cookie)).text
+  const wall = async () => (await h.send('/app/wall?site=Caf%C3%A9%20H%C6%B0%C6%A1ng&week=2026-10-12', undefined, priya.cookie)).text
   const before = await wall()
-  assert.match(before, /data-wall-revision="1"/); assert.match(before, /http-equiv="refresh" content="60"/); assert.ok(!before.includes('<form') && !before.includes('Lee'))
-  assert.equal((await h.send('/app/wall?site=Ocean%20Beach', undefined, alex.cookie)).status, 403)
+  for(const recorded of [alex.name,sam.name,'Café Hương','주방 Łódź']) assert.ok(before.includes(recorded),recorded)
+  assert.match(before, /data-wall-revision="1"/); assert.match(before, /http-equiv="refresh" content="60"/); assert.ok(!before.includes('<form') && !before.includes('Łukasz Żółć'))
+  assert.equal((await h.send('/app/wall?site=Caf%C3%A9%20H%C6%B0%C6%A1ng', undefined, alex.cookie)).status, 403)
   // Existing postings have only retained rows for historical identity, never a live People lookup.
-  assert.match(text(ownPdf.bytes), /Lanyard schedule[^\n]*Alex/)
+  assert.match(ownPdf.text, /Lanyard schedule[^\n]*Nguyễn Thị Hương/)
   const currentAlex = (await h.state()).staff.find(p => p.id === alex.id)
-  await h.cmd('staff.save', { id: currentAlex.id, revision: currentAlex.revision, name: 'Alex Renamed', email: currentAlex.email, payrollId: currentAlex.payrollId, role: currentAlex.role, active: currentAlex.active, position: currentAlex.position, site: currentAlex.site, hourlyRate: '21.75' })
-  assert.equal((await h.state()).staff.find(p => p.id === alex.id).name, 'Alex Renamed')
-  for (const original of [sitePdf, ownPdf]) assert.ok(!text(original.bytes).includes('Alex Renamed'))
+  await h.cmd('staff.save', { id: currentAlex.id, revision: currentAlex.revision, name: 'Nguyễn Thị Hương Renamed', email: currentAlex.email, payrollId: currentAlex.payrollId, role: currentAlex.role, active: currentAlex.active, position: currentAlex.position, site: currentAlex.site, hourlyRate: '21.75' })
+  assert.equal((await h.state()).staff.find(p => p.id === alex.id).name, 'Nguyễn Thị Hương Renamed')
+  for (const original of [sitePdf, ownPdf]) assert.ok(!original.text.includes('Nguyễn Thị Hương Renamed'))
   assert.deepEqual((await download(own.id)).bytes, ownPdf.bytes)
   assert.deepEqual((await download(site.id)).bytes, sitePdf.bytes)
   assert.deepEqual((await download(role.id)).bytes, rolePdf.bytes)
+  console.log('PROBE SCHEDULE-005 determinism: repeated downloads of cafe, employee and position postings -> byte-identical')
   await h.restart()
   assert.deepEqual((await download(own.id)).bytes, ownPdf.bytes)
   assert.deepEqual((await download(site.id)).bytes, sitePdf.bytes)
@@ -398,14 +403,14 @@ test('SCHEDULE-005: a manager prints cafe and employee PDFs stamped with the rev
   assert.equal(page.text.match(/Superseded [A-Z][a-z]{2} [A-Z][a-z]{2} \d+, \d+:\d\d [ap]m/g)?.length, 2)
   const later = await h.cmd('schedule.post', { week: '2026-10-12', staffId: alex.id }, priya.cookie)
   const laterPdf = await download(later.id)
-  assert.match(text(laterPdf.bytes), /Lanyard schedule[^\n]*Alex Renamed/)
-  assert.match(text(laterPdf.bytes), /published revision 2,/)
+  assert.match(laterPdf.text, /Lanyard schedule[^\n]*Nguyễn Thị Hương Renamed/)
+  assert.match(laterPdf.text, /published revision 2,/)
   await h.restart()
   assert.deepEqual((await download(own.id)).bytes, ownPdf.bytes)
   assert.deepEqual((await download(later.id)).bytes, laterPdf.bytes)
   assert.deepEqual((await download(role.id)).bytes, rolePdf.bytes)
   // Pay, contact details and time-off reasons are in no output.
-  for (const out of [text(sitePdf.bytes), text(ownPdf.bytes), text(rolePdf.bytes), text(laterPdf.bytes), before]) for (const secret of ['21.75', 'Dentist', alex.email]) assert.ok(!out.includes(secret), secret)
+  for (const out of [sitePdf.text, ownPdf.text, rolePdf.text, laterPdf.text, before]) for (const secret of ['21.75', 'Dentist', alex.email]) assert.ok(!out.includes(secret), secret)
   const currentPriya = (await h.state()).staff.find(p => p.id === priya.id)
   await h.cmd('staff.save', { id: currentPriya.id, revision: currentPriya.revision, name: currentPriya.name, email: currentPriya.email, payrollId: currentPriya.payrollId, role: currentPriya.role, active: false, position: currentPriya.position, site: currentPriya.site, hourlyRate: '21.75' })
   const retained = async () => (await h.db.batch([h.db.prepare('SELECT * FROM l_meta'), h.db.prepare('SELECT * FROM l_staff ORDER BY id'), h.db.prepare('SELECT * FROM l_records ORDER BY kind,id'), h.db.prepare('SELECT * FROM l_commands ORDER BY id')])).map(r => r.results)
@@ -1912,11 +1917,11 @@ test('SCHEDULE-004: native shift handover keeps revisioned notes/checklists and 
  assert.equal(later.workRevision,2);assert.deepEqual((await h.state()).taskanswers.find(x=>x.id===answer.id),answer)
  // Instructions never enter print, wall, worked time or payroll.
  const posted=await h.cmd('schedule.post',{week,site:'Ocean Beach'})
- const pdf=await h.mf.dispatchFetch(`${h.origin}/api/lanyard/postings/${posted.id}.pdf`,{headers:{cookie:h.owner}}),pdfText=Buffer.from(await pdf.arrayBuffer()).toString('latin1')
+ const pdf=await h.mf.dispatchFetch(`${h.origin}/api/lanyard/postings/${posted.id}.pdf`,{headers:{cookie:h.owner}}),printedText=await pdfText(Buffer.from(await pdf.arrayBuffer()))
  await h.mf.dispatchFetch(h.origin+'/setup',{method:'POST',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/x-www-form-urlencoded'},body:'confirm=yes',redirect:'manual'})
  const wall=await h.send(`/app/wall?week=${week}&site=Ocean%20Beach`,undefined,h.owner)
  assert.equal(wall.status,200)
- for(const out of [pdfText,wall.text,JSON.stringify(posted)])for(const secret of [work.notes,changed.notes,answer.blocker,...work.tasks.map(t=>t.text)])assert.ok(!out.includes(secret),secret)
+ for(const out of [printedText,wall.text,JSON.stringify(posted)])for(const secret of [work.notes,changed.notes,answer.blocker,...work.tasks.map(t=>t.text)])assert.ok(!out.includes(secret),secret)
  const state=await h.state();assert.deepEqual(state.timesheets,[]);assert.deepEqual(state.batches,[]);assert.equal(state.shifts.find(x=>x.id===shift.id).minutes,240)
  // An offer is not assignment. In-place cover moves instructions to its assignee.
  await h.cmd('shift.callout',{...pin(shift),note:'Unavailable'},alex.cookie)
