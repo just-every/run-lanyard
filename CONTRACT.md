@@ -541,11 +541,13 @@ SCHEDULE-005 is rechecked on this round's exact candidate, named with its execut
 
 PEOPLE-001 is judged from the code and tests at candidate commit 6b643479d2fcc8d0c4ca1c4dcf436f7275b61a4a (4 November 2026) by ct’s independent judge, with push Verify 41815549212 green on that commit; its lifecycle journey bytes equal proof commit 0daefb28bd5c8ec40316f3ac9ed6a18318bda3e5.
 
+TIME-004 is judged from the code and tests at commit dd4b7451fb40205081168ece70d2a7565f1e7c81 (4 November 2026), named with its execution receipts in the fleet report; the candidate separates a manager's own-hours signoff from period review and extends its native and browser journeys without changing acceptance text or the TEAM-001 and SYNC-001 boundaries.
+
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 11 | 5 | 0 | 16 |
-| Target and push further | 42 | 51 | 31 | 124 |
-| All | 53 | 56 | 31 | 140 |
+| Target and push further | 43 | 50 | 31 | 124 |
+| All | 54 | 55 | 31 | 140 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -609,7 +611,7 @@ PEOPLE-001 is judged from the code and tests at candidate commit 6b643479d2fcc8d
 | `BREAK-001` | Timed meals breaks and exceptions | target | done | `src/lanyard/domain/breaks.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/domain/approvals.ts`; `src/lanyard/ui/breaks.ts`; `public/lanyard.js`; `tests/lanyard.test.mjs` |  |
 | `BREAK-002` | Automatic meal deductions with employee attestation | target | done | `src/lanyard/domain/mealrules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/mealrules.ts`; `public/lanyard.js`; `tests/lanyard.test.mjs` |  |
 | `TIME-003` | Missed punches employee review and exception resolution | target | done | `src/lanyard/domain/time.ts`; `src/lanyard/domain/approvals.ts`; `src/lanyard/ui/cases.ts`; `tests/lanyard.test.mjs` |  |
-| `TIME-004` | Payroll period locks and controlled reopening | target | partial | `src/lanyard/domain/periods.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/ui/periods.ts`; `tests/lanyard.test.mjs` | Staff/manager signoff, locks, reasoned reopening and closed-period adjustments ship. period.signoff always labels a manager's signoff as manager, while period.lock requires an employee signoff for every person with time; a manager with worked hours cannot supply their required employee signoff. |
+| `TIME-004` | Payroll period locks and controlled reopening | target | done | `tests/lanyard.test.mjs` TIME-004: owner period definition, independent time approval, distinct personal and manager source-bound signoffs, stale and duplicate refusal, effective authority, locked writes, reopening, payroll holds, closure and signed adjustments; `tests/payschedules-journey.mjs` periodSignoffBrowser: English and Spanish native own-hours and manager review forms, owner locking, reopening and restart at 1440 and 390; `tests/lanyard.test.mjs` AUDIT-001 and PAYROLL-001 roster-to-payroll journey: without a defined pay period, approved time prepares and exports on approval. |  |
 | `TIME-005` | Punch rounding and snap-to-schedule | target | done | `src/lanyard/domain/rounding.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/rounding.ts`; `src/lanyard/ui/time.ts`; `tests/lanyard.test.mjs` |  |
 | `TIME-006` | Early clock-in window and unscheduled punches | target | done | `src/lanyard/domain/clockrules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/clockrules.ts`; `tests/lanyard.test.mjs` |  |
 | `TIME-007` | Forgotten clock-out reminder cap and provisional close | target | done | `src/lanyard/domain/closerules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/ui/closerules.ts`; `tests/lanyard.test.mjs`; `tests/provisional-labor-journey.mjs` |  |

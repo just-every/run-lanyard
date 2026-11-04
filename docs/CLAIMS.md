@@ -64,7 +64,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | BREAK-001 | Timed meals breaks and exceptions | done |
 | BREAK-002 | Automatic meal deductions with employee attestation | done |
 | TIME-003 | Missed punches employee review and exception resolution | done |
-| TIME-004 | Payroll period locks and controlled reopening | partial |
+| TIME-004 | Payroll period locks and controlled reopening | done |
 | TIME-005 | Punch rounding and snap-to-schedule | done |
 | TIME-006 | Early clock-in window and unscheduled punches | done |
 | TIME-007 | Forgotten clock-out reminder cap and provisional close | done |
