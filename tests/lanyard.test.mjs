@@ -1000,6 +1000,7 @@ test('JOURNAL-001: a cafe manager keeps a private note with an attachment and a 
   assert.deepEqual((await unchanged()).notes.find(n => n.id === ownerNote.id), ownerRead)
   assert.equal((await h.send(ownerFile, undefined, h.owner)).text, 'synthetic-lanyard-2')
   assert.equal((await h.state()).notes.find(n => n.id === otherNote.id).text, 'synthetic-lanyard-5')
+  assert.ok(!(await h.state(priya.cookie)).events.some(e => [managerNote.id, peerNote.id].includes(e.entityId)), 'private-note activity stays hidden from its manager subject after restart')
 }))
 
 test('COVER-001: staff propose a two-person exchange, the coworker consents and a cafe manager approves; ineligible, unavailable, stale and competing swaps are refused and the original assignee keeps the shift until approval', () => run(async h => {
