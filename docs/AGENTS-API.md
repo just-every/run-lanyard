@@ -30,7 +30,9 @@ company rule permits preparation; Lanyard's native human-only publication,
 time approval, payroll export and learning decisions remain separate.
 
 The public [agent guide](/docs/agents) includes the catalogue generated from
-shared action-registry metadata. The former /docs/agents-api address remains a
+shared action-registry metadata. Authenticated discovery and initialization append
+the same registry-derived job guidance to Base instructions, including real tools,
+scopes, classes and the separate native human steps. The former /docs/agents-api address remains a
 compatible guide address. Each job below names its real tool, scope, classes,
 classifier facts and conformance evidence, followed by the declared templates,
 prompt, capacity limits and error recovery.

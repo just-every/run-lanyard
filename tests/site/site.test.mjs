@@ -62,6 +62,15 @@ test('PUBLIC-001: the run site leads to installation and readable owner guides a
           const section=await heading.evaluate(h=>{let text='';for(let p=h.nextElementSibling;p&&p.tagName!=='H4'&&p.tagName!=='H3';p=p.nextElementSibling)text+=p.textContent+' ';return text})
           assert.ok(section.includes(tool._meta['com.runeditrun/scope']))
           for(const cls of tool._meta['com.runeditrun/classes'])assert.ok(section.includes(cls))
+          const capacities=(schema,path='')=>{
+            if(!schema||typeof schema!=='object')return []
+            const bounds=Object.entries(schema).filter(([key])=>['minimum','maximum','minItems','maxItems','minLength','maxLength'].includes(key))
+            return [...(bounds.length?[[path,bounds]]:[]),...Object.entries(schema.properties??{}).flatMap(([name,child])=>capacities(child,path?path+'.'+name:name)),...(schema.items&&!Array.isArray(schema.items)?capacities(schema.items,path+'[]'):[])]
+          }
+          for(const [path,bounds] of capacities(tool.inputSchema)){
+            assert.ok(section.includes('Input capacity for '+path+':'),'nested input capacity is documented for '+tool.name+' '+path)
+            for(const [key,value] of bounds)assert.ok(section.includes(key+' '+value))
+          }
           assert.ok(section.includes('agent-surface.json'),'each computed class names its conformance fixture evidence')
         }
         const resourceText=await page.locator('#resource-templates-and-events').evaluate(h=>{let text='';for(let p=h.nextElementSibling;p&&p.tagName!=='H3';p=p.nextElementSibling)text+=p.textContent+' ';return text})
@@ -74,7 +83,7 @@ test('PUBLIC-001: the run site leads to installation and readable owner guides a
         assert.equal(alias.status(),200,'existing guide bookmarks remain usable')
       }
       assert.equal(await page.locator('article').isVisible(),true)
-      if(width===1440)assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'the generated catalogue fits the desktop viewport')
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'the generated catalogue fits the viewport')
       if(process.env.WORKFORCE_SCREENS){await page.locator('#public-mcp-catalogue').scrollIntoViewIfNeeded();await page.screenshot({path:join(process.env.WORKFORCE_SCREENS,`agents-${width}.png`)})}
       assert.deepEqual(errors,[])
       await context.close()
