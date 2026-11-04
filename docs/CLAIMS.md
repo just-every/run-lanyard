@@ -36,7 +36,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | LEAVE-002 | Time-off blackout dates limits and team leave calendar | done |
 | LEAVE-003 | Paid sick and safe leave jurisdiction presets | done |
 | MINOR-001 | Minor work-hour limits and permits | partial |
-| SCHEDULE-005 | Printable and posted schedules | partial |
+| SCHEDULE-005 | Printable and posted schedules | done |
 | SCHEDULE-006 | Schedule change history and revision compare | done |
 | COVER-001 | Employee shift swaps with final approval | done |
 | COVER-002 | Open shifts offers and pickup | done |
