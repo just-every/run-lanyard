@@ -13,7 +13,7 @@ export default async function ({tool}) {
 }
 
 export async function identityProof() {
- const clock=Date.parse('2026-11-04T12:00:00Z')
+ const clock=Date.now()
  const pair=await webcrypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify'])
  const publicKey=await webcrypto.subtle.exportKey('jwk',pair.publicKey),kid=randomUUID(),issuer='https://synthetic-business.example.invalid',installationId=randomUUID()
  const keys={[kid]:publicKey},owner='business-owner',member='business-member'
