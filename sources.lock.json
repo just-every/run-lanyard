@@ -4878,7 +4878,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "845830451fa87045e9822eb5aa61259fee7c37068051f98d4820b17fc24aec04",
+      "sha256": "4a50c51136244955e67dd5b8380c762a4fdc82c27777b3068c75c418471633ff",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
