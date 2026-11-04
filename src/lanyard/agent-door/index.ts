@@ -4,7 +4,7 @@ import { people, localCredentials, LOCAL_KEY_SCOPE } from './people.ts'
 import { tools } from './tools.ts'
 import { resources } from './records.ts'
 import { legacy } from './legacy.ts'
-import { capabilities, limits, prompts, specialist } from './catalogue.ts'
+import { capabilities, discoveryInstructions, limits, prompts, specialist } from './catalogue.ts'
 
 export function agentDoor(env: Bindings): AgentDoor {
  const keys = env.RER_OWNER_CLAIM_PUBLIC_KEYS
@@ -41,5 +41,13 @@ export async function agentResponse(request: Request, original: Bindings): Promi
  if (settings) return settings
  const door = agentDoor(env)
  if (path.startsWith('/api/lanyard/agent/')) return legacy(request, door, env.AUTH_ORIGIN)
- return door.handle(request)
+ const response = await door.handle(request)
+ const method = request.headers.get('mcp-method')
+ if (path !== '/mcp' || (method && ![["server","discover"].join('/'),'initialize'].includes(method)) || !response?.ok || !response.headers.get('content-type')?.includes('application/json')) return response
+ const envelope = await response.clone().json<{result?: {instructions?: string}}>()
+ if (typeof envelope.result?.instructions !== 'string') return response
+ envelope.result.instructions += '\n\n' + discoveryInstructions()
+ const headers = new Headers(response.headers)
+ headers.delete('content-length')
+ return new Response(JSON.stringify(envelope), {status: response.status, statusText: response.statusText, headers})
 }

@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "a9b4961a4008cf72629e37b92ff33638ddd2e003de6689516ba6998e295b3e68",
+      "sha256": "9731cc51478eacbf72ccd2f4682cd45c6d0bf6f99bf6ff531f48ddfff1a953f6",
       "executable": false
     },
     "DEMO.md": {
@@ -402,7 +402,7 @@
       "executable": false
     },
     "docs/AGENTS-API.md": {
-      "sha256": "6f906be617d1370256d93b89ab68c41df4e108775e2f588a29df13193b20d0e1",
+      "sha256": "b28b1e192145eaec4395e79d287e712e6dbdc226380f4ce64471ef0ddd07c184",
       "executable": false
     },
     "docs/BACKUP-RESTORE.md": {
@@ -714,7 +714,7 @@
       "executable": false
     },
     "public/docs.css": {
-      "sha256": "2cdb705f4b3e899369588ba1ce866003d2200ade6ca1be48913f210033f1a970",
+      "sha256": "531e4eb84461e73b28182730a985dae02f0bc2f8a8690aca90eec93c447ab74e",
       "executable": false
     },
     "public/favicon-16.svg": {
@@ -1362,11 +1362,11 @@
       "executable": false
     },
     "src/lanyard/agent-door/catalogue.ts": {
-      "sha256": "4077ce61ff42ba6e6c1e364b2008b9183fbe39a587115ed2bf7f35f3b79cba36",
+      "sha256": "1c5d3df5925a404ca69a72877c3024fcc8ed0fab10bf90f8637b11a9b3c1be71",
       "executable": false
     },
     "src/lanyard/agent-door/index.ts": {
-      "sha256": "7e86cf54362c09bcc87a9824d27f69444d2bdd2f5c92b28c1ad9ed5074612277",
+      "sha256": "5f575a5e55d9f708b9975aa77732a9e27dd878459ffa18423d99e2d93fca166a",
       "executable": false
     },
     "src/lanyard/agent-door/legacy.ts": {
@@ -4726,7 +4726,7 @@
       "executable": false
     },
     "tests/agent-native.mjs": {
-      "sha256": "81aa48b76d10d5e4ac9248b3f8603271c073b6e048b0458319eafacfa85b854c",
+      "sha256": "d0d25dbd1d5dc56b90088b776208df847d1195ef32bb20401572c710362f1e60",
       "executable": false
     },
     "tests/agent-owner.mjs": {
@@ -5082,7 +5082,7 @@
       "executable": false
     },
     "tests/site/site.test.mjs": {
-      "sha256": "94940a40f30929b4771e4f447880b06a7741f7d5e6f5d0bae47fd06f3a9e88f4",
+      "sha256": "c05098c029de038bb59f25da7121fc348faf75908184d6d7e223b7a49fa5f623",
       "executable": false
     },
     "tests/tipcredit-journey.mjs": {

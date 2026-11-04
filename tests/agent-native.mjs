@@ -44,9 +44,21 @@ export async function identityProof() {
     assert.ok(initialized.value.result.capabilities.prompts)
    }
    const discovery=(await rpc('server discover',{},version)).value.result
+   const initialized=(await rpc('initialize',{protocolVersion:version,capabilities:{},clientInfo:{name:'synthetic-lanyard-1',version:'1'}},version)).value.result
+   assert.equal(initialized.instructions,discovery.instructions,'both entry points give the stranger the same job guidance')
+   assert.ok(discovery.instructions.includes('/docs/agents'))
+   assert.ok(discovery.instructions.includes(promptName))
+   const describedTools=[...discovery.instructions.matchAll(/^(lanyard\.[a-z.]+):/gm)].map(match=>match[1])
+   assert.deepEqual(describedTools,surface.tools.map(t=>t.name).sort(),'discovery instructions derive their jobs from the public registry')
+   assert.equal(discovery.instructions.includes(h.auth.OWNER_EMAIL),false,'discovery exposes no installation identity')
    assert.ok(discovery.capabilities.prompts)
    assert.deepEqual(discovery._meta['com.runeditrun/capabilities'].declared,surface.capabilities)
    const listed=(await rpc('tools list',{},version)).value.result
+   for(const tool of listed.tools){
+    const instruction=discovery.instructions.split('\n').find(line=>line.startsWith(tool.name+':'))
+    assert.ok(instruction.includes(tool._meta['com.runeditrun/scope']))
+    for(const cls of tool._meta['com.runeditrun/classes'])assert.ok(instruction.includes(cls))
+   }
    assert.deepEqual(listed.tools.map(t=>({name:t.name,scope:t._meta['com.runeditrun/scope'],classes:t._meta['com.runeditrun/classes']})),surface.tools.map(t=>({name:t.name,scope:t.scope,classes:t.classes})).sort((a,b)=>a.name.localeCompare(b.name)))
    assert.deepEqual((await rpc('resources templates list',{},version)).value.result.resourceTemplates,surface.resources)
    const prompts=(await rpc('prompts list',{},version)).value.result
@@ -61,11 +73,14 @@ export async function identityProof() {
   assert.equal((await h.state()).version,beforePrompts.version,'catalogue and prompt retrieval execute no native action')
   const blocked=await policyEnvelope({signer,origin:h.origin,business,seq:1,revision:1},{...autonomousPolicy(),rules:[{id:'block-preparation',class:'*',do:'blocked'}]})
   assert.equal((await h.send('/api/rer/agent-policy',{policy:blocked.policy})).status,200)
-  for(const version of versions)assert.equal((await rpc('prompts get',{name:promptName},version)).value.error.data.code,'policy_blocked')
+  for(const version of versions){
+   assert.deepEqual((await rpc('prompts list',{},version)).value.result.prompts.map(p=>p.name),[promptName],'a public job description grants no blocked preparation authority')
+   assert.equal((await rpc('prompts get',{name:promptName},version)).value.error.data.code,'policy_blocked')
+  }
   assert.equal((await h.state()).version,beforePrompts.version,'blocked prompt retrieval changes no native records')
   const resumed=await policyEnvelope({signer,origin:h.origin,business,seq:2,revision:2},autonomousPolicy())
   assert.equal((await h.send('/api/rer/agent-policy',{policy:resumed.policy})).status,200)
-  console.log('PASS LANYARD-CATALOGUE: both protocols authenticate and retrieve the preparation prompt; manifest equals public tools and templates; unset and blocked calls refuse without native effects')
+  console.log('PASS LANYARD-CATALOGUE: both protocols discover registry-derived instructions and retrieve the preparation prompt; manifest equals public tools and templates; unset and blocked calls refuse without native effects')
   const valid=await call();assert.equal(valid.status,200);assert.equal(valid.value.result.isError,false)
   const nativeId=valid.value.result.structuredContent.actor.id
   assert.equal((await call({sub:'unknown-subject'})).status,401,'a matching owner email never selects an unknown subject')
@@ -93,7 +108,10 @@ export async function identityProof() {
   const held=await policyEnvelope({signer,origin:h.origin,business,seq:3,revision:3},hold)
   assert.equal((await h.send('/api/rer/agent-policy',{policy:held.policy})).status,200)
   const args={week:'2026-01-19',shifts:[{staffId:worker.id,start:'2026-01-19T10:00:00Z',end:'2026-01-19T12:00:00Z',breakMinutes:0}],idempotency_key:'native-approval-proof'}
-  for(const version of versions)assert.equal((await rpc('prompts get',{name:promptName},version)).value.error.data.code,'approval_required','a generic prompt never completes a named approval')
+  for(const version of versions){
+   assert.deepEqual((await rpc('prompts list',{},version)).value.result.prompts.map(p=>p.name),[promptName],'listing a job cannot supply its required approval')
+   assert.equal((await rpc('prompts get',{name:promptName},version)).value.error.data.code,'approval_required','a generic prompt never completes a named approval')
+  }
   const before=await h.state(),pending=await call({},'lanyard.roster.prepare',args)
   const approval=pending.value.result._meta['com.runeditrun/approval']
   assert.ok(approval?.id);assert.equal((await h.state()).version,before.version)
