@@ -1496,7 +1496,12 @@ test('TIME-002, AUDIT-001 and PAYROLL-001: exact approval, pending correction ex
   const settled = await protectedPayroll(), freshPath = `/api/lanyard/batches/${paid.id}.csv`
   await h.restart()
   assert.deepEqual(await protectedPayroll(), settled, 'only the current reviewed source is claimed after restart')
-  assert.equal((await h.send(freshPath, undefined, h.owner)).text, paid.csv)
+  const currentDownload = await h.send(freshPath, undefined, h.owner)
+  assert.equal(currentDownload.status, 200)
+  assert.equal(currentDownload.text, paid.csv)
+  const [columns, row] = currentDownload.text.trimEnd().split('\r\n').map(line => line.split(','))
+  const downloaded = Object.fromEntries(columns.map((key, i) => [key, row[i]]))
+  assert.deepEqual([downloaded.payroll_id, downloaded.time_id, Number(downloaded.revision), downloaded.corrects, Number(downloaded.minutes), Number(downloaded.hours)], ['PRIYA', current.id, current.revision, source.id, 420, 7])
   assert.equal((await h.send(path, undefined, h.owner)).text, a.text)
   assert.equal((await h.send(`/api/lanyard/batches/${done.id}.csv`, undefined, h.owner)).text, done.csv)
   assert.deepEqual((await h.state()).events.filter(e => e.action === 'payroll.export').map(e => e.entityId).sort(), [batch.id, done.id, paid.id].sort())
