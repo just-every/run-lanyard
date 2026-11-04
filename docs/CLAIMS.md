@@ -5,7 +5,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | Clause | Title | Status |
 | --- | --- | --- |
 | ACCESS-001 | Native sessions and server-side authority | partial |
-| PEOPLE-001 | Staff lifecycle and payroll identities | partial |
+| PEOPLE-001 | Staff lifecycle and payroll identities | done |
 | MOVE-001 | Reviewed Staff CSV move-in | done |
 | ROSTER-001 | Availability and explicit leave decisions | partial |
 | ROSTER-002 | Conflict-checked revision publication | done |
