@@ -56,7 +56,7 @@ const shift = staffId => ({ staffId, start: '2026-10-12T14:00:00Z', end: '2026-1
 const missed = staffId => ({ ...shift(staffId), label: undefined, reason: 'Forgot clock at opening' })
 const timeInput = staffId => { const { label, ...p } = missed(staffId); return p }
 
-test('native access, owner-only grants, staff isolation, CSRF and immediate revocation', () => run(async h => {
+test('PEOPLE-001: native lifecycle rejects duplicate identities and stale edits, retains work after revocation, and preserves owner-only grants, staff isolation and CSRF', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   await h.state('', 401)
   assert.deepEqual((await h.state(alex.cookie)).staff.map(s => s.id), [alex.id])
@@ -65,10 +65,87 @@ test('native access, owner-only grants, staff isolation, CSRF and immediate revo
   await h.cmd('availability.save', { ...shift(alex.id) }, alex.cookie, 400)
   const cross = await h.send('/api/lanyard/command', { name: 'staff.erase', input: { id: alex.id, revision: 1 } }, h.owner, { origin: 'https://evil.example' })
   assert.equal(cross.status, 403)
+  // Creation, activation and invitation are independent native actions.
+  const input = { name: 'synthetic-lanyard-1', email: ['synthetic-lanyard-1', 'venue.example'].join('@'), payrollId: 'synthetic-lanyard-1', role: 'staff', active: false, hourlyRate: '19.00', employmentType: 'part-time', startDate: '2026-10-01' }
+  const created = await h.cmd('staff.save', input), mailCount = h.mailbox.length
+  assert.equal(created.active, false)
+  await h.cmd('staff.invite', { id: created.id }, h.owner, 409)
+  assert.equal(h.mailbox.length, mailCount)
+  const activated = await h.cmd('staff.save', { ...input, id: created.id, revision: created.revision, active: true })
+  assert.equal(activated.active, true)
+  assert.equal(h.mailbox.length, mailCount, 'activation does not invite')
+  assert.equal(await h.db.prepare('SELECT id FROM oa_operators WHERE email=?').bind(input.email).first(), null)
+  await h.cmd('staff.invite', { id: created.id })
+  assert.equal(h.mailbox.length, mailCount + 1)
+  const cookie = await h.confirmMail(input.email), signedIn = await h.state(cookie)
+  assert.deepEqual([signedIn.actor.role, signedIn.actor.staffId], ['staff', created.id])
+
+  // Observe both product records and native invitation metadata; never seed identity tables.
+  const snapshot = async () => {
+    const s = await h.state()
+    return {
+      product: Object.fromEntries(['version', 'staff', 'employment', 'events', 'rateSnapshots', 'shifts', 'rosters', 'clocks', 'timesheets'].map(k => [k, s[k]])),
+      invitations: (await h.db.prepare('SELECT id,kind,operator_id,operator_version,consumed_at,revoked_at FROM oa_tokens ORDER BY id').all()).results,
+      accounts: (await h.db.prepare('SELECT id,email,role,status,version FROM oa_operators ORDER BY id').all()).results,
+      mailCount: h.mailbox.length,
+    }
+  }
+  const refusedSave = async (body, error) => {
+    const before = await snapshot(), response = await h.send('/api/lanyard/command', { name: 'staff.save', input: body }, h.owner)
+    assert.equal(response.status, 409, response.text)
+    assert.match(response.text, error)
+    assert.deepEqual(await snapshot(), before, 'a refused save changes no staff, employment, invitation or activity facts')
+  }
+  for (const duplicate of [{ email: sam.email }, { email: sam.email.toUpperCase() }, { payrollId: sam.payrollId }]) {
+    await refusedSave({ ...input, name: 'synthetic-lanyard-2', email: ['synthetic-lanyard-2', 'venue.example'].join('@'), payrollId: 'synthetic-lanyard-2', ...duplicate }, /Email or payroll ID is already used/)
+    await refusedSave({ ...input, id: created.id, revision: activated.revision, active: true, ...duplicate }, /Email or payroll ID is already used/)
+  }
+  const editedInput = { ...input, id: created.id, revision: activated.revision, name: 'synthetic-lanyard-1 edited', active: true, hourlyRate: '21.00', employmentType: 'full-time', startDate: '2026-09-01' }
+  const edited = await h.cmd('staff.save', editedInput)
+  assert.equal(edited.revision, activated.revision + 1)
+  assert.deepEqual([edited.name, edited.hourlyRateCents, edited.employmentType, edited.startDate], ['synthetic-lanyard-1 edited', 2100, 'full-time', '2026-09-01'])
+  const updated = await h.state(cookie)
+  assert.equal(updated.staff[0].name, edited.name)
+  assert.deepEqual(updated.employment.map(e => [e.staffId, e.type, e.startDate]), [[created.id, 'full-time', '2026-09-01']])
+  await refusedSave({ ...editedInput, name: 'Stale name', email: ['synthetic-lanyard-3', 'venue.example'].join('@'), payrollId: 'synthetic-lanyard-3', active: false, role: 'manager', hourlyRate: '99.00', employmentType: 'part-time', startDate: '2026-11-01' }, /Staff changed; reload/)
+
+  const manager = await h.person('Priya', 'manager')
+  assert.equal((await h.state(manager.cookie)).actor.role, 'manager')
+  await h.cmd('staff.save', editedInput, manager.cookie, 403)
+  await h.cmd('staff.invite', { id: created.id }, manager.cookie, 403)
+  await h.cmd('availability.save', { start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' }, cookie)
+  const draft = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [shift(created.id)] })
+  await h.cmd('roster.publish', { id: draft.id, revision: draft.revision }, manager.cookie)
+  const capture = { commandId: 'synthetic-lanyard-1', capturedAt: '2026-10-12T14:00:00Z' }
+  await h.cmd('clock.in', capture, cookie)
+  const worked = await h.cmd('clock.out', { commandId: 'synthetic-lanyard-2', capturedAt: '2026-10-12T22:00:00Z', breakMinutes: 30 }, cookie)
+  const approved = await h.cmd('time.approve', { id: worked.timesheet.id, revision: worked.timesheet.revision }, manager.cookie)
+  assert.deepEqual([approved.staffId, approved.minutes, approved.status], [created.id, 450, 'approved'])
+  const prior = await h.state(cookie), priorOwner = await h.state()
+  assert.deepEqual(prior.shifts.map(s => [s.staffId, s.start, s.end, s.breakMinutes, s.status]), [[created.id, '2026-10-12T14:00:00.000Z', '2026-10-12T22:00:00.000Z', 30, 'published']])
+  assert.equal(prior.timesheets[0].minutes, 450)
+  await h.cmd('staff.save', { ...editedInput, revision: edited.revision, active: false })
+  const retained = await snapshot()
+  await h.state(cookie, 403)
+  await h.cmd('leave.request', { start: '2026-10-27T14:00:00Z', end: '2026-10-27T22:00:00Z', reason: 'Private request' }, cookie, 403)
+  await h.cmd('clock.in', capture, cookie, 403)
+  await h.cmd('staff.invite', { id: created.id }, h.owner, 409)
+  assert.deepEqual(await snapshot(), retained, 'revoked reads, writes and capture replay cannot change retained work')
+  await h.restart()
+  await h.state(cookie, 403)
+  await h.cmd('clock.in', capture, cookie, 403)
+  const after = await h.state()
+  assert.deepEqual(after.shifts, priorOwner.shifts)
+  assert.deepEqual(after.timesheets, priorOwner.timesheets)
+  assert.deepEqual(retained.product.shifts, priorOwner.shifts)
+  assert.deepEqual(retained.product.timesheets, priorOwner.timesheets)
+  assert.equal(after.staff.find(p => p.id === created.id).active, false)
+  assert.deepEqual(await snapshot(), retained, 'retained work and revoked access survive restart')
+
   await h.cmd('staff.save', { id: alex.id, revision: 1, name: 'Alex', email: alex.email, payrollId: 'ALEX', role: 'staff', active: false })
   await h.state(alex.cookie, 403)
   await h.cmd('staff.erase', { id: sam.id, revision: 1 }, h.owner, 409)
-}))
+}, { now: '2026-10-26T12:00:00Z' }))
 
 test('staff cannot change the sign-in email to another person’s staff identity', () => run(async h => {
   const alex = await h.person('Alex')
@@ -360,26 +437,58 @@ test('SCHEDULE-005: a manager prints cafe and employee PDFs stamped with the rev
   const site = (await h.state(priya.cookie)).postings.find(p => p.id !== own.id)
   const download = async (id, cookie = priya.cookie) => { const r = await h.mf.dispatchFetch(`${h.origin}/api/lanyard/postings/${id}.pdf`, { headers: { cookie } }); return { status: r.status, type: r.headers.get('content-type'), bytes: Buffer.from(await r.arrayBuffer()) } }
   const sitePdf = await download(site.id), ownPdf = await download(own.id)
+  const role = await h.cmd('schedule.post', { week: '2026-10-12', site: 'Ocean Beach', position: 'Kitchen' }, priya.cookie)
+  const rolePdf = await download(role.id)
   assert.equal(sitePdf.type, 'application/pdf'); assert.equal(sitePdf.bytes.subarray(0, 8).toString(), '%PDF-1.4')
   const text = b => b.toString('latin1')
   for (const pdf of [sitePdf, ownPdf]) assert.match(text(pdf.bytes), /published revision 1,/)
   assert.match(text(sitePdf.bytes), /\(Alex\)/); assert.match(text(sitePdf.bytes), /\(Sam\)/); assert.ok(!text(sitePdf.bytes).includes('(Lee)'))
   assert.match(text(ownPdf.bytes), /\(Alex\)/); assert.ok(!text(ownPdf.bytes).includes('(Sam)'))
+  assert.match(text(rolePdf.bytes), /\(Sam\)/); assert.ok(!text(rolePdf.bytes).includes('(Alex)') && !text(rolePdf.bytes).includes('(Lee)'))
+  assert.match(text(ownPdf.bytes), new RegExp(`posting ${own.id}`))
+  assert.deepEqual((await download(own.id, h.owner)).bytes, ownPdf.bytes)
   assert.equal((await download(site.id, alex.cookie)).status, 403)
   // The wall display shows this revision, read-only, for managers.
   const wall = async () => (await h.send('/app/wall?site=Ocean%20Beach&week=2026-10-12', undefined, priya.cookie)).text
   const before = await wall()
   assert.match(before, /data-wall-revision="1"/); assert.match(before, /http-equiv="refresh" content="60"/); assert.ok(!before.includes('<form') && !before.includes('Lee'))
   assert.equal((await h.send('/app/wall?site=Ocean%20Beach', undefined, alex.cookie)).status, 403)
+  // Existing postings have only retained rows for historical identity, never a live People lookup.
+  assert.match(text(ownPdf.bytes), /Lanyard schedule[^\n]*Alex/)
+  const currentAlex = (await h.state()).staff.find(p => p.id === alex.id)
+  await h.cmd('staff.save', { id: currentAlex.id, revision: currentAlex.revision, name: 'Alex Renamed', email: currentAlex.email, payrollId: currentAlex.payrollId, role: currentAlex.role, active: currentAlex.active, position: currentAlex.position, site: currentAlex.site, hourlyRate: '21.75' })
+  assert.equal((await h.state()).staff.find(p => p.id === alex.id).name, 'Alex Renamed')
+  for (const original of [sitePdf, ownPdf]) assert.ok(!text(original.bytes).includes('Alex Renamed'))
+  assert.deepEqual((await download(own.id)).bytes, ownPdf.bytes)
+  assert.deepEqual((await download(site.id)).bytes, sitePdf.bytes)
+  assert.deepEqual((await download(role.id)).bytes, rolePdf.bytes)
+  await h.restart()
+  assert.deepEqual((await download(own.id)).bytes, ownPdf.bytes)
+  assert.deepEqual((await download(site.id)).bytes, sitePdf.bytes)
   // Change Alex's shift: the wall moves to the new revision; both printed copies keep the old one and show superseded.
   const second = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [on(alex, 12, 15), on(sam, 13), on(lee, 12)] })
   await h.cmd('roster.publish', { id: second.id, revision: second.revision }, priya.cookie)
   assert.match(await wall(), /data-wall-revision="2"/)
   assert.deepEqual((await download(site.id)).bytes, sitePdf.bytes)
+  assert.deepEqual((await download(own.id)).bytes, ownPdf.bytes)
   const page = await h.send('/app/schedule?week=2026-10-12', undefined, priya.cookie)
   assert.equal(page.text.match(/Superseded [A-Z][a-z]{2} [A-Z][a-z]{2} \d+, \d+:\d\d [ap]m/g)?.length, 2)
+  const later = await h.cmd('schedule.post', { week: '2026-10-12', staffId: alex.id }, priya.cookie)
+  const laterPdf = await download(later.id)
+  assert.match(text(laterPdf.bytes), /Lanyard schedule[^\n]*Alex Renamed/)
+  assert.match(text(laterPdf.bytes), /published revision 2,/)
+  await h.restart()
+  assert.deepEqual((await download(own.id)).bytes, ownPdf.bytes)
+  assert.deepEqual((await download(later.id)).bytes, laterPdf.bytes)
+  assert.deepEqual((await download(role.id)).bytes, rolePdf.bytes)
   // Pay, contact details and time-off reasons are in no output.
-  for (const out of [text(sitePdf.bytes), text(ownPdf.bytes), before]) for (const secret of ['21.75', 'Dentist', alex.email]) assert.ok(!out.includes(secret), secret)
+  for (const out of [text(sitePdf.bytes), text(ownPdf.bytes), text(rolePdf.bytes), text(laterPdf.bytes), before]) for (const secret of ['21.75', 'Dentist', alex.email]) assert.ok(!out.includes(secret), secret)
+  const currentPriya = (await h.state()).staff.find(p => p.id === priya.id)
+  await h.cmd('staff.save', { id: currentPriya.id, revision: currentPriya.revision, name: currentPriya.name, email: currentPriya.email, payrollId: currentPriya.payrollId, role: currentPriya.role, active: false, position: currentPriya.position, site: currentPriya.site, hourlyRate: '21.75' })
+  const retained = async () => (await h.db.batch([h.db.prepare('SELECT * FROM l_meta'), h.db.prepare('SELECT * FROM l_staff ORDER BY id'), h.db.prepare('SELECT * FROM l_records ORDER BY kind,id'), h.db.prepare('SELECT * FROM l_commands ORDER BY id')])).map(r => r.results)
+  const afterRevocation = await retained()
+  assert.equal((await download(own.id)).status, 403)
+  assert.deepEqual(await retained(), afterRevocation)
 }))
 
 test('BREAK-002: a 30-minute automatic meal deduction is confirmed at clock-out, reversed with an exception when the meal is reported missed, and flagged when left unconfirmed', () => run(async h => {
@@ -1449,7 +1558,7 @@ test('CLOCK-002: ordered clock retries bind identity, retain conflicting capture
   assert.match(page.text,/Original shift already recorded/)
 }))
 
-test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta', () => run(async h => {
+test('AUDIT-001, PAYROLL-001 and PAYROLL-002: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta', () => run(async h => {
   const alex = await h.person('Alex'), manager = await h.person('Priya', 'manager')
   await h.cmd('availability.save', { staffId: alex.id, start: '2026-10-12T07:00:00Z', end: '2026-10-19T07:00:00Z' })
   const week = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [shift(alex.id)] })
@@ -1458,6 +1567,17 @@ test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, ro
   const approved = await h.cmd('time.approve', { id: submitted.id, revision: 1 }, manager.cookie)
   // Two reviewed batches claim the same approved time at once: exactly one commits its claim and event.
   const drafts = [await h.cmd('payroll.prepare', {}), await h.cmd('payroll.prepare', {})]
+  const acknowledgmentState = async () => {
+    const state = await h.state()
+    const claims = (await h.db.prepare('SELECT * FROM l_payroll_claims ORDER BY time_id,time_revision').all()).results
+    return { version: state.version, batches: state.batches, timesheets: state.timesheets, claims, events: state.events }
+  }
+  const beforeDraft = await acknowledgmentState()
+  assert.deepEqual(beforeDraft.claims, [])
+  for (const draft of beforeDraft.batches) assert.deepEqual([draft.status, draft.reference, draft.acknowledgedBy, draft.acknowledgedAt], ['draft', undefined, undefined, undefined])
+  const draftRefusal = await h.cmd('payroll.acknowledge', { id: drafts[0].id, revision: drafts[0].revision, reference: 'synthetic-lanyard-draft' }, h.owner, 409)
+  assert.match(draftRefusal.error, /Only exported payroll can be acknowledged/)
+  assert.deepEqual(await acknowledgmentState(), beforeDraft, 'draft refusal changes no batch, attribution, time, claim or activity')
   const raced = await Promise.all(drafts.map(b => h.send('/api/lanyard/command', { name: 'payroll.export', input: { id: b.id, revision: b.revision } }, h.owner)))
   assert.deepEqual(raced.map(r => r.status).sort(), [200, 409])
   const exported = raced.find(r => r.status === 200).value.result, batch = { id: exported.id }
@@ -1466,9 +1586,28 @@ test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, ro
   assert.equal((await h.state()).batches.find(b => b.id !== batch.id).status, 'draft')
   const path = `/api/lanyard/batches/${batch.id}.csv`
   const a = await h.send(path, undefined, h.owner), b = await h.send(path, undefined, h.owner)
+  assert.equal(a.status, 200); assert.equal(b.status, 200)
   assert.equal(a.text, b.text); assert.match(a.text, /450,7\.5000/)
   assert.equal((await h.send(path, undefined, alex.cookie)).status, 403)
-  await h.cmd('payroll.acknowledge', { id: batch.id, revision: exported.revision, reference: 'Payroll-import-101' })
+  const beforeStale = await acknowledgmentState(), preExport = drafts.find(draft => draft.id === batch.id)
+  assert.deepEqual([exported.revision, exported.status, exported.reference, exported.acknowledgedBy, exported.acknowledgedAt], [preExport.revision + 1, 'exported', undefined, undefined, undefined])
+  const staleRefusal = await h.cmd('payroll.acknowledge', { id: batch.id, revision: preExport.revision, reference: 'synthetic-lanyard-stale' }, h.owner, 409)
+  assert.match(staleRefusal.error, /Revision changed/)
+  assert.deepEqual(await acknowledgmentState(), beforeStale, 'stale refusal changes no batch, attribution, time, claim or activity')
+  const actor = (await h.state()).actor.id
+  const acknowledged = await h.cmd('payroll.acknowledge', { id: batch.id, revision: exported.revision, reference: 'synthetic-lanyard-101' })
+  assert.deepEqual([acknowledged.status, acknowledged.revision, acknowledged.reference, acknowledged.acknowledgedBy, acknowledged.acknowledgedAt], ['acknowledged', exported.revision + 1, 'synthetic-lanyard-101', actor, '2026-10-19T12:00:00.000Z'])
+  const afterAcknowledgment = await acknowledgmentState()
+  assert.deepEqual(afterAcknowledgment.claims, beforeStale.claims)
+  assert.deepEqual(afterAcknowledgment.timesheets, beforeStale.timesheets)
+  const acknowledgmentEvents = afterAcknowledgment.events.filter(e => e.action === 'payroll.acknowledge')
+  assert.equal(acknowledgmentEvents.length, 1)
+  assert.deepEqual([acknowledgmentEvents[0].entityId, acknowledgmentEvents[0].actorId, acknowledgmentEvents[0].actorRole, acknowledgmentEvents[0].at], [batch.id, actor, 'owner', acknowledged.acknowledgedAt])
+  await h.restart()
+  const restarted = await acknowledgmentState()
+  assert.deepEqual(restarted, afterAcknowledgment, 'the acknowledged reference, actor, time, claims and activity survive restart')
+  const retained = await h.send(path, undefined, h.owner)
+  assert.equal(retained.status, 200); assert.equal(retained.text, a.text, 'acknowledgment and restart retain the exact exported bytes')
   const corrected = await h.cmd('time.prepare', { ...timeInput(alex.id), breakMinutes: 45, corrects: approved.id, reason: 'Break correction agreed with Alex' })
   const correction = await h.cmd('time.approve', { id: corrected.id, revision: 1 })
   assert.equal(correction.exportMinutes, -15)
@@ -1491,7 +1630,7 @@ test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, ro
   const mine = new Set([alex.id, ...['availability', 'shifts', 'timesheets'].flatMap(k => s0[k].filter(r => r.staffId === alex.id).map(r => r.id))])
   assert.ok(own.length && own.every(e => mine.has(e.entityId)), 'staff read only events on their own records')
   assert.ok(own.some(e => e.action === 'time.approve' && e.entityId === approved.id) && !own.some(e => ['roster.publish', 'payroll.export', 'payroll.download'].includes(e.action)))
-}))
+}, { now: '2026-10-19T12:00:00Z' }))
 
 test('agent prepares drafts but cannot approve through any human or agent door; key revocation is immediate', () => run(async h => {
   const alex = await h.person('Alex'), key = await h.cmd('agent.create', { label: 'Roster assistant' }), headers = { authorization: `Bearer ${key.token}` }
@@ -1963,7 +2102,7 @@ test('TIPS-002: a tipped server’s low-tip week raises a make-up pay input and 
 
 test('TIPS-002: the owner is refused a California tip credit, sets one up for a Texas cafe and reads each week’s make-up pay input and non-tipped duty time with the cafe manager at 1440 and 390',async()=>{const {tipCreditBrowser}=await import('./tipcredit-journey.mjs');await tipCreditBrowser()})
 
-test('PAY-009: independent pay groups recur on all four schedules; a whole Sunday workweek crossing the fifteenth carries traced once-only overtime to the second locked period and EARN-001 shows scheduled dates',()=>run(async h=>{const {payScheduleApi}=await import('./payschedules-journey.mjs');await payScheduleApi(h)}))
+test('PAY-009: independent pay groups recur on all four schedules; a whole Sunday workweek crossing the fifteenth carries traced once-only overtime to the second locked period, late signed corrections skip intervening open periods, and EARN-001 shows scheduled dates',()=>run(async h=>{const {payScheduleApi}=await import('./payschedules-journey.mjs');await payScheduleApi(h)},{now:'2026-10-19T12:00:00Z'}))
 test('TIME-004 and PAY-009: distinct manager own-hours and review signoffs, owner locking and reopening, pay schedules and traced overtime at 1440 and 390',async()=>{const {payScheduleBrowser,periodSignoffBrowser}=await import('./payschedules-journey.mjs');await payScheduleBrowser();await periodSignoffBrowser()})
 
 
@@ -2104,13 +2243,13 @@ test('PRIVACY-001: authorized former employee export, held history and explicit 
 
 test('PRIVACY-001: erased journal content loses its file and edit controls at 1440 and 390',async()=>{const {privacyBrowser}=await import('./privacy-journey.mjs');await privacyBrowser()})
 
-test('PAY-001 and PAY-002: explicit employee workflows and mapped grouped files retain signed sources, exact revisions and once-only claims',()=>run(async h=>{const {templatesApi}=await import('./paytemplates-journey.mjs');await templatesApi(h)}))
+test('PAY-001 and PAY-002: explicit employee workflows and mapped grouped files retain signed sources, exact revisions and once-only claims',async()=>{const {templatesApi,roundedTemplateApi}=await import('./paytemplates-journey.mjs');await run(templatesApi);await run(h=>roundedTemplateApi(h,'csv'),{now:'2026-10-27T12:00:00Z'})})
 test('PAY-002: reviewed mapped bytes export from Payroll at 1440 and 390',async()=>{const {templatesBrowser}=await import('./paytemplates-journey.mjs');await templatesBrowser()})
 test('PAY-001: retained policy classifies employee overtime and double time, separates contractor treatment and exports signed code corrections once',()=>run(async h=>{const {classificationApi}=await import('./paytemplates-journey.mjs');await classificationApi(h)}))
 test('PAY-001: approved PTO, tip allocations and tip-credit make-up sources map independently and corrections export only signed differences',()=>run(async h=>{const {earningInputsApi}=await import('./paytemplates-journey.mjs');await earningInputsApi(h)},{now:'2026-10-27T12:00:00Z'}))
 test('PAY-001: pinned work areas and clock-transfer jobs classify retained rates once with signed per-job corrections',async()=>{const {classifiedSegmentsApi}=await import('./paytemplates-journey.mjs');for(const transfer of [false,true])await run(h=>classifiedSegmentsApi(h,transfer),{now:'2026-10-27T12:00:00Z'})})
-test('PAY-002: XLSX downloads retain literal identifiers, exact approved numbers, binary hashes and immutable signed corrections',()=>run(async h=>{const {workbookApi}=await import('./paytemplates-journey.mjs');await workbookApi(h)}))
-test('PAY-002: TSV and custom-delimited files retain configured column order, dates, UTC times, payable precision and immutable downloads',async()=>{const {delimitedApi}=await import('./paytemplates-journey.mjs');for(const format of ['tsv','delimited'])await run(h=>delimitedApi(h,format))})
+test('PAY-002: XLSX downloads retain literal identifiers, exact approved numbers, binary hashes and immutable signed corrections',async()=>{const {workbookApi,roundedTemplateApi}=await import('./paytemplates-journey.mjs');await run(workbookApi);await run(h=>roundedTemplateApi(h,'xlsx'),{now:'2026-10-27T12:00:00Z'})})
+test('PAY-002: TSV and custom-delimited files retain configured column order, dates, UTC times, payable precision and immutable downloads',async()=>{const {delimitedApi,roundedTemplateApi}=await import('./paytemplates-journey.mjs');for(const format of ['tsv','delimited']){await run(h=>delimitedApi(h,format));await run(h=>roundedTemplateApi(h,format),{now:'2026-10-27T12:00:00Z'})}})
 
 test('POLICY-001: adjacent cafe captures retain one break obligation without changing historical releases',async()=>{const {policyAdjacentApi}=await import('./policy-adjacent-journey.mjs');await policyAdjacentApi()})
 

@@ -404,7 +404,7 @@ export async function batchFile(db:D1Database,identity:Actor,id:string,requested
 /** SCHEDULE-005: the PDF of one posting, rebuilt from the rows it recorded, for owners and managers. */
 export async function schedulePdf(db:D1Database,identity:Actor,id:string):Promise<{bytes:Uint8Array<ArrayBuffer>;name:string}> {
  const a=await live(db,identity);manager(a);const s=await load(db);manager(fresh(a,s));const p=get(s,'postings',id)
- return {bytes:postingPdf(p,p.filter.staffId?s.staff.find(v=>v.id===p.filter.staffId)?.name??null:null),name:`lanyard-schedule-${p.week}-r${p.rosterRevision}-${p.id.slice(0,8)}.pdf`}
+ return {bytes:postingPdf(p),name:`lanyard-schedule-${p.week}-r${p.rosterRevision}-${p.id.slice(0,8)}.pdf`}
 }
 /** COST-002: overtime alerts for one workweek (its Monday) as of an instant, for the owner and the managers it concerns. */
 export async function overtimeAlerts(db:D1Database,identity:Actor,week:string,asOf:string) {

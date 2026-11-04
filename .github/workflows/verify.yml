@@ -72,7 +72,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [app, core, planning, rules, archive]
+        shard: [app, core, core-finance, planning, rules, archive]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -109,7 +109,7 @@ jobs:
       - if: matrix.shard == 'app'
         run: pnpm exec rer verify --no-queue
       - if: matrix.shard != 'app'
-        run: pnpm run verify:app
+        run: node scripts/ci/verify-shard.mjs "$SEED_VERIFY_SHARD"
 
   verify:
     needs: [plan, checks]
