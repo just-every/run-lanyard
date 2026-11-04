@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "fa9aab82e5bf73f00391ebc14bfee41ce6931dcc00102b39c2a337b608834001",
+      "sha256": "341e2ea6a313aba89570c0b4c17b45dda9a144297a86a413891373ed6f9edb05",
       "executable": false
     },
     "agent-surface.json": {
@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "979964e0a4a55b62a7241d8e441333a1759ef7044bbd87b2678fa612d0400ef9",
+      "sha256": "abdff9d1e8c22de1f5bc82dbf5a6bc371722f3614d060207ad905aa503797e30",
       "executable": false
     },
     "DEMO.md": {
@@ -410,7 +410,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "2d55c7c73af4115d7745070f261cfbe4b508a9d0fbf647041a42bc1230287375",
+      "sha256": "8e518077c2353076930f59bb1115f600d84bd0ab366c8dc2f40a436e946d0eb8",
       "executable": false
     },
     "docs/GETTING-STARTED.md": {
@@ -1730,7 +1730,7 @@
       "executable": false
     },
     "src/lanyard/domain/payschedules.ts": {
-      "sha256": "3263e4f9fffa00ec0ab5259360187f89d4c427ad45c8261934356ad5eb75f8ba",
+      "sha256": "6cd11a2274070f8a0b1ed08889d7ff83fd32aedf90f0019fbd4f43e6554e81d8",
       "executable": false
     },
     "src/lanyard/domain/paytemplates.ts": {
@@ -4730,7 +4730,7 @@
       "executable": false
     },
     "tests/agent-native.mjs": {
-      "sha256": "8fb3e7be94258b91933d9a8511e37cafe0a8339a8e0865b3983519b5ee1c5185",
+      "sha256": "40fe770102598627f3190b4c65a15db6f9ba35dbbc2e288b13d033489aecb27b",
       "executable": false
     },
     "tests/agent-owner.mjs": {
@@ -4890,7 +4890,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "b38e8a255170de25a346a01cf65e5fd88d2bcb23864a2827dd210bb4084c5ac3",
+      "sha256": "425cd739b762d0dbcb9af68a6748f863eb203d0d0e1e122e4e3a82555415bd18",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -4946,7 +4946,7 @@
       "executable": false
     },
     "tests/payschedules-journey.mjs": {
-      "sha256": "ed59d22f1774a62702619b636fb49f8abd4827cd61a8a255182882bf9f72c045",
+      "sha256": "285a7165f690d50feb51bac938e711f65d04f2b6a19e45f7a4906aa060c7556e",
       "executable": false
     },
     "tests/paytemplates-journey.mjs": {

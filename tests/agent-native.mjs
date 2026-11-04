@@ -28,7 +28,8 @@ export async function identityProof() {
   const call=async(overrides={},name='lanyard.context.read',args={},requestState)=>h.send('/mcp',{jsonrpc:'2.0',id:'identity',method:'tools/call',params:{name,arguments:args,requestState,_meta:{'io.modelcontextprotocol/protocolVersion':'2026-07-28'}}},'',{authorization:'Bearer '+await token(overrides),'mcp-protocol-version':'2026-07-28','mcp-method':'tools/call','mcp-name':name})
   const rpc=async(method,params={},version='2026-07-28',authenticated=true)=>{method=method.replaceAll(' ','/');return h.send('/mcp',{jsonrpc:'2.0',id:'catalogue',method,params:{...params,_meta:{'io.modelcontextprotocol/protocolVersion':version}}},'',{
    ...(authenticated?{authorization:'Bearer '+await token({})}:{}),'mcp-protocol-version':version,'mcp-method':method,...(params.name?{'mcp-name':params.name}:{})})}
-  const versions=['2026-07-28','2025-11-25'],promptName='prepare_service_week'
+  const versions=(await rpc('server discover')).value.result.supportedVersions,promptName='prepare_service_week'
+  assert.ok(versions.length,'prompt access is checked for every advertised version')
   const beforePrompts=await h.state()
   for(const version of versions){
    for(const method of ['prompts list','prompts get'])assert.equal((await rpc(method,{name:promptName},version,false)).status,401,'prompt access requires current native admission')
@@ -87,7 +88,7 @@ export async function identityProof() {
   assert.equal((await h.state()).version,beforePrompts.version,'blocked prompt retrieval changes no native records')
   const resumed=await policyEnvelope({signer,origin:h.origin,business,seq:2,revision:2},autonomousPolicy())
   assert.equal((await h.send('/api/rer/agent-policy',{policy:resumed.policy})).status,200)
-  console.log('PASS LANYARD-CATALOGUE: both protocols discover registry-derived instructions and retrieve the preparation prompt; manifest equals public tools and templates; unset and blocked calls refuse without native effects')
+  console.log('PASS LANYARD-CATALOGUE: all advertised protocols discover registry-derived instructions and retrieve the preparation prompt; manifest equals public tools and templates; unset and blocked calls refuse without native effects')
   const valid=await call();assert.equal(valid.status,200);assert.equal(valid.value.result.isError,false)
   const nativeId=valid.value.result.structuredContent.actor.id
   assert.equal((await call({sub:'unknown-subject'})).status,401,'a matching owner email never selects an unknown subject')
