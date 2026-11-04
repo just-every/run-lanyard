@@ -541,6 +541,8 @@ SCHEDULE-005 is rechecked on this round's exact candidate, named with its execut
 
 PAY-002 is rechecked on this round's exact candidate, identified with its native export, browser and Verify receipts in the fleet report (4 November 2026). Its acceptance text and the PAY-001, PAYRULE-001, POLICY-001, POLICY-002, TEAM-001 and ACCESS-003 boundaries are unchanged.
 
+Judged from the code and tests at commit `26f4faa9d5b50de27bfb824910f7b909369ee0d3` (4 November 2026).
+
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 10 | 6 | 0 | 16 |

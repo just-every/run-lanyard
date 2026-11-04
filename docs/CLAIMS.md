@@ -86,7 +86,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | DASH-001 | Manager daily operations dashboard | done |
 | EARN-001 | Employee hours and estimated earnings | done |
 | PAY-001 | Payroll-ready classified hours and pay codes | partial |
-| PAY-002 | Configurable payroll export templates | partial |
+| PAY-002 | Configurable payroll export templates | done |
 | PAY-003 | Paylocity import preset | missing |
 | PAY-004 | Paycor import preset | missing |
 | PAY-005 | Rippling import preset | missing |
