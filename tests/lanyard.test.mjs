@@ -56,7 +56,7 @@ const shift = staffId => ({ staffId, start: '2026-10-12T14:00:00Z', end: '2026-1
 const missed = staffId => ({ ...shift(staffId), label: undefined, reason: 'Forgot clock at opening' })
 const timeInput = staffId => { const { label, ...p } = missed(staffId); return p }
 
-test('native access, owner-only grants, staff isolation, CSRF and immediate revocation', () => run(async h => {
+test('PEOPLE-001: native lifecycle rejects duplicate identities and stale edits, retains work after revocation, and preserves owner-only grants, staff isolation and CSRF', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam')
   await h.state('', 401)
   assert.deepEqual((await h.state(alex.cookie)).staff.map(s => s.id), [alex.id])
@@ -65,10 +65,87 @@ test('native access, owner-only grants, staff isolation, CSRF and immediate revo
   await h.cmd('availability.save', { ...shift(alex.id) }, alex.cookie, 400)
   const cross = await h.send('/api/lanyard/command', { name: 'staff.erase', input: { id: alex.id, revision: 1 } }, h.owner, { origin: 'https://evil.example' })
   assert.equal(cross.status, 403)
+  // Creation, activation and invitation are independent native actions.
+  const input = { name: 'synthetic-lanyard-1', email: ['synthetic-lanyard-1', 'venue.example'].join('@'), payrollId: 'synthetic-lanyard-1', role: 'staff', active: false, hourlyRate: '19.00', employmentType: 'part-time', startDate: '2026-10-01' }
+  const created = await h.cmd('staff.save', input), mailCount = h.mailbox.length
+  assert.equal(created.active, false)
+  await h.cmd('staff.invite', { id: created.id }, h.owner, 409)
+  assert.equal(h.mailbox.length, mailCount)
+  const activated = await h.cmd('staff.save', { ...input, id: created.id, revision: created.revision, active: true })
+  assert.equal(activated.active, true)
+  assert.equal(h.mailbox.length, mailCount, 'activation does not invite')
+  assert.equal(await h.db.prepare('SELECT id FROM oa_operators WHERE email=?').bind(input.email).first(), null)
+  await h.cmd('staff.invite', { id: created.id })
+  assert.equal(h.mailbox.length, mailCount + 1)
+  const cookie = await h.confirmMail(input.email), signedIn = await h.state(cookie)
+  assert.deepEqual([signedIn.actor.role, signedIn.actor.staffId], ['staff', created.id])
+
+  // Observe both product records and native invitation metadata; never seed identity tables.
+  const snapshot = async () => {
+    const s = await h.state()
+    return {
+      product: Object.fromEntries(['version', 'staff', 'employment', 'events', 'rateSnapshots', 'shifts', 'rosters', 'clocks', 'timesheets'].map(k => [k, s[k]])),
+      invitations: (await h.db.prepare('SELECT id,kind,operator_id,operator_version,consumed_at,revoked_at FROM oa_tokens ORDER BY id').all()).results,
+      accounts: (await h.db.prepare('SELECT id,email,role,status,version FROM oa_operators ORDER BY id').all()).results,
+      mailCount: h.mailbox.length,
+    }
+  }
+  const refusedSave = async (body, error) => {
+    const before = await snapshot(), response = await h.send('/api/lanyard/command', { name: 'staff.save', input: body }, h.owner)
+    assert.equal(response.status, 409, response.text)
+    assert.match(response.text, error)
+    assert.deepEqual(await snapshot(), before, 'a refused save changes no staff, employment, invitation or activity facts')
+  }
+  for (const duplicate of [{ email: sam.email }, { email: sam.email.toUpperCase() }, { payrollId: sam.payrollId }]) {
+    await refusedSave({ ...input, name: 'synthetic-lanyard-2', email: ['synthetic-lanyard-2', 'venue.example'].join('@'), payrollId: 'synthetic-lanyard-2', ...duplicate }, /Email or payroll ID is already used/)
+    await refusedSave({ ...input, id: created.id, revision: activated.revision, active: true, ...duplicate }, /Email or payroll ID is already used/)
+  }
+  const editedInput = { ...input, id: created.id, revision: activated.revision, name: 'synthetic-lanyard-1 edited', active: true, hourlyRate: '21.00', employmentType: 'full-time', startDate: '2026-09-01' }
+  const edited = await h.cmd('staff.save', editedInput)
+  assert.equal(edited.revision, activated.revision + 1)
+  assert.deepEqual([edited.name, edited.hourlyRateCents, edited.employmentType, edited.startDate], ['synthetic-lanyard-1 edited', 2100, 'full-time', '2026-09-01'])
+  const updated = await h.state(cookie)
+  assert.equal(updated.staff[0].name, edited.name)
+  assert.deepEqual(updated.employment.map(e => [e.staffId, e.type, e.startDate]), [[created.id, 'full-time', '2026-09-01']])
+  await refusedSave({ ...editedInput, name: 'Stale name', email: ['synthetic-lanyard-3', 'venue.example'].join('@'), payrollId: 'synthetic-lanyard-3', active: false, role: 'manager', hourlyRate: '99.00', employmentType: 'part-time', startDate: '2026-11-01' }, /Staff changed; reload/)
+
+  const manager = await h.person('Priya', 'manager')
+  assert.equal((await h.state(manager.cookie)).actor.role, 'manager')
+  await h.cmd('staff.save', editedInput, manager.cookie, 403)
+  await h.cmd('staff.invite', { id: created.id }, manager.cookie, 403)
+  await h.cmd('availability.save', { start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' }, cookie)
+  const draft = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [shift(created.id)] })
+  await h.cmd('roster.publish', { id: draft.id, revision: draft.revision }, manager.cookie)
+  const capture = { commandId: 'synthetic-lanyard-1', capturedAt: '2026-10-12T14:00:00Z' }
+  await h.cmd('clock.in', capture, cookie)
+  const worked = await h.cmd('clock.out', { commandId: 'synthetic-lanyard-2', capturedAt: '2026-10-12T22:00:00Z', breakMinutes: 30 }, cookie)
+  const approved = await h.cmd('time.approve', { id: worked.timesheet.id, revision: worked.timesheet.revision }, manager.cookie)
+  assert.deepEqual([approved.staffId, approved.minutes, approved.status], [created.id, 450, 'approved'])
+  const prior = await h.state(cookie), priorOwner = await h.state()
+  assert.deepEqual(prior.shifts.map(s => [s.staffId, s.start, s.end, s.breakMinutes, s.status]), [[created.id, '2026-10-12T14:00:00.000Z', '2026-10-12T22:00:00.000Z', 30, 'published']])
+  assert.equal(prior.timesheets[0].minutes, 450)
+  await h.cmd('staff.save', { ...editedInput, revision: edited.revision, active: false })
+  const retained = await snapshot()
+  await h.state(cookie, 403)
+  await h.cmd('leave.request', { start: '2026-10-27T14:00:00Z', end: '2026-10-27T22:00:00Z', reason: 'Private request' }, cookie, 403)
+  await h.cmd('clock.in', capture, cookie, 403)
+  await h.cmd('staff.invite', { id: created.id }, h.owner, 409)
+  assert.deepEqual(await snapshot(), retained, 'revoked reads, writes and capture replay cannot change retained work')
+  await h.restart()
+  await h.state(cookie, 403)
+  await h.cmd('clock.in', capture, cookie, 403)
+  const after = await h.state()
+  assert.deepEqual(after.shifts, priorOwner.shifts)
+  assert.deepEqual(after.timesheets, priorOwner.timesheets)
+  assert.deepEqual(retained.product.shifts, priorOwner.shifts)
+  assert.deepEqual(retained.product.timesheets, priorOwner.timesheets)
+  assert.equal(after.staff.find(p => p.id === created.id).active, false)
+  assert.deepEqual(await snapshot(), retained, 'retained work and revoked access survive restart')
+
   await h.cmd('staff.save', { id: alex.id, revision: 1, name: 'Alex', email: alex.email, payrollId: 'ALEX', role: 'staff', active: false })
   await h.state(alex.cookie, 403)
   await h.cmd('staff.erase', { id: sam.id, revision: 1 }, h.owner, 409)
-}))
+}, { now: '2026-10-26T12:00:00Z' }))
 
 test('staff cannot change the sign-in email to another person’s staff identity', () => run(async h => {
   const alex = await h.person('Alex')
