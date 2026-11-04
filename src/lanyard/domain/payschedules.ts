@@ -69,9 +69,10 @@ export async function overtimeInputs(c:Context) {
    const desired=source.reduce((n,p)=>n+p.overtimeMinutes,0)
    const exported=c.s.batches.filter(b=>['exported','acknowledged'].includes(b.status)).flatMap(b=>b.lines).filter((l:any)=>l.overtimeKey===staffId+'|'+week).reduce((n:number,l:any)=>n+l.minutes,0)
    const minutes=desired-exported;if(!minutes)continue
-   // The period where the week finishes receives late-known overtime, or the next
-   // still-open/locked period if that destination already closed.
-   const range=payRange(g,end),target=c.s.periods.filter(p=>p.groupId===g.id&&p.end>=range.end&&p.status!=='closed').sort((a,b)=>a.start.localeCompare(b.start))[0]
+   // The original destination holds its premium until locked. Only after it
+   // closes can the earliest later lock receive it, skipping intervening opens.
+   const range=payRange(g,end),original=c.s.periods.find(p=>p.groupId===g.id&&p.start===range.start)
+   const target=original?.status==='closed'?c.s.periods.filter(p=>p.groupId===g.id&&p.start>range.start&&p.status==='locked').sort((a,b)=>a.start.localeCompare(b.start))[0]:original
    if(!target||target.status!=='locked')continue
    const sourcePeriods=[...new Set(source.map(p=>payRange(g,p.date).start))]
    const trace={groupId:g.id,week,end,source,sourcePeriods,targetPeriodId:target.id,targetRevision:target.revision}
