@@ -9,7 +9,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | MOVE-001 | Reviewed Staff CSV move-in | done |
 | ROSTER-001 | Availability and explicit leave decisions | partial |
 | ROSTER-002 | Conflict-checked revision publication | done |
-| ROSTER-003 | Personal published schedule confirmation | partial |
+| ROSTER-003 | Personal published schedule confirmation | done |
 | TIME-001 | Identity-bound phone capture and replay | done |
 | TIME-002 | Exact time approval and linked corrections | partial |
 | PAYROLL-001 | Reviewed once-only payroll files and signed adjustments | done |
@@ -36,7 +36,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | LEAVE-002 | Time-off blackout dates limits and team leave calendar | done |
 | LEAVE-003 | Paid sick and safe leave jurisdiction presets | done |
 | MINOR-001 | Minor work-hour limits and permits | partial |
-| SCHEDULE-005 | Printable and posted schedules | partial |
+| SCHEDULE-005 | Printable and posted schedules | done |
 | SCHEDULE-006 | Schedule change history and revision compare | done |
 | COVER-001 | Employee shift swaps with final approval | done |
 | COVER-002 | Open shifts offers and pickup | done |
