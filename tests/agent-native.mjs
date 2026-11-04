@@ -13,6 +13,7 @@ export default async function ({tool}) {
  const visible=await tool('lanyard.context.read',{})
  assert.equal(visible.status,200)
  await identityProof()
+ await specialistProof()
 }
 
 export async function identityProof() {
@@ -41,13 +42,10 @@ export async function identityProof() {
   assert.equal((await h.send('/api/rer/agent-policy',{policy:policy.policy})).status,200)
   const surface=JSON.parse(readFileSync(new URL('../agent-surface.json',import.meta.url),'utf8'))
   for(const version of versions){
-   if(version==='2025-11-25'){
-    const initialized=await rpc('initialize',{protocolVersion:version,capabilities:{},clientInfo:{name:'synthetic-lanyard-1',version:'1'}},version)
-    assert.equal(initialized.value.result.protocolVersion,version)
-    assert.ok(initialized.value.result.capabilities.prompts)
-   }
    const discovery=(await rpc('server discover',{},version)).value.result
    const initialized=(await rpc('initialize',{protocolVersion:version,capabilities:{},clientInfo:{name:'synthetic-lanyard-1',version:'1'}},version)).value.result
+   assert.equal(initialized.protocolVersion,version)
+   assert.ok(initialized.capabilities.prompts)
    assert.equal(initialized.instructions,discovery.instructions,'both entry points give the stranger the same job guidance')
    assert.ok(discovery.instructions.includes('/docs/agents'))
    assert.ok(discovery.instructions.includes(promptName))
@@ -197,7 +195,7 @@ async function payrollSelectionProof({h,call,token,signer,business,nativeId,cloc
  first=await lock(first)
  assert.deepEqual([first.status,second.status],['locked','open'])
  const sources=structuredClone((await h.state()).timesheets)
- let sequence=4
+ let sequence=6
  const policy=async(mode,max=1)=>{
   const document={...autonomousPolicy(),rules:[{id:'larger-call',class:'*',do:'blocked'},{id:'ordinary-sources',class:'standard',max,do:mode,...(mode==='approval'?{approver:['sponsor'],wait:'PT1H'}:{})}],...(mode==='review'?{reviewers:['sponsor']}:{})}
   const signed=await policyEnvelope({now:()=>clock,signer,origin:h.origin,business,seq:sequence,revision:sequence},document)
@@ -364,4 +362,78 @@ async function payrollSelectionProof({h,call,token,signer,business,nativeId,cloc
  assert.deepEqual(await h.state(),afterDownload,'claimed sources cannot be prepared again by explicit selection')
  assert.deepEqual(await claims(),exportedClaims)
  console.log('PROBE BASE-AGENT-006 source-review: stale revision and changed pending approval refuse; subset measures 1; max 2 reviews both sources; only human export claims 300 minutes; restart replay and download remain unchanged')
+}
+
+// A new coordinator receives only the installation URL, its authorized key and
+// employer-supplied job facts. It discovers the preparation path through MCP;
+// native people still approve worked time and retain payroll export authority.
+export async function specialistProof() {
+ const h=await harness()
+ try {
+  const worker=await h.person('SyntheticLanyard1')
+  const key=await h.cmd('agent.create',{label:'synthetic-lanyard-1'})
+  const rpc=async(method,params={})=>{
+   const response=await h.send('/mcp',{jsonrpc:'2.0',id:randomUUID(),method,params:{...params,_meta:{'io.modelcontextprotocol/protocolVersion':'2026-07-28'}}},'',{authorization:'Bearer '+key.token,'mcp-protocol-version':'2026-07-28','mcp-method':method,...(params.name?{'mcp-name':params.name}:{})})
+   assert.equal(response.status,200)
+   assert.equal(response.value.error,undefined)
+   return response.value.result
+  }
+  for(const [phase,week,date] of [['autonomous','2026-01-12','2026-01-06'],['review','2026-01-19','2026-01-07']]){
+   if(phase==='review'){
+    const policy=await h.mf.dispatchFetch(h.origin+'/agents/api/policy',{method:'PUT',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/json'},body:JSON.stringify({document:{schema:'rer-agent-policy/1',catalogue:'rer-agent-classes/1',rules:[{id:'review-preparation',class:'*',do:'review'}],reviewers:['sponsor'],spend:{none:true}}})})
+    assert.equal(policy.status,200);await policy.body?.cancel()
+   }
+   const discovery=await rpc(['server','discover'].join('/'))
+   const jobs=(await rpc(['prompts','list'].join('/'))).prompts
+   assert.equal(jobs.length,1)
+   assert.ok(discovery.instructions.includes(jobs[0].name))
+   const prompt=await rpc(['prompts','get'].join('/'),{name:jobs[0].name})
+   const instructions=prompt.messages.map(message=>message.content.text).join(' ')
+   const listed=(await rpc(['tools','list'].join('/'))).tools
+   const job=suffix=>{
+    const tool=listed.find(tool=>tool.name.endsWith('.'+suffix))
+    assert.ok(tool&&instructions.includes(tool.name),'the discovered prompt guides the actual specialist job')
+    return tool
+   }
+   const invoke=async(suffix,args)=>{
+    const tool=job(suffix)
+    const result=await rpc(['tools','call'].join('/'),{name:tool.name,arguments:args})
+    assert.equal(result.isError,false,suffix+' '+JSON.stringify(result._meta))
+    assert.notEqual(result.resultType,'input_required','autonomous and review preparation need no policy approval')
+    assert.equal(result._meta['com.runeditrun/decision'].disposition,phase)
+    return result.structuredContent
+   }
+   const context=await invoke('context.read',{})
+   assert.ok(context.staff.some(person=>person.id===worker.id))
+   const draft=await invoke('roster.prepare',{week,shifts:[{staffId:worker.id,start:week+'T10:00:00Z',end:week+'T12:00:00Z',breakMinutes:0}],expected_revision:context.version,idempotency_key:'synthetic-lanyard-roster-'+phase})
+   const prepared=await invoke('time.prepare',{staffId:worker.id,start:date+'T10:00:00Z',end:date+'T12:00:00Z',breakMinutes:0,reason:'Employer supplied missed-punch facts for separate review',idempotency_key:'synthetic-lanyard-time-'+phase})
+   const time=prepared.result
+   assert.equal(time.status,'submitted')
+   let state=await h.state()
+   assert.equal(state.rosters.find(row=>row.week===week).status,'draft')
+   const assigned=state.shifts.filter(row=>row.rosterId===draft.result.id)
+   assert.equal(assigned.length,1,'the prepared assignment is visible in the native draft')
+   assert.ok(assigned.every(row=>row.status==='draft'),'agent preparation publishes no assignments')
+   const agentDecision=await h.send('/api/lanyard/agent/command',{name:'time.approve',input:{id:time.id,revision:time.revision}},'',{authorization:'Bearer '+key.token})
+   assert.equal(agentDecision.status,403)
+   assert.equal((await h.state()).version,state.version,'an agent cannot supply the native human decision')
+   await h.cmd('time.approve',{id:time.id,revision:time.revision})
+   const batch=(await invoke('payroll.prepare',{ids:[time.id],idempotency_key:'synthetic-lanyard-payroll-'+phase})).result
+   assert.equal(batch.status,'draft')
+   assert.equal(batch.lines.reduce((minutes,line)=>minutes+line.minutes,0),120,'the discovered preparation path retains the approved hours')
+   state=await h.state()
+   const beforeReplay=state.version
+   await invoke('roster.prepare',{week,shifts:[{staffId:worker.id,start:week+'T10:00:00Z',end:week+'T12:00:00Z',breakMinutes:0}],expected_revision:context.version,idempotency_key:'synthetic-lanyard-roster-'+phase})
+   assert.equal((await h.state()).version,beforeReplay,'repeating discovered preparation cannot duplicate native work')
+   assert.equal((await h.send('/api/lanyard/batches/'+batch.id+'.csv',undefined,h.owner)).status,409,'a prepared batch supplies no exported payroll file')
+   assert.ok(state.batches.every(batch=>batch.status==='draft'&&!batch.exportedAt))
+   assert.ok(draft.result)
+  }
+  await h.restart()
+  const retained=await h.state()
+  assert.equal(retained.rosters.length,2)
+  assert.equal(retained.batches.length,2)
+  assert.ok(retained.batches.every(batch=>batch.status==='draft'&&!batch.exportedAt))
+  console.log('PASS LANYARD-SPECIALIST: URL-led MCP discovery and prompt guide real roster, time and payroll preparation under autonomous and review policy; separate human approval, no publication or export, once-only replay and restart')
+ } finally {await h.close()}
 }

@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "4bdc5fadf58eb565fb44586bc01cbe2043ea8b9301c5ff180c2f847dc3afcb06",
+      "sha256": "9a51443f0b750c320138a723553ed7cb22a5b3fea5fc6a28467fa7f1753e119b",
       "executable": false
     },
     "agent-surface.json": {
@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "96115ba2badbb89cdc542129592b09dfc6aef96762d3ff84b7a8cf0a9ef20203",
+      "sha256": "fcea27be60574125caf185333efb20587e9f276cf5efd89d2a85159a4b1b1220",
       "executable": false
     },
     "DEMO.md": {
@@ -4734,7 +4734,7 @@
       "executable": false
     },
     "tests/agent-native.mjs": {
-      "sha256": "f5cbaf8c58247393bc9af9bf228bd3a8a0ff00e338654782dc13a9b98ba266a6",
+      "sha256": "5d166da57702a99142bf682f3d1162c0c9446a653dc4a8da6aee289478158a43",
       "executable": false
     },
     "tests/agent-owner.mjs": {
