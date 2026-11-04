@@ -71,7 +71,7 @@ export async function templatesApi(h){
 
 export async function templatesBrowser(){
  if(process.env.PAY_SCREENS)await mkdir(process.env.PAY_SCREENS,{recursive:true})
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try{for(const width of [1440,390])for(const format of ['csv','xlsx']){
   const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
   try{
@@ -256,4 +256,112 @@ async function legacyClassification(h){
  t=await h.cmd('payroll.template.save',{...spec,...pin(t),employees:f.spec.employees})
  const conversion=await h.cmd('payroll.prepare',{ids:[correction.id],templateId:t.id},h.owner,409);assert.match(JSON.stringify(conversion),/Previously exported hours need reconciliation/)
  assert.equal((await h.send(`/api/lanyard/batches/${original.id}.csv`,undefined,h.owner)).text,original.csv)
+}
+
+
+// Use TIME-005's four arrival inputs through native clocks, then review mapped
+// payroll independently of the rounding implementation and its retained totals.
+async function roundedTemplateFixture(h){
+ const nearest=await h.person('Alex'),snap=await h.person('Sam')
+ const people=[[nearest,'Ocean Beach'],[snap,'Noe Valley']]
+ for(const [person,site] of people){
+  await h.cmd('staff.save',{...pin(person),name:person.name,email:person.email,payrollId:person.payrollId,role:person.role,active:true,site})
+  await h.cmd('availability.save',{start:'2026-10-11T23:00:00Z',end:'2026-10-19T00:00:00Z'},person.cookie)
+ }
+ const rules=[{site:'Ocean Beach',from:'2026-10-12',method:'nearest',increment:15,apply:'capture'},{site:'Noe Valley',from:'2026-10-12',method:'snap',window:7,apply:'approval'}]
+ for(const rule of rules)await h.cmd('roundrule.save',rule)
+ const days=[12,13,14,15],arrivals=['15:52','15:58','16:04','16:09']
+ const week=await h.cmd('roster.prepare',{week:'2026-10-12',shifts:people.flatMap(([person])=>days.map(day=>({staffId:person.id,start:`2026-10-${day}T16:00:00Z`,end:`2026-10-${day+1}T00:00:00Z`,breakMinutes:0})))})
+ await h.cmd('roster.publish',pin(week))
+ const sources=[],replays=[]
+ // Expected values are fixed business examples, never read from payable output.
+ const captured=[492,486,480,475],paid=[[495,480,480,465],[488,482,480,471]],hours=[['8.2500','8.0000','8.0000','7.7500'],['8.1333','8.0333','8.0000','7.8500']]
+ for(const [p,[person,site]] of people.entries())for(const [i,day] of days.entries()){
+  const start=`2026-10-${day}T${arrivals[i]}:00.000Z`,end=`2026-10-${day+1}T00:04:00.000Z`
+  await h.cmd('clock.in',{commandId:crypto.randomUUID(),capturedAt:start},person.cookie)
+  const input={commandId:crypto.randomUUID(),capturedAt:end,breakMinutes:0}
+  const submitted=(await h.cmd('clock.out',input,person.cookie)).timesheet
+  assert.equal(submitted.minutes,p===0?paid[p][i]:captured[i])
+  assert.equal(Boolean(submitted.payable),p===0,'snap waits for independent approval')
+  assert.equal(submitted.rounding.capturedMinutes,captured[i])
+  const approved=await h.cmd('time.approve',pin(submitted))
+  assert.equal(approved.minutes,paid[p][i]);assert.equal(approved.revision,submitted.revision+1)
+  assert.deepEqual([approved.start,approved.end],[start,end])
+  const paidStart=p===0?['15:45','16:00','16:00','16:15'][i]:['15:52','15:58','16:00','16:09'][i]
+  assert.deepEqual(approved.payable,{start:`2026-10-${day}T${paidStart}:00.000Z`,end:`2026-10-${day+1}T00:00:00.000Z`})
+  sources.push({approved,start,end,day,minutes:paid[p][i],hours:hours[p][i],employee:`synthetic-lanyard-${11+p}`,location:p===0?'OB':'NV'})
+  replays.push({input,cookie:person.cookie})
+ }
+ const spec={approved:true,name:'Reviewed captured and payable time',format:'csv',delimiter:',',header:true,columns:[{field:'employee',header:'Worker'},{field:'date',header:'Work date'},{field:'start',header:'Captured start'},{field:'end',header:'Captured end'},{field:'minutes',header:'Payable minutes'},{field:'hours',header:'Payable hours'},{field:'timeId',header:'Source'},{field:'revision',header:'Source revision'},{field:'code',header:'Earning'},{field:'location',header:'Cafe'}],groupBy:['date','location'],dateFormat:'iso',timeFormat:'iso',decimals:4,employees:{[nearest.id]:{id:'synthetic-lanyard-11',workflow:'W-2'},[snap.id]:{id:'synthetic-lanyard-12',workflow:'W-2'}},codes:{regular:'REG'},jobs:{},locations:{'Ocean Beach':'OB','Noe Valley':'NV'}}
+ return {spec,sources,rules,replays,nearest}
+}
+
+function worksheetCells(bytes,unzipSync,strFromU8){
+ const xml=strFromU8(unzipSync(bytes)['xl/worksheets/sheet1.xml'])
+ const unescape=value=>value.replace(/&(amp|lt|gt|quot|apos);/g,(_,entity)=>({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'"}[entity]))
+ return [...xml.matchAll(/<row\b[^>]*>(.*?)<\/row>/gs)].map(([,row])=>[...row.matchAll(/<c\b([^>]*)>(.*?)<\/c>/gs)].map(([,attributes,cell])=>{
+  const text=cell.match(/<t\b[^>]*>(.*?)<\/t>/s),number=cell.match(/<v>(.*?)<\/v>/s)
+  assert.ok(text||number,'every exported cell has a parsed value')
+  assert.equal(attributes.includes('t="inlineStr"'),Boolean(text),'numeric quantities remain numeric cells')
+  return text?unescape(text[1]):Number(number[1])
+ }))
+}
+
+export async function roundedTemplateApi(h,format){
+ const {createHash}=await import('node:crypto'),{unzipSync,strFromU8}=await import('fflate'),f=await roundedTemplateFixture(h)
+ const spec={...f.spec,format,delimiter:format==='delimited'?'~':',',dateFormat:format==='tsv'?'us':format==='delimited'?'eu':'iso',timeFormat:format==='tsv'?'utc-minute':format==='delimited'?'utc-time':'iso'}
+ const claims=async()=>(await h.db.prepare('SELECT * FROM l_payroll_claims ORDER BY time_id,time_revision').all()).results
+ const unchanged=async(command,status)=>{
+  const before=await h.state(),beforeClaims=await claims()
+  await command(status)
+  const after=await h.state()
+  for(const key of ['timesheets','batches','events'])assert.deepEqual(after[key],before[key],`refusal preserves ${key}`)
+  assert.deepEqual(await claims(),beforeClaims,'refusal preserves payroll claims')
+ }
+ const unapproved=await h.cmd('payroll.template.save',{...spec,approved:false})
+ await unchanged(status=>h.cmd('payroll.prepare',{templateId:unapproved.id},h.owner,status),409)
+ for(const missing of [{codes:{}},{employees:{[f.nearest.id]:spec.employees[f.nearest.id]}},{locations:{'Ocean Beach':'OB'}}]){
+  const unmapped=await h.cmd('payroll.template.save',{...spec,...missing})
+  await unchanged(status=>h.cmd('payroll.prepare',{templateId:unmapped.id},h.owner,status),409)
+ }
+ const lossy=await h.cmd('payroll.template.save',{...spec,decimals:0})
+ await unchanged(status=>h.cmd('payroll.prepare',{templateId:lossy.id},h.owner,status),409)
+ const template=await h.cmd('payroll.template.save',spec),batch=await h.cmd('payroll.prepare',{templateId:template.id}),competing=await h.cmd('payroll.prepare',{templateId:template.id})
+ const headers=spec.columns.map(column=>column.header),expected=f.sources.map(source=>{
+  const date=`2026-10-${source.day}`,parts=date.split('-'),workDate=spec.dateFormat==='us'?`${parts[1]}/${parts[2]}/${parts[0]}`:spec.dateFormat==='eu'?`${parts[2]}/${parts[1]}/${parts[0]}`:date
+  const time=value=>spec.timeFormat==='utc-minute'?value.slice(0,16).replace('T',' '):spec.timeFormat==='utc-time'?value.slice(11,19):value
+  return [source.employee,workDate,time(source.start),time(source.end),String(source.minutes),source.hours,source.approved.id,String(source.approved.revision),'REG',source.location]
+ })
+ const delimiter=format==='tsv'?'\t':spec.delimiter,expectedPreview=[headers,...expected].map(row=>row.join(delimiter)).join('\r\n')+'\r\n'
+ assert.equal(batch.csvPreview,expectedPreview,'preview keeps captured boundaries and independently expected payable quantities')
+ const byId=(a,b)=>a[0].localeCompare(b[0])
+ assert.deepEqual(batch.lines.map(line=>[line.timeId,line.revision,line.start,line.end,line.minutes]).sort(byId),f.sources.map(source=>[source.approved.id,source.approved.revision,source.start,source.end,source.minutes]).sort(byId))
+ assert.equal(batch.exportTemplate.revision,template.revision)
+ const sent=await h.cmd('payroll.export',pin(batch)),extension=format==='xlsx'?'xlsx':format==='tsv'?'tsv':format==='delimited'?'txt':'csv',path=`/api/lanyard/batches/${sent.id}.${extension}`
+ const read=async()=>{
+  const response=await h.mf.dispatchFetch(h.origin+path,{headers:{cookie:h.owner,'x-test-now':String(Date.parse('2026-10-27T12:00:00Z'))}})
+  assert.equal(response.status,200)
+  return Buffer.from(await response.arrayBuffer())
+ }
+ const first=await read()
+ assert.equal(createHash('sha256').update(first).digest('hex'),sent.sha256)
+ assert.deepEqual(first,format==='xlsx'?Buffer.from(batch.fileBase64,'base64'):Buffer.from(expectedPreview))
+ if(format==='xlsx')assert.deepEqual(worksheetCells(first,unzipSync,strFromU8),[headers,...expected.map(row=>row.map((cell,i)=>[4,5,7].includes(i)?Number(cell):cell))],'opened worksheet cells reconcile to original punches and rounded pay')
+ else assert.deepEqual(first.toString().trimEnd().split('\r\n').map(row=>row.split(delimiter)),[headers,...expected])
+ assert.deepEqual(await read(),first)
+ assert.equal((await claims()).length,8,'one claim per independently approved source')
+ await unchanged(status=>h.cmd('payroll.export',pin(competing),h.owner,status),409)
+ await unchanged(status=>h.cmd('payroll.prepare',{ids:[f.sources[0].approved.id],templateId:template.id},h.owner,status),409)
+ assert.equal((await h.send(path,undefined,f.nearest.cookie)).status,403)
+ const retained=(await h.state()).timesheets
+ for(const rule of f.rules)await h.cmd('roundrule.save',{...rule,from:'2026-10-19',...(rule.method==='nearest'?{increment:5}:{window:1})})
+ await h.restart()
+ assert.deepEqual((await h.state()).timesheets,retained,'later-effective rules and restart never reprice approved time')
+ assert.deepEqual(await read(),first)
+ assert.equal(createHash('sha256').update(await read()).digest('hex'),sent.sha256)
+ const beforeReplay=await h.state()
+ for(const replay of f.replays)await h.cmd('clock.out',replay.input,replay.cookie)
+ assert.deepEqual((await h.state()).timesheets,beforeReplay.timesheets,'replayed captures never duplicate rounded sources')
+ assert.equal((await claims()).length,8)
+ assert.deepEqual(await read(),first)
 }
