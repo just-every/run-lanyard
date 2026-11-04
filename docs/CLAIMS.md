@@ -5,7 +5,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | Clause | Title | Status |
 | --- | --- | --- |
 | ACCESS-001 | Native sessions and server-side authority | partial |
-| PEOPLE-001 | Staff lifecycle and payroll identities | partial |
+| PEOPLE-001 | Staff lifecycle and payroll identities | done |
 | MOVE-001 | Reviewed Staff CSV move-in | done |
 | ROSTER-001 | Availability and explicit leave decisions | partial |
 | ROSTER-002 | Conflict-checked revision publication | done |
@@ -36,7 +36,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | LEAVE-002 | Time-off blackout dates limits and team leave calendar | done |
 | LEAVE-003 | Paid sick and safe leave jurisdiction presets | done |
 | MINOR-001 | Minor work-hour limits and permits | partial |
-| SCHEDULE-005 | Printable and posted schedules | partial |
+| SCHEDULE-005 | Printable and posted schedules | done |
 | SCHEDULE-006 | Schedule change history and revision compare | done |
 | COVER-001 | Employee shift swaps with final approval | done |
 | COVER-002 | Open shifts offers and pickup | done |
@@ -64,7 +64,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | BREAK-001 | Timed meals breaks and exceptions | done |
 | BREAK-002 | Automatic meal deductions with employee attestation | done |
 | TIME-003 | Missed punches employee review and exception resolution | done |
-| TIME-004 | Payroll period locks and controlled reopening | partial |
+| TIME-004 | Payroll period locks and controlled reopening | done |
 | TIME-005 | Punch rounding and snap-to-schedule | done |
 | TIME-006 | Early clock-in window and unscheduled punches | done |
 | TIME-007 | Forgotten clock-out reminder cap and provisional close | done |
