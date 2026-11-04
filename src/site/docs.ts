@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { siteDocument } from './shell'
+import { catalogueMarkdown } from '../lanyard/agent-door/catalogue'
 
 const markdown = import.meta.glob<string>('../../docs/*.md', { query: '?raw', import: 'default', eager: true })
 const repository = 'https://github.com/just-every/run-lanyard'
@@ -15,7 +16,7 @@ const guides = [
   { slug: 'holidays', file: 'HOLIDAYS.md', title: 'Holiday calendars and pay inputs', group: 'Reference' },
   { slug: 'workforce', file: 'WORKFORCE.md', title: 'Jobs, qualifications and effective rates', group: 'Reference' },
   { slug: 'staff-import', file: 'STAFF-IMPORT.md', title: 'Staff CSV reference', group: 'Reference' },
-  { slug: 'agents-api', file: 'AGENTS-API.md', title: 'Agent API', group: 'Reference' },
+  { slug: 'agents', file: 'AGENTS-API.md', title: 'Agent API', group: 'Reference' },
   { slug: 'sources', file: 'SOURCES.md', title: 'Source and reuse', group: 'Reference' },
 ] as const
 // Code cards get their Copy button only when script runs; without it the command is still there to select.
@@ -121,11 +122,13 @@ function navigation(current: string): string {
 }
 
 export function docsPages(): Array<{ path: string; html: string }> {
-  return guides.map((guide, index) => {
+  const pages = guides.map((guide, index) => {
     const source = markdown[`../../docs/${guide.file}`]
     if (!source) throw new Error(`Missing documentation source: ${guide.file}`)
     const previous = guides[index - 1], next = guides[index + 1]
-    const body = `<main id="main" class="docs-layout"><aside class="docs-sidebar"><a class="docs-overview" href="/docs">Lanyard docs</a><details class="docs-mobile-nav"><summary>Browse the guide</summary>${navigation(guide.slug)}</details><div class="docs-desktop-nav">${navigation(guide.slug)}</div></aside><article class="docs-article"><p class="docs-eyebrow">${escape(guide.group)}</p>${renderMarkdown(source)}<footer class="docs-article-footer"><a href="${repository}/blob/main/docs/${guide.file}">Read this guide on GitHub ↗</a><nav class="docs-pagination" aria-label="Continue reading">${previous ? `<a href="${pathFor(previous.slug)}"><span>Previous</span>${escape(previous.title)}</a>` : '<span></span>'}${next ? `<a href="${pathFor(next.slug)}"><span>Next</span>${escape(next.title)} →</a>` : ''}</nav></footer></article></main>`
+    const body = `<main id="main" class="docs-layout"><aside class="docs-sidebar"><a class="docs-overview" href="/docs">Lanyard docs</a><details class="docs-mobile-nav"><summary>Browse the guide</summary>${navigation(guide.slug)}</details><div class="docs-desktop-nav">${navigation(guide.slug)}</div></aside><article class="docs-article"><p class="docs-eyebrow">${escape(guide.group)}</p>${renderMarkdown(guide.slug === 'agents' ? source.replace('<!-- agent-catalogue -->', catalogueMarkdown()) : source)}<footer class="docs-article-footer"><a href="${repository}/blob/main/docs/${guide.file}">Read this guide on GitHub ↗</a><nav class="docs-pagination" aria-label="Continue reading">${previous ? `<a href="${pathFor(previous.slug)}"><span>Previous</span>${escape(previous.title)}</a>` : '<span></span>'}${next ? `<a href="${pathFor(next.slug)}"><span>Next</span>${escape(next.title)} →</a>` : ''}</nav></footer></article></main>`
     return { path: pathFor(guide.slug), html: siteDocument({ title: `${guide.title} — Lanyard`, description: `Lanyard documentation: ${guide.title.toLowerCase()}. Practical guides for your team, schedule, hours and payroll exports.`, body, styles: ['/docs.css'], bodyClass: 'docs-page', script: COPY }) }
   })
+  const agents = pages.find(page => page.path === '/docs/agents')!
+  return [...pages, {...agents, path: '/docs/agents-api'}]
 }

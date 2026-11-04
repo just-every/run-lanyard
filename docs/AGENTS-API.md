@@ -15,11 +15,11 @@ Business team admin means Business policy editor only through the signed mapping
 a workforce owner or manager. Current workforce preparation authority belongs to
 the native owner. Local preparation keys keep their original reduced authority.
 
-The declared adoption is CORE: tools, policy, Pause, audit and idempotency,
+The declared adoption is CORE plus the preparation prompt: tools, policy, Pause, audit and idempotency,
 with principal authorization always enforced. Events/subscriptions, multiple
 sponsors, outside mail and resource refresh are not claimed as adopted families.
-The runtime declares the same CORE set as the manifest. Optional events,
-resources, prompts and subscriptions are omitted and typed-refused. Existing
+The runtime and manifest declare the same capabilities. Optional events,
+resources and subscriptions are omitted and typed-refused. Existing
 native mail, devices, imports, connectors and installation commands keep their
 own purposes.
 
@@ -29,16 +29,13 @@ person JSON door. There is no policy bypass for legacy keys. An autonomous
 company rule permits preparation; Lanyard's native human-only publication,
 time approval, payroll export and learning decisions remain separate.
 
-| Tool | Scope | Class | Native clauses |
-| --- | --- | --- | --- |
-| `lanyard.context.read` | `workforce:read` | standard | AGENT-001 |
-| `lanyard.roster.prepare` | `workforce:prepare` | standard | AGENT-001, ROSTER-002, SCHEDULE-001 |
-| `lanyard.time.prepare` | `workforce:prepare` | standard | AGENT-001, TIME-002 |
-| `lanyard.payroll.prepare` | `workforce:prepare` | standard | AGENT-001, PAYROLL-001 |
-| `lanyard.tradeoff.compare` | `comparison.read` | standard | TRADEOFF-001 |
-| `lanyard.demand.read` | `comparison.read` | standard | DEMAND-001, LEARN-001 |
-| `lanyard.learn.read` | `comparison.read` | standard | LEARN-001, TRADEOFF-001 |
-| `lanyard.learn.propose` | `comparison.read` | standard | AGENT-001, LEARN-001, TRADEOFF-001 |
+The public [agent guide](/docs/agents) includes the catalogue generated from
+shared action-registry metadata. The former /docs/agents-api address remains a
+compatible guide address. Each job below names its real tool, scope, classes,
+classifier facts and conformance evidence, followed by the declared templates,
+prompt, capacity limits and error recovery.
+
+<!-- agent-catalogue -->
 
 These tools call the existing native services. Standard reflects their actual
 internal preparation or reduced read, with no wage movement, external recipient,
@@ -64,8 +61,8 @@ The measure counts source timesheets, not generated premium or segmented lines;
 non-work and premium-only measurement variants remain unproved. Policy approval
 permits preparation only; a native person still exports the exact draft.
 
-The declared capabilities are tools, policy, pause, audit and idempotency.
-Events, resources, prompts and subscriptions are undeclared: discovery omits
+The declared capabilities include prompts alongside tools, policy, pause, audit
+and idempotency. Events, resources and subscriptions are undeclared: discovery omits
 them and their public calls return typed `capability_not_declared` refusals.
 The eight native resource readers remain internal visibility adapters; the
 public resource catalogue and returned resource links are empty. Record access
@@ -92,8 +89,9 @@ The workforce coordinator reads current source facts, prepares supported
 drafts and hands exact revisions to native people. It refuses to invent worked
 time or treat a payroll file as proof of wages paid. Learning proposals require
 real pre-service forecast history, observed sales and an improved holdout result;
-a fresh installation cannot manufacture that history. Prompt retrieval is
-undeclared in this CORE adoption.
+a fresh installation cannot manufacture that history. The authenticated prepare_service_week prompt gives preparation instructions
+without reading installation records or executing any action. Policy and Pause
+apply to retrieval; all subsequent tools recheck native authority and grants.
 
 The proposed broader contract surface is not a grant. Workforce administration,
 publication, authoritative approval, payroll transfer, staff contact and erasure
@@ -192,10 +190,10 @@ Signed event webhooks, observable provider delivery and reconciliation,
 authorized Zapier and Make event-to-draft workflows, and broader versioned
 time, coverage and report APIs remain open under LINK-001.
 
-## Verification at the current Base pin
+## Recorded CORE verification
 
 Normal `rer verify` runs the production build and declared CORE journey. The
-measured result on released rer 0.2.94 is **724/724 points**, with
+historical measured result on released rer 0.2.94 was **724/724 points**, with
 `CI=true SEED_VERIFY_SHARD=app pnpm exec rer verify --no-queue`. Both
 `BASE-AGENT-013.4.autonomous.proposal` and
 `BASE-AGENT-013.4.held.proposal` pass, as does the specialist native journey.
@@ -222,7 +220,9 @@ policies; overlaps remain refused. Identity, named exact-summary approval,
 attribution, one-effect replay, argument and revision conflicts, Pause and
 zero differs_from_policy all pass. Production backdating is unchanged.
 
-Events, resources, prompts and subscriptions remain undeclared and typed-refused.
+Events, resources and subscriptions remain undeclared and typed-refused.
+The preparation prompt is declared and proved by the native journey under both
+supported protocol revisions; it grants no additional native authority.
 Multi-sponsor, mail edges, resource refresh, timed/queued lifecycles, dual host
 and owner-native administration remain unproved; shared clauses stay PARTIAL.
 No provider cost, enforceable spend cap or broader AGENT-001 authority is claimed.
