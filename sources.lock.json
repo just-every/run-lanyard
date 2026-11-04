@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "d986aa7ef9fe69e58db638cc70a85d6a9aba357ca4874d36904ce560631374da",
+      "sha256": "d7ca38290090fe50c69d179e73c1875ee20dff72e3fe5aa98ee564fe3c351ca8",
       "executable": false
     },
     "DEMO.md": {
@@ -4878,7 +4878,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "5c74506f43dd53bbaadedc31ed9a17c7f95355f90adf5d09e8fb71d8a333e69d",
+      "sha256": "f09f405e68a5d7207a17cefd530253ef9f962388c3e9e191b01840fa3c61c23b",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {

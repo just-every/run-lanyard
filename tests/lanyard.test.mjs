@@ -57,16 +57,41 @@ const missed = staffId => ({ ...shift(staffId), label: undefined, reason: 'Forgo
 const timeInput = staffId => { const { label, ...p } = missed(staffId); return p }
 
 test('native access, owner-only grants, staff isolation, CSRF and immediate revocation', () => run(async h => {
-  const alex = await h.person('Alex'), sam = await h.person('Sam')
+  const alex = await h.person('Alex'), sam = await h.person('Sam'), manager = await h.person('Priya', 'manager')
+  const protectedState = async () => {
+    const s = await h.state()
+    return { version: s.version, staff: s.staff, availability: s.availability, leave: s.leave, timesheets: s.timesheets, events: s.events }
+  }
+  await h.finishSetup()
+  for (const [cookie, role, staffId] of [[h.owner, 'owner', undefined], [manager.cookie, 'manager', manager.id], [alex.cookie, 'staff', alex.id], [sam.cookie, 'staff', sam.id]]) {
+    const s = await h.state(cookie)
+    assert.deepEqual([s.actor.role, s.actor.staffId], [role, staffId])
+    assert.equal((await h.send('/app/time', undefined, cookie)).status, 200)
+  }
+  const before = await protectedState()
   await h.state('', 401)
   assert.deepEqual((await h.state(alex.cookie)).staff.map(s => s.id), [alex.id])
+  assert.deepEqual((await h.state(sam.cookie)).staff.map(s => s.id), [sam.id])
+  await h.cmd('staff.save', { name: 'Bad' }, '', 401)
   await h.cmd('staff.save', { name: 'Bad' }, alex.cookie, 403)
+  await h.cmd('staff.invite', { id: sam.id }, manager.cookie, 403)
   await h.cmd('time.approve', { id: 'anything', revision: 1 }, sam.cookie, 403)
   await h.cmd('availability.save', { ...shift(alex.id) }, alex.cookie, 400)
   const cross = await h.send('/api/lanyard/command', { name: 'staff.erase', input: { id: alex.id, revision: 1 } }, h.owner, { origin: 'https://evil.example' })
   assert.equal(cross.status, 403)
+  assert.deepEqual(await protectedState(), before, 'refused session, role and origin attempts change no protected records or activity')
+  const ownTime = await h.cmd('time.prepare', timeInput(manager.id))
+  const pending = await protectedState()
+  await h.cmd('time.approve', { id: ownTime.id, revision: ownTime.revision }, manager.cookie, 403)
+  assert.deepEqual(await protectedState(), pending, 'a manager cannot approve their own time or write an approval event')
+  const approved = await h.cmd('time.approve', { id: ownTime.id, revision: ownTime.revision })
+  assert.equal(approved.status, 'approved')
+  assert.equal(approved.approvedBy, (await h.state()).actor.id)
   await h.cmd('staff.save', { id: alex.id, revision: 1, name: 'Alex', email: alex.email, payrollId: 'ALEX', role: 'staff', active: false })
+  const revoked = await protectedState()
   await h.state(alex.cookie, 403)
+  await h.cmd('availability.save', shift(alex.id), alex.cookie, 403)
+  assert.deepEqual(await protectedState(), revoked, 'the existing revoked session cannot write')
   await h.cmd('staff.erase', { id: sam.id, revision: 1 }, h.owner, 409)
 }))
 
@@ -82,11 +107,39 @@ test('staff cannot change the sign-in email to another person’s staff identity
 }))
 
 test('availability, approved leave, conflicts, exact roster publication and personal confirmation', () => run(async h => {
-  const alex = await h.person('Alex'), manager = await h.person('Priya', 'manager')
+  const alex = await h.person('Alex'), manager = await h.person('Priya', 'manager'), reviewer = await h.person('Morgan', 'manager')
   await h.cmd('availability.save', { start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' }, alex.cookie)
   const leave = await h.cmd('leave.request', { start: '2026-10-13T00:00:00Z', end: '2026-10-14T00:00:00Z', reason: 'Family day' }, alex.cookie)
   await h.cmd('leave.decide', { id: leave.id, revision: 1, decision: 'approved' }, alex.cookie, 403)
   await h.cmd('leave.decide', { id: leave.id, revision: 1, decision: 'approved' }, manager.cookie)
+  const ownLeave = await h.cmd('leave.request', { start: '2026-10-15T14:00:00Z', end: '2026-10-15T22:00:00Z', reason: 'Personal day' }, manager.cookie)
+  const managerActor = (await h.state(manager.cookie)).actor, reviewerActor = (await h.state(reviewer.cookie)).actor
+  assert.deepEqual([managerActor.role, managerActor.staffId, ownLeave.staffId, ownLeave.requestedBy, ownLeave.status, ownLeave.revision], ['manager', manager.id, manager.id, managerActor.id, 'pending', 1])
+  assert.equal(ownLeave.decidedBy, undefined); assert.equal(ownLeave.decidedAt, undefined)
+  const leaveState = async () => {
+    const s = await h.state()
+    return { version: s.version, leave: s.leave, timesheets: s.timesheets, shifts: s.shifts, events: s.events }
+  }
+  const pending = await leaveState()
+  for (const restart of [false, true]) {
+    if (restart) await h.restart()
+    const refused = await h.send('/api/lanyard/command', { name: 'leave.decide', input: { id: ownLeave.id, revision: ownLeave.revision, decision: 'approved' } }, manager.cookie)
+    assert.equal(refused.status, 403, refused.text)
+    assert.deepEqual(await leaveState(), pending, 'self-approval preserves the pending request, decision fields, all revisions and activity, including after restart')
+  }
+  const decided = await h.cmd('leave.decide', { id: ownLeave.id, revision: ownLeave.revision, decision: 'approved' }, reviewer.cookie)
+  assert.deepEqual([decided.status, decided.revision, decided.decidedBy, decided.requestedBy], ['approved', ownLeave.revision + 1, reviewerActor.id, managerActor.id])
+  assert.ok(Number.isFinite(Date.parse(decided.decidedAt)))
+  const afterDecision = await leaveState()
+  assert.equal(afterDecision.version, pending.version + 1)
+  assert.deepEqual(afterDecision.leave.find(r => r.id === ownLeave.id), decided)
+  assert.deepEqual(afterDecision.leave.filter(r => r.id !== ownLeave.id), pending.leave.filter(r => r.id !== ownLeave.id))
+  assert.deepEqual(afterDecision.timesheets, pending.timesheets); assert.deepEqual(afterDecision.shifts, pending.shifts)
+  const decisions = afterDecision.events.filter(e => e.action === 'leave.decide' && e.entityId === ownLeave.id)
+  assert.equal(decisions.length, 1)
+  assert.deepEqual([decisions[0].actorId, decisions[0].actorRole, decisions[0].at], [reviewerActor.id, 'manager', decided.decidedAt])
+  await h.restart()
+  assert.deepEqual(await leaveState(), afterDecision, 'the independent decision and its attributed activity survive restart')
   const bad = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [{ ...shift(alex.id), start: '2026-10-13T00:00:00Z', end: '2026-10-13T08:00:00Z' }] })
   assert.ok(bad.conflicts.length)
   await h.cmd('roster.publish', { id: bad.id, revision: bad.revision }, h.owner, 409)

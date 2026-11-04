@@ -539,13 +539,13 @@ Judged from the code and tests at commit `4872aa3ed919f92bb8de3f1ef11f27e3524d28
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 10 | 6 | 0 | 16 |
+| Published | 11 | 5 | 0 | 16 |
 | Target and push further | 40 | 53 | 31 | 124 |
-| All | 50 | 59 | 31 | 140 |
+| All | 51 | 58 | 31 | 140 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
-| `ACCESS-001` | Native sessions and server-side authority | published | partial | `src/lanyard/http.ts`; `src/lanyard/credentials.ts`; `src/lanyard/domain/storage.ts`; `tests/lanyard.test.mjs` | Native session, role, ownership, origin and revocation checks ship. The cited access/leave journeys do not assert refusal of a manager approving their own leave; that contracted authority boundary remains unproved. |
+| `ACCESS-001` | Native sessions and server-side authority | published | done | `tests/lanyard.test.mjs`: "native access, owner-only grants, staff isolation, CSRF and immediate revocation" proves native roles, private pages and state isolation, refused unsigned and cross-origin commands, independent time approval and immediate revocation; "availability, approved leave, conflicts, exact roster publication and personal confirmation" proves manager self-leave refusal without record, revision or activity changes before and after restart, followed by another native manager’s attributed decision; "AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta" proves authorized payroll downloads and staff refusal. |  |
 | `PEOPLE-001` | Staff lifecycle and payroll identities | published | partial | `src/lanyard/domain/people.ts`; `src/lanyard/credentials.ts`; `tests/lanyard.test.mjs` | Staff creation, native invitations, edits and immediate deactivation ship. Public-door assertions rejecting duplicate email/payroll IDs and stale staff revisions, and retaining prior work after deactivation, are missing. |
 | `MOVE-001` | Reviewed Staff CSV move-in | published | done | `src/lanyard/movein/index.ts`; `src/lanyard/movein/targets.ts`; `tests/lanyard.test.mjs` |  |
 | `ROSTER-001` | Availability and explicit leave decisions | published | partial | `src/lanyard/domain/people.ts`; `tests/lanyard.test.mjs` | Availability, pending leave and exact manager decisions ship. The cited journey does not attempt leave approval against an already published shift or a manager deciding their own request; these refusals remain unproved. |
