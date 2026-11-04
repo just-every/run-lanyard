@@ -1606,7 +1606,7 @@
       "executable": false
     },
     "src/lanyard/domain/journal.ts": {
-      "sha256": "bc6cd0461bb4df18f4377ff5265b892b26838be4010ded66705186d01e8ebb09",
+      "sha256": "4823f06829124cd4c56bb0305ce35557e790c48bbc097dd978757441f4698bbb",
       "executable": false
     },
     "src/lanyard/domain/kiosk.ts": {
@@ -4878,7 +4878,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "fe62422c01f1b448487728be5dd93b5ac15a4100622dafa093861f30fec59417",
+      "sha256": "40dd3b16974f99aeda1b78f6849054372aee8835c2d77f6b838f41ccca788254",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
