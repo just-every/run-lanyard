@@ -1383,7 +1383,7 @@ test('CLOCK-002: ordered clock retries bind identity, retain conflicting capture
   assert.match(page.text,/Original shift already recorded/)
 }))
 
-test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta', () => run(async h => {
+test('TIME-002, AUDIT-001 and PAYROLL-001: exact approval, pending correction export refusal, retained lineage, once-only claims and immutable signed differences', () => run(async h => {
   const alex = await h.person('Alex'), manager = await h.person('Priya', 'manager')
   await h.cmd('availability.save', { staffId: alex.id, start: '2026-10-12T07:00:00Z', end: '2026-10-19T07:00:00Z' })
   const week = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [shift(alex.id)] })
@@ -1410,6 +1410,64 @@ test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, ro
   assert.match(done.csv, /-15,-0\.2500/)
   assert.equal((await h.send(path, undefined, h.owner)).text, a.text)
   assert.equal((await h.state()).timesheets.find(t => t.id === approved.id).status, 'superseded')
+
+  // A manager's own missed time needs another person's exact approval.
+  const reviewer = await h.person('Omar', 'manager')
+  const protectedPayroll = async () => {
+    const s = await h.state()
+    return { version: s.version, batches: s.batches, timesheets: s.timesheets, clocks: s.clocks, events: s.events,
+      claims: (await h.db.prepare('SELECT * FROM l_payroll_claims ORDER BY time_id,time_revision').all()).results }
+  }
+  const refused = async (name, input, cookie, status, message) => {
+    const before = await protectedPayroll()
+    const response = await h.send('/api/lanyard/command', { name, input }, cookie)
+    assert.equal(response.status, status, response.text)
+    assert.match(response.text, message)
+    assert.deepEqual(await protectedPayroll(), before, `${name} refusal leaves sources, batches, claims and activity unchanged`)
+  }
+  const ownTime = await h.cmd('time.prepare', timeInput(manager.id))
+  await refused('time.approve', { id: ownTime.id, revision: ownTime.revision }, manager.cookie, 403, /own time/)
+  await refused('time.approve', { id: ownTime.id, revision: ownTime.revision + 1 }, reviewer.cookie, 409, /changed|revision/i)
+  await refused('time.prepare', timeInput(manager.id), h.owner, 409, /overlaps/)
+  await refused('time.prepare', { ...timeInput(manager.id), start: '2026-11-05T14:00:00Z', end: '2026-11-05T22:00:00Z' }, h.owner, 400, /future/)
+  const source = await h.cmd('time.approve', { id: ownTime.id, revision: ownTime.revision }, reviewer.cookie)
+  assert.equal(source.minutes, 450)
+  assert.notEqual(source.approvedBy, (await h.state(manager.cookie)).actor.id)
+  const sourceRecord = (await h.state()).timesheets.find(t => t.id === source.id)
+  const obsolete = await h.cmd('payroll.prepare', { ids: [source.id] })
+  assert.deepEqual(obsolete.lines.map(l => [l.timeId, l.revision, l.minutes]), [[source.id, source.revision, 450]])
+  const pending = await h.cmd('time.prepare', { ...timeInput(manager.id), breakMinutes: 60, corrects: source.id, reason: 'Employee confirmed a full unpaid meal' })
+  assert.deepEqual([pending.corrects, pending.rootId, pending.minutes, pending.status], [source.id, source.rootId, 420, 'submitted'])
+  assert.deepEqual((await h.state()).timesheets.find(t => t.id === source.id), sourceRecord, 'preparing a correction retains its approved source')
+  const obsoleteApproval = { id: obsolete.id, revision: obsolete.revision }
+  await refused('payroll.export', obsoleteApproval, h.owner, 409, /correction is awaiting approval/)
+  const waiting = await protectedPayroll()
+  await h.restart()
+  assert.deepEqual(await protectedPayroll(), waiting, 'pending correction, obsolete draft and ledger survive restart')
+  await refused('payroll.export', obsoleteApproval, h.owner, 409, /correction is awaiting approval/)
+
+  const current = await h.cmd('time.approve', { id: pending.id, revision: pending.revision }, reviewer.cookie)
+  assert.notEqual(current.approvedBy, pending.submittedBy, 'a different native person approves the correction')
+  assert.deepEqual([current.minutes, current.exportMinutes, current.corrects, current.rootId], [420, 420, source.id, source.rootId])
+  const currentRecord = (await h.state()).timesheets.find(t => t.id === current.id)
+  await refused('payroll.export', obsoleteApproval, h.owner, 409, /sources changed/)
+  const fresh = await h.cmd('payroll.prepare', { ids: [current.id] })
+  assert.deepEqual(fresh.lines.map(l => [l.timeId, l.revision, l.corrects, l.rootId, l.minutes]), [[current.id, current.revision, source.id, source.rootId, 420]])
+  const paid = await h.cmd('payroll.export', { id: fresh.id, revision: fresh.revision })
+  assert.match(paid.csv, /420,7\.0000/)
+  await refused('payroll.export', { id: paid.id, revision: paid.revision }, h.owner, 409, /already exported/)
+  const retained = (await h.state()).timesheets.find(t => t.id === source.id)
+  assert.deepEqual(retained, { ...sourceRecord, revision: source.revision + 1, status: 'superseded', supersededBy: current.id })
+  assert.deepEqual((await h.state()).timesheets.find(t => t.id === current.id), currentRecord, 'export never rewrites approved time')
+  const claims = (await h.db.prepare('SELECT * FROM l_payroll_claims WHERE root_id=?').bind(source.rootId).all()).results
+  assert.deepEqual(claims.map(c => [c.time_id, c.time_revision, c.batch_id, c.minutes]), [[current.id, current.revision, paid.id, 420]])
+  const settled = await protectedPayroll(), freshPath = `/api/lanyard/batches/${paid.id}.csv`
+  await h.restart()
+  assert.deepEqual(await protectedPayroll(), settled, 'only the current reviewed source is claimed after restart')
+  assert.equal((await h.send(freshPath, undefined, h.owner)).text, paid.csv)
+  assert.equal((await h.send(path, undefined, h.owner)).text, a.text)
+  assert.equal((await h.send(`/api/lanyard/batches/${done.id}.csv`, undefined, h.owner)).text, done.csv)
+  assert.deepEqual((await h.state()).events.filter(e => e.action === 'payroll.export').map(e => e.entityId).sort(), [batch.id, done.id, paid.id].sort())
   const events = (await h.state()).events
   for (const [action, role, entityId] of [['roster.publish', 'manager', week.id], ['time.approve', 'manager', approved.id], ['payroll.export', 'owner', batch.id], ['payroll.download', 'owner', batch.id], ['payroll.acknowledge', 'owner', batch.id], ['time.approve', 'owner', corrected.id]])
     assert.ok(events.some(e => e.action === action && e.actorRole === role && e.entityId === entityId && e.actorId && !Number.isNaN(Date.parse(e.at))), `${action} by ${role}`)
@@ -1425,7 +1483,7 @@ test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, ro
   const mine = new Set([alex.id, ...['availability', 'shifts', 'timesheets'].flatMap(k => s0[k].filter(r => r.staffId === alex.id).map(r => r.id))])
   assert.ok(own.length && own.every(e => mine.has(e.entityId)), 'staff read only events on their own records')
   assert.ok(own.some(e => e.action === 'time.approve' && e.entityId === approved.id) && !own.some(e => ['roster.publish', 'payroll.export', 'payroll.download'].includes(e.action)))
-}))
+}, { now: '2026-11-04T12:00:00Z' }))
 
 test('agent prepares drafts but cannot approve through any human or agent door; key revocation is immediate', () => run(async h => {
   const alex = await h.person('Alex'), key = await h.cmd('agent.create', { label: 'Roster assistant' }), headers = { authorization: `Bearer ${key.token}` }
