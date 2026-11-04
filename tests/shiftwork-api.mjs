@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import {pdfText} from './pdf-text.mjs'
 import {days,local} from './workforce-journey.mjs'
 import {handoverFixture,captureWork,pin} from './shiftwork-fixture.mjs'
 export async function handoverApi(h) {
@@ -35,8 +36,10 @@ export async function handoverApi(h) {
  const delta=await h.cmd('payroll.prepare',{ids:[approved.id]});assert.deepEqual(delta.lines.map(l=>l.minutes),[-14,-15]);assert.equal(delta.lines.reduce((n,l)=>n+l.minutes,0),approved.exportMinutes)
  await h.cmd('payroll.export',pin(delta),manager.cookie)
  assert.equal((await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,manager.cookie)).text,first.text)
- const posted=await h.cmd('schedule.post',{week:f.week,site:'Ocean Beach'}),pdf=await h.send(`/api/lanyard/postings/${posted.id}.pdf`,undefined,manager.cookie),wall=await h.send(`/app/wall?week=${f.week}&site=Ocean%20Beach`,undefined,manager.cookie)
- for(const out of [pdf.text,wall.text,JSON.stringify(posted)])for(const secret of [input.notes,changed.notes,answer.blocker,answer.attachment.name,...work.tasks.map(t=>t.text)])assert.ok(!out.includes(secret))
+ const posted=await h.cmd('schedule.post',{week:f.week,site:'Ocean Beach'}),pdf=await h.mf.dispatchFetch(`${h.origin}/api/lanyard/postings/${posted.id}.pdf`,{headers:{cookie:manager.cookie}}),wall=await h.send(`/app/wall?week=${f.week}&site=Ocean%20Beach`,undefined,manager.cookie)
+ assert.equal(pdf.status,200)
+ const printedText=await pdfText(Buffer.from(await pdf.arrayBuffer()))
+ for(const out of [printedText,wall.text,JSON.stringify(posted)])for(const secret of [input.notes,changed.notes,answer.blocker,answer.attachment.name,...work.tasks.map(t=>t.text)])assert.ok(!out.includes(secret))
  // A new assignee must qualify for every inherited area, not merely the enclosing job.
  const future=days(f.week,21),start=local(future,'09:00'),end=local(future,'17:00')
  for(const p of [alex,ben])await h.cmd('availability.save',{staffId:p.id,start:local(future,'00:00'),end:local(days(future,1),'00:00')})
