@@ -39,6 +39,7 @@ test('PUBLIC-001: the run site leads to installation and readable owner guides a
     assert.equal(response.status,200);assert.ok(response.value.result)
     return response.value.result
   }
+  const publicDiscovery=await catalogue('server','discover')
   const publicTools=(await catalogue('tools','list')).tools,publicResources=(await catalogue('resources','templates','list')).resourceTemplates,publicPrompts=(await catalogue('prompts','list')).prompts
   let browser
   try {
@@ -55,6 +56,12 @@ test('PUBLIC-001: the run site leads to installation and readable owner guides a
       await page.getByRole('navigation',{name:'Documentation',exact:true}).filter({visible:true}).getByRole('link',{name:'Agent API',exact:true}).click()
       assert.equal(new URL(page.url()).pathname,'/docs/agents','the guide navigation exposes the contracted agent route')
       if(width===1440){
+        const documentedVersions=await page.locator('#protocol-negotiation').evaluate(h=>{
+          let list=h.nextElementSibling
+          while(list&&list.tagName!=='UL'&&list.tagName!=='H3')list=list.nextElementSibling
+          return list?.tagName==='UL'?[...list.querySelectorAll('code')].map(code=>code.textContent):[]
+        })
+        assert.deepEqual(documentedVersions,publicDiscovery.supportedVersions,'the public guide describes every version the native door actually negotiates')
         const jobs=await page.locator('article h4').evaluateAll(headings=>headings.map(h=>({name:h.nextElementSibling.textContent})))
         assert.deepEqual(jobs.map(j=>j.name),publicTools.map(t=>t.name),'the built public catalogue exactly matches the authenticated MCP listing')
         for(const tool of publicTools){

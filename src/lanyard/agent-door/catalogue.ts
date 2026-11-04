@@ -1,5 +1,6 @@
 // Public metadata only: this module has no installation bindings or record reads.
 import { CORE_CAPABILITIES } from '../../modules/agent-door/capabilities.mjs'
+import { versions as protocolVersions } from '../../modules/agent-door/wire.ts'
 import type { JsonSchema, ToolDefinition } from '../../modules/agent-door/index.ts'
 import { inputs, object, output } from './schemas.ts'
 
@@ -85,6 +86,10 @@ function inputCapacities(schema: JsonSchema, path = ''): string[] {
 export function catalogueMarkdown(): string {
  const code = (value: string) => '`' + value + '`'
  const lines = ['## Public MCP catalogue', '', 'Specialist: **' + specialist + '**. This catalogue is generated from the same action metadata as the native door. It contains no installation records or credentials.', '',
+  '### Protocol negotiation', '',
+  'Read the canonical resource and required scopes from `GET /.well-known/oauth-protected-resource`. A request without a current bearer credential receives HTTP 401 and the resource-metadata challenge before negotiation. Use owner-authorized Business consent or a separately issued native preparation key; discovery cannot grant either.', '',
+  'Advertised protocol versions:', '', ...protocolVersions.map(version => '- ' + code(version)), '',
+  'Initialize with a supported protocolVersion and use that version on subsequent requests. Modern requests carry matching MCP-Protocol-Version, Mcp-Method and named-operation Mcp-Name headers, plus protocol metadata. A mismatch is refused before a native action. The server is stateless; initialization creates no session authority.', '',
   '### Tools by job', '', ...actions.flatMap(item => [
    '#### ' + item.title, '', code(item.name), '', item.description, '',
    'Scope: ' + code(item.scope) + '. Classes: ' + item.classes.map(code).join(', ') + '. ' + (item.readOnly ? 'Reduced read.' : 'Preparation only; a native person decides subsequent approval, publication or export.'), '',

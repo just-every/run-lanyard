@@ -93,8 +93,7 @@ export async function specialistBrowser(h) {
    assert.deepEqual(errors,[])
   },
   async capture(week) {
-   if(!process.env.AGENT_SCREENS)return
-   await mkdir(process.env.AGENT_SCREENS,{recursive:true})
+   if(process.env.AGENT_SCREENS)await mkdir(process.env.AGENT_SCREENS,{recursive:true})
    for(const width of [1440,390]){
     await page.setViewportSize({width,height:1000})
     for(const [screen,path,selector] of [
@@ -102,11 +101,14 @@ export async function specialistBrowser(h) {
      ['time','/app/time?week='+week,'.time-list'],
      ['payroll','/app/payroll','.batch'],
     ]){
-     await page.goto(h.origin+path,{waitUntil:'networkidle'})
+     await open(path)
      await page.locator(selector).first().scrollIntoViewIfNeeded()
-     await page.screenshot({path:join(process.env.AGENT_SCREENS,screen+'-'+width+'.png')})
+     assert.equal(await page.locator(selector).first().isVisible(),true,'the native '+screen+' review remains visible at '+width)
+     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'the native '+screen+' page fits the viewport')
+     if(process.env.AGENT_SCREENS)await page.screenshot({path:join(process.env.AGENT_SCREENS,screen+'-'+width+'.png')})
     }
    }
+   assert.deepEqual(errors,[])
   },
   async close(){await context.close();await browser.close()},
  }

@@ -193,21 +193,40 @@ export async function specialistProof() {
   await h.cmd('settings.save',{timezone:'UTC'})
   const worker=await h.person('SyntheticLanyard1')
   const key=await h.cmd('agent.create',{label:'synthetic-lanyard-1'})
+  // A stranger starts with the seed origin, then follows its public metadata
+  // and authentication challenge to the canonical transport destination.
+  const metadata=await h.send('/.well-known/oauth-protected-resource')
+  assert.equal(metadata.status,200)
+  const endpoint=new URL(metadata.value.resource)
+  assert.equal(endpoint.origin,h.origin,'the resource belongs to this installation')
+  const challenge=await h.send(endpoint.pathname,{jsonrpc:'2.0',id:'synthetic-lanyard-1',method:'initialize',params:{}})
+  assert.equal(challenge.status,401)
+  const metadataUrl=/resource_metadata="([^"]+)"/.exec(challenge.headers.get('www-authenticate'))?.[1]
+  assert.ok(metadataUrl,'the stranger receives an authentication metadata URL')
+  const challenged=await h.send(new URL(metadataUrl).pathname)
+  assert.deepEqual(challenged.value,metadata.value,'both metadata doors describe the same canonical resource')
   let version='2026-07-28'
   const rpc=async(method,params={})=>{
-   const response=await h.send('/mcp',{jsonrpc:'2.0',id:randomUUID(),method,params:{...params,_meta:{'io.modelcontextprotocol/protocolVersion':version}}},'',{authorization:'Bearer '+key.token,'mcp-protocol-version':version,'mcp-method':method,...(params.name?{'mcp-name':params.name}:{})})
+   const response=await h.send(endpoint.pathname,{jsonrpc:'2.0',id:randomUUID(),method,params:{...params,_meta:{'io.modelcontextprotocol/protocolVersion':version}}},'',{authorization:'Bearer '+key.token,'mcp-protocol-version':version,'mcp-method':method,...(params.name?{'mcp-name':params.name}:{})})
    assert.equal(response.status,200)
    assert.equal(response.value.error,undefined)
    return response.value.result
   }
-  for(const round of [
-   ['2026-07-28','autonomous','2026-01-12','2026-01-06'],['2026-07-28','review','2026-01-19','2026-01-07'],
-   ['2025-11-25','autonomous','2026-01-26','2026-01-08'],['2025-11-25','review','2026-02-02','2026-01-09'],
-  ]){
-   const [protocol,phase,week,date]=round;version=protocol
+  const advertised=await rpc(['server','discover'].join('/'))
+  assert.ok(advertised.supportedVersions.length)
+  const rounds=advertised.supportedVersions.flatMap(protocol=>['autonomous','review'].map(phase=>({protocol,phase})))
+  let lastWeek
+  for(const [index,{protocol,phase}] of rounds.entries()){
+   version=protocol
+   const week=new Date(Date.UTC(2026,0,12+index*7)).toISOString().slice(0,10)
+   const date=new Date(Date.UTC(2026,0,6+index)).toISOString().slice(0,10)
+   lastWeek=week
    const policy=await h.mf.dispatchFetch(h.origin+'/agents/api/policy',{method:'PUT',headers:{origin:h.origin,cookie:h.owner,'content-type':'application/json'},body:JSON.stringify({document:{schema:'rer-agent-policy/1',catalogue:'rer-agent-classes/1',rules:[{id:'specialist-preparation',class:'*',do:phase}],...(phase==='review'?{reviewers:['sponsor']}:{}),spend:{none:true}}})})
    assert.equal(policy.status,200);await policy.body?.cancel()
+   const initialized=await rpc('initialize',{protocolVersion:version,capabilities:{},clientInfo:{name:'synthetic-lanyard-1',version:'1'}})
+   assert.equal(initialized.protocolVersion,version,'every advertised version negotiates before preparation')
    const discovery=await rpc(['server','discover'].join('/'))
+   assert.equal(initialized.instructions,discovery.instructions)
    const jobs=(await rpc(['prompts','list'].join('/'))).prompts
    assert.equal(jobs.length,1)
    assert.ok(discovery.instructions.includes(jobs[0].name))
@@ -258,10 +277,10 @@ export async function specialistProof() {
   }
   await h.restart()
   const retained=await h.state()
-  assert.equal(retained.rosters.length,4)
-  assert.equal(retained.batches.length,8)
+  assert.equal(retained.rosters.length,rounds.length)
+  assert.equal(retained.batches.length,rounds.length*2)
   assert.ok(retained.batches.every(batch=>batch.status==='draft'&&!batch.exportedAt))
-  await ui.capture('2026-02-02')
-  console.log('PASS LANYARD-SPECIALIST: both protocols discover preparation under autonomous and review policy; native browser parity, exact human time approval, no publication or export, unchanged replay and restart')
+  await ui.capture(lastWeek)
+  console.log('PASS LANYARD-SPECIALIST: '+advertised.supportedVersions.join(', ')+' discover preparation under autonomous and review policy; native browser parity, exact human time approval, no publication or export, unchanged replay and restart')
  } finally {try{await ui?.close()}finally{await h.close()}}
 }

@@ -1,9 +1,9 @@
 # Company agent door
 
 Lanyard serves one shared `/mcp` door using Base's agent-door runtime at
-`e881e6f66ce7cd737d17dbeb945995aab83c30d8` and the released rer 0.2.94 CLI.
-It supports MCP 2026-07-28 and 2025-11-25. Discovery and canonical OAuth resource
-metadata describe the same registry. Company policy, Pause, named approvals,
+`e881e6f66ce7cd737d17dbeb945995aab83c30d8` and the checkout's pinned rer CLI.
+The catalogue below derives advertised protocol versions from that runtime.
+Discovery and canonical OAuth resource metadata describe the same registry. Company policy, Pause, named approvals,
 reviews and audit are at `/agents`; an agent credential cannot decide for a person.
 
 A paired installation accepts owner-bound Business tokens with explicit consent.
@@ -220,3 +220,11 @@ supported protocol revisions; it grants no additional native authority.
 Multi-sponsor, mail edges, resource refresh, timed/queued lifecycles, dual host
 and owner-native administration remain unproved; shared clauses stay PARTIAL.
 No provider cost, enforceable spend cap or broader AGENT-001 authority is claimed.
+
+The specialist native journey starts from the seed origin and its public resource
+metadata, follows the authentication challenge, initializes every advertised
+protocol version and discovers the preparation prompt and tool schemas. Each
+version completes the native preparation and separate person review under both
+autonomous and review policy. Its final schedule, time and payroll pages are
+checked at desktop and phone widths during normal verification. Screenshots
+can be saved separately.
