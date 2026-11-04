@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "3dcd813c561bf3a98017de050e8c5cfc89f7a5cedf150674768b5e52c1bbcf65",
+      "sha256": "27947515c7f4effccfa61d979a2825f7a2a7011c06c77d3dd39962715c714628",
       "executable": false
     },
     "DEMO.md": {
@@ -402,7 +402,7 @@
       "executable": false
     },
     "docs/AGENTS-API.md": {
-      "sha256": "d4c33a95bf98c560baa9e34c27227dfb747180cbc0f6ebc690149da99e10c816",
+      "sha256": "416d11992b4fffd2999dee8036081653a9636c490cdaa4cf783b2ffcf5c101eb",
       "executable": false
     },
     "docs/BACKUP-RESTORE.md": {
@@ -1430,7 +1430,7 @@
       "executable": false
     },
     "src/lanyard/domain/activity.ts": {
-      "sha256": "12b69a745d9ff47d728911914c073ef639dabbd0fe9d46d8c5536fbe5f75a13d",
+      "sha256": "9a53d6123ed107302d8b494eadc8fdd6565c972178a848bedc45e253af5ca23c",
       "executable": false
     },
     "src/lanyard/domain/ai-provider.ts": {
@@ -2038,7 +2038,7 @@
       "executable": false
     },
     "src/lanyard/ui/admin.ts": {
-      "sha256": "8e4dac5b352cca99f47db51f25841b9286f2a68a50cd6ae2c7f6f5a4e5dacaf9",
+      "sha256": "1c664a65e8e2205c7911304220c52bf9ebd7b8304ef41d3cc1d4fe645bb6473b",
       "executable": false
     },
     "src/lanyard/ui/ai-schedule.ts": {
@@ -4726,7 +4726,7 @@
       "executable": false
     },
     "tests/agent-native.mjs": {
-      "sha256": "65e477177c6b1d33e74d901ecd153eff6ea1b42b2700a3f79aa16d0625f263e2",
+      "sha256": "8818cb531ea0c687a6c125dedc54b4c5f6f0ff0f3f4b93f1966a012a7f9d2245",
       "executable": false
     },
     "tests/agent-owner.mjs": {
@@ -4782,7 +4782,7 @@
       "executable": false
     },
     "tests/comparison-scope-journey.mjs": {
-      "sha256": "e8d74c266046bd12cdd9e54cb2da33e023f74b04c4e9985d8f9f88ddb6629b3e",
+      "sha256": "d3cea30ed588e28ed652d08348d6763c6a3ea5ef2071bf90ca3d056c132c5e03",
       "executable": false
     },
     "tests/cost-journey.mjs": {
@@ -4882,7 +4882,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "425cd739b762d0dbcb9af68a6748f863eb203d0d0e1e122e4e3a82555415bd18",
+      "sha256": "99704dec5fcf141e114e8609e32cc1c9b12b0974956a6bf1abb800a382d53cf2",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {

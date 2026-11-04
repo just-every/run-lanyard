@@ -6,6 +6,7 @@ import {harness} from './harness.mjs'
 import {optimizationFixture} from './fairness-optimization-fixture.mjs'
 import {overtimeFixture} from './tradeoff-journey.mjs'
 import {days,local,pin} from './workforce-journey.mjs'
+import {comparisonAttributionFixture} from './agent-native.mjs'
 
 const grant={label:'Comparison planner',scopes:['comparison.read'],cafes:['Ocean Beach'],comparisonConsent:true}
 const scopedPath=f=>f.path.replace('/fairness/','/agent/fairness/')
@@ -163,10 +164,53 @@ export async function comparisonScopeBrowser() {
    await page.reload({waitUntil:'networkidle'})
    assert.equal(await page.locator('.credential').count(),0,'Reload never redisplays the credential')
    assert.equal((await h.state()).agentKeys.length,1,'Reload cannot create a duplicate grant')
-   assert.ok((await page.locator('body').innerText()).includes(`Scoped browser planner · Ocean Beach · week ${f.week}`))
+   assert.ok((await page.locator('body').innerText()).includes('Scoped browser planner for Jordan Venue'))
+   assert.ok((await page.locator('body').innerText()).includes(`Credential: Scoped browser planner · Ocean Beach · week ${f.week}`))
    await shot('comparison-grant-activity')
    await page.getByRole('button',{name:'Revoke',exact:true}).click();await page.waitForLoadState('networkidle');await read(h,f,{token},401)
    assert.ok((await page.locator('body').innerText()).includes('Revoked'));await shot('comparison-revoked')
   }finally{await context.close();await h.close()}
- }}finally{await browser.close()}
+ }
+ await comparisonAttributionBrowser(browser)
+ }finally{await browser.close()}
+}
+
+async function comparisonAttributionBrowser(browser) {
+ const fixture=await comparisonAttributionFixture(),{h,expected,historical,label}=fixture
+ const context=await browser.newContext({viewport:{width:1440,height:1000}})
+ try {
+  const [name,...value]=h.owner.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])
+  await context.route('**/*',async route=>{
+   const p=new URL(route.request().url()).pathname
+   if(p.startsWith('/fonts/')||p.startsWith('/brand/')||/\.(css|js)$/.test(p))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',p.slice(1))),contentType:p.endsWith('.css')?'text/css':p.endsWith('.js')?'application/javascript':p.endsWith('.svg')?'image/svg+xml':'font/woff2'})}catch{}
+   await route.continue()
+  })
+  const page=await context.newPage()
+  const inspect=async()=>{
+   await fixture.check()
+   await page.goto(h.origin+'/app/agent',{waitUntil:'networkidle'})
+   const entries=page.locator('[data-comparison-read]')
+   assert.equal(await entries.count(),expected.length+historical.length)
+   for(const item of expected) {
+    const entry=page.locator(`[data-comparison-read="${item.id}"]`)
+    assert.equal(await entry.locator('strong').innerText(),item.label,'Each panel actor matches its retained receipt and shared-door audit')
+    assert.equal(await entry.locator('time').getAttribute('datetime'),item.at)
+    assert.ok((await entry.innerText()).includes(`Credential: ${label} · Ocean Beach · week ${fixture.f.week}`))
+   }
+   for(const id of historical)assert.equal(await page.locator(`[data-comparison-read="${id}"] strong`).innerText(),'Attribution unavailable')
+   assert.equal(await page.locator('[data-comparison-read] plan, [data-comparison-read] review, [data-comparison-read] venue, [data-comparison-read] comparison').count(),0,'Names are text, never markup')
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+  }
+  await inspect();await h.restart();await inspect()
+  await fixture.revoke();await inspect();await h.restart();await inspect()
+  // Assertions use one width. The same populated changed screen is also shown
+  // once on a phone for the candidate's visual proof.
+  if(process.env.TRADEOFF_SCREENS){
+   await mkdir(process.env.TRADEOFF_SCREENS,{recursive:true})
+   for(const width of [1440,390]){
+    await page.setViewportSize({width,height:1000})
+    await page.screenshot({path:join(process.env.TRADEOFF_SCREENS,`comparison-attribution-${width}.png`),fullPage:true})
+   }
+  }
+ } finally {await context.close();await h.close()}
 }

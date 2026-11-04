@@ -4,15 +4,17 @@ import assert from 'node:assert/strict'
 import {randomUUID,webcrypto} from 'node:crypto'
 import {harness} from './harness.mjs'
 import initializeHistory from './agent-history.mjs'
+import {optimizationFixture} from './fairness-optimization-fixture.mjs'
 import {signJws,policyEnvelope,autonomousPolicy} from '../src/modules/agent-door/conformance/crypto.mjs'
 
 export default async function ({tool}) {
  const visible=await tool('lanyard.context.read',{})
  assert.equal(visible.status,200)
  await identityProof()
+ await comparisonAttributionProof()
 }
 
-export async function identityProof() {
+async function signedInstallation() {
  const pair=await webcrypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify'])
  const publicKey=await webcrypto.subtle.exportKey('jwk',pair.publicKey),kid=randomUUID(),issuer='https://synthetic-business.example.invalid',installationId=randomUUID()
  const keys={[kid]:publicKey},owner='business-owner',member='business-member'
@@ -25,6 +27,13 @@ export async function identityProof() {
   assert.equal((await h.send('/api/rer/agent-policy',{policy:policy.policy})).status,200)
   const token=overrides=>signJws(pair.privateKey,kid,'at+jwt',{iss:issuer,aud:h.origin+'/mcp',sub:owner,email:h.auth.OWNER_EMAIL,act:{sub:'synthetic-coordinator',name:'Sage',specialist:'workforce coordinator'},client_id:'synthetic-client',scope:'workforce:read workforce:prepare',business,consent:'synthetic-consent',jti:randomUUID(),iat:now(),exp:now()+300,...overrides})
   const call=async(overrides={},name='lanyard.context.read',args={},requestState)=>h.send('/mcp',{jsonrpc:'2.0',id:'identity',method:'tools/call',params:{name,arguments:args,requestState,_meta:{'io.modelcontextprotocol/protocolVersion':'2026-07-28'}}},'',{authorization:'Bearer '+await token(overrides),'mcp-protocol-version':'2026-07-28','mcp-method':'tools/call','mcp-name':name})
+  return {h,signer,business,member,token,call}
+ } catch(error) {await h.close();throw error}
+}
+
+export async function identityProof() {
+ const {h,signer,business,member,token,call}=await signedInstallation()
+ try {
   const valid=await call();assert.equal(valid.status,200);assert.equal(valid.value.result.isError,false)
   const nativeId=valid.value.result.structuredContent.actor.id
   assert.equal((await call({sub:'unknown-subject'})).status,401,'a matching owner email never selects an unknown subject')
@@ -106,4 +115,102 @@ export async function identityProof() {
   assert.equal(audit.differs_from_policy,0)
   console.log('PASS LANYARD-IDENTITY: valid scoped owner; unknown subject; inadmissible workforce member; missing consent; changed-email refusal with unchanged binding; native admin limits; immediate deactivation; audit differs_from_policy=0')
  } finally {await h.close()}
+}
+
+// Shared by normal agent conformance and the existing comparison browser journey.
+// Only the historical receipt is seeded: current reads use signed native doors.
+export async function comparisonAttributionFixture() {
+ const {h,call}=await signedInstallation()
+ try {
+  const f=await optimizationFixture(h),sponsor='Jordan <venue> & "owner"'
+  assert.equal((await h.send('/auth/display-name',{displayName:sponsor},h.owner)).status,200)
+  const label='Shared <comparison> & "grant"',key=await h.cmd('agent.create',{label,scopes:['comparison.read'],cafes:['Ocean Beach'],comparisonConsent:true,companyAgents:true})
+  const agents=[{id:'synthetic-lanyard-1',name:'Sage <plan> & "crew"'},{id:'synthetic-lanyard-2',name:'River & <review>'}]
+  const workforce=async()=>(await h.db.batch(['l_meta','l_staff','l_records','l_payroll_claims','l_commands'].map(table=>h.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`)))).map(result=>result.results)
+  const expected=[],before=await h.state(),beforeRecords=await workforce(),native=await f.read()
+  for(const agent of [...agents,{id:'lanyard-key:'+key.id,name:label}]) {
+   const seen=new Set((await h.state()).events.map(e=>e.id))
+   const r=agent===agents[0]||agent===agents[1]
+    ?await call({scope:'comparison.read',act:{sub:agent.id,name:agent.name,specialist:'workforce coordinator'}},'lanyard.tradeoff.compare',{site:'Ocean Beach',week:f.week})
+    :await h.send(f.path.replace('/fairness/','/agent/fairness/'),undefined,'',{authorization:'Bearer '+key.token})
+   assert.equal(r.status,200,r.text)
+   const result=r.value.result?.structuredContent??r.value
+   assert.equal(result.status,'known');assert.equal(result.low.cost.total.status,'small-cell');assert.equal(result.low.cost.total.cents,null)
+   assert.deepEqual(result.low.assignments,native.low.assignments)
+   for(const p of [f.alex,f.ben,f.manager,f.foreign])for(const value of [p.name,p.email,p.payrollId])assert.ok(!JSON.stringify(result).includes(value),'Comparison remains redacted')
+   const events=(await h.state()).events.filter(e=>!seen.has(e.id)&&e.action==='comparison.read')
+   assert.equal(events.length,1,'Each actual read creates one retained receipt')
+   const event=events[0]
+   assert.equal(event.agentId,agent.id);assert.equal(event.agentName,agent.name);assert.equal(event.sponsorName,sponsor)
+   assert.equal(event.actorLabel,`${agent.name} for ${sponsor}`)
+   assert.equal(JSON.parse(event.entityId).keyId,key.id,'All three actors use the same explicitly consented grant')
+   expected.push({id:event.id,agentId:agent.id,agentName:agent.name,sponsorName:sponsor,label:`${agent.name} for ${sponsor}`,operationId:event.operationId,at:event.at})
+  }
+  // These old receipts predate retained attribution. A current matching key is
+  // deliberately present, and even incomplete names must not be backfilled.
+  const historical=['synthetic-lanyard-history-1','synthetic-lanyard-history-2','synthetic-lanyard-history-3']
+  for(const [i,id] of historical.entries())await h.db.prepare('INSERT INTO l_events(id,actor_id,actor_role,action,entity_id,at,agent_id,agent_name,sponsor_name) VALUES(?,?,?, ?,?,?,?,?,?)')
+   .bind(id,before.actor.id,'agent','comparison.read',JSON.stringify({keyId:key.id,site:'Ocean Beach',week:f.week}),new Date().toISOString(),i?'synthetic-historical-agent':null,i===1?'Retained old agent':null,i===2?'Retained old sponsor':null).run()
+  const historicalEvents=(await h.state()).events.filter(e=>historical.includes(e.id))
+  assert.equal(historicalEvents.length,3);assert.ok(historicalEvents.every(e=>e.actorLabel===null))
+  assert.deepEqual(await workforce(),beforeRecords,'Reads and receipt projection do not change persisted workforce records')
+  // A later account name and registration update cannot rename the old acts.
+  assert.equal((await h.send('/auth/display-name',{displayName:'Current owner name'},h.owner)).status,200)
+  const seen=new Set((await h.state()).events.map(e=>e.id))
+  const renamed=await call({scope:'comparison.read',act:{sub:agents[0].id,name:'Current agent name',specialist:'workforce coordinator'}},'lanyard.tradeoff.compare',{site:'Ocean Beach',week:f.week})
+  assert.equal(renamed.value.result.isError,false)
+  const current=(await h.state()).events.filter(e=>e.action==='comparison.read'&&!seen.has(e.id))
+  assert.equal(current.length,1)
+  expected.push({id:current[0].id,agentId:agents[0].id,agentName:'Current agent name',sponsorName:'Current owner name',label:'Current agent name for Current owner name',operationId:current[0].operationId,at:current[0].at})
+  const check=async()=>{
+   const state=await h.state(),audit=await h.send('/agents/api/audit',undefined,h.owner)
+   assert.equal(audit.status,200);assert.equal(audit.value.differs_from_policy,0)
+   for(const item of expected) {
+    const receipt=await h.db.prepare('SELECT agent_id,agent_name,sponsor_name,operation_id,at FROM l_events WHERE id=?').bind(item.id).first()
+    assert.deepEqual(receipt,{agent_id:item.agentId,agent_name:item.agentName,sponsor_name:item.sponsorName,operation_id:item.operationId,at:item.at})
+    const event=state.events.find(e=>e.id===item.id),row=audit.value.rows.find(r=>r.operation_id===item.operationId&&r.tool==='lanyard.tradeoff.compare'&&r.outcome==='done')
+    assert.ok(row,'Receipt reconciles to a completed shared-door audit')
+    assert.equal(event.actorLabel,item.label);assert.equal(row.label,item.label)
+    assert.equal(row.agent.id,item.agentId);assert.equal(row.agent.name,item.agentName)
+    assert.equal(row.sponsor.id,before.actor.id);assert.equal(row.sponsor.name,item.sponsorName)
+   }
+   assert.deepEqual(await workforce(),beforeRecords,'Projection and refusals preserve persisted workforce records')
+   const ownerPage=await h.send('/app/agent',undefined,h.owner);assert.equal(ownerPage.status,200)
+   for(const cookie of [f.manager.cookie,f.foreign.cookie,f.alex.cookie]) {
+    assert.ok(!(await h.state(cookie)).events.some(e=>e.action==='comparison.read'))
+    const page=await h.send('/app/agent',undefined,cookie)
+    assert.ok(!page.text.includes('data-comparison-read='));assert.ok(!page.text.includes('Comparison read activity'))
+   }
+   return {state,ownerPage}
+  }
+  const refused=async()=>{
+   const events=(await h.state()).events.filter(e=>e.action==='comparison.read')
+   const foreign=await call({scope:'comparison.read'},'lanyard.tradeoff.compare',{site:'Mission',week:f.week})
+   assert.equal(foreign.value.result._meta['com.runeditrun/error'].code,'resource_unavailable')
+   assert.deepEqual((await h.state()).events.filter(e=>e.action==='comparison.read'),events,'Foreign cafe refusal creates no comparison receipt')
+  }
+  await h.finishSetup();await refused();await check()
+  const revoke=async()=>{
+   const events=(await h.state()).events.filter(e=>e.action==='comparison.read')
+   await h.cmd('agent.revoke',{id:key.id})
+   for(const agent of agents){
+    const r=await call({scope:'comparison.read',act:{sub:agent.id,name:agent.name,specialist:'workforce coordinator'}},'lanyard.tradeoff.compare',{site:'Ocean Beach',week:f.week})
+    assert.equal(r.value.result._meta['com.runeditrun/error'].code,'resource_unavailable');assert.equal(r.value.result.structuredContent,undefined)
+   }
+   const local=await h.send(f.path.replace('/fairness/','/agent/fairness/'),undefined,'',{authorization:'Bearer '+key.token})
+   assert.equal(local.status,401)
+   assert.deepEqual((await h.state()).events.filter(e=>e.action==='comparison.read'),events,'Revoked reads cannot append or disclose receipts')
+   await check()
+  }
+  return {h,f,key,label,expected,historical,check,revoke}
+ } catch(error) {await h.close();throw error}
+}
+
+export async function comparisonAttributionProof() {
+ const fixture=await comparisonAttributionFixture()
+ try {
+  await fixture.h.restart();await fixture.check()
+  await fixture.revoke();await fixture.h.restart();await fixture.check()
+  console.log('PASS BASE-AGENT-008: two signed agents and a local key retain distinct attribution on one grant; historical attribution unavailable; audit reconciliation, restart, revocation, owner-only visibility, foreign refusal, redaction and unchanged workforce')
+ } finally {await fixture.h.close()}
 }

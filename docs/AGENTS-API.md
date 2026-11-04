@@ -122,7 +122,16 @@ Use `GET /api/lanyard/agent/fairness/compare?week=YYYY-MM-DD&site=CAFE&weeks=8` 
 
 Each USD value is `{status, cents, reasons}`. `known` is an aggregate total, `small-cell` with null cents withholds a total with fewer than three nonzero employee contributors or a difference with fewer than three changed employees, and `unknown` with null cents retains missing input reasons. No withheld or unknown value is zero. Missing fairness inputs return an explicit unknown comparison rather than inventing alternatives. Scheduled weekly overtime remains an estimate, not payable or statutory overtime.
 
-Each scoped read is recorded in owner activity with key, cafe and week. Revocation, expiry and owner-version changes refuse subsequent reads. Archives and Staff CSV imports never grant scopes. Fairness draft preparation and publication still require a native owner or home-cafe manager session.
+Each scoped read is recorded in the owner's **Comparison read activity** with
+the retained `<agent> for <person>` attribution, cafe, period and time. Signed
+company agents sharing one consented grant keep their distinct agent names;
+a local preparation key uses its retained agent name and sponsor. The credential
+label appears separately as context. Historical receipts missing agent or sponsor
+attribution say **Attribution unavailable**; current credential or account names
+never supply a historical actor. Revocation preserves these receipts and refuses
+subsequent reads. Expiry and owner-version changes also refuse subsequent reads.
+Archives and Staff CSV imports never grant scopes. Fairness draft preparation
+and publication still require a native owner or home-cafe manager session.
 
 ## Forecasts and measured learning proposals
 
