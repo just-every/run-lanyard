@@ -117,7 +117,7 @@ export async function payScheduleApi(h) {
 }
 
 export async function payScheduleBrowser() {
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try {for(const width of [1440,390]) {
   const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
   try {
@@ -153,4 +153,92 @@ export async function payScheduleBrowser() {
    await earnings.scrollIntoViewIfNeeded();await shot('pay-employee-period');assert.deepEqual(errors,[])
   } finally {await context.close();await h.close()}
  }} finally {await browser.close()}
+}
+
+
+// TIME-004 uses the same native form and browser patterns as scheduled payroll.
+export async function periodSignoffBrowser() {
+ for(const width of [1440,390]) {
+  const h=await harness({now:'2026-11-04T08:00:00Z'}),browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox','--use-mock-keychain','--password-store=basic']}),context=await browser.newContext({viewport:{width,height:1000}})
+  context.setDefaultTimeout(15000)
+  try {
+   const manager=await h.person('Morgan','manager'),alex=await h.person('Alex'),page=await context.newPage(),errors=[]
+   page.on('pageerror',e=>errors.push(e.message))
+   await h.finishSetup()
+   await context.route('**/*',async route=>{
+    const path=new URL(route.request().url()).pathname
+    if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:(path.endsWith('.css')?['text','css']:path.endsWith('.js')?['application','javascript']:path.endsWith('.svg')?['image','svg+xml']:['font','woff2']).join('/')})}catch{}
+    await route.continue()
+   })
+   const as=async cookie=>{const [name,...value]=cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])}
+   const submit=async(form,label)=>{
+    await Promise.all([page.waitForResponse(r=>r.url().includes('name=period.')),form.getByRole('button',{name:label,exact:true}).click()])
+    await page.waitForLoadState('networkidle')
+   }
+   const proof=async key=>{
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${key} fits ${width}px`)
+    if(width===1440){
+     for(const control of await page.locator('button:visible, a[aria-label]:visible, summary[aria-label]:visible').all()){
+      const label=(await control.innerText()).trim()
+      if(!label)assert.ok(await control.getAttribute('data-tooltip'),'icon-only controls have tooltips')
+     }
+     const font=await page.locator('#signoff button, #pay-periods button').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize))
+     assert.ok(font>=13,'signoff controls have readable text')
+    }
+    if(process.env.PAY_SCREENS){await mkdir(process.env.PAY_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.PAY_SCREENS,`${key}-${width}.png`),fullPage:true})}
+   }
+   let period=await h.cmd('period.save',{start:'2026-10-12',end:'2026-10-18'})
+   const time=await h.cmd('time.prepare',{staffId:manager.id,start:'2026-10-13T15:00:00Z',end:'2026-10-13T23:00:00Z',breakMinutes:30,reason:'Reviewed manager paper hours'})
+   const other=await h.cmd('time.prepare',{staffId:alex.id,start:'2026-10-14T15:00:00Z',end:'2026-10-14T23:00:00Z',breakMinutes:30,reason:'Reviewed employee paper hours'})
+   await h.cmd('time.approve',pin(other),manager.cookie)
+   await as(manager.cookie);await page.goto(h.origin+'/app/time?week=2026-10-12',{waitUntil:'networkidle'})
+   if(width===1440){assert.equal(await page.getByRole('button',{name:'Sign off my hours',exact:true}).count(),1);assert.equal(await page.getByRole('button',{name:'Sign off as manager',exact:true}).count(),0)}
+   await h.cmd('clocklanguage.save',{language:'es'},manager.cookie)
+   await page.reload({waitUntil:'networkidle'})
+   await proof('period-own-hours')
+   if(width===1440)assert.equal(await page.getByRole('button',{name:'Dar conformidad a mis horas',exact:true}).count(),1)
+   // Approval changes a time source without changing the period revision. The old form must refuse.
+   await h.cmd('time.approve',pin(time))
+   await submit(page.locator('#signoff form'),'Dar conformidad a mis horas')
+   if(width===1440){assert.equal(await page.locator('.notice.error').count(),1);assert.deepEqual((await h.state()).periods.find(p=>p.id===period.id).signoffs,[])}
+   await submit(page.locator('#signoff form'),'Dar conformidad a mis horas')
+   period=(await h.state()).periods.find(p=>p.id===period.id)
+   if(width===1440){
+    assert.deepEqual(period.signoffs.map(x=>[x.role,x.staffId]),[['employee',manager.id]])
+    assert.equal(await page.locator('#signoff').count(),0)
+   }
+   await page.goto(h.origin+'/app/payroll',{waitUntil:'networkidle'})
+   const item=()=>page.locator('#period-'+period.id)
+   if(width===1440){assert.equal(await item().getByRole('button',{name:'Dar conformidad como encargado',exact:true}).count(),1);assert.equal(await item().getByRole('button',{name:'Lock period',exact:true}).count(),0)}
+   await proof('period-manager-review')
+   await submit(item(),'Dar conformidad como encargado')
+   period=(await h.state()).periods.find(p=>p.id===period.id)
+   const employeeSources=(await h.state(alex.cookie)).periodSignoffSources[period.id].employee
+   period=await h.cmd('period.signoff',{...pin(period),role:'employee',sources:employeeSources},alex.cookie)
+   await as(h.owner);await page.reload({waitUntil:'networkidle'})
+   await submit(item(),'Lock period')
+   const locked=(await h.state()).periods.find(p=>p.id===period.id)
+   if(width===1440){assert.equal(locked.status,'locked');assert.deepEqual(locked.locked.map(t=>t.minutes),[450,450])}
+   await proof('period-owner-locked')
+   await item().getByText('Reopen',{exact:true}).click()
+   await item().getByLabel('Reason',{exact:true}).fill('Review both signoffs again')
+   await submit(item(),'Reopen period')
+   const reopened=(await h.state()).periods.find(p=>p.id===period.id)
+   if(width===1440){assert.deepEqual(reopened.signoffs,[]);assert.equal(reopened.reopens[0].signoffs.length,3)}
+   await h.restart()
+   await as(manager.cookie);await page.goto(h.origin+'/app/time?week=2026-10-12',{waitUntil:'networkidle'})
+   await submit(page.locator('#signoff form'),'Dar conformidad a mis horas')
+   await h.cmd('clocklanguage.save',{language:'en'},manager.cookie)
+   await page.goto(h.origin+'/app/payroll',{waitUntil:'networkidle'})
+   await submit(item(),'Sign off as manager')
+   period=(await h.state()).periods.find(p=>p.id===period.id)
+   period=await h.cmd('period.signoff',{...pin(period),role:'employee',sources:(await h.state(alex.cookie)).periodSignoffSources[period.id].employee},alex.cookie)
+   await as(h.owner);await page.reload({waitUntil:'networkidle'})
+   await submit(item(),'Lock period')
+   if(width===1440){
+    assert.equal((await h.state()).periods.find(p=>p.id===period.id).status,'locked')
+    assert.deepEqual(errors,[])
+   }
+  } finally {await context.close();await browser.close();await h.close()}
+ }
 }

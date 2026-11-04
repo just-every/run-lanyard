@@ -540,8 +540,8 @@ Judged from the code and tests at commit `4872aa3ed919f92bb8de3f1ef11f27e3524d28
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 10 | 6 | 0 | 16 |
-| Target and push further | 40 | 53 | 31 | 124 |
-| All | 50 | 59 | 31 | 140 |
+| Target and push further | 41 | 52 | 31 | 124 |
+| All | 51 | 58 | 31 | 140 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -605,7 +605,7 @@ Judged from the code and tests at commit `4872aa3ed919f92bb8de3f1ef11f27e3524d28
 | `BREAK-001` | Timed meals breaks and exceptions | target | done | `src/lanyard/domain/breaks.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/domain/approvals.ts`; `src/lanyard/ui/breaks.ts`; `public/lanyard.js`; `tests/lanyard.test.mjs` |  |
 | `BREAK-002` | Automatic meal deductions with employee attestation | target | done | `src/lanyard/domain/mealrules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/mealrules.ts`; `public/lanyard.js`; `tests/lanyard.test.mjs` |  |
 | `TIME-003` | Missed punches employee review and exception resolution | target | done | `src/lanyard/domain/time.ts`; `src/lanyard/domain/approvals.ts`; `src/lanyard/ui/cases.ts`; `tests/lanyard.test.mjs` |  |
-| `TIME-004` | Payroll period locks and controlled reopening | target | partial | `src/lanyard/domain/periods.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/ui/periods.ts`; `tests/lanyard.test.mjs` | Staff/manager signoff, locks, reasoned reopening and closed-period adjustments ship. period.signoff always labels a manager's signoff as manager, while period.lock requires an employee signoff for every person with time; a manager with worked hours cannot supply their required employee signoff. |
+| `TIME-004` | Payroll period locks and controlled reopening | target | done | `tests/lanyard.test.mjs` TIME-004: owner period definition, independent time approval, distinct personal and manager source-bound signoffs, stale and duplicate refusal, effective authority, locked writes, reopening, payroll holds, closure and signed adjustments; `tests/payschedules-journey.mjs` periodSignoffBrowser: English and Spanish native own-hours and manager review forms, owner locking, reopening and restart at 1440 and 390. |  |
 | `TIME-005` | Punch rounding and snap-to-schedule | target | done | `src/lanyard/domain/rounding.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/rounding.ts`; `src/lanyard/ui/time.ts`; `tests/lanyard.test.mjs` |  |
 | `TIME-006` | Early clock-in window and unscheduled punches | target | done | `src/lanyard/domain/clockrules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/ui/clockrules.ts`; `tests/lanyard.test.mjs` |  |
 | `TIME-007` | Forgotten clock-out reminder cap and provisional close | target | done | `src/lanyard/domain/closerules.ts`; `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `src/lanyard/ui/closerules.ts`; `tests/lanyard.test.mjs`; `tests/provisional-labor-journey.mjs` |  |

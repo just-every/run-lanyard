@@ -67,7 +67,7 @@ const human = [
  ['log.save','Owner or cafe manager','site, date, category (sales, incident, maintenance, staffing or menu), text, mentions?: that cafe\'s managers, shiftId?, staffId?, timesheetId? (an attendance exception), attachments?: up to 5 files, 10 MB each (multipart attachments or JSON {name,type,data: base64}); id + revision to correct (keeps the earlier version)'],
  ['log.read','Owner or cafe manager','id, revision: acknowledges a logbook entry you did not write (read receipt)'],
  ['period.save','Owner','start, end (YYYY-MM-DD, inclusive venue dates, up to 31 days, no overlap): defines a pay period'],
- ['period.signoff','Linked staff or manager','id, revision: signs off an open pay period (staff: one holding your time)'],
+ ['period.signoff','Linked staff or manager','id, revision, optional role and sources: employee signs only own hours; manager reviews the whole period; explicit role requires the reviewed source revisions'],
  ['period.lock','Owner','id, revision: locks an open period whose time is all approved, with a manager and every employee signed off'],
  ['period.reopen','Owner','id, revision, reason: reopens a locked period and clears its signoffs'],
  ['period.close','Owner','id, revision, reference: closes a locked period whose time is all exported; later time is a linked adjustment'],
