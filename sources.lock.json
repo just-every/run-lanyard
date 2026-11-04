@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "097830eb00247f08299a3c8f19783fabf2d88e091b401fd4ee773f8227d27618",
+      "sha256": "7fe61a8dfbcef5f4c682afc6f4a6ad05f225fe18df11d2c8b093b1fbbc19eabf",
       "executable": false
     },
     "DEMO.md": {
@@ -402,7 +402,7 @@
       "executable": false
     },
     "docs/AGENTS-API.md": {
-      "sha256": "d4c33a95bf98c560baa9e34c27227dfb747180cbc0f6ebc690149da99e10c816",
+      "sha256": "105ae10ff88aca00f4c3495ff76f9e3e62801e7c2c0de9b86ac14fb917416158",
       "executable": false
     },
     "docs/BACKUP-RESTORE.md": {
@@ -1386,7 +1386,7 @@
       "executable": false
     },
     "src/lanyard/agent-door/tools.ts": {
-      "sha256": "f051e4b66c1a98d37ece5243a74522958ab0e9fc60f7b31f444ebe5607055025",
+      "sha256": "9ef624b907a61868aa3f9be9e4beb748a24c160e05e3b243c8e87aaf210f5ebc",
       "executable": false
     },
     "src/lanyard/archive-policy.mjs": {
@@ -1721,8 +1721,12 @@
       "sha256": "7ee40b5cf0e11fa357b777c59e2cb302d08f8a59f7b240cc5969a27dcb1dc08f",
       "executable": false
     },
+    "src/lanyard/domain/payroll-selection.ts": {
+      "sha256": "b25d68ea48870d825a2180acf6cfaed67fb82ad27c172958437796d208baf200",
+      "executable": false
+    },
     "src/lanyard/domain/payroll.ts": {
-      "sha256": "f953b45d1639caac05efaec8e215a2f7d451e25735c5dc8657211c3c91628c68",
+      "sha256": "d979fea0a262f53b8f1273bea287af95f99de714899927a68eb39b7f30df481b",
       "executable": false
     },
     "src/lanyard/domain/payschedules.ts": {
@@ -4714,7 +4718,7 @@
       "executable": false
     },
     "tests/agent-history.mjs": {
-      "sha256": "430369e9feb3e73e9410a82f233b91ad467f11f377b39c54f0ad22ceae7957b7",
+      "sha256": "f69bf6a22746db37dc4828116720699d0e048316d8efdb4b3222a6f2143a4dcb",
       "executable": false
     },
     "tests/agent-learning-history.mjs": {
@@ -4726,7 +4730,7 @@
       "executable": false
     },
     "tests/agent-native.mjs": {
-      "sha256": "65e477177c6b1d33e74d901ecd153eff6ea1b42b2700a3f79aa16d0625f263e2",
+      "sha256": "37f3842db8a9c168829b0b473a05d9be8c4da21a6c7ecb9649d3d5021772077f",
       "executable": false
     },
     "tests/agent-owner.mjs": {

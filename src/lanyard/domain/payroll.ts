@@ -15,6 +15,7 @@ import {regularLines} from './segmentpay'
 import {provisional} from './closerules'
 import {overtimeInputs} from './payschedules'
 import {heldByPeriod} from './periods'
+import {payrollTimesheets} from './payroll-selection'
 function cell(value:unknown,numeric=false) { let s=String(value??'');if(!numeric&&/^[\s]*[=+\-@\t\r]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s }
 // pay_code: "regular" is net worked time; "meal premium" and "rest premium" are BREAK-001 premium inputs
 // (minutes of premium pay at the regular rate, not worked time), exported as signed differences like hours.
@@ -41,14 +42,14 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
   const exportTemplate=p.templateId?templateSnapshot(c,p.templateId):undefined
   const ids=p.ids?.map((v:unknown)=>text(v,'time ID'));if(ids)need(new Set(ids).size===ids.length,'Duplicate timesheet IDs')
   // TIME-004: time in an open defined pay period waits for the period's lock.
-  const unclaimed=c.s.timesheets.filter(t=>t.status==='approved'&&!c.s.claims.some(cl=>cl.time_id===t.id&&cl.time_revision===t.revision)),available=unclaimed.filter(t=>!heldByPeriod(c.s,t))
-  const selected=ids?ids.map((id:string)=>{const t=available.find(r=>r.id===id);need(t,unclaimed.some(r=>r.id===id)?'Selected time is in an open pay period; lock the period first':'Selected time is not approved or is already exported',409);return t}):available
+  const {unclaimed,selected}=payrollTimesheets(c.s,ids)
+  if(ids)for(const id of ids)need(selected.some(t=>t.id===id),unclaimed.some(t=>t.id===id)?'Selected time is in an open pay period; lock the period first':'Selected time is not approved or is already exported',409)
   // TIME-007: a provisionally closed punch is never exported; it is listed as held until confirmed or corrected and approved.
   const held=[...c.s.clocks.filter(k=>provisional(c.s,k,c.now)).map(k=>({clockId:k.id,staffId:k.staffId,start:k.start,reason:'provisional close'})),...unclaimed.filter(t=>heldByPeriod(c.s,t)).map(t=>({timeId:t.id,staffId:t.staffId,start:t.start,reason:'pay period open'}))]
   const nonwork=[...(c.a.role==='owner'?sickLines(c):[]),...nonWorkLines(c),...arrivalLines(c),...(exportTemplate?[...payrollInputLines(c),...makeUpLines(c)]:[])],adjustments=await overtimeInputs(c)
   for(const l of adjustments)need(staff(c,l.staffId).payroll_id,'Set the staff payroll ID first',409)
   need((selected.length>0||adjustments.length>0||nonwork.length>0)&&selected.length<=500,`No approved unexported time, or too many entries${held.length?`; ${held.length} provisionally closed punch${held.length===1?'':'es'} held until confirmed`:''}`,409)
-  const lines=selected.sort((a:Row,b:Row)=>a.start.localeCompare(b.start)||a.id.localeCompare(b.id)).flatMap((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);const base={timeId:t.id,revision:t.revision,site:siteOf(c.s,t),staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,sourceStart:t.start,sourceEnd:t.end,corrects:t.corrects,rootId:t.rootId,rateBasis:priced(c.s,t.staffId,t)};return [...regularLines(c,t,base),...breakPremiumLines(c,t,base),...holidayLines(c,t,base),...premiumLines(c,t,base),...differentialLines(c,t,base)]})
+  const lines=selected.flatMap((t:Row)=>{const person=staff(c,t.staffId);need(person.payroll_id,'Set the staff payroll ID first',409);const base={timeId:t.id,revision:t.revision,site:siteOf(c.s,t),staffId:t.staffId,payrollId:person.payroll_id,start:t.start,end:t.end,sourceStart:t.start,sourceEnd:t.end,corrects:t.corrects,rootId:t.rootId,rateBasis:priced(c.s,t.staffId,t)};return [...regularLines(c,t,base),...breakPremiumLines(c,t,base),...holidayLines(c,t,base),...premiumLines(c,t,base),...differentialLines(c,t,base)]})
   for(const l of nonwork)need(l.payrollId,'Set the staff payroll ID first',409)
   lines.push(...adjustments,...nonwork)
   const classificationLines=exportTemplate?.classification==='policy'?classifiedLines(c,lines,exportTemplate):undefined
