@@ -880,6 +880,7 @@ test('FEEDBACK-001: after clock-out a low rating with a safety flag, an anonymou
 }))
 
 test('JOURNAL-001: a cafe manager keeps a private note with an attachment and a shared note on an employee; another cafe’s manager, the employee and an agent read only what each may; an edit keeps its version', () => run(async h => {
+  await h.finishSetup()
   const alex = await h.person('Alex'), priya = await h.person('Priya', 'manager'), remy = await h.person('Remy', 'manager')
   for (const [p, site] of [[alex, 'Ocean Beach'], [priya, 'Ocean Beach'], [remy, 'North Park']]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, site })
   const body = new FormData()
@@ -909,6 +910,57 @@ test('JOURNAL-001: a cafe manager keeps a private note with an attachment and a 
   await h.cmd('note.save', { id: secret.id, revision: secret.revision, date: '2026-10-12', category: 'attendance', visibility: 'private', text: 'Stale' }, priya.cookie, 409)
   const history = (await h.state()).notes.find(n => n.id === secret.id)
   assert.deepEqual([history.text, history.revision, history.versions.map(v => [v.revision, v.text, v.attachment.name])], ['Late twice; alarm plan working since Wednesday', edited.revision, [[1, 'Late twice this week; agreed a 6:45 alarm', 'conversation.txt']]])
+
+  // Link the native owner to an employee record; ownership still grants reads,
+  // but neither the owner nor a manager may create or edit their own notes.
+  const ownerPerson = await h.cmd('staff.save', { name: 'JournalOwner', email: h.auth.OWNER_EMAIL, payrollId: 'JOURNALOWNER', role: 'staff', active: true, site: 'Ocean Beach' })
+  assert.deepEqual([(await h.state()).actor.role, (await h.state()).actor.staffId], ['owner', ownerPerson.id])
+  const noteInput = { date: '2026-10-14', category: 'performance', visibility: 'private', text: 'synthetic-lanyard-1', attachment: { name: 'review.txt', type: 'text/plain', data: btoa('synthetic-lanyard-2') } }
+  const ownerNote = await h.cmd('note.save', { ...noteInput, staffId: ownerPerson.id }, priya.cookie)
+  const managerNote = await h.cmd('note.save', { ...noteInput, staffId: priya.id })
+  const managerShared = await h.cmd('note.save', { ...noteInput, staffId: priya.id, visibility: 'employee' })
+  const ownerRead = (await h.state()).notes.find(n => n.id === ownerNote.id)
+  assert.equal(ownerRead.text, noteInput.text, 'owner source-reader authority is retained for notes about their linked record')
+  const ownerFile = `/api/lanyard/notes/${ownerNote.id}/files/${ownerNote.attachment.id}`
+  assert.equal((await h.send(ownerFile, undefined, h.owner)).text, 'synthetic-lanyard-2')
+  const managerRead = (await h.state(priya.cookie)).notes
+  assert.ok(!managerRead.some(n => n.id === managerNote.id), 'manager still cannot read their private self note')
+  assert.equal((await h.send(`/api/lanyard/notes/${managerNote.id}/files/${managerNote.attachment.id}`, undefined, priya.cookie)).status, 404)
+  const ownShared = managerRead.find(n => n.id === managerShared.id)
+  assert.equal(ownShared.text, noteInput.text)
+  assert.equal(ownShared.versions, undefined)
+  assert.equal(ownShared.by, undefined)
+
+  const unchanged = async () => ({
+    notes: (await h.state()).notes,
+    files: (await h.db.prepare('SELECT id,note_id,name,type,size,sha256,hex(data) AS bytes,created_at FROM l_note_files ORDER BY id').all()).results,
+    events: (await h.state()).events,
+  })
+  const before = await unchanged()
+  for (const [cookie, person, existing] of [[h.owner, ownerPerson, ownerNote], [priya.cookie, priya, managerNote]]) {
+    for (const edit of [false, true]) {
+      // An edit resolves the retained subject even when another employee is supplied.
+      const input = { ...noteInput, staffId: edit ? alex.id : person.id, text: 'synthetic-lanyard-3', ...(edit ? { id: existing.id, revision: existing.revision } : {}) }
+      const refused = await h.cmd('note.save', input, cookie, 403)
+      assert.match(refused.error, /notes about yourself/)
+      assert.deepEqual(await unchanged(), before, 'JSON self-write changes no note, version, file or activity')
+      const form = new FormData()
+      for (const [name, value] of Object.entries(input)) if (name !== 'attachment') form.append(name, String(value))
+      form.append('attachment', new Blob(['synthetic-lanyard-4'], { type: 'text/plain' }), 'refused.txt')
+      const encoded = new Response(form), response = await h.mf.dispatchFetch(h.origin + '/app/action?name=note.save&returnTo=%2Fapp%2Fpeople', { method: 'POST', headers: { origin: h.origin, cookie, 'content-type': encoded.headers.get('content-type') }, body: await encoded.arrayBuffer() })
+      assert.equal(response.status, 200, 'the form returns its existing People error page')
+      assert.match(await response.text(), /role="alert">You cannot keep notes about yourself/)
+      assert.deepEqual(await unchanged(), before, 'multipart self-write changes no note, version, file or activity')
+    }
+  }
+  // Supported writes still complete after linking the owner, including edits.
+  const otherNote = await h.cmd('note.save', { ...noteInput, staffId: alex.id })
+  const otherEdit = await h.cmd('note.save', { ...noteInput, id: otherNote.id, revision: otherNote.revision, text: 'synthetic-lanyard-5' })
+  assert.equal(otherEdit.versions[0].text, noteInput.text)
+  await h.restart()
+  assert.deepEqual((await unchanged()).notes.find(n => n.id === ownerNote.id), ownerRead)
+  assert.equal((await h.send(ownerFile, undefined, h.owner)).text, 'synthetic-lanyard-2')
+  assert.equal((await h.state()).notes.find(n => n.id === otherNote.id).text, 'synthetic-lanyard-5')
 }))
 
 test('COVER-001: staff propose a two-person exchange, the coworker consents and a cafe manager approves; ineligible, unavailable, stale and competing swaps are refused and the original assignee keeps the shift until approval', () => run(async h => {
