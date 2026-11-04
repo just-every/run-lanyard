@@ -535,13 +535,13 @@ PAY-001 remaining gaps (the complete clause stays PARTIAL):
 
 ## Status
 
-Judged from the code and tests at commit `4872aa3ed919f92bb8de3f1ef11f27e3524d2864` (3 November 2026). POLICY-002’s interim owner boundary is rechecked by the named native HTTP and Settings journeys; ct’s 27 October approval with riders grants no completion, and POLICY-002 remains partial. The final candidate and exact-SHA execution receipts are supplied in the fleet report. BASE-001 retains its named 26 October live hosted installation evidence. Other clauses retain their existing evidence and gaps.
+Judged from the code and tests at commit `4872aa3ed919f92bb8de3f1ef11f27e3524d2864` (3 November 2026). POLICY-002’s interim owner boundary is rechecked by the named native HTTP and Settings journeys; ct’s 27 October approval with riders grants no completion, and POLICY-002 remains partial. TIME-002 is rechecked on the final candidate named in the fleet report, extending the native correction and payroll journey from commit `de3ff55a06409c6ec7d5732b1fe42b765cf2f63a` (4 November 2026). The final candidate and exact-SHA execution receipts are supplied in the fleet report. BASE-001 retains its named 26 October live hosted installation evidence. Other clauses retain their existing evidence and gaps.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 10 | 6 | 0 | 16 |
+| Published | 11 | 5 | 0 | 16 |
 | Target and push further | 40 | 53 | 31 | 124 |
-| All | 50 | 59 | 31 | 140 |
+| All | 51 | 58 | 31 | 140 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -552,7 +552,7 @@ Judged from the code and tests at commit `4872aa3ed919f92bb8de3f1ef11f27e3524d28
 | `ROSTER-002` | Conflict-checked revision publication | published | done | `src/lanyard/domain/roster.ts`; `src/lanyard/domain/storage.ts`; `tests/lanyard.test.mjs` |  |
 | `ROSTER-003` | Personal published schedule confirmation | published | partial | `src/lanyard/domain/roster.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` | Personal published shifts and revision-bound confirmations ship. No public-door assertion attempts a foreign, stale or superseded shift confirmation. |
 | `TIME-001` | Identity-bound phone capture and replay | published | done | `src/lanyard/domain/time.ts`; `src/lanyard/domain/storage.ts`; `src/lanyard/ui/commands.ts`; `tests/lanyard.test.mjs` |  |
-| `TIME-002` | Exact time approval and linked corrections | published | partial | `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `tests/lanyard.test.mjs` | Exact approvals, linked retained corrections and signed payroll differences ship. No public-door assertion attempts payroll export of the obsolete approved source while its correction awaits a decision. |
+| `TIME-002` | Exact time approval and linked corrections | published | done | `tests/lanyard.test.mjs` — TIME-002, AUDIT-001 and PAYROLL-001: exact approval, pending correction export refusal, retained lineage, once-only claims and immutable signed differences. Native missed-time preparation, independent exact approval, self and stale refusal, overlap and future-time refusal, submitted-correction export refusal before and after restart, superseded-draft refusal, current-source export, retained history and signed differences with immutable downloads. |  |
 | `PAYROLL-001` | Reviewed once-only payroll files and signed adjustments | published | done | `src/lanyard/domain/payroll.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` |  |
 | `PAYROLL-002` | Explicit manual provider acknowledgment | published | partial | `src/lanyard/domain/payroll.ts`; `tests/lanyard.test.mjs` | Manual provider references and attributed acknowledgment events ship. The cited journeys do not assert refusal of acknowledgment on a draft or stale batch revision. |
 | `AGENT-001` | Preparation-only delegated authority | published | done | `src/lanyard/credentials.ts`; `src/lanyard/http.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs`; `src/lanyard/agent-door/`; `tests/agent-native.mjs` (native public-door identity, exact-summary approval, replay, conflict and Pause proof) |  |
