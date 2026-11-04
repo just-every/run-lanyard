@@ -83,7 +83,8 @@ test('staff cannot change the sign-in email to another person’s staff identity
 
 test('availability, approved leave, conflicts, exact roster publication and personal confirmation', () => run(async h => {
   const alex = await h.person('Alex'), manager = await h.person('Priya', 'manager')
-  await h.cmd('availability.save', { start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' }, alex.cookie)
+  const availability = await h.cmd('availability.save', { start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' }, alex.cookie)
+  assert.deepEqual((await h.state(alex.cookie)).availability, [availability])
   const leave = await h.cmd('leave.request', { start: '2026-10-13T00:00:00Z', end: '2026-10-14T00:00:00Z', reason: 'Family day' }, alex.cookie)
   await h.cmd('leave.decide', { id: leave.id, revision: 1, decision: 'approved' }, alex.cookie, 403)
   await h.cmd('leave.decide', { id: leave.id, revision: 1, decision: 'approved' }, manager.cookie)
@@ -98,6 +99,48 @@ test('availability, approved leave, conflicts, exact roster publication and pers
   assert.equal(visible.length, 1)
   await h.cmd('shift.confirm', { id: visible[0].id, revision: visible[0].revision }, alex.cookie)
   assert.ok((await h.state()).events.some(e => e.action === 'roster.publish' && e.actorRole === 'manager'))
+
+  const assignments = (await h.state()).shifts, personalAssignments = (await h.state(alex.cookie)).shifts
+  const pending = await h.cmd('leave.request', { start: '2026-10-12T15:00:00Z', end: '2026-10-12T21:00:00Z', reason: 'Family appointment' }, alex.cookie)
+  assert.equal(pending.status, 'pending'); assert.equal(pending.revision, 1)
+  assert.equal(pending.decidedBy, undefined); assert.equal(pending.decidedAt, undefined)
+  assert.deepEqual((await h.state(alex.cookie)).shifts, personalAssignments, 'requesting leave does not unpublish or change the assignment')
+  const retained = s => ({ version: s.version, availability: s.availability, leave: s.leave, rosters: s.rosters, shifts: s.shifts, events: s.events })
+  const before = retained(await h.state())
+  assert.deepEqual(before.leave.find(r => r.id === pending.id), pending)
+  const refuseConflict = async () => {
+    const refused = await h.send('/api/lanyard/command', { name: 'leave.decide', input: { id: pending.id, revision: pending.revision, decision: 'approved' } }, manager.cookie)
+    assert.equal(refused.status, 409, refused.text)
+    assert.match(refused.value.error, /Approved leave would conflict with a published shift/)
+    assert.deepEqual(retained(await h.state()), before, 'refusal preserves the request, decision fields, all revisions, publication and activity')
+    assert.deepEqual((await h.state(alex.cookie)).leave.find(r => r.id === pending.id), pending)
+    assert.deepEqual((await h.state(alex.cookie)).shifts, personalAssignments)
+  }
+  await refuseConflict()
+  await h.restart()
+  assert.deepEqual(retained(await h.state()), before, 'the pending request and published assignment survive restart unchanged')
+  await refuseConflict()
+
+  const separate = await h.cmd('leave.request', { start: '2026-10-15T14:00:00Z', end: '2026-10-15T22:00:00Z', reason: 'Another family day' }, alex.cookie)
+  const requester = (await h.state(alex.cookie)).actor.id, decider = (await h.state(manager.cookie)).actor.id
+  assert.notEqual(requester, decider)
+  const approved = await h.cmd('leave.decide', { id: separate.id, revision: separate.revision, decision: 'approved' }, manager.cookie)
+  assert.deepEqual(approved, { ...separate, status: 'approved', revision: 2, decidedBy: decider, decidedAt: approved.decidedAt })
+  assert.equal(approved.requestedBy, requester)
+  assert.ok(Number.isFinite(Date.parse(approved.decidedAt)))
+  const decided = await h.state()
+  const decisionEvent = decided.events.find(e => e.action === 'leave.decide' && e.entityId === separate.id)
+  assert.ok(decisionEvent)
+  assert.equal(decisionEvent.actorId, decider); assert.equal(decisionEvent.actorRole, 'manager')
+  assert.equal(decisionEvent.at, approved.decidedAt)
+  assert.deepEqual(decided.leave.find(r => r.id === pending.id), pending)
+  assert.deepEqual(decided.shifts, assignments)
+  await h.restart()
+  const restored = await h.state(alex.cookie)
+  assert.deepEqual(restored.leave.find(r => r.id === separate.id), approved, 'the employee retains the exact attributed decision after restart')
+  assert.deepEqual(restored.leave.find(r => r.id === pending.id), pending)
+  assert.deepEqual(restored.shifts, personalAssignments)
+  assert.deepEqual((await h.state()).events.find(e => e.id === decisionEvent.id), decisionEvent)
 }))
 
 test('a call-out is offered to qualified teammates within overtime, and a manager approves one accept onto the shift', () => run(async h => {
