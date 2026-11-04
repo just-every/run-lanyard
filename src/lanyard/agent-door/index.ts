@@ -14,7 +14,7 @@ export function agentDoor(env: Bindings): AgentDoor {
  }
  return createAgentDoor({
   seed: 'lanyard', name: 'Lanyard', specialist: 'workforce coordinator', db: env.DB, origin: env.AUTH_ORIGIN, trust,
-  capabilities: CORE_CAPABILITIES,
+  capabilities: [...CORE_CAPABILITIES, 'resources'],
   people: people(env), tools: tools(env), resources,
   localCredentials: request => localCredentials(request, env),
   async currentScopes(principal) {

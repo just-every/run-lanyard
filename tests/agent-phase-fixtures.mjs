@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict'
 // Each policy round prepares a distinct interval. The native time service
 // continues to refuse overlapping work; the verifier never rewrites history.
 let day = 6
@@ -11,7 +12,10 @@ export default async function ({phase,request,origin,cookie}) {
   const state=await response.json()
   for(const proposal of state.learnproposals.filter(row=>row.status==='proposed')) {
    const decision=await request(origin+'/api/lanyard/command',{method:'POST',headers,body:JSON.stringify({name:'learn.decide',input:{id:proposal.id,revision:proposal.revision,decision:'declined',reason:'Owner reviewed the preceding conformance proposal before a fresh policy round'}})})
-   if(decision.status!==200)throw new Error('Native proposal decision refused')
+   assert.equal(decision.status,200,'Native proposal decision succeeds')
+   const decided=(await decision.json()).result
+   assert.equal(decided.id,proposal.id)
+   assert.equal(decided.status,'declined','The next resource round reads a real human decision')
   }
  }
  const start = new Date(Date.UTC(2026, 0, day++, 10))

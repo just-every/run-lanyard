@@ -15,7 +15,8 @@ export function people(env: Bindings): PeopleAdapter {
   if (!p?.active) return null
   try {
    const a = await actor(env.DB, {userId: p.id, email: p.email, isOwner: p.role === 'owner'})
-   return {...p, role: a.role, policyRole: a.role === 'owner' ? 'owner' : (await operators.businessMember!(p))?.role ?? null} as Person
+   const version = await env.DB.prepare('SELECT version FROM oa_operators WHERE id=?').bind(p.id).first<{version:number}>()
+   return {...p, nativeVersion: version?.version, role: a.role, policyRole: a.role === 'owner' ? 'owner' : (await operators.businessMember!(p))?.role ?? null} as Person
   } catch { return null }
  }
  return {
@@ -37,7 +38,12 @@ export async function localCredentials(request: Request, env: Bindings) {
 export async function preparationActor(ctx: ToolContext | ResourceContext): Promise<Actor> {
  const p = ctx.person
  const row = await ctx.db.prepare("SELECT id,email,version FROM oa_operators WHERE id=? AND role='owner' AND status='active'").bind(p.id).first<{id: string; email: string; version: number}>()
- if (!row || p.role !== 'owner') throw new ToolRefusal('native_authority_required')
+ if (!row || p.role !== 'owner' || row.email !== p.email || row.version !== (p as Person & {nativeVersion?:number}).nativeVersion) throw new ToolRefusal('native_authority_required')
+ if (ctx.scopes.includes(LOCAL_KEY_SCOPE)) {
+  const key = await ctx.db.prepare(`SELECT 1 FROM l_agent_keys WHERE id=? AND owner_id=? AND owner_version=? AND revoked_at IS NULL AND expires_at>?`)
+   .bind(ctx.clientId ?? '',row.id,row.version,Date.now()).first()
+  if (!key || ctx.agent.id !== 'lanyard-key:' + ctx.clientId) throw new ToolRefusal('resource_unavailable')
+ }
  return {id: row.id, email: row.email, role: 'agent', isOwner: true, ownerVersion: row.version, ...(ctx.scopes.includes(LOCAL_KEY_SCOPE) && ctx.clientId ? {agentKeyId:ctx.clientId}:{}),
   ...('approvers' in ctx ? {delegation: {agentId: ctx.agent.id, agentName: ctx.agent.name, sponsorName: p.name, operationId: ctx.operationId, approvers: ctx.approvers.map(a => ({...a}))}} : {})}
 }

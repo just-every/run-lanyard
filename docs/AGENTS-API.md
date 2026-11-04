@@ -1,7 +1,7 @@
 # Company agent door
 
 Lanyard serves one shared `/mcp` door using Base's agent-door runtime at
-`e881e6f66ce7cd737d17dbeb945995aab83c30d8` and the released rer 0.2.94 CLI.
+`e881e6f66ce7cd737d17dbeb945995aab83c30d8` and the repository’s pinned rer CLI.
 It supports MCP 2026-07-28 and 2025-11-25. Discovery and canonical OAuth resource
 metadata describe the same registry. Company policy, Pause, named approvals,
 reviews and audit are at `/agents`; an agent credential cannot decide for a person.
@@ -15,11 +15,11 @@ Business team admin means Business policy editor only through the signed mapping
 a workforce owner or manager. Current workforce preparation authority belongs to
 the native owner. Local preparation keys keep their original reduced authority.
 
-The declared adoption is CORE: tools, policy, Pause, audit and idempotency,
-with principal authorization always enforced. Events/subscriptions, multiple
+The declared adoption includes tools, policy, Pause, audit, idempotency and resources,
+with principal authorization always enforced. Events and subscriptions, multiple
 sponsors, outside mail and resource refresh are not claimed as adopted families.
-The runtime declares the same CORE set as the manifest. Optional events,
-resources, prompts and subscriptions are omitted and typed-refused. Existing
+The runtime and manifest declare the same bounded resource surface. Optional
+events, prompts and subscriptions are omitted and typed-refused. Existing
 native mail, devices, imports, connectors and installation commands keep their
 own purposes.
 
@@ -179,15 +179,48 @@ Signed event webhooks, observable provider delivery and reconciliation,
 authorized Zapier and Make event-to-draft workflows, and broader versioned
 time, coverage and report APIs remain open under LINK-001.
 
+## Current preparation resources
+
+The four preparation tools return usable MCP `resource_link` content. Read a
+link with `resources/read` on the same authenticated `/mcp` door. Templates are
+listed by `resources/templates/list` for the credential's current scopes:
+
+| Template | Required scope | Current reduced record |
+| --- | --- | --- |
+| `lanyard://weeks/{week}` | `workforce:read` | Current draft, otherwise published week, with its reduced assigned shifts |
+| `lanyard://time/{id}` | `workforce:read` | Current native time record without private review material |
+| `lanyard://payroll/{id}` | `workforce:read` | Current native hours batch and reduced source lines |
+| `lanyard://learning/{id}` | `comparison.read` | Current proposal identity, revision, status, weeks, change and evaluation |
+
+Weeks, time and payroll reuse the existing native preparation projection.
+Learning reuses the existing reduced learning projection and requires the
+owner's separately consented named-cafe grant. A Business token additionally
+needs company-agent consent; it cannot borrow a local key's private grant.
+Every read rechecks sponsor authority, current scope, owner version and, for
+learning, current cafe consent. Revocation applies to the next read. Company
+policy and Pause also govern reads; held content stays withheld until the
+required native decision. Changed sources require fresh preparation review.
+
+Links identify current records, rather than frozen write receipts. A later human
+decision is visible on readback, including after restart. Unavailable and missing
+records return the same resource refusal. Source text has
+`com.runeditrun/untrusted: true` on the returned content. Disclosed staff
+references retain the existing agent custody fence against unused-person
+erasure. Resources disclose no credentials, contact cards, payroll identifiers,
+rates or download bytes. No file template is registered. Other primary record
+types, full UI-role parity, grant byte budgets, multi-sponsor and resource-refresh
+acceptance remain open; this surface grants no new human decision or reader
+role.
+
 ## Verification at the current Base pin
 
-Normal `rer verify` runs the production build and declared CORE journey. The
-measured result on released rer 0.2.94 is **724/724 points**, with
-`CI=true SEED_VERIFY_SHARD=app pnpm exec rer verify --no-queue`. Both
-`BASE-AGENT-013.4.autonomous.proposal` and
-`BASE-AGENT-013.4.held.proposal` pass, as does the specialist native journey.
-The successful proposal paths add output and audit checks, so this is the
-measured dynamic count rather than the earlier 643/645 result.
+Normal `rer verify` runs the production build and declared agent journey,
+including the resource checks. The focused command
+`node node_modules/@runeditrun/rer/cli/agent-door.mjs .` exercises that same
+conformance runner. At the current rer 0.2.98 pin it passes **962/962 points**,
+including written-state resource readback for all four preparation commands in
+both autonomous and held rounds and the specialist native journey. This focused
+result is distinct from the full candidate Verify workflow.
 
 `verification.history` declares a contained, isolated test Worker and two narrow
 INSERT statements for native sales and forecast records. It creates 35 dated
@@ -209,7 +242,9 @@ policies; overlaps remain refused. Identity, named exact-summary approval,
 attribution, one-effect replay, argument and revision conflicts, Pause and
 zero differs_from_policy all pass. Production backdating is unchanged.
 
-Events, resources, prompts and subscriptions remain undeclared and typed-refused.
-Multi-sponsor, mail edges, resource refresh, timed/queued lifecycles, dual host
+Events, prompts and subscriptions remain undeclared and typed-refused.
+The four declared preparation resources are exercised in both policy rounds
+with independently expected written-state fixtures in `agent-surface.json`.
+Multi-sponsor, mail edges, resource refresh, timed and queued lifecycles, dual host
 and owner-native administration remain unproved; shared clauses stay PARTIAL.
 No provider cost, enforceable spend cap or broader AGENT-001 authority is claimed.

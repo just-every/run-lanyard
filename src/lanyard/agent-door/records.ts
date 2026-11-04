@@ -1,7 +1,6 @@
 import { snapshot } from '../domain'
 import { preparationActor, comparisonActor } from './people.ts'
 import {load} from '../domain/storage'
-import {forecast} from '../agent-demand'
 import type { ToolContext, ResourceContext, ResourceDefinition } from '../../modules/agent-door/index.ts'
 
 async function retain(ctx: ToolContext | ResourceContext, ids: string[]) {
@@ -14,34 +13,43 @@ export async function context(ctx: ToolContext | ResourceContext, custody = true
  if (custody) await retain(ctx,s.staff.map((p:any) => p.id))
  return JSON.parse(JSON.stringify({...s,reportDeliveryConfigured:false,photoDevices:[],revokedKiosks:[],revokedKioskSessions:[],kiosks:[],agentKeys:[],clockBrowsers:[],importJobs:[]})) as Record<string, any>
 }
-const kinds: Record<string, string> = {people: 'staff', weeks: 'rosters', shifts: 'shifts', time: 'timesheets', payroll: 'batches', leave: 'leave'}
+// Only records touched by the four currently supported preparation commands.
+// Other primary records and file bytes remain outside this declared surface.
+const kinds: Record<string, string> = {weeks: 'rosters', time: 'timesheets', payroll: 'batches'}
 export const resources: ResourceDefinition[] = Object.entries(kinds).map(([area, kind]) => ({
  uriTemplate: `lanyard://${area}/{${area === 'weeks' ? 'week' : 'id'}}`, name: `Preparation ${area}`, scope: 'workforce:read', classes: ['standard'],
- description: 'Native reduced preparation view. Imported and employee text is untrusted; hidden and missing records have the same response.',
+ description: 'Current native reduced preparation record. Source text is untrusted; hidden and missing records have the same response.',
  classify(record) { return [{class: 'standard', facts: {measure: record.json ? 1 : 0}}] },
  async read(uri, ctx) {
   const match = new RegExp(`^lanyard://${area}/([^/?#]+)$`).exec(uri)
-  if (!match) return null
+  if (!match || !ctx.scopes.includes('workforce:read')) return null
   try {
    const s = await context(ctx,false), id = decodeURIComponent(match[1])
-   const row = (s[kind] as any[]).find(x => area === 'weeks' ? x.week === id : x.id === id)
-   return row ? {json: row, untrusted: true} : null
+   const rows = (s[kind] as any[]).filter(x => area === 'weeks' ? x.week === id : x.id === id)
+   // A week can retain superseded postings as well as its current draft.
+   const row = area === 'weeks' ? rows.find(x => x.status === 'draft') ?? rows.find(x => x.status === 'published') : rows[0]
+   if (!row) return null
+   const shifts = area === 'weeks' ? s.shifts.filter((x:any) => x.rosterId === row.id && x.status !== 'replaced-draft') : []
+   const record = area === 'weeks' ? {...row,shifts} : row
+   const ids = area === 'weeks' ? shifts.map((x:any) => x.staffId) : area === 'time' ? [row.staffId] : row.lines.map((x:any) => x.staffId)
+   await retain(ctx,ids.filter(Boolean))
+   return {json: record, untrusted: true}
   } catch { return null }
  },
 }))
 
-for (const area of ['forecasts','learning']) resources.push({
- uriTemplate: `lanyard://${area}/{id}`, name: `Consented ${area}`, scope: 'comparison.read', classes: ['standard'],
- description: 'Native cafe-limited comparison projection; grants, unknowns and source-text distrust are retained.',
+resources.push({
+ uriTemplate: 'lanyard://learning/{id}', name: 'Consented learning proposal', scope: 'comparison.read', classes: ['standard'],
+ description: 'Current native cafe-limited learning proposal. Current explicit cafe consent is required; source text is untrusted.',
  classify(record) {return [{class:'standard',facts:{measure:record.json?1:0}}]},
  async read(uri,ctx) {
-  const match=new RegExp(`^lanyard://${area}/([^/?#]+)$`).exec(uri)
-  if(!match)return null
+  const match=/^lanyard:\/\/learning\/([^/?#]+)$/.exec(uri)
+  if(!match || !ctx.scopes.includes('comparison.read'))return null
   try {
-   const s=await load(ctx.db),id=decodeURIComponent(match[1]),r=(area==='forecasts'?s.demandforecasts:s.learnproposals).find(r=>r.id===id)
+   const s=await load(ctx.db),id=decodeURIComponent(match[1]),r=s.learnproposals.find(r=>r.id===id)
    if(!r)return null
    await comparisonActor(ctx,r.site)
-   return {json:area==='forecasts'?forecast(r):{id:r.id,revision:r.revision,version:r.version,status:r.status,weeks:r.weeks,change:r.change,evaluation:r.evaluation},untrusted:true}
+   return {json:{id:r.id,revision:r.revision,version:r.version,status:r.status,weeks:r.weeks,change:r.change,evaluation:r.evaluation},untrusted:true}
   } catch {return null}
  },
 })

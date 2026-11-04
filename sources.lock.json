@@ -354,7 +354,7 @@
       "executable": false
     },
     "agent-surface.json": {
-      "sha256": "3c55b971d608e37e2f6e270715858c4b34e9017633c206f80a7aba6e33c306bd",
+      "sha256": "827a3c068ac6c45487b624560cb38b3a98977ae95ee11c3cc83e012055c567f7",
       "executable": false
     },
     "AGENTS.md": {
@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "9136f4fa3b6057f140d50ddaea1591574115909386833cbaa3fdd9da7d624465",
+      "sha256": "e8d6f11487288d18fa49f22232b08a8ab4b4c6f376ca96843b2452e6abaf32a6",
       "executable": false
     },
     "DEMO.md": {
@@ -402,7 +402,7 @@
       "executable": false
     },
     "docs/AGENTS-API.md": {
-      "sha256": "d4c33a95bf98c560baa9e34c27227dfb747180cbc0f6ebc690149da99e10c816",
+      "sha256": "d112b145c6ad46994120f99f6c6484020a1d8c6caed47b8f33bd9d33a3ad51eb",
       "executable": false
     },
     "docs/BACKUP-RESTORE.md": {
@@ -1362,7 +1362,7 @@
       "executable": false
     },
     "src/lanyard/agent-door/index.ts": {
-      "sha256": "9f74140555a5cf1d2d6af22986b157d18ba42bb14ffac2e28b4db6758455c2dc",
+      "sha256": "e9350fcddd82c659d376ac35d24f59473a0b591c6d065f87c562993fbd798b44",
       "executable": false
     },
     "src/lanyard/agent-door/legacy.ts": {
@@ -1370,11 +1370,11 @@
       "executable": false
     },
     "src/lanyard/agent-door/people.ts": {
-      "sha256": "6679a45582072f64a2cd5ac0216872d1bfd42e68cb55e9570d19bf5492a5ffbf",
+      "sha256": "272a98d2e8657503ed39392ddcdb83c157be30ee8b23e49082168cdd3f3b657b",
       "executable": false
     },
     "src/lanyard/agent-door/records.ts": {
-      "sha256": "38f8d5380d1a11cee1391268eff8a05fedc6622b688dfb59510c821518dd7d67",
+      "sha256": "d90f8557fbd0d4211bffbba1eda1692a129b61f8463b3531730ba255bc0163d3",
       "executable": false
     },
     "src/lanyard/agent-door/schemas.ts": {
@@ -1382,7 +1382,7 @@
       "executable": false
     },
     "src/lanyard/agent-door/tools.ts": {
-      "sha256": "f051e4b66c1a98d37ece5243a74522958ab0e9fc60f7b31f444ebe5607055025",
+      "sha256": "e619312d6772472a1eb37d68958a121741b969ca82b12063d7911421de0d3dd4",
       "executable": false
     },
     "src/lanyard/archive-policy.mjs": {
@@ -4722,7 +4722,7 @@
       "executable": false
     },
     "tests/agent-native.mjs": {
-      "sha256": "65e477177c6b1d33e74d901ecd153eff6ea1b42b2700a3f79aa16d0625f263e2",
+      "sha256": "12727a805e4e53a2b46411bc08c5b3d6992316c44260851bbb7ed5220d331323",
       "executable": false
     },
     "tests/agent-owner.mjs": {
@@ -4730,7 +4730,7 @@
       "executable": false
     },
     "tests/agent-phase-fixtures.mjs": {
-      "sha256": "8532a21d61116176bea23b022ea971a6920579a3dcd48e568da910f95f5e65b1",
+      "sha256": "655645c7bcea2de8d83c5c5c2695fd2498f0ff155be0df640cf3fcb1cfef6931",
       "executable": false
     },
     "tests/ai-schedule-journey.mjs": {
