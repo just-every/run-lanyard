@@ -37,6 +37,14 @@ export async function payScheduleApi(h) {
  const late=await enter(alex,16,5)
  for(const d of [11,12,13,14,15])await enter(ben,d)
  await enter(ben,16,5)
+ // A later locked period must not bypass the original destination while open.
+ const gap=await h.cmd('paygroup.period',{groupId:semi.id,date:'2026-11-01'})
+ let later=await h.cmd('paygroup.period',{groupId:semi.id,date:'2026-11-16'}),last=await h.cmd('paygroup.period',{groupId:semi.id,date:'2026-12-01'})
+ const lockEmpty=async r=>h.cmd('period.lock',pin(await h.cmd('period.signoff',pin(r),manager.cookie)))
+ last=await lockEmpty(last);later=await lockEmpty(later)
+ const openState=await h.state()
+ await h.cmd('payroll.prepare',{},h.owner,409)
+ assert.deepEqual(await h.state(),openState,'open original destination withholds premium despite later locked periods')
  let second=await signLock(f.second,alex)
  const batch=await h.cmd('payroll.prepare',{}),competing=await h.cmd('payroll.prepare',{})
  const [adjustment]=batch.lines.filter(l=>l.overtimeKey)
@@ -80,6 +88,74 @@ export async function payScheduleApi(h) {
  await h.cmd('payroll.export',pin(delta))
  assert.equal((await h.send(`/api/lanyard/batches/${exported.id}.csv`,undefined,h.owner)).text,exported.csv)
  assert.deepEqual((await h.state()).periods.find(p=>p.id===first.id).locked,locked)
+ // After the original destination closes, a late correction can skip open
+ // periods, but must wait if there is no later locked period in its own group.
+ second=await h.cmd('period.close',{...pin(second),reference:'Employer-recorded second-period run'})
+ const secondLocked=structuredClone(second.locked)
+ const foreignLater=await h.cmd('paygroup.period',{groupId:bi.id,date:'2026-10-25'})
+ await lockEmpty(foreignLater)
+ later=await h.cmd('period.reopen',{...pin(later),reason:'Review later destination'})
+ last=await h.cmd('period.reopen',{...pin(last),reason:'Review final destination'})
+ await enter(alex,12,6,{corrects:early[1].id,reason:'Agreed two-hour correction'})
+ const heldCorrection=await h.cmd('payroll.prepare',{})
+ assert.deepEqual(heldCorrection.lines.map(l=>[l.staffId,l.minutes,l.payCode??'regular']),[[alex.id,-120,'regular']],'no locked destination means no premium, including the locked biweekly group')
+ await h.cmd('payroll.export',pin(heldCorrection))
+ const heldState=await h.state()
+ await h.cmd('payroll.prepare',{},h.owner,409)
+ assert.deepEqual(await h.state(),heldState,'withheld premium has no claim')
+ // Lock out of chronological order to prove selection uses the earliest lock.
+ last=await lockEmpty(last);later=await lockEmpty(later)
+ const deferred=await h.cmd('payroll.prepare',{})
+ assert.equal(deferred.lines.length,1,'straight time already claimed while premium waited')
+ const [premium]=deferred.lines
+ assert.deepEqual([premium.staffId,premium.minutes,premium.multiplier,premium.trace.targetPeriodId,premium.trace.targetRevision],[alex.id,-120,0.5,later.id,later.revision])
+ assert.deepEqual([premium.trace.week,premium.trace.end,premium.trace.sourcePeriods],['2026-10-11','2026-10-17',['2026-10-01','2026-10-16']])
+ assert.equal(premium.trace.source.reduce((n,p)=>n+p.minutes,0),2520,'42 approved hours yield 120 total premium minutes, minus 240 exported')
+ assert.equal((await h.state()).periods.find(p=>p.id===gap.id).status,'open','intervening period stays open')
+ later=await h.cmd('period.reopen',{...pin(later),reason:'Review selected late destination'})
+ const reopenedState=await h.state()
+ await h.cmd('payroll.export',pin(deferred),h.owner,409)
+ assert.deepEqual(await h.state(),reopenedState,'reopened destination refuses the reviewed batch without writes')
+ const fallback=await h.cmd('payroll.prepare',{})
+ assert.equal(fallback.lines[0].trace.targetPeriodId,last.id,'next locked destination is available after reopening')
+ later=await lockEmpty(later)
+ const earlierState=await h.state()
+ await h.cmd('payroll.export',pin(fallback),h.owner,409)
+ assert.deepEqual(await h.state(),earlierState,'an earlier lock invalidates a reviewed later destination')
+ const staleSource=await h.cmd('payroll.prepare',{})
+ const pending=await h.cmd('time.prepare',{staffId:alex.id,start:'2026-10-13T15:00:00Z',end:'2026-10-13T22:00:00Z',breakMinutes:0,corrects:early[2].id,reason:'Agreed further one-hour correction'})
+ const pendingState=await h.state()
+ await h.cmd('payroll.export',pin(staleSource),h.owner,409)
+ assert.deepEqual(await h.state(),pendingState,'pending source correction withholds premium without export writes')
+ const revised=await h.cmd('time.approve',pin(pending),manager.cookie)
+ const changedState=await h.state()
+ await h.cmd('payroll.export',pin(staleSource),h.owner,409)
+ assert.deepEqual(await h.state(),changedState,'approved changed source refuses old trace without writes')
+ const corrected=await h.cmd('payroll.prepare',{}),duplicate=await h.cmd('payroll.prepare',{})
+ assert.deepEqual(corrected.lines.map(l=>[l.minutes,l.payCode??'regular']),[[-60,'regular'],[-180,'weekly overtime premium']])
+ const correctedPremium=corrected.lines.find(l=>l.overtimeKey)
+ assert.equal(correctedPremium.trace.targetPeriodId,later.id)
+ assert.equal(correctedPremium.trace.source.reduce((n,p)=>n+p.minutes,0),2460,'41 hours less the four premium hours already exported gives minus three')
+ assert.ok(correctedPremium.trace.source.some(p=>p.timeId===revised.id&&p.revision===revised.revision),'trace retains approved correction revision')
+ const correctionExport=await h.cmd('payroll.export',pin(corrected))
+ const claimedState=await h.state()
+ await h.cmd('payroll.export',pin(duplicate),h.owner,409)
+ await h.cmd('payroll.export',pin(corrected),h.owner,409)
+ assert.deepEqual(await h.state(),claimedState,'competing and duplicate exports cannot claim a correction twice')
+ await h.restart()
+ await h.cmd('payroll.prepare',{},h.owner,409)
+ await enter(alex,13,8,{corrects:revised.id,reason:'Agreed restoration of one hour'})
+ const positive=await h.cmd('payroll.prepare',{})
+ assert.deepEqual(positive.lines.map(l=>[l.minutes,l.payCode??'regular']),[[60,'regular'],[60,'weekly overtime premium']])
+ assert.equal(positive.lines.find(l=>l.overtimeKey).trace.targetPeriodId,later.id)
+ await h.cmd('payroll.export',pin(positive))
+ await h.restart()
+ await h.cmd('payroll.prepare',{},h.owner,409)
+ for(const prior of [sent,exported,correctionExport])assert.equal((await h.send(`/api/lanyard/batches/${prior.id}.csv`,undefined,h.owner)).text,prior.csv,'earlier downloads retain exact bytes across signed corrections and restart')
+ const retained=await h.state()
+ assert.deepEqual(retained.periods.find(p=>p.id===first.id).locked,locked)
+ assert.deepEqual(retained.periods.find(p=>p.id===second.id).locked,secondLocked)
+ assert.equal(retained.periods.find(p=>p.id===gap.id).status,'open')
  // Starting a group's first pay period on the sixteenth must still look back
  // over the whole Sunday week; the earlier exported 40 hours are not replayed.
  const joiner=await h.person('Joiner'),old=[]
@@ -117,7 +193,7 @@ export async function payScheduleApi(h) {
 }
 
 export async function payScheduleBrowser() {
- const browser=await chromium.launch({headless:true,args:['--use-mock-keychain','--password-store=basic']})
+ const browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try {for(const width of [1440,390]) {
   const h=await harness(),context=await browser.newContext({viewport:{width,height:1000}})
   try {
@@ -153,4 +229,92 @@ export async function payScheduleBrowser() {
    await earnings.scrollIntoViewIfNeeded();await shot('pay-employee-period');assert.deepEqual(errors,[])
   } finally {await context.close();await h.close()}
  }} finally {await browser.close()}
+}
+
+
+// TIME-004 uses the same native form and browser patterns as scheduled payroll.
+export async function periodSignoffBrowser() {
+ for(const width of [1440,390]) {
+  const h=await harness({now:'2026-11-04T08:00:00Z'}),browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox','--use-mock-keychain','--password-store=basic']}),context=await browser.newContext({viewport:{width,height:1000}})
+  context.setDefaultTimeout(15000)
+  try {
+   const manager=await h.person('Morgan','manager'),alex=await h.person('Alex'),page=await context.newPage(),errors=[]
+   page.on('pageerror',e=>errors.push(e.message))
+   await h.finishSetup()
+   await context.route('**/*',async route=>{
+    const path=new URL(route.request().url()).pathname
+    if(path.startsWith('/fonts/')||path.startsWith('/brand/')||/\.(css|js)$/.test(path))try{return await route.fulfill({body:await readFile(join(process.cwd(),'public',path.slice(1))),contentType:(path.endsWith('.css')?['text','css']:path.endsWith('.js')?['application','javascript']:path.endsWith('.svg')?['image','svg+xml']:['font','woff2']).join('/')})}catch{}
+    await route.continue()
+   })
+   const as=async cookie=>{const [name,...value]=cookie.split('=');await context.addCookies([{name,value:value.join('='),url:h.origin}])}
+   const submit=async(form,label)=>{
+    await Promise.all([page.waitForResponse(r=>r.url().includes('name=period.')),form.getByRole('button',{name:label,exact:true}).click()])
+    await page.waitForLoadState('networkidle')
+   }
+   const proof=async key=>{
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${key} fits ${width}px`)
+    if(width===1440){
+     for(const control of await page.locator('button:visible, a[aria-label]:visible, summary[aria-label]:visible').all()){
+      const label=(await control.innerText()).trim()
+      if(!label)assert.ok(await control.getAttribute('data-tooltip'),'icon-only controls have tooltips')
+     }
+     const font=await page.locator('#signoff button, #pay-periods button').first().evaluate(el=>parseFloat(getComputedStyle(el).fontSize))
+     assert.ok(font>=13,'signoff controls have readable text')
+    }
+    if(process.env.PAY_SCREENS){await mkdir(process.env.PAY_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.PAY_SCREENS,`${key}-${width}.png`),fullPage:true})}
+   }
+   let period=await h.cmd('period.save',{start:'2026-10-12',end:'2026-10-18'})
+   const time=await h.cmd('time.prepare',{staffId:manager.id,start:'2026-10-13T15:00:00Z',end:'2026-10-13T23:00:00Z',breakMinutes:30,reason:'Reviewed manager paper hours'})
+   const other=await h.cmd('time.prepare',{staffId:alex.id,start:'2026-10-14T15:00:00Z',end:'2026-10-14T23:00:00Z',breakMinutes:30,reason:'Reviewed employee paper hours'})
+   await h.cmd('time.approve',pin(other),manager.cookie)
+   await as(manager.cookie);await page.goto(h.origin+'/app/time?week=2026-10-12',{waitUntil:'networkidle'})
+   if(width===1440){assert.equal(await page.getByRole('button',{name:'Sign off my hours',exact:true}).count(),1);assert.equal(await page.getByRole('button',{name:'Sign off as manager',exact:true}).count(),0)}
+   await h.cmd('clocklanguage.save',{language:'es'},manager.cookie)
+   await page.reload({waitUntil:'networkidle'})
+   await proof('period-own-hours')
+   if(width===1440)assert.equal(await page.getByRole('button',{name:'Dar conformidad a mis horas',exact:true}).count(),1)
+   // Approval changes a time source without changing the period revision. The old form must refuse.
+   await h.cmd('time.approve',pin(time))
+   await submit(page.locator('#signoff form'),'Dar conformidad a mis horas')
+   if(width===1440){assert.equal(await page.locator('.notice.error').count(),1);assert.deepEqual((await h.state()).periods.find(p=>p.id===period.id).signoffs,[])}
+   await submit(page.locator('#signoff form'),'Dar conformidad a mis horas')
+   period=(await h.state()).periods.find(p=>p.id===period.id)
+   if(width===1440){
+    assert.deepEqual(period.signoffs.map(x=>[x.role,x.staffId]),[['employee',manager.id]])
+    assert.equal(await page.locator('#signoff').count(),0)
+   }
+   await page.goto(h.origin+'/app/payroll',{waitUntil:'networkidle'})
+   const item=()=>page.locator('#period-'+period.id)
+   if(width===1440){assert.equal(await item().getByRole('button',{name:'Dar conformidad como encargado',exact:true}).count(),1);assert.equal(await item().getByRole('button',{name:'Lock period',exact:true}).count(),0)}
+   await proof('period-manager-review')
+   await submit(item(),'Dar conformidad como encargado')
+   period=(await h.state()).periods.find(p=>p.id===period.id)
+   const employeeSources=(await h.state(alex.cookie)).periodSignoffSources[period.id].employee
+   period=await h.cmd('period.signoff',{...pin(period),role:'employee',sources:employeeSources},alex.cookie)
+   await as(h.owner);await page.reload({waitUntil:'networkidle'})
+   await submit(item(),'Lock period')
+   const locked=(await h.state()).periods.find(p=>p.id===period.id)
+   if(width===1440){assert.equal(locked.status,'locked');assert.deepEqual(locked.locked.map(t=>t.minutes),[450,450])}
+   await proof('period-owner-locked')
+   await item().getByText('Reopen',{exact:true}).click()
+   await item().getByLabel('Reason',{exact:true}).fill('Review both signoffs again')
+   await submit(item(),'Reopen period')
+   const reopened=(await h.state()).periods.find(p=>p.id===period.id)
+   if(width===1440){assert.deepEqual(reopened.signoffs,[]);assert.equal(reopened.reopens[0].signoffs.length,3)}
+   await h.restart()
+   await as(manager.cookie);await page.goto(h.origin+'/app/time?week=2026-10-12',{waitUntil:'networkidle'})
+   await submit(page.locator('#signoff form'),'Dar conformidad a mis horas')
+   await h.cmd('clocklanguage.save',{language:'en'},manager.cookie)
+   await page.goto(h.origin+'/app/payroll',{waitUntil:'networkidle'})
+   await submit(item(),'Sign off as manager')
+   period=(await h.state()).periods.find(p=>p.id===period.id)
+   period=await h.cmd('period.signoff',{...pin(period),role:'employee',sources:(await h.state(alex.cookie)).periodSignoffSources[period.id].employee},alex.cookie)
+   await as(h.owner);await page.reload({waitUntil:'networkidle'})
+   await submit(item(),'Lock period')
+   if(width===1440){
+    assert.equal((await h.state()).periods.find(p=>p.id===period.id).status,'locked')
+    assert.deepEqual(errors,[])
+   }
+  } finally {await context.close();await browser.close();await h.close()}
+ }
 }

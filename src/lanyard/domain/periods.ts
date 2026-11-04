@@ -60,13 +60,21 @@ export function periods(c:Context,name:string,p:Record<string,any>) {
   return put(c,'periods',{start:p.start,end:p.end,status:'open',signoffs:[],reopens:[],locked:[],definedBy:c.a.id,definedAt:c.now})
  }
  if(!['period.signoff','period.lock','period.reopen','period.close'].includes(name))return undefined
- keys(p,['id','revision','reason','reference']);const r=get(c.s,'periods',p.id);exact(r,p)
+ keys(p,name==='period.signoff'?['id','revision','role','sources']:['id','revision','reason','reference']);const r=get(c.s,'periods',p.id);exact(r,p)
  if(name==='period.signoff') {
   need(r.status==='open','Sign off an open pay period',409);need(c.a.role!=='agent','Staff or manager required',403)
-  const role=c.a.role==='staff'?'employee':'manager'
-  if(role==='employee')need(inPeriod(c.s,r).some(t=>t.staffId===c.a.staffId),'You have no time in this pay period',409)
+  const role=p.role??(c.a.role==='staff'?'employee':'manager')
+  need(['employee','manager'].includes(role),'Choose personal hours or manager review')
+  if(role==='manager')need(['owner','manager'].includes(c.a.role),'Only a manager can review the period',403)
+  if(role==='employee'){
+   need(c.a.staffId,'A linked employee record is required',403)
+   need(inPeriod(c.s,r).some(t=>t.staffId===c.a.staffId),'You have no time in this pay period',409)
+  }
+  const sources=signoffSources(c.s,r,role==='employee'?c.a.staffId:undefined)
+  // Explicit choices sign the source revisions shown at review; older callers retain their default role.
+  if(p.role!==undefined||p.sources!==undefined)need(p.sources===sources,'Time changed; review the current hours before signing off',409)
   need(!r.signoffs.some((x:any)=>x.by===c.a.id&&x.role===role&&signoffCurrent(c.s,r,x)),'Already signed off',409)
-  return periodFor(c.a,put(c,'periods',{...r,signoffHistory:[...(r.signoffHistory??[]),...r.signoffs.filter((x:any)=>x.by===c.a.id&&x.role===role)],signoffs:[...r.signoffs.filter((x:any)=>x.by!==c.a.id||x.role!==role),{by:c.a.id,staffId:c.a.staffId??null,role,at:c.now,sources:signoffSources(c.s,r,role==='employee'?c.a.staffId:undefined)}]},r))
+  return periodFor(c.a,put(c,'periods',{...r,signoffHistory:[...(r.signoffHistory??[]),...r.signoffs.filter((x:any)=>x.by===c.a.id&&x.role===role)],signoffs:[...r.signoffs.filter((x:any)=>x.by!==c.a.id||x.role!==role),{by:c.a.id,staffId:c.a.staffId??null,role,at:c.now,sources}]},r))
  }
  if(name==='period.lock') {
   owner(c);need(r.status==='open','Only an open pay period can be locked',409)

@@ -338,7 +338,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "4116d3fcb8b213084277b268720d55ffe251fe0fae88e64d66f60639fce7be41",
+      "sha256": "056a5afc71871b92d45e44beaa33a5716335de971495ef03f3501ff6e1e68373",
       "executable": false
     },
     ".gitignore": {
@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "52c6c49bbfa6ae3f45816555121f13299e4071b6e585c04484be5a91bec06e00",
+      "sha256": "260fa7fa5fa023ba885d3413e8d0ee0d098eb97769aad217605d6b8e14449856",
       "executable": false
     },
     "agent-surface.json": {
@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "88f148764a13be82884ee92c26bed25bef18c02c9ff78874d74374f5e4d9edb6",
+      "sha256": "22853b7c768e02ecfbf211a8d94421137d4fda9cddcdd4dd94900855b65e5bc0",
       "executable": false
     },
     "DEMO.md": {
@@ -402,7 +402,7 @@
       "executable": false
     },
     "docs/AGENTS-API.md": {
-      "sha256": "d4c33a95bf98c560baa9e34c27227dfb747180cbc0f6ebc690149da99e10c816",
+      "sha256": "105ae10ff88aca00f4c3495ff76f9e3e62801e7c2c0de9b86ac14fb917416158",
       "executable": false
     },
     "docs/BACKUP-RESTORE.md": {
@@ -410,7 +410,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "2018bb32a5153a1e27ccc7a021b1358c156d40df5e218af3f9ecf40d1948d43a",
+      "sha256": "bee01717dc5dc8cd1247e6925f0aa35f779389dbb7f0e0113d2dae9aa707cc72",
       "executable": false
     },
     "docs/GETTING-STARTED.md": {
@@ -434,7 +434,7 @@
       "executable": false
     },
     "docs/PAYROLL.md": {
-      "sha256": "c98833e15f661f6a590b3dcb798e6d2c31eef5d5f34155deefc112000ca4f7ba",
+      "sha256": "2124594f6c6d70a74da6c5e0444cb183b193186d4b91089997bc7bd2ec6fadd8",
       "executable": false
     },
     "docs/PRIVACY.md": {
@@ -993,6 +993,10 @@
       "sha256": "dcb154c902e7139c4192d8b5c69f8576874f4f35bd564656dbd80aad2d1f497d",
       "executable": false
     },
+    "scripts/ci/verify-shard.mjs": {
+      "sha256": "f3a118eb9a3b6027291f7261352244259267b154c23e1d817064009771e57e0a",
+      "executable": false
+    },
     "scripts/contract-docs.mjs": {
       "sha256": "72b47bddc97c04a59436b060b00c90669c252968fad11a77ad6348224d1d3a5d",
       "executable": false
@@ -1178,7 +1182,7 @@
       "executable": false
     },
     "scripts/test-lanyard.mjs": {
-      "sha256": "1173294da8c96d5931738ba591c5d990fe188cb37a856437911db69d1936acac",
+      "sha256": "e12df378898296da217bd3842f77793ac8c46e88b63b190095d356ea9d7563c5",
       "executable": false
     },
     "scripts/verify-app.mjs": {
@@ -1382,7 +1386,7 @@
       "executable": false
     },
     "src/lanyard/agent-door/tools.ts": {
-      "sha256": "f051e4b66c1a98d37ece5243a74522958ab0e9fc60f7b31f444ebe5607055025",
+      "sha256": "9ef624b907a61868aa3f9be9e4beb748a24c160e05e3b243c8e87aaf210f5ebc",
       "executable": false
     },
     "src/lanyard/archive-policy.mjs": {
@@ -1598,7 +1602,7 @@
       "executable": false
     },
     "src/lanyard/domain/index.ts": {
-      "sha256": "27cb6cff5f7867f5388560aa20eafe1465cfde1f4d4165304a3299bc1196202b",
+      "sha256": "72ec3427fd188cff4c613af02185e1025c81b21ff6ecc55327d82fafc5567e4f",
       "executable": false
     },
     "src/lanyard/domain/intervals.ts": {
@@ -1717,12 +1721,16 @@
       "sha256": "7ee40b5cf0e11fa357b777c59e2cb302d08f8a59f7b240cc5969a27dcb1dc08f",
       "executable": false
     },
+    "src/lanyard/domain/payroll-selection.ts": {
+      "sha256": "b25d68ea48870d825a2180acf6cfaed67fb82ad27c172958437796d208baf200",
+      "executable": false
+    },
     "src/lanyard/domain/payroll.ts": {
-      "sha256": "f953b45d1639caac05efaec8e215a2f7d451e25735c5dc8657211c3c91628c68",
+      "sha256": "d979fea0a262f53b8f1273bea287af95f99de714899927a68eb39b7f30df481b",
       "executable": false
     },
     "src/lanyard/domain/payschedules.ts": {
-      "sha256": "3263e4f9fffa00ec0ab5259360187f89d4c427ad45c8261934356ad5eb75f8ba",
+      "sha256": "6cd11a2274070f8a0b1ed08889d7ff83fd32aedf90f0019fbd4f43e6554e81d8",
       "executable": false
     },
     "src/lanyard/domain/paytemplates.ts": {
@@ -1738,7 +1746,7 @@
       "executable": false
     },
     "src/lanyard/domain/periods.ts": {
-      "sha256": "e4b7f776878647baa409e4ca4f84ea60ce7a24a3334dd9c738f0f50bed3b6689",
+      "sha256": "9243cf234c66919a7dab93a2a01d9a1f4dfca1eb460f562c0bc84b4dbe61861e",
       "executable": false
     },
     "src/lanyard/domain/photos.ts": {
@@ -2022,7 +2030,7 @@
       "executable": false
     },
     "src/lanyard/staff-catalog.json": {
-      "sha256": "260ca275088d6c98c999c6ef497502060a9f865dc03ef4564b8d086d6b1db3d1",
+      "sha256": "6e43e82fbef069f4919324087ef053883d35d0a46f5e2a103de03eb4b79e01a8",
       "executable": false
     },
     "src/lanyard/ui/aca.ts": {
@@ -2094,7 +2102,7 @@
       "executable": false
     },
     "src/lanyard/ui/commands.ts": {
-      "sha256": "8353b5f9c60f7f9648ca30e660f6659fd8554b66beb8c772815f9b97e5f4eb86",
+      "sha256": "b8330c7941274159974137a4c0fd14aea26178a4fefce30292fad702c85ea296",
       "executable": false
     },
     "src/lanyard/ui/contacts.ts": {
@@ -2250,7 +2258,7 @@
       "executable": false
     },
     "src/lanyard/ui/periods.ts": {
-      "sha256": "102e75cf49bdeabec059e6aadcc18e4147fd73e25ee52ab76281948a18022583",
+      "sha256": "1b29df3efc3c16eb59449da33ee66a04ca8e5526effef6be67aafe750895a84d",
       "executable": false
     },
     "src/lanyard/ui/photos.ts": {
@@ -2358,7 +2366,7 @@
       "executable": false
     },
     "src/lanyard/ui/time.ts": {
-      "sha256": "da5cdbe1413d8139ac27e0346a7bfaecc4c87b221f09189ae63ea8f37a52eaac",
+      "sha256": "9541c0b7adb9748dd2d26ae1fc20613f0051f37cf99bb163786a7253ea70b5cc",
       "executable": false
     },
     "src/lanyard/ui/tip-pools.ts": {
@@ -4710,7 +4718,7 @@
       "executable": false
     },
     "tests/agent-history.mjs": {
-      "sha256": "430369e9feb3e73e9410a82f233b91ad467f11f377b39c54f0ad22ceae7957b7",
+      "sha256": "f69bf6a22746db37dc4828116720699d0e048316d8efdb4b3222a6f2143a4dcb",
       "executable": false
     },
     "tests/agent-learning-history.mjs": {
@@ -4722,7 +4730,7 @@
       "executable": false
     },
     "tests/agent-native.mjs": {
-      "sha256": "65e477177c6b1d33e74d901ecd153eff6ea1b42b2700a3f79aa16d0625f263e2",
+      "sha256": "0031e25d4e21858668590569965c0facb8744f457d491d97f6d7b9536eadf34e",
       "executable": false
     },
     "tests/agent-owner.mjs": {
@@ -4878,7 +4886,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "cdde494640d7e113b7aba838b8881dd3cb1db0d52787015ea68cb4c780d67b5e",
+      "sha256": "cbaedfa35ea714ce669bc75618a6a2f283d307da5f52a9196ab1980f70e513d5",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -4934,7 +4942,7 @@
       "executable": false
     },
     "tests/payschedules-journey.mjs": {
-      "sha256": "ed59d22f1774a62702619b636fb49f8abd4827cd61a8a255182882bf9f72c045",
+      "sha256": "684fce58bab5d0437d9d7865cc5f5bdcbd36da8b5aee7185fd0e1ebbe46095e6",
       "executable": false
     },
     "tests/paytemplates-journey.mjs": {
