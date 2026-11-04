@@ -539,9 +539,9 @@ Judged from the code and tests at commit `4872aa3ed919f92bb8de3f1ef11f27e3524d28
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 10 | 6 | 0 | 16 |
+| Published | 11 | 5 | 0 | 16 |
 | Target and push further | 40 | 53 | 31 | 124 |
-| All | 50 | 59 | 31 | 140 |
+| All | 51 | 58 | 31 | 140 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -550,7 +550,7 @@ Judged from the code and tests at commit `4872aa3ed919f92bb8de3f1ef11f27e3524d28
 | `MOVE-001` | Reviewed Staff CSV move-in | published | done | `src/lanyard/movein/index.ts`; `src/lanyard/movein/targets.ts`; `tests/lanyard.test.mjs` |  |
 | `ROSTER-001` | Availability and explicit leave decisions | published | partial | `src/lanyard/domain/people.ts`; `tests/lanyard.test.mjs` | Availability, pending leave and exact manager decisions ship. The cited journey does not attempt leave approval against an already published shift or a manager deciding their own request; these refusals remain unproved. |
 | `ROSTER-002` | Conflict-checked revision publication | published | done | `src/lanyard/domain/roster.ts`; `src/lanyard/domain/storage.ts`; `tests/lanyard.test.mjs` |  |
-| `ROSTER-003` | Personal published schedule confirmation | published | partial | `src/lanyard/domain/roster.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` | Personal published shifts and revision-bound confirmations ship. No public-door assertion attempts a foreign, stale or superseded shift confirmation. |
+| `ROSTER-003` | Personal published schedule confirmation | published | done | `src/lanyard/domain/roster.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` (availability, approved leave, conflicts, exact roster publication and personal confirmation): two native employees see and confirm only their own published assignments with retained actor and time; foreign, stale and superseded confirmations refuse without changing shifts, confirmation history, revisions or activity; separate human publication, restart and no worked time. |  |
 | `TIME-001` | Identity-bound phone capture and replay | published | done | `src/lanyard/domain/time.ts`; `src/lanyard/domain/storage.ts`; `src/lanyard/ui/commands.ts`; `tests/lanyard.test.mjs` |  |
 | `TIME-002` | Exact time approval and linked corrections | published | partial | `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `tests/lanyard.test.mjs` | Exact approvals, linked retained corrections and signed payroll differences ship. No public-door assertion attempts payroll export of the obsolete approved source while its correction awaits a decision. |
 | `PAYROLL-001` | Reviewed once-only payroll files and signed adjustments | published | done | `src/lanyard/domain/payroll.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` |  |

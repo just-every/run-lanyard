@@ -82,23 +82,93 @@ test('staff cannot change the sign-in email to another person’s staff identity
 }))
 
 test('availability, approved leave, conflicts, exact roster publication and personal confirmation', () => run(async h => {
-  const alex = await h.person('Alex'), manager = await h.person('Priya', 'manager')
+  const alex = await h.person('Alex'), sam = await h.person('Sam'), manager = await h.person('Priya', 'manager')
   await h.cmd('availability.save', { start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' }, alex.cookie)
+  await h.cmd('availability.save', { start: '2026-10-11T23:00:00Z', end: '2026-10-19T00:00:00Z' }, sam.cookie)
   const leave = await h.cmd('leave.request', { start: '2026-10-13T00:00:00Z', end: '2026-10-14T00:00:00Z', reason: 'Family day' }, alex.cookie)
   await h.cmd('leave.decide', { id: leave.id, revision: 1, decision: 'approved' }, alex.cookie, 403)
   await h.cmd('leave.decide', { id: leave.id, revision: 1, decision: 'approved' }, manager.cookie)
   const bad = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [{ ...shift(alex.id), start: '2026-10-13T00:00:00Z', end: '2026-10-13T08:00:00Z' }] })
   assert.ok(bad.conflicts.length)
   await h.cmd('roster.publish', { id: bad.id, revision: bad.revision }, h.owner, 409)
-  const good = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [shift(alex.id)] })
+  const good = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [shift(alex.id), shift(sam.id)] })
   await h.cmd('roster.publish', { id: good.id, revision: bad.revision }, manager.cookie, 409)
   await h.cmd('roster.publish', { id: good.id, revision: good.revision }, manager.cookie)
   await h.cmd('settings.save', { timezone: 'America/Chicago' }, h.owner, 409)
   const visible = (await h.state(alex.cookie)).shifts
   assert.equal(visible.length, 1)
-  await h.cmd('shift.confirm', { id: visible[0].id, revision: visible[0].revision }, alex.cookie)
+  // ROSTER-003: native sessions see only their own current publication, never the private draft.
+  assert.equal(visible[0].staffId, alex.id)
+  assert.equal(visible[0].status, 'published')
+  const samVisible = (await h.state(sam.cookie)).shifts
+  assert.equal(samVisible.length, 1)
+  assert.equal(samVisible[0].staffId, sam.id)
+  assert.equal(samVisible[0].status, 'published')
+  const now = '2026-10-05T12:00:00.000Z'
+  for (const [person, assignment] of [[alex, visible[0]], [sam, samVisible[0]]]) {
+    const actor = (await h.state(person.cookie)).actor.id
+    const confirmed = await h.cmd('shift.confirm', { id: assignment.id, revision: assignment.revision }, person.cookie)
+    assert.deepEqual(confirmed.confirmations, [{ staffId: person.id, at: now }])
+    assert.equal(confirmed.confirmedBy, actor)
+    assert.equal(confirmed.confirmedAt, now)
+    assert.equal(confirmed.revision, assignment.revision + 1)
+    const event = (await h.state()).events.find(e => e.action === 'shift.confirm' && e.entityId === assignment.id)
+    assert.equal(event.actorId, actor)
+    assert.equal(event.actorRole, 'staff')
+    assert.equal(event.at, now)
+  }
+  const refuse = async (input, cookie, status, message) => {
+    const before = await h.state()
+    const result = await h.cmd('shift.confirm', input, cookie, status)
+    assert.match(result.error, message)
+    const after = await h.state()
+    assert.deepEqual(after.shifts, before.shifts, 'refusal preserves all shift revisions, confirmations and attribution')
+    assert.deepEqual(after.rosters, before.rosters)
+    assert.deepEqual(after.events, before.events, 'refusal creates no activity')
+    assert.equal(after.version, before.version)
+    assert.deepEqual(after.clocks, before.clocks)
+    assert.deepEqual(after.timesheets, before.timesheets)
+    assert.deepEqual(after.batches, before.batches)
+  }
+  const confirmed = (await h.state()).shifts.find(s => s.id === visible[0].id)
+  const foreign = (await h.state()).shifts.find(s => s.id === samVisible[0].id)
+  await refuse({ id: foreign.id, revision: foreign.revision }, alex.cookie, 403, /Only your own shift/)
+  await refuse({ id: confirmed.id, revision: visible[0].revision }, alex.cookie, 409, /Revision changed/)
+
+  // A separate human publication supersedes the confirmed assignment; its current revision must also refuse.
+  const replacement = await h.cmd('roster.prepare', { week: good.week, shifts: [
+    { ...shift(alex.id), start: '2026-10-12T15:00:00Z', end: '2026-10-12T23:00:00Z' }, shift(sam.id)
+  ] })
+  assert.deepEqual((await h.state(alex.cookie)).shifts.map(s => s.id), [confirmed.id], 'draft stays private')
+  await h.cmd('roster.publish', { id: replacement.id, revision: replacement.revision }, manager.cookie)
+  const superseded = (await h.state()).shifts.find(s => s.id === confirmed.id)
+  assert.equal(superseded.status, 'superseded')
+  assert.deepEqual(superseded.confirmations, confirmed.confirmations)
+  assert.equal(superseded.confirmedBy, confirmed.confirmedBy)
+  assert.equal(superseded.confirmedAt, confirmed.confirmedAt)
+  await refuse({ id: superseded.id, revision: superseded.revision }, alex.cookie, 409, /no longer published/)
+  const current = (await h.state(alex.cookie)).shifts
+  assert.equal(current.length, 1)
+  assert.equal(current[0].staffId, alex.id)
+  assert.equal(current[0].status, 'published')
+  assert.equal(current[0].start, '2026-10-12T15:00:00.000Z')
+  assert.notEqual(current[0].id, confirmed.id)
+  assert.deepEqual(current[0].confirmations ?? [], [], 'prior response does not confirm a changed assignment')
+  const response = await h.cmd('shift.confirm', { id: current[0].id, revision: current[0].revision }, alex.cookie)
+  const persisted = await h.state()
+  await h.restart()
+  assert.deepEqual((await h.state()).shifts, persisted.shifts, 'both retained and current confirmations survive restart')
+  assert.deepEqual((await h.state(alex.cookie)).shifts, [{ ...current[0], ...response }])
+  const restoredSam = (await h.state(sam.cookie)).shifts
+  assert.equal(restoredSam.length, 1)
+  assert.equal(restoredSam[0].staffId, sam.id)
+  assert.equal(restoredSam[0].status, 'published')
+  const after = await h.state()
+  assert.deepEqual(after.clocks, [], 'confirmation creates no punch')
+  assert.deepEqual(after.timesheets, [], 'confirmation creates no worked time')
+  assert.deepEqual(after.batches, [], 'confirmation creates no payroll')
   assert.ok((await h.state()).events.some(e => e.action === 'roster.publish' && e.actorRole === 'manager'))
-}))
+}, { now: '2026-10-05T12:00:00Z' }))
 
 test('a call-out is offered to qualified teammates within overtime, and a manager approves one accept onto the shift', () => run(async h => {
   const team = { position: 'Baristas and counter', hourlyRate: '19.00', site: 'Ocean Beach' }
