@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "3dcd813c561bf3a98017de050e8c5cfc89f7a5cedf150674768b5e52c1bbcf65",
+      "sha256": "1cacc011d06682bd134cde7a22228414cb7a8a00a090988a1d9906e9e9892478",
       "executable": false
     },
     "DEMO.md": {
@@ -402,7 +402,7 @@
       "executable": false
     },
     "docs/AGENTS-API.md": {
-      "sha256": "d4c33a95bf98c560baa9e34c27227dfb747180cbc0f6ebc690149da99e10c816",
+      "sha256": "d66ec6cc82931e39a308d94842b51cdaf43740b2b27089836990f0a30ec5e9c2",
       "executable": false
     },
     "docs/BACKUP-RESTORE.md": {
@@ -1386,7 +1386,7 @@
       "executable": false
     },
     "src/lanyard/agent-door/tools.ts": {
-      "sha256": "f051e4b66c1a98d37ece5243a74522958ab0e9fc60f7b31f444ebe5607055025",
+      "sha256": "c64adad7844f58edcc64c462d4c0a2ddd8ca8b022508e88533c6e1d6e55c8e18",
       "executable": false
     },
     "src/lanyard/archive-policy.mjs": {
@@ -1721,8 +1721,12 @@
       "sha256": "7ee40b5cf0e11fa357b777c59e2cb302d08f8a59f7b240cc5969a27dcb1dc08f",
       "executable": false
     },
+    "src/lanyard/domain/payroll-selection.ts": {
+      "sha256": "9129c5ea58a63c11457a3cf99c9c1e7f66ff6638d7b1d11dbdaed803bfd8e58e",
+      "executable": false
+    },
     "src/lanyard/domain/payroll.ts": {
-      "sha256": "f953b45d1639caac05efaec8e215a2f7d451e25735c5dc8657211c3c91628c68",
+      "sha256": "56b8073e3cd3d5c3a41b9fa03efcf7460221982de213e427cc6002e789280fe6",
       "executable": false
     },
     "src/lanyard/domain/payschedules.ts": {
@@ -4726,7 +4730,7 @@
       "executable": false
     },
     "tests/agent-native.mjs": {
-      "sha256": "65e477177c6b1d33e74d901ecd153eff6ea1b42b2700a3f79aa16d0625f263e2",
+      "sha256": "050a0e01799048127661a1a5135afdac53bc2cd5f56eed453602645a8591db01",
       "executable": false
     },
     "tests/agent-owner.mjs": {
