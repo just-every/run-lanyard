@@ -35,7 +35,7 @@ export function tools(env: Bindings): ToolDefinition[] {
    const ids = item.name === 'roster.prepare' ? (args.shifts as any[]).map(x => x.staffId) : item.name === 'time.prepare' ? [args.staffId] : []
    if (ids.some(id => !s.staff.some(p => p.id === id && p.active && !p.erased_at))) throw new ToolRefusal('resource_unavailable')
    void a
-   return [{class: 'standard', facts: {measure: item.name === 'roster.prepare' ? (args.shifts as any[]).length : item.name === 'payroll.prepare' ? (await native(async () => payrollTimesheets(s, args.ids))).selected.length : 1}}]
+   return [{class: 'standard', facts: {measure: item.name === 'roster.prepare' ? (args.shifts as any[]).length : item.name === 'payroll.prepare' ? payrollTimesheets(s, args.ids as string[] | undefined).selected.length : 1}}]
   },
   async revision(_args, ctx) {return (await load(ctx.db)).version},
   async summary(args, ctx) {
@@ -51,7 +51,7 @@ export function tools(env: Bindings): ToolDefinition[] {
     ? (args.shifts as any[]).map(row => `${name(row.staffId)}: ${row.start} to ${row.end}; unpaid break ${row.breakMinutes} minutes; ${row.site ?? ''} ${row.job ?? ''}`)
     : item.name === 'time.prepare'
      ? [`${name(args.staffId)}: ${args.start} to ${args.end}; unpaid break ${args.breakMinutes} minutes${args.corrects ? `; correction of ${args.corrects}` : ''}`]
-     : (await native(async () => payrollTimesheets(s, args.ids))).selected.map(t => `${name(t.staffId)}: ${t.start} to ${t.end}; ${t.minutes} approved minutes; source ${t.id} revision ${t.revision}`)
+     : payrollTimesheets(s, args.ids as string[] | undefined).selected.map(t => `${name(t.staffId)}: ${t.start} to ${t.end}; ${t.minutes} approved minutes; source ${t.id} revision ${t.revision}`)
    return {target:{name:item.name === 'roster.prepare' ? `Schedule draft ${args.week}` : item.title},items}
 
   },

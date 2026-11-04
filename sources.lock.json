@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "1cacc011d06682bd134cde7a22228414cb7a8a00a090988a1d9906e9e9892478",
+      "sha256": "32852cb8f7f6c9366610600e763a9ee2b8bf45816d5e18acb051959f8cce1e44",
       "executable": false
     },
     "DEMO.md": {
@@ -1386,7 +1386,7 @@
       "executable": false
     },
     "src/lanyard/agent-door/tools.ts": {
-      "sha256": "c64adad7844f58edcc64c462d4c0a2ddd8ca8b022508e88533c6e1d6e55c8e18",
+      "sha256": "9ef624b907a61868aa3f9be9e4beb748a24c160e05e3b243c8e87aaf210f5ebc",
       "executable": false
     },
     "src/lanyard/archive-policy.mjs": {
@@ -1722,11 +1722,11 @@
       "executable": false
     },
     "src/lanyard/domain/payroll-selection.ts": {
-      "sha256": "9129c5ea58a63c11457a3cf99c9c1e7f66ff6638d7b1d11dbdaed803bfd8e58e",
+      "sha256": "b25d68ea48870d825a2180acf6cfaed67fb82ad27c172958437796d208baf200",
       "executable": false
     },
     "src/lanyard/domain/payroll.ts": {
-      "sha256": "56b8073e3cd3d5c3a41b9fa03efcf7460221982de213e427cc6002e789280fe6",
+      "sha256": "d979fea0a262f53b8f1273bea287af95f99de714899927a68eb39b7f30df481b",
       "executable": false
     },
     "src/lanyard/domain/payschedules.ts": {
@@ -4730,7 +4730,7 @@
       "executable": false
     },
     "tests/agent-native.mjs": {
-      "sha256": "050a0e01799048127661a1a5135afdac53bc2cd5f56eed453602645a8591db01",
+      "sha256": "96d0c949ddc529e1239e86c53af502071d29273fa642bbc41e3f3626a303d63d",
       "executable": false
     },
     "tests/agent-owner.mjs": {

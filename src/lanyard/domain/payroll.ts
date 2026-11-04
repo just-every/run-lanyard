@@ -38,10 +38,12 @@ export async function payroll(c:Context,name:string,p:Record<string,any>) {
  const inputResult=payrollInputCommand(c,name,p);if(inputResult!==undefined)return inputResult
  const templateResult=templateCommand(c,name,p);if(templateResult!==undefined)return templateResult
  if(name==='payroll.prepare') {
-  prepare(c.a);keys(p,['ids','templateId'])
+  prepare(c.a);keys(p,['ids','templateId']);need(p.ids===undefined||(Array.isArray(p.ids)&&p.ids.length>0&&p.ids.length<=500),'Provide 1–500 timesheet IDs')
   const exportTemplate=p.templateId?templateSnapshot(c,p.templateId):undefined
+  const ids=p.ids?.map((v:unknown)=>text(v,'time ID'));if(ids)need(new Set(ids).size===ids.length,'Duplicate timesheet IDs')
   // TIME-004: time in an open defined pay period waits for the period's lock.
-  const {unclaimed,selected}=payrollTimesheets(c.s,p.ids)
+  const {unclaimed,selected}=payrollTimesheets(c.s,ids)
+  if(ids)for(const id of ids)need(selected.some(t=>t.id===id),unclaimed.some(t=>t.id===id)?'Selected time is in an open pay period; lock the period first':'Selected time is not approved or is already exported',409)
   // TIME-007: a provisionally closed punch is never exported; it is listed as held until confirmed or corrected and approved.
   const held=[...c.s.clocks.filter(k=>provisional(c.s,k,c.now)).map(k=>({clockId:k.id,staffId:k.staffId,start:k.start,reason:'provisional close'})),...unclaimed.filter(t=>heldByPeriod(c.s,t)).map(t=>({timeId:t.id,staffId:t.staffId,start:t.start,reason:'pay period open'}))]
   const nonwork=[...(c.a.role==='owner'?sickLines(c):[]),...nonWorkLines(c),...arrivalLines(c),...(exportTemplate?[...payrollInputLines(c),...makeUpLines(c)]:[])],adjustments=await overtimeInputs(c)
