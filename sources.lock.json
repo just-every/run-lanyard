@@ -642,7 +642,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "e66b205fe02e0283cf57c8c237313dd5dfa64fc1ec1b0d1d5dea9bbed749a211",
+      "sha256": "0809e79476fc3458b1c320003c7b123e805ab970ef8b9156de7cf1cec639f131",
       "executable": false
     },
     "packaging.json": {
@@ -650,7 +650,7 @@
       "executable": false
     },
     "pnpm-lock.yaml": {
-      "sha256": "c63ffe8f51de1caa9019bc12f18b12e279fe6c62cf85225bf0337be6af3afeda",
+      "sha256": "37a0ed74ecc5e1ea2c4c902f4bee3383a809a7329340d61dffca50890a06a97c",
       "executable": false
     },
     "public/ai-schedule.js": {
@@ -1175,6 +1175,10 @@
     },
     "scripts/operations-config.mjs": {
       "sha256": "decbd8619e40c741708b49639d54282bd19edc4581a782b240d96a423ad47f01",
+      "executable": false
+    },
+    "scripts/pack-print-font.mjs": {
+      "sha256": "330f563c4d02468ab5f9f86fef34f7af22e98a79f5eb79424456a8fc3561a90b",
       "executable": false
     },
     "scripts/test-lanyard.mjs": {
@@ -1961,6 +1965,18 @@
       "sha256": "8484e505fe6803767b14ae771e785e8d39c0a3754fedf538d626630bb04e6780",
       "executable": false
     },
+    "src/lanyard/fonts/unifont/glyphs.json": {
+      "sha256": "c9638644cf9b55f63fca25c2e635ac4b7f601a8a3ec7acb645ee9aa9649153bd",
+      "executable": false
+    },
+    "src/lanyard/fonts/unifont/LICENSE.txt": {
+      "sha256": "7e9c3e5e80a78b207e95608468bdcdcef982c5cf37913b34a8867c9bd469359f",
+      "executable": false
+    },
+    "src/lanyard/fonts/unifont/README.md": {
+      "sha256": "ff096549351208b7fc233a50a2e9be22b94e9791cbd36957554f24b803aef745",
+      "executable": false
+    },
     "src/lanyard/http.ts": {
       "sha256": "051728715ad559aa55cb854cff54961dc321fe5631d1e25dacb19d46174e888a",
       "executable": false
@@ -2001,8 +2017,12 @@
       "sha256": "de5c20f16b035ec93195d829f0bb23c46645f9633a26ae0612f29b9b36424ba0",
       "executable": false
     },
+    "src/lanyard/pdf-font.ts": {
+      "sha256": "0b2a6da0b68bbc3c9ff0edd4ebfe39a25543c47acfd9e9ada8ad2d6bbfa18027",
+      "executable": false
+    },
     "src/lanyard/pdf.ts": {
-      "sha256": "a7d88441c11a35ea2d5d9577de6be595deeb17154cfb45641bd952da83424e55",
+      "sha256": "f8b7b9f04b5c8e4b02333c43ef1b3e914b553de9aa3a7ca324ca91b8d898dadc",
       "executable": false
     },
     "src/lanyard/policy-form.ts": {
@@ -4878,7 +4898,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "33f709ac6aa3b6b91beea100517dbfe116bd17f0dcf92b6d309b81aec58ef614",
+      "sha256": "fecae7677aa2e8a8668d0126562499f38916037c0dda6d554adf3ce52ce20e05",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -4939,6 +4959,10 @@
     },
     "tests/paytemplates-journey.mjs": {
       "sha256": "4704d0a012221471067b3b9d529639533db8a76a2da41db5d7b52a4ee2e31b57",
+      "executable": false
+    },
+    "tests/pdf-text.mjs": {
+      "sha256": "f25734984a874ed33fde30a88c6356aa64cfe2856d0d15dd47e922e0c058dd82",
       "executable": false
     },
     "tests/photos-journey.mjs": {
@@ -5058,7 +5082,7 @@
       "executable": false
     },
     "tests/shiftwork-api.mjs": {
-      "sha256": "bd2ba3b3bb7070732837e95ce45569fc478e675c5f28bd725e017be31b1404d6",
+      "sha256": "3023547ca2e1aa768ad99a02dcdef003385f31afefc885e49b95524c06c14e17",
       "executable": false
     },
     "tests/shiftwork-browser.mjs": {
