@@ -38,13 +38,14 @@ export function readable(s:State,a:Actor,events:Event[]):Event[] {
  const home=s.staff.find(p=>p.id===a.staffId)?.site??'',siteOf=(id:string)=>s.staff.find(p=>p.id===id)?.site??''
  return events.filter(e=>{
   if(['chat.removeMember','chat.leave'].includes(e.action))return false
+  const {people,sites,person}=subject(s,index,e.entityId)
+  // JOURNAL-001: private-note activity is withheld from its subject at every non-owner role.
+  if(person===a.staffId&&privateNote(s,e.entityId))return false
   if(e.actorId===a.id)return true
   // FEEDBACK-001: events on anonymous feedback name its author, so only their performer reads them.
   if(privateEntity(s,e.entityId))return false
-  const {people,sites,person}=subject(s,index,e.entityId)
   // A cafe setting with no cafe named covers every cafe, so every manager reads it.
   if(a.role==='manager')return [...people].some(id=>siteOf(id)===home)||(!people.size&&(sites.has(home)||sites.has('')))
-  // JOURNAL-001: a private note's events stay with its writers, not its employee.
-  return person===a.staffId&&!privateNote(s,e.entityId)
+  return person===a.staffId
  }).slice(0,100)
 }

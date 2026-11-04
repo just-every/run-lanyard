@@ -913,8 +913,8 @@ test('FEEDBACK-001: after clock-out a low rating with a safety flag, an anonymou
 
 test('JOURNAL-001: a cafe manager keeps a private note with an attachment and a shared note on an employee; another cafe’s manager, the employee and an agent read only what each may; an edit keeps its version', () => run(async h => {
   await h.finishSetup()
-  const alex = await h.person('Alex'), priya = await h.person('Priya', 'manager'), remy = await h.person('Remy', 'manager')
-  for (const [p, site] of [[alex, 'Ocean Beach'], [priya, 'Ocean Beach'], [remy, 'North Park']]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, site })
+  const alex = await h.person('Alex'), priya = await h.person('Priya', 'manager'), remy = await h.person('Remy', 'manager'), mara = await h.person('Mara', 'manager')
+  for (const [p, site] of [[alex, 'Ocean Beach'], [priya, 'Ocean Beach'], [remy, 'North Park'], [mara, 'Ocean Beach']]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, site })
   const body = new FormData()
   for (const [k, v] of Object.entries({ staffId: alex.id, date: '2026-10-12', category: 'attendance', visibility: 'private', text: 'Late twice this week; agreed a 6:45 alarm' })) body.append(k, v)
   body.append('attachment', new Blob(['Signed attendance conversation'], { type: 'text/plain' }), 'conversation.txt')
@@ -950,12 +950,19 @@ test('JOURNAL-001: a cafe manager keeps a private note with an attachment and a 
   const noteInput = { date: '2026-10-14', category: 'performance', visibility: 'private', text: 'synthetic-lanyard-1', attachment: { name: 'review.txt', type: 'text/plain', data: btoa('synthetic-lanyard-2') } }
   const ownerNote = await h.cmd('note.save', { ...noteInput, staffId: ownerPerson.id }, priya.cookie)
   const managerNote = await h.cmd('note.save', { ...noteInput, staffId: priya.id })
+  const peerNote = await h.cmd('note.save', { ...noteInput, staffId: priya.id }, mara.cookie)
   const managerShared = await h.cmd('note.save', { ...noteInput, staffId: priya.id, visibility: 'employee' })
   const ownerRead = (await h.state()).notes.find(n => n.id === ownerNote.id)
   assert.equal(ownerRead.text, noteInput.text, 'owner source-reader authority is retained for notes about their linked record')
   const ownerFile = `/api/lanyard/notes/${ownerNote.id}/files/${ownerNote.attachment.id}`
   assert.equal((await h.send(ownerFile, undefined, h.owner)).text, 'synthetic-lanyard-2')
-  const managerRead = (await h.state(priya.cookie)).notes
+  const managerState = await h.state(priya.cookie), managerRead = managerState.notes
+  for (const note of [managerNote, peerNote]) {
+    assert.ok(!managerState.events.some(e => e.entityId === note.id), 'manager cannot read events on a private note about them')
+    assert.ok((await h.state()).events.some(e => e.entityId === note.id && e.action === 'note.save'), 'owner still reads private-note activity')
+  }
+  assert.ok((await h.state()).events.some(e => e.entityId === ownerNote.id && e.action === 'note.save'), 'linked owner retains activity about their own private note')
+  assert.ok((await h.state(mara.cookie)).events.some(e => e.entityId === managerNote.id && e.action === 'note.save'), 'another manager in scope reads private-note activity')
   assert.ok(!managerRead.some(n => n.id === managerNote.id), 'manager still cannot read their private self note')
   assert.equal((await h.send(`/api/lanyard/notes/${managerNote.id}/files/${managerNote.attachment.id}`, undefined, priya.cookie)).status, 404)
   const ownShared = managerRead.find(n => n.id === managerShared.id)

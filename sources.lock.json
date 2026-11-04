@@ -1426,7 +1426,7 @@
       "executable": false
     },
     "src/lanyard/domain/activity.ts": {
-      "sha256": "12b69a745d9ff47d728911914c073ef639dabbd0fe9d46d8c5536fbe5f75a13d",
+      "sha256": "39c283256669ed37938b0e4d0588676dfc0904f19d0b651e9a4b4c6e1393940c",
       "executable": false
     },
     "src/lanyard/domain/ai-provider.ts": {
@@ -4878,7 +4878,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "40dd3b16974f99aeda1b78f6849054372aee8835c2d77f6b838f41ccca788254",
+      "sha256": "44b8a7d97c29270849523d86181b99249babbea72752329a5f62c218aa4100c2",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
