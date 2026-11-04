@@ -279,6 +279,39 @@ test('availability, approved leave, conflicts, exact roster publication and pers
   assert.deepEqual((await h.state(alex.cookie)).leave.find(r => r.id === resolved.id), resolved)
   assert.equal((await h.state(alex.cookie)).shifts.length, 0)
   assert.deepEqual((await h.state(ben.cookie)).shifts.map(s => [s.staffId, s.start, s.end]), [[ben.id, '2026-10-12T14:00:00.000Z', '2026-10-12T22:00:00.000Z']])
+
+  const otherManager = await h.person('Omar', 'manager')
+  const ownLeave = await h.cmd('leave.request', { start: '2026-10-16T14:00:00Z', end: '2026-10-16T22:00:00Z', reason: 'Personal appointment' }, manager.cookie)
+  assert.equal(ownLeave.requestedBy, decider)
+  assert.equal(ownLeave.status, 'pending'); assert.equal(ownLeave.revision, 1)
+  assert.equal(ownLeave.decidedBy, undefined); assert.equal(ownLeave.decidedAt, undefined)
+  const beforeSelfDecision = retained(await h.state())
+  const refuseSelfDecision = async () => {
+    for (const decision of ['approved', 'rejected']) {
+      const response = await h.send('/api/lanyard/command', { name: 'leave.decide', input: { id: ownLeave.id, revision: ownLeave.revision, decision } }, manager.cookie)
+      assert.equal(response.status, 403, response.text)
+      assert.match(response.value.error, /You cannot decide your own leave/)
+      assert.deepEqual(retained(await h.state()), beforeSelfDecision, 'a manager self-decision preserves pending leave, decision fields, revisions, publication and activity')
+      assert.deepEqual((await h.state(manager.cookie)).leave.find(r => r.id === ownLeave.id), ownLeave)
+    }
+  }
+  await refuseSelfDecision()
+  await h.restart()
+  assert.deepEqual(retained(await h.state()), beforeSelfDecision)
+  await refuseSelfDecision()
+  const independentActor = (await h.state(otherManager.cookie)).actor.id
+  assert.notEqual(independentActor, decider)
+  const independentApproval = await h.cmd('leave.decide', { id: ownLeave.id, revision: ownLeave.revision, decision: 'approved' }, otherManager.cookie)
+  assert.deepEqual(independentApproval, { ...ownLeave, status: 'approved', revision: 2, decidedBy: independentActor, decidedAt: independentApproval.decidedAt })
+  assert.ok(Number.isFinite(Date.parse(independentApproval.decidedAt)))
+  const afterIndependentApproval = retained(await h.state())
+  assert.deepEqual(afterIndependentApproval.shifts, beforeSelfDecision.shifts)
+  assert.deepEqual(afterIndependentApproval.rosters, beforeSelfDecision.rosters)
+  const independentEvents = afterIndependentApproval.events.filter(e => !beforeSelfDecision.events.some(old => old.id === e.id))
+  assert.deepEqual(independentEvents.map(e => [e.action, e.entityId, e.actorId, e.actorRole, e.at]), [['leave.decide', ownLeave.id, independentActor, 'manager', independentApproval.decidedAt]])
+  await h.restart()
+  assert.deepEqual(retained(await h.state()), afterIndependentApproval, 'independent approval retains exact requester, decision attribution and publication after restart')
+  assert.deepEqual((await h.state(manager.cookie)).leave.find(r => r.id === ownLeave.id), independentApproval)
 }))
 
 test('a call-out is offered to qualified teammates within overtime, and a manager approves one accept onto the shift', () => run(async h => {
