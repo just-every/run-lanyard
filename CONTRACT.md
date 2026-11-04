@@ -539,9 +539,9 @@ Judged from the code and tests at commit `4872aa3ed919f92bb8de3f1ef11f27e3524d28
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 10 | 6 | 0 | 16 |
+| Published | 11 | 5 | 0 | 16 |
 | Target and push further | 40 | 53 | 31 | 124 |
-| All | 50 | 59 | 31 | 140 |
+| All | 51 | 58 | 31 | 140 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -554,7 +554,7 @@ Judged from the code and tests at commit `4872aa3ed919f92bb8de3f1ef11f27e3524d28
 | `TIME-001` | Identity-bound phone capture and replay | published | done | `src/lanyard/domain/time.ts`; `src/lanyard/domain/storage.ts`; `src/lanyard/ui/commands.ts`; `tests/lanyard.test.mjs` |  |
 | `TIME-002` | Exact time approval and linked corrections | published | partial | `src/lanyard/domain/time.ts`; `src/lanyard/domain/payroll.ts`; `tests/lanyard.test.mjs` | Exact approvals, linked retained corrections and signed payroll differences ship. No public-door assertion attempts payroll export of the obsolete approved source while its correction awaits a decision. |
 | `PAYROLL-001` | Reviewed once-only payroll files and signed adjustments | published | done | `src/lanyard/domain/payroll.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs` |  |
-| `PAYROLL-002` | Explicit manual provider acknowledgment | published | partial | `src/lanyard/domain/payroll.ts`; `tests/lanyard.test.mjs` | Manual provider references and attributed acknowledgment events ship. The cited journeys do not assert refusal of acknowledgment on a draft or stale batch revision. |
+| `PAYROLL-002` | Explicit manual provider acknowledgment | published | done | `tests/lanyard.test.mjs` (AUDIT-001, PAYROLL-001 and PAYROLL-002: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta): native independent time approval, draft and stale acknowledgment refusals without batch, attribution, claim or activity changes, exact exported revision acknowledgment with reference, actor and time, restart and identical authenticated downloads. |  |
 | `AGENT-001` | Preparation-only delegated authority | published | done | `src/lanyard/credentials.ts`; `src/lanyard/http.ts`; `src/lanyard/domain/index.ts`; `tests/lanyard.test.mjs`; `src/lanyard/agent-door/`; `tests/agent-native.mjs` (native public-door identity, exact-summary approval, replay, conflict and Pause proof) |  |
 | `ARCHIVE-001` | Complete installation archive with authority exclusions | published | done | `src/lanyard/archive-policy.mjs`; `tests/archive.test.mjs`; `OPERATIONS.json` |  |
 | `ERASE-001` | Unused identity erasure and restore fence | published | done | `src/lanyard/domain/people.ts`; `tests/lanyard.test.mjs`; `tests/archive.test.mjs` |  |

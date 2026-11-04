@@ -1383,7 +1383,7 @@ test('CLOCK-002: ordered clock retries bind identity, retain conflicting capture
   assert.match(page.text,/Original shift already recorded/)
 }))
 
-test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta', () => run(async h => {
+test('AUDIT-001, PAYROLL-001 and PAYROLL-002: each roster-to-payroll decision keeps actor, role, subject and time; a stale concurrent export leaves no orphan event or claim; payroll claims once with immutable downloads and signed correction delta', () => run(async h => {
   const alex = await h.person('Alex'), manager = await h.person('Priya', 'manager')
   await h.cmd('availability.save', { staffId: alex.id, start: '2026-10-12T07:00:00Z', end: '2026-10-19T07:00:00Z' })
   const week = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: [shift(alex.id)] })
@@ -1392,6 +1392,17 @@ test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, ro
   const approved = await h.cmd('time.approve', { id: submitted.id, revision: 1 }, manager.cookie)
   // Two reviewed batches claim the same approved time at once: exactly one commits its claim and event.
   const drafts = [await h.cmd('payroll.prepare', {}), await h.cmd('payroll.prepare', {})]
+  const acknowledgmentState = async () => {
+    const state = await h.state()
+    const claims = (await h.db.prepare('SELECT * FROM l_payroll_claims ORDER BY time_id,time_revision').all()).results
+    return { version: state.version, batches: state.batches, timesheets: state.timesheets, claims, events: state.events }
+  }
+  const beforeDraft = await acknowledgmentState()
+  assert.deepEqual(beforeDraft.claims, [])
+  for (const draft of beforeDraft.batches) assert.deepEqual([draft.status, draft.reference, draft.acknowledgedBy, draft.acknowledgedAt], ['draft', undefined, undefined, undefined])
+  const draftRefusal = await h.cmd('payroll.acknowledge', { id: drafts[0].id, revision: drafts[0].revision, reference: 'synthetic-lanyard-draft' }, h.owner, 409)
+  assert.match(draftRefusal.error, /Only exported payroll can be acknowledged/)
+  assert.deepEqual(await acknowledgmentState(), beforeDraft, 'draft refusal changes no batch, attribution, time, claim or activity')
   const raced = await Promise.all(drafts.map(b => h.send('/api/lanyard/command', { name: 'payroll.export', input: { id: b.id, revision: b.revision } }, h.owner)))
   assert.deepEqual(raced.map(r => r.status).sort(), [200, 409])
   const exported = raced.find(r => r.status === 200).value.result, batch = { id: exported.id }
@@ -1400,9 +1411,28 @@ test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, ro
   assert.equal((await h.state()).batches.find(b => b.id !== batch.id).status, 'draft')
   const path = `/api/lanyard/batches/${batch.id}.csv`
   const a = await h.send(path, undefined, h.owner), b = await h.send(path, undefined, h.owner)
+  assert.equal(a.status, 200); assert.equal(b.status, 200)
   assert.equal(a.text, b.text); assert.match(a.text, /450,7\.5000/)
   assert.equal((await h.send(path, undefined, alex.cookie)).status, 403)
-  await h.cmd('payroll.acknowledge', { id: batch.id, revision: exported.revision, reference: 'Payroll-import-101' })
+  const beforeStale = await acknowledgmentState(), preExport = drafts.find(draft => draft.id === batch.id)
+  assert.deepEqual([exported.revision, exported.status, exported.reference, exported.acknowledgedBy, exported.acknowledgedAt], [preExport.revision + 1, 'exported', undefined, undefined, undefined])
+  const staleRefusal = await h.cmd('payroll.acknowledge', { id: batch.id, revision: preExport.revision, reference: 'synthetic-lanyard-stale' }, h.owner, 409)
+  assert.match(staleRefusal.error, /Revision changed/)
+  assert.deepEqual(await acknowledgmentState(), beforeStale, 'stale refusal changes no batch, attribution, time, claim or activity')
+  const actor = (await h.state()).actor.id
+  const acknowledged = await h.cmd('payroll.acknowledge', { id: batch.id, revision: exported.revision, reference: 'synthetic-lanyard-101' })
+  assert.deepEqual([acknowledged.status, acknowledged.revision, acknowledged.reference, acknowledged.acknowledgedBy, acknowledged.acknowledgedAt], ['acknowledged', exported.revision + 1, 'synthetic-lanyard-101', actor, '2026-10-19T12:00:00.000Z'])
+  const afterAcknowledgment = await acknowledgmentState()
+  assert.deepEqual(afterAcknowledgment.claims, beforeStale.claims)
+  assert.deepEqual(afterAcknowledgment.timesheets, beforeStale.timesheets)
+  const acknowledgmentEvents = afterAcknowledgment.events.filter(e => e.action === 'payroll.acknowledge')
+  assert.equal(acknowledgmentEvents.length, 1)
+  assert.deepEqual([acknowledgmentEvents[0].entityId, acknowledgmentEvents[0].actorId, acknowledgmentEvents[0].actorRole, acknowledgmentEvents[0].at], [batch.id, actor, 'owner', acknowledged.acknowledgedAt])
+  await h.restart()
+  const restarted = await acknowledgmentState()
+  assert.deepEqual(restarted, afterAcknowledgment, 'the acknowledged reference, actor, time, claims and activity survive restart')
+  const retained = await h.send(path, undefined, h.owner)
+  assert.equal(retained.status, 200); assert.equal(retained.text, a.text, 'acknowledgment and restart retain the exact exported bytes')
   const corrected = await h.cmd('time.prepare', { ...timeInput(alex.id), breakMinutes: 45, corrects: approved.id, reason: 'Break correction agreed with Alex' })
   const correction = await h.cmd('time.approve', { id: corrected.id, revision: 1 })
   assert.equal(correction.exportMinutes, -15)
@@ -1425,7 +1455,7 @@ test('AUDIT-001 and PAYROLL-001: each roster-to-payroll decision keeps actor, ro
   const mine = new Set([alex.id, ...['availability', 'shifts', 'timesheets'].flatMap(k => s0[k].filter(r => r.staffId === alex.id).map(r => r.id))])
   assert.ok(own.length && own.every(e => mine.has(e.entityId)), 'staff read only events on their own records')
   assert.ok(own.some(e => e.action === 'time.approve' && e.entityId === approved.id) && !own.some(e => ['roster.publish', 'payroll.export', 'payroll.download'].includes(e.action)))
-}))
+}, { now: '2026-10-19T12:00:00Z' }))
 
 test('agent prepares drafts but cannot approve through any human or agent door; key revocation is immediate', () => run(async h => {
   const alex = await h.person('Alex'), key = await h.cmd('agent.create', { label: 'Roster assistant' }), headers = { authorization: `Bearer ${key.token}` }
