@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "3ae24b49b3ef5cdb6b26fd006c7a45e77a4cc7c8f50740e298d06874dee7b54b",
+      "sha256": "88f148764a13be82884ee92c26bed25bef18c02c9ff78874d74374f5e4d9edb6",
       "executable": false
     },
     "DEMO.md": {
@@ -4878,7 +4878,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "fe62422c01f1b448487728be5dd93b5ac15a4100622dafa093861f30fec59417",
+      "sha256": "cdde494640d7e113b7aba838b8881dd3cb1db0d52787015ea68cb4c780d67b5e",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {
@@ -4938,7 +4938,7 @@
       "executable": false
     },
     "tests/paytemplates-journey.mjs": {
-      "sha256": "4704d0a012221471067b3b9d529639533db8a76a2da41db5d7b52a4ee2e31b57",
+      "sha256": "2b27ce2ddf5c1a44d4885f848d4f2a37e80a240454114c693da895621a57fc76",
       "executable": false
     },
     "tests/photos-journey.mjs": {

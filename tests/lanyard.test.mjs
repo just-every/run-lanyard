@@ -2070,13 +2070,13 @@ test('PRIVACY-001: authorized former employee export, held history and explicit 
 
 test('PRIVACY-001: erased journal content loses its file and edit controls at 1440 and 390',async()=>{const {privacyBrowser}=await import('./privacy-journey.mjs');await privacyBrowser()})
 
-test('PAY-001 and PAY-002: explicit employee workflows and mapped grouped files retain signed sources, exact revisions and once-only claims',()=>run(async h=>{const {templatesApi}=await import('./paytemplates-journey.mjs');await templatesApi(h)}))
+test('PAY-001 and PAY-002: explicit employee workflows and mapped grouped files retain signed sources, exact revisions and once-only claims',async()=>{const {templatesApi,roundedTemplateApi}=await import('./paytemplates-journey.mjs');await run(templatesApi);await run(h=>roundedTemplateApi(h,'csv'),{now:'2026-10-27T12:00:00Z'})})
 test('PAY-002: reviewed mapped bytes export from Payroll at 1440 and 390',async()=>{const {templatesBrowser}=await import('./paytemplates-journey.mjs');await templatesBrowser()})
 test('PAY-001: retained policy classifies employee overtime and double time, separates contractor treatment and exports signed code corrections once',()=>run(async h=>{const {classificationApi}=await import('./paytemplates-journey.mjs');await classificationApi(h)}))
 test('PAY-001: approved PTO, tip allocations and tip-credit make-up sources map independently and corrections export only signed differences',()=>run(async h=>{const {earningInputsApi}=await import('./paytemplates-journey.mjs');await earningInputsApi(h)},{now:'2026-10-27T12:00:00Z'}))
 test('PAY-001: pinned work areas and clock-transfer jobs classify retained rates once with signed per-job corrections',async()=>{const {classifiedSegmentsApi}=await import('./paytemplates-journey.mjs');for(const transfer of [false,true])await run(h=>classifiedSegmentsApi(h,transfer),{now:'2026-10-27T12:00:00Z'})})
-test('PAY-002: XLSX downloads retain literal identifiers, exact approved numbers, binary hashes and immutable signed corrections',()=>run(async h=>{const {workbookApi}=await import('./paytemplates-journey.mjs');await workbookApi(h)}))
-test('PAY-002: TSV and custom-delimited files retain configured column order, dates, UTC times, payable precision and immutable downloads',async()=>{const {delimitedApi}=await import('./paytemplates-journey.mjs');for(const format of ['tsv','delimited'])await run(h=>delimitedApi(h,format))})
+test('PAY-002: XLSX downloads retain literal identifiers, exact approved numbers, binary hashes and immutable signed corrections',async()=>{const {workbookApi,roundedTemplateApi}=await import('./paytemplates-journey.mjs');await run(workbookApi);await run(h=>roundedTemplateApi(h,'xlsx'),{now:'2026-10-27T12:00:00Z'})})
+test('PAY-002: TSV and custom-delimited files retain configured column order, dates, UTC times, payable precision and immutable downloads',async()=>{const {delimitedApi,roundedTemplateApi}=await import('./paytemplates-journey.mjs');for(const format of ['tsv','delimited']){await run(h=>delimitedApi(h,format));await run(h=>roundedTemplateApi(h,format),{now:'2026-10-27T12:00:00Z'})}})
 
 test('POLICY-001: adjacent cafe captures retain one break obligation without changing historical releases',async()=>{const {policyAdjacentApi}=await import('./policy-adjacent-journey.mjs');await policyAdjacentApi()})
 
