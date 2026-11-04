@@ -3,8 +3,10 @@
 import {pdf,type Line} from './pdf'
 import {dateKey,day,span,stamp} from './ui/format'
 
-export function postingPdf(posting:Record<string,any>,personName:string|null):Uint8Array<ArrayBuffer> {
+export function postingPdf(posting:Record<string,any>):Uint8Array<ArrayBuffer> {
  const tz=posting.timezone,f=posting.filter
+ // Employee copies already retain their printed name in every row, including older postings.
+ const personName=f.staffId?posting.rows[0]?.name:null
  const scope=[f.site||'All cafes',f.position,personName].filter(Boolean).join(' · ')
  const lines:Line[]=[
   {cells:[[0,`Lanyard schedule · ${scope}`]],size:16,bold:true},
