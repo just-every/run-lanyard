@@ -535,18 +535,18 @@ PAY-001 remaining gaps (the complete clause stays PARTIAL):
 
 ## Status
 
-Judged from the code and tests at commit `4872aa3ed919f92bb8de3f1ef11f27e3524d2864` (3 November 2026). POLICY-002’s interim owner boundary is rechecked by the named native HTTP and Settings journeys; ct’s 27 October approval with riders grants no completion, and POLICY-002 remains partial. The final candidate and exact-SHA execution receipts are supplied in the fleet report. BASE-001 retains its named 26 October live hosted installation evidence. Other clauses retain their existing evidence and gaps.
+Judged from the code and tests at commit `4872aa3ed919f92bb8de3f1ef11f27e3524d2864` (3 November 2026). POLICY-002’s interim owner boundary is rechecked by the named native HTTP and Settings journeys; ct’s 27 October approval with riders grants no completion, and POLICY-002 remains partial. The final candidate and exact-SHA execution receipts are supplied in the fleet report. BASE-001 retains its named 26 October live hosted installation evidence. Other clauses retain their existing evidence and gaps. PEOPLE-001’s lifecycle journey is rechecked from proof commit `0daefb28bd5c8ec40316f3ac9ed6a18318bda3e5`; its final candidate SHA and exact execution receipts are supplied in the fleet report.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 10 | 6 | 0 | 16 |
+| Published | 11 | 5 | 0 | 16 |
 | Target and push further | 40 | 53 | 31 | 124 |
-| All | 50 | 59 | 31 | 140 |
+| All | 51 | 58 | 31 | 140 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
 | `ACCESS-001` | Native sessions and server-side authority | published | partial | `src/lanyard/http.ts`; `src/lanyard/credentials.ts`; `src/lanyard/domain/storage.ts`; `tests/lanyard.test.mjs` | Native session, role, ownership, origin and revocation checks ship. The cited access/leave journeys do not assert refusal of a manager approving their own leave; that contracted authority boundary remains unproved. |
-| `PEOPLE-001` | Staff lifecycle and payroll identities | published | partial | `src/lanyard/domain/people.ts`; `src/lanyard/credentials.ts`; `tests/lanyard.test.mjs` | Staff creation, native invitations, edits and immediate deactivation ship. Public-door assertions rejecting duplicate email/payroll IDs and stale staff revisions, and retaining prior work after deactivation, are missing. |
+| `PEOPLE-001` | Staff lifecycle and payroll identities | published | done | `src/lanyard/domain/people.ts`; `src/lanyard/credentials.ts`; `tests/lanyard.test.mjs` — PEOPLE-001: native lifecycle rejects duplicate identities and stale edits, retains work after revocation, and preserves owner-only grants, staff isolation and CSRF (creation, separate activation and native invitation, duplicate creates and edits including normalized email, exact revision, independent time approval, deactivation, refused private requests and capture replay, retained shifts and 450 approved minutes after restart) |  |
 | `MOVE-001` | Reviewed Staff CSV move-in | published | done | `src/lanyard/movein/index.ts`; `src/lanyard/movein/targets.ts`; `tests/lanyard.test.mjs` |  |
 | `ROSTER-001` | Availability and explicit leave decisions | published | partial | `src/lanyard/domain/people.ts`; `tests/lanyard.test.mjs` | Availability, pending leave and exact manager decisions ship. The cited journey does not attempt leave approval against an already published shift or a manager deciding their own request; these refusals remain unproved. |
 | `ROSTER-002` | Conflict-checked revision publication | published | done | `src/lanyard/domain/roster.ts`; `src/lanyard/domain/storage.ts`; `tests/lanyard.test.mjs` |  |
