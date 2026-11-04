@@ -338,7 +338,7 @@
       "executable": false
     },
     ".github/workflows/verify.yml": {
-      "sha256": "4116d3fcb8b213084277b268720d55ffe251fe0fae88e64d66f60639fce7be41",
+      "sha256": "056a5afc71871b92d45e44beaa33a5716335de971495ef03f3501ff6e1e68373",
       "executable": false
     },
     ".gitignore": {
@@ -993,6 +993,10 @@
       "sha256": "dcb154c902e7139c4192d8b5c69f8576874f4f35bd564656dbd80aad2d1f497d",
       "executable": false
     },
+    "scripts/ci/verify-shard.mjs": {
+      "sha256": "f3a118eb9a3b6027291f7261352244259267b154c23e1d817064009771e57e0a",
+      "executable": false
+    },
     "scripts/contract-docs.mjs": {
       "sha256": "72b47bddc97c04a59436b060b00c90669c252968fad11a77ad6348224d1d3a5d",
       "executable": false
@@ -1178,7 +1182,7 @@
       "executable": false
     },
     "scripts/test-lanyard.mjs": {
-      "sha256": "1173294da8c96d5931738ba591c5d990fe188cb37a856437911db69d1936acac",
+      "sha256": "e12df378898296da217bd3842f77793ac8c46e88b63b190095d356ea9d7563c5",
       "executable": false
     },
     "scripts/verify-app.mjs": {
