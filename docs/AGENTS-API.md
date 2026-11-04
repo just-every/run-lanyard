@@ -37,6 +37,11 @@ compatible guide address. Each job below names its real tool, scope, classes,
 classifier facts and conformance evidence, followed by the declared templates,
 prompt, capacity limits and error recovery.
 
+The specialist prompt derives its preparation jobs, descriptions, scopes and
+classes from that registry too. It requires current schemas and source revisions,
+stable write identities and fresh review after a conflict. Supplying prompt
+arguments cannot replace those instructions or complete a native human step.
+
 <!-- agent-catalogue -->
 
 These tools call the existing native services. Standard reflects their actual

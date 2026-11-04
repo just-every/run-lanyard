@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "444107bf801005c1847695c1d1919ec39a6dc1b7352109e53e3d86061f12cc41",
+      "sha256": "9d9adee7a25b06fafb8965fd4401e2e6b41185bf60fe256201325cc871095012",
       "executable": false
     },
     "DEMO.md": {
@@ -402,7 +402,7 @@
       "executable": false
     },
     "docs/AGENTS-API.md": {
-      "sha256": "b28b1e192145eaec4395e79d287e712e6dbdc226380f4ce64471ef0ddd07c184",
+      "sha256": "ce8fc71b51d9bc52b0aa9a9102f37c0131d97fe908c3e58e21b50f1a50d9ae0c",
       "executable": false
     },
     "docs/BACKUP-RESTORE.md": {
@@ -1362,7 +1362,7 @@
       "executable": false
     },
     "src/lanyard/agent-door/catalogue.ts": {
-      "sha256": "1c5d3df5925a404ca69a72877c3024fcc8ed0fab10bf90f8637b11a9b3c1be71",
+      "sha256": "794bebff6cf8926a178ecac43a1267152df113fba306f918824272b6dcb5d107",
       "executable": false
     },
     "src/lanyard/agent-door/index.ts": {
@@ -4726,7 +4726,7 @@
       "executable": false
     },
     "tests/agent-native.mjs": {
-      "sha256": "b052d36264eccaec9b5a8455c646c7c41025a0cbbe98d460c75b2ea6784e0063",
+      "sha256": "e6274dcf34e02e6fd04860ee7b2c68e617627ed7f848200ee0702c0ec8377221",
       "executable": false
     },
     "tests/agent-owner.mjs": {
