@@ -350,7 +350,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "52c6c49bbfa6ae3f45816555121f13299e4071b6e585c04484be5a91bec06e00",
+      "sha256": "c8e38a8b6395522f1526d0d600f51f5be4cab5ab7b896746a53bda31f0878bc7",
       "executable": false
     },
     "agent-surface.json": {
@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "3dc791577794a2202f2a7a0fe1d42e777287fc7954ced866c1bdb23090c2c5e3",
+      "sha256": "a279760cfcfd0fa0becaa0013f6deb422c2e3a7c010ba998903625c90e80119a",
       "executable": false
     },
     "DEMO.md": {
@@ -410,7 +410,7 @@
       "executable": false
     },
     "docs/CLAIMS.md": {
-      "sha256": "2018bb32a5153a1e27ccc7a021b1358c156d40df5e218af3f9ecf40d1948d43a",
+      "sha256": "59fe3d7a82238248fff1a046f5bb532944b7bc98c7d505a1c4eb163bbde8ca5d",
       "executable": false
     },
     "docs/GETTING-STARTED.md": {
@@ -4878,7 +4878,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "8435ac312787ff79c57bb3c3e9b1aacb0b590126114cd157ed823afe13a8c28f",
+      "sha256": "43800a54f045982e471d8d4fa51aa71b7974b1b320c0885f87a01c56f549d464",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {

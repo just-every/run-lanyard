@@ -535,9 +535,11 @@ PAY-001 remaining gaps (the complete clause stays PARTIAL):
 
 ## Status
 
-Judged from the code and tests at commit `afdfaa9af59ee2818dd613f69852124979637428` (4 November 2026). POLICY-002’s interim owner boundary is rechecked by the named native HTTP and Settings journeys; ct’s 27 October approval with riders grants no completion, and POLICY-002 remains partial. The final candidate and exact-SHA execution receipts are supplied in the fleet report. BASE-001 retains its named 26 October live hosted installation evidence. Other clauses retain their existing evidence and gaps.
+Judged from the code and tests at commit `4872aa3ed919f92bb8de3f1ef11f27e3524d2864` (3 November 2026). POLICY-002’s interim owner boundary is rechecked by the named native HTTP and Settings journeys; ct’s 27 October approval with riders grants no completion, and POLICY-002 remains partial. The final candidate and exact-SHA execution receipts are supplied in the fleet report. BASE-001 retains its named 26 October live hosted installation evidence. Other clauses retain their existing evidence and gaps.
 
 SCHEDULE-005 is rechecked on this round's exact candidate, named with its execution receipts in the fleet report (4 November 2026). Its retained-heading implementation was first saved at commit `7f94158c0efef596d1cd2dfc1b819bda6636d2d5`; the candidate extends its native journey without changing acceptance text or the existing POLICY-002, TEAM-001 and ACCESS-003 boundaries.
+
+Judged from the code and tests at commit `9637678493ec62478e144bfe1b466dd2b85e6a98` (4 November 2026). POLICY-002’s interim owner boundary is rechecked by the named native HTTP and Settings journeys; ct’s 27 October approval with riders grants no completion, and POLICY-002 remains partial. The final candidate and exact-SHA execution receipts are supplied in the fleet report. BASE-001 retains its named 26 October live hosted installation evidence. Other clauses retain their existing evidence and gaps.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |

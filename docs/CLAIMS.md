@@ -26,7 +26,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | CONTACT-001 | Emergency contacts on the shift and employee card | done |
 | ACCESS-002 | Manager single sign-on and required second factor | partial |
 | ACCESS-003 | Custom access levels | partial |
-| JOURNAL-001 | Employee notes and manager journal | partial |
+| JOURNAL-001 | Employee notes and manager journal | done |
 | SCHEDULE-001 | Editable visual schedules and publication review | done |
 | SCHEDULE-002 | Reusable templates recurring shifts and duplication | done |
 | SCHEDULE-003 | Cross-site coverage and double-booking prevention | partial |
