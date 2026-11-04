@@ -51,14 +51,13 @@ retain the original operation identity, so door recovery cannot duplicate a draf
 No provider cost or spend reservation is registered: spend is explicitly none.
 No Undo is offered where the native service has no reversal.
 
-The declared capabilities are tools, policy, pause, audit and idempotency.
-Events, resources, prompts and subscriptions are undeclared: discovery omits
+The declared capabilities are tools, policy, pause, audit, idempotency and
+resources. Events, prompts and subscriptions remain undeclared: discovery omits
 them and their public calls return typed `capability_not_declared` refusals.
-The eight native resource readers remain internal visibility adapters; the
-public resource catalogue and returned resource links are empty. Record access
-for this adoption uses the reduced context and consented comparison tools.
-Source text is untrusted. Keys, bearer credentials, payroll identifiers, rates,
-private contacts and download bytes are not returned.
+The public resource catalogue contains the four preparation templates documented
+below. Their reads reuse the reduced native projections and current authority
+checks. Source text is untrusted. Keys, bearer credentials, payroll identifiers,
+rates, private contacts and download bytes are not returned.
 
 To let company agents use comparison reads, the owner must separately grant
 `comparison.read`, name cafes, consent to aggregate cost disclosure and check
