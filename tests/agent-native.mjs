@@ -1,6 +1,7 @@
 // Additional public-door fixtures in the declared conformance journey. All
 // identities and signatures belong only to disposable native installations.
 import assert from 'node:assert/strict'
+import {readFileSync} from 'node:fs'
 import {randomUUID,webcrypto} from 'node:crypto'
 import {harness} from './harness.mjs'
 import initializeHistory from './agent-history.mjs'
@@ -21,10 +22,50 @@ export async function identityProof() {
   const signer={privateKey:pair.privateKey,kid,issuer,installationId},business='synthetic-workforce',now=()=>Math.floor(Date.now()/1000)
   const settings=await signJws(pair.privateKey,kid,'rer-business-settings+jwt',{v:1,iss:issuer,aud:'self-host',sub:installationId,business,email:h.auth.OWNER_EMAIL,owner_id:owner,jti:randomUUID(),iat:now(),exp:now()+300,rev:1,values:{},logo:null,team:[{id:member,email:'sasha@synthetic.example.invalid',name:'Sasha Kim',role:'admin',invite:1}]})
   assert.equal((await h.send('/api/rer/business-settings',{settings})).status,200)
-  const policy=await policyEnvelope({signer,origin:h.origin,business,seq:0,revision:0},autonomousPolicy())
-  assert.equal((await h.send('/api/rer/agent-policy',{policy:policy.policy})).status,200)
   const token=overrides=>signJws(pair.privateKey,kid,'at+jwt',{iss:issuer,aud:h.origin+'/mcp',sub:owner,email:h.auth.OWNER_EMAIL,act:{sub:'synthetic-coordinator',name:'Sage',specialist:'workforce coordinator'},client_id:'synthetic-client',scope:'workforce:read workforce:prepare',business,consent:'synthetic-consent',jti:randomUUID(),iat:now(),exp:now()+300,...overrides})
   const call=async(overrides={},name='lanyard.context.read',args={},requestState)=>h.send('/mcp',{jsonrpc:'2.0',id:'identity',method:'tools/call',params:{name,arguments:args,requestState,_meta:{'io.modelcontextprotocol/protocolVersion':'2026-07-28'}}},'',{authorization:'Bearer '+await token(overrides),'mcp-protocol-version':'2026-07-28','mcp-method':'tools/call','mcp-name':name})
+  const rpc=async(method,params={},version='2026-07-28',authenticated=true)=>{method=method.replaceAll(' ','/');return h.send('/mcp',{jsonrpc:'2.0',id:'catalogue',method,params:{...params,_meta:{'io.modelcontextprotocol/protocolVersion':version}}},'',{
+   ...(authenticated?{authorization:'Bearer '+await token({})}:{}),'mcp-protocol-version':version,'mcp-method':method,...(params.name?{'mcp-name':params.name}:{})})}
+  const versions=['2026-07-28','2025-11-25'],promptName='prepare_service_week'
+  const beforePrompts=await h.state()
+  for(const version of versions){
+   for(const method of ['prompts list','prompts get'])assert.equal((await rpc(method,{name:promptName},version,false)).status,401,'prompt access requires current native admission')
+   assert.deepEqual((await rpc('prompts list',{},version)).value.result.prompts,[])
+   assert.equal((await rpc('prompts get',{name:promptName},version)).value.error.data.code,'policy_unset')
+  }
+  assert.equal((await h.state()).version,beforePrompts.version,'unset prompt calls make no native changes')
+  const policy=await policyEnvelope({signer,origin:h.origin,business,seq:0,revision:0},autonomousPolicy())
+  assert.equal((await h.send('/api/rer/agent-policy',{policy:policy.policy})).status,200)
+  const surface=JSON.parse(readFileSync(new URL('../agent-surface.json',import.meta.url),'utf8'))
+  for(const version of versions){
+   if(version==='2025-11-25'){
+    const initialized=await rpc('initialize',{protocolVersion:version,capabilities:{},clientInfo:{name:'synthetic-lanyard-1',version:'1'}},version)
+    assert.equal(initialized.value.result.protocolVersion,version)
+    assert.ok(initialized.value.result.capabilities.prompts)
+   }
+   const discovery=(await rpc('server discover',{},version)).value.result
+   assert.ok(discovery.capabilities.prompts)
+   assert.deepEqual(discovery._meta['com.runeditrun/capabilities'].declared,surface.capabilities)
+   const listed=(await rpc('tools list',{},version)).value.result
+   assert.deepEqual(listed.tools.map(t=>({name:t.name,scope:t._meta['com.runeditrun/scope'],classes:t._meta['com.runeditrun/classes']})),surface.tools.map(t=>({name:t.name,scope:t.scope,classes:t.classes})).sort((a,b)=>a.name.localeCompare(b.name)))
+   assert.deepEqual((await rpc('resources templates list',{},version)).value.result.resourceTemplates,surface.resources)
+   const prompts=(await rpc('prompts list',{},version)).value.result
+   assert.deepEqual(prompts.prompts.map(p=>p.name),[promptName]);assert.equal(prompts.cacheScope,'private');assert.equal(typeof prompts.ttlMs,'number')
+   const prompt=(await rpc('prompts get',{name:promptName},version)).value.result
+   assert.ok(prompt.messages.length);assert.equal(prompt.cacheScope,'private')
+   const text=prompt.messages.map(m=>m.content.text).join(' ')
+   for(const tool of ['lanyard.context.read','lanyard.roster.prepare','lanyard.time.prepare','lanyard.payroll.prepare'])assert.ok(text.includes(tool),'the specialist can discover an actual preparation tool')
+   assert.equal(text.includes(h.auth.OWNER_EMAIL),false,'the generic prompt discloses no installation identity')
+   assert.ok((await rpc('prompts get',{name:promptName,arguments:{week:42}},version)).value.error,'invalid prompt arguments refuse')
+  }
+  assert.equal((await h.state()).version,beforePrompts.version,'catalogue and prompt retrieval execute no native action')
+  const blocked=await policyEnvelope({signer,origin:h.origin,business,seq:1,revision:1},{...autonomousPolicy(),rules:[{id:'block-preparation',class:'*',do:'blocked'}]})
+  assert.equal((await h.send('/api/rer/agent-policy',{policy:blocked.policy})).status,200)
+  for(const version of versions)assert.equal((await rpc('prompts get',{name:promptName},version)).value.error.data.code,'policy_blocked')
+  assert.equal((await h.state()).version,beforePrompts.version,'blocked prompt retrieval changes no native records')
+  const resumed=await policyEnvelope({signer,origin:h.origin,business,seq:2,revision:2},autonomousPolicy())
+  assert.equal((await h.send('/api/rer/agent-policy',{policy:resumed.policy})).status,200)
+  console.log('PASS LANYARD-CATALOGUE: both protocols authenticate and retrieve the preparation prompt; manifest equals public tools and templates; unset and blocked calls refuse without native effects')
   const valid=await call();assert.equal(valid.status,200);assert.equal(valid.value.result.isError,false)
   const nativeId=valid.value.result.structuredContent.actor.id
   assert.equal((await call({sub:'unknown-subject'})).status,401,'a matching owner email never selects an unknown subject')
@@ -49,9 +90,10 @@ export async function identityProof() {
   assert.equal((await call()).value.result.isError,false)
   await h.cmd('staff.erase',{id:unused.id,revision:unused.revision},h.owner,409)
   const hold={schema:'rer-agent-policy/1',catalogue:'rer-agent-classes/1',rules:[{id:'named-owner',class:'*',do:'approval',approver:['sponsor'],wait:'PT1H'}],spend:{none:true}}
-  const held=await policyEnvelope({signer,origin:h.origin,business,seq:1,revision:1},hold)
+  const held=await policyEnvelope({signer,origin:h.origin,business,seq:3,revision:3},hold)
   assert.equal((await h.send('/api/rer/agent-policy',{policy:held.policy})).status,200)
   const args={week:'2026-01-19',shifts:[{staffId:worker.id,start:'2026-01-19T10:00:00Z',end:'2026-01-19T12:00:00Z',breakMinutes:0}],idempotency_key:'native-approval-proof'}
+  for(const version of versions)assert.equal((await rpc('prompts get',{name:promptName},version)).value.error.data.code,'approval_required','a generic prompt never completes a named approval')
   const before=await h.state(),pending=await call({},'lanyard.roster.prepare',args)
   const approval=pending.value.result._meta['com.runeditrun/approval']
   assert.ok(approval?.id);assert.equal((await h.state()).version,before.version)
@@ -68,7 +110,7 @@ export async function identityProof() {
   assert.equal(repeated.value.result.isError,false);assert.equal((await h.state()).version,effect.version)
   const changed=await call({},'lanyard.roster.prepare',{...args,shifts:[{...args.shifts[0],label:'Changed after decision'}]})
   assert.equal(changed.value.result._meta['com.runeditrun/error'].code,'idempotency_conflict')
-  const open=await policyEnvelope({signer,origin:h.origin,business,seq:2,revision:2},autonomousPolicy())
+  const open=await policyEnvelope({signer,origin:h.origin,business,seq:4,revision:4},autonomousPolicy())
   assert.equal((await h.send('/api/rer/agent-policy',{policy:open.policy})).status,200)
   const stale=await call({},'lanyard.roster.prepare',{...args,idempotency_key:'stale-source-proof',expected_revision:before.version})
   assert.equal(stale.value.result._meta['com.runeditrun/error'].code,'revision_conflict')
@@ -80,7 +122,7 @@ export async function identityProof() {
   assert.equal(overlap.value.result._meta['com.runeditrun/error'].code,'native_conflict')
   assert.equal((await h.state()).version,firstState.version,'overlap refusal preserves the native witness')
   const reviewPolicy={...autonomousPolicy(),rules:[{id:'review-preparation',class:'*',do:'review'}],reviewers:['sponsor']}
-  const reviewed=await policyEnvelope({signer,origin:h.origin,business,seq:3,revision:3},reviewPolicy)
+  const reviewed=await policyEnvelope({signer,origin:h.origin,business,seq:5,revision:5},reviewPolicy)
   assert.equal((await h.send('/api/rer/agent-policy',{policy:reviewed.policy})).status,200)
   const second=await call({},'lanyard.time.prepare',{...time,start:'2026-01-07T10:00:00Z',end:'2026-01-07T12:00:00Z',idempotency_key:'second-policy-time'})
   assert.equal(second.value.result.isError,false,'a distinct native interval succeeds under review policy')
@@ -97,7 +139,13 @@ export async function identityProof() {
   assert.equal(proposal.value.result._meta['com.runeditrun/error'].code,'native_conflict')
   assert.equal((await h.state()).version,noHistory.version,'unknown historical outcomes cannot produce a proposal')
   console.log('PASS LANYARD-FIXTURES: distinct time intervals succeed under autonomous and review policies; overlap and insufficient learning history refuse without native effects')
+  await h.restart()
+  for(const version of versions)assert.ok((await rpc('prompts get',{name:promptName},version)).value.result.messages.length,'review policy still permits the prompt after restart')
   assert.equal((await h.send('/agents/api/pause',{paused:true},h.owner)).status,200)
+  for(const version of versions){
+   assert.deepEqual((await rpc('prompts list',{},version)).value.result.prompts,[])
+   assert.equal((await rpc('prompts get',{name:promptName},version)).value.error.data.code,'agents_paused')
+  }
   const paused=await call({},'lanyard.roster.prepare',{...args,idempotency_key:'paused-source-proof'})
   assert.equal(paused.value.result._meta['com.runeditrun/error'].code,'agents_paused')
   assert.equal((await h.state()).version,noHistory.version)

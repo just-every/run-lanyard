@@ -6,7 +6,7 @@ import { comparisonRead } from '../comparison-read'
 import { agentDemandRead, agentLearnRead } from '../agent-demand'
 import { comparisonActor, preparationActor } from './people.ts'
 import { context } from './records.ts'
-import { inputs, object, output } from './schemas.ts'
+import { action, actions } from './catalogue.ts'
 import type { Bindings } from '../../auth.server'
 
 async function native<T>(run: () => Promise<T>): Promise<T> {
@@ -17,17 +17,12 @@ async function native<T>(run: () => Promise<T>): Promise<T> {
   throw e
  }
 }
-const readOutput = {type: 'object'}
 export function tools(env: Bindings): ToolDefinition[] {
  const standard = async (_args: Record<string, unknown>, ctx: ToolContext) => {await preparationActor(ctx); return [{class: 'standard' as const, facts: {measure: 1}}]}
- const writes = [
-  {name: 'roster.prepare', title: 'Prepare a schedule draft', inputSchema: inputs.roster, clauses: ['AGENT-001','ROSTER-002','SCHEDULE-001']},
-  {name: 'time.prepare', title: 'Prepare time for human review', inputSchema: inputs.time, clauses: ['AGENT-001','TIME-002']},
-  {name: 'payroll.prepare', title: 'Prepare an hours batch', inputSchema: inputs.payroll, clauses: ['AGENT-001','PAYROLL-001']},
-  {name: 'learn.propose', title: 'Record an evidence-bound growth proposal', inputSchema: inputs.propose, clauses: ['AGENT-001','LEARN-001','TRADEOFF-001']},
- ].map((item): ToolDefinition => ({
-  name: 'lanyard.' + item.name, title: item.title, description: item.title + '. Preparation only; native human decisions remain separate.',
-  inputSchema: item.inputSchema, outputSchema: output, scope: item.name === 'learn.propose' ? 'comparison.read' : 'workforce:prepare', readOnly: false, untrusted: true, classes: ['standard'], clauses: item.clauses,
+ const writes = actions.filter(item => !item.readOnly).map((metadata): ToolDefinition => {
+ const name = metadata.name.slice('lanyard.'.length), item = {...metadata, name}
+ return {
+  ...metadata, untrusted: true,
   async classify(args, ctx) {
    const a = item.name === 'learn.propose' ? await comparisonActor(ctx, String(args.site)) : await preparationActor(ctx)
    const s = await load(ctx.db)
@@ -61,17 +56,16 @@ export function tools(env: Bindings): ToolDefinition[] {
    if (area) ctx.emit(item.name, `lanyard://${area}/${encodeURIComponent(area === 'weeks' ? row.week : row.id)}`, {id: row.id, revision: row.revision})
    return {result, ...(area ? {resources: [{uri: `lanyard://${area}/${encodeURIComponent(area === 'weeks' ? row.week : row.id)}`, name: item.title}]} : {})}
   },
- }))
+ }})
  const reads: ToolDefinition[] = [{
-  name: 'lanyard.context.read', title: 'Read reduced preparation context', description: 'Inspect native staffing and draft facts without contact, payroll identifiers or wage rates.', scope: 'workforce:read', readOnly: true,
-  inputSchema: object({}), outputSchema: {type: 'object', required: ['version','staff','rosters','shifts','timesheets','batches'], properties: {version: {type: 'integer'}, staff: {type: 'array'}, rosters: {type: 'array'}, shifts: {type: 'array'}, timesheets: {type: 'array'}, batches: {type: 'array'}}},
-  classes: ['standard'], clauses: ['AGENT-001'], classify: standard, untrusted: true, async run(_args, ctx) {return {result: await native(() => context(ctx))}},
+  ...action('context.read'),
+  classify: standard, untrusted: true, async run(_args, ctx) {return {result: await native(() => context(ctx))}},
  }, ...[
-  {name: 'tradeoff.compare', title: 'Read a consented comparison', inputSchema: inputs.comparison, clauses: ['TRADEOFF-001'], read: (args: Record<string, unknown>, ctx: ToolContext) => native(async () => comparisonRead(ctx.db, await comparisonActor(ctx, String(args.site)), String(args.week), String(args.site), Number(args.weeks ?? 8)))},
-  {name: 'demand.read', title: 'Read a consented forecast', inputSchema: inputs.demand, clauses: ['DEMAND-001','LEARN-001'], read: (args: Record<string, unknown>, ctx: ToolContext) => native(async () => agentDemandRead(ctx.db, await comparisonActor(ctx, String(args.site)), String(args.site), String(args.date)))},
-  {name: 'learn.read', title: 'Read consented learning evidence', inputSchema: inputs.learning, clauses: ['LEARN-001','TRADEOFF-001'], read: (args: Record<string, unknown>, ctx: ToolContext) => native(async () => agentLearnRead(ctx.db, await comparisonActor(ctx, String(args.site)), String(args.site), Number(args.weeks ?? 8)))},
+  {name: 'tradeoff.compare', read: (args: Record<string, unknown>, ctx: ToolContext) => native(async () => comparisonRead(ctx.db, await comparisonActor(ctx, String(args.site)), String(args.week), String(args.site), Number(args.weeks ?? 8)))},
+  {name: 'demand.read', read: (args: Record<string, unknown>, ctx: ToolContext) => native(async () => agentDemandRead(ctx.db, await comparisonActor(ctx, String(args.site)), String(args.site), String(args.date)))},
+  {name: 'learn.read', read: (args: Record<string, unknown>, ctx: ToolContext) => native(async () => agentLearnRead(ctx.db, await comparisonActor(ctx, String(args.site)), String(args.site), Number(args.weeks ?? 8)))},
  ].map((item): ToolDefinition => ({
-  name: 'lanyard.' + item.name, title: item.title, description: item.title + '. Requires a current native comparison.read grant for this cafe.', inputSchema: item.inputSchema, outputSchema: readOutput, scope: 'comparison.read', readOnly: true, classes: ['standard'], clauses: item.clauses,
+  ...action(item.name),
   async classify(args, ctx) {await comparisonActor(ctx, String(args.site));return [{class: 'standard', facts: {measure: 1}}]},
   async run(args, ctx) {return {result: await item.read(args, ctx)}}, untrusted: true,
  }))]
