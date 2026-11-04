@@ -610,11 +610,12 @@ test('CLOCK-006: an owner’s break, injury, cash-tip and fit-for-duty questions
   assert.deepEqual([first.answers[1].text, first.answers[1].version], ['Did you take all your breaks?', 1])
 }))
 
-test('CLOCK-004: a running service shift with an on-time, late, absent and offline employee shows on the live board from received punches; the absent one turns late then no-show, a manager records handling it and finds cover, and only the cover’s clock-in closes the alert', () => run(async h => {
+test('CLOCK-004: received punches or whole-shift approved time for the current assignee close scoped attendance alerts; partial time, handling notes and reassignment alone do not', async () => {
+ await run(async h => {
   const [ana, ben, cy, dee, eve] = [await h.person('Ana'), await h.person('Ben'), await h.person('Cy'), await h.person('Dee'), await h.person('Eve')], priya = await h.person('Priya', 'manager'), omar = await h.person('Omar', 'manager')
   for (const p of [ana, ben, cy, dee, eve, priya, omar]) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, position: 'Barista', site: p === omar ? 'Mission' : 'Ocean Beach' })
-  // The shift began an hour ago, whatever the time now.
-  const start = Math.floor(Date.now() / 60000) * 60000 - 3600000, iso = ms => new Date(ms).toISOString().replace('.000Z', 'Z'), min = m => iso(start + m * 60000)
+  // Pin a service day and its receipt instant, including the offline punch's freshness.
+  const start = Date.parse('2026-10-12T14:00:00Z'), iso = ms => new Date(ms).toISOString().replace('.000Z', 'Z'), min = m => iso(start + m * 60000)
   const local = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(start)), d = new Date(local + 'T00:00:00Z')
   const week = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10)
   for (const p of [ana, ben, cy, dee, eve]) await h.cmd('availability.save', { staffId: p.id, start: iso(start - 86400000), end: iso(start + 2 * 86400000) })
@@ -628,6 +629,8 @@ test('CLOCK-004: a running service shift with an on-time, late, absent and offli
   await h.cmd('clock.in', { commandId: 'ben', capturedAt: min(20) }, ben.cookie)
   const read = async (asOf, cookie = priya.cookie, status = 200) => { const r = await h.send(`/api/lanyard/attendance${asOf ? `?asOf=${asOf}` : ''}`, undefined, cookie); assert.equal(r.status, status, r.text); return r.value.rows }
   const row = (list, p) => list.find(r => r.staffId === p.id)
+  assert.deepEqual([row(await read(min(-1)), cy).status, row(await read(min(-1)), cy).alert], ['scheduled', null])
+  assert.deepEqual([row(await read(min(5)), cy).status, row(await read(min(5)), cy).alert], ['due', null])
   // Until Dee's phone sends its queued punch, the live board has her as a no-show.
   assert.deepEqual([row(await read(), dee).status, row(await read(), dee).alert.kind], ['no-show', 'no-show'])
   await h.cmd('clock.in', { commandId: 'dee', capturedAt: min(1) }, dee.cookie)
@@ -638,6 +641,12 @@ test('CLOCK-004: a running service shift with an on-time, late, absent and offli
   // Read as of 8:30, Dee's punch shows it was captured then but received only later.
   assert.deepEqual([row(half, dee).punch.receivedAfter, row(half, ana).punch.receivedAfter], [true, true])
   assert.deepEqual([row(half, ana).wrongSite, row(half, ana).punch.seenAt], [true, 'Mission'])
+  await h.cmd('clock.breakStart', { commandId: 'ana-rest', capturedAt: min(40), kind: 'rest' }, ana.cookie)
+  assert.equal(row(await read(min(45)), ana).status, 'on break')
+  await h.cmd('clock.breakEnd', { commandId: 'ana-rest-end', capturedAt: min(50) }, ana.cookie)
+  assert.equal(row(await read(min(55)), ana).status, 'present')
+  await h.cmd('clock.out', { commandId: 'ana-out', capturedAt: min(55), breakMinutes: 0 }, ana.cookie)
+  assert.equal(row(await read(), ana).status, 'done')
   const now = await read()
   assert.deepEqual([row(now, dee).status, row(now, dee).alert, row(now, dee).punch.offlineMinutes >= 58], ['present', null, true])
   assert.deepEqual([row(now, cy).status, row(now, cy).alert.kind], ['no-show', 'no-show'])
@@ -658,10 +667,68 @@ test('CLOCK-004: a running service shift with an on-time, late, absent and offli
   await h.cmd('cover.approve', { id: yes.id, revision: yes.revision }, priya.cookie)
   const covered = row(await read(), eve)
   assert.deepEqual([covered.shiftId, covered.status, covered.alert.kind, covered.alert.acknowledged], [cyShift.shiftId, 'no-show', 'no-show', []])
-  await h.cmd('clock.in', { commandId: 'eve', capturedAt: iso(Date.now() - 1000).replace(/\.\d+Z$/, 'Z') }, eve.cookie)
+  await h.cmd('clock.in', { commandId: 'eve', capturedAt: min(60) }, eve.cookie)
   const closed = row(await read(), eve)
   assert.deepEqual([closed.status, closed.alert, closed.lateMinutes >= 60], ['present', null, true])
-}))
+ }, { now: '2026-10-12T15:00:00Z' })
+ const clock = { now: '2026-10-12T13:00:00Z' }
+ await run(async h => {
+  const people = []
+  for (let n = 1; n <= 11; n++) people.push(await h.person(`synthetic-lanyard-${n}`, n >= 10 ? 'manager' : 'staff'))
+  const [partialStart, partialEnd, atStart, atEnd, full, surrounding, pending, reassigned, previous, manager, foreign] = people
+  for (const p of people) await h.cmd('staff.save', { id: p.id, revision: p.revision, name: p.name, email: p.email, payrollId: p.payrollId, role: p.role, active: true, site: p === foreign ? 'Mission' : 'Ocean Beach' })
+  const at = hour => `2026-10-12T${hour}:00:00Z`, pin = r => ({ id: r.id, revision: r.revision })
+  for (const p of people.slice(0, 9)) await h.cmd('availability.save', { staffId: p.id, start: at('00'), end: '2026-10-13T00:00:00Z' })
+  const draft = await h.cmd('roster.prepare', { week: '2026-10-12', shifts: people.slice(0, 7).concat(previous).map(p => ({ staffId: p.id, start: at('14'), end: at('22'), breakMinutes: 0 })) })
+  assert.deepEqual(draft.conflicts, [])
+  await h.cmd('roster.publish', pin(draft), manager.cookie)
+  const original = (await h.state()).shifts.find(x => x.staffId === previous.id && x.status === 'published')
+  await h.cmd('shift.change', { ...pin(original), staffId: reassigned.id, reason: 'Different employee assigned before service' }, manager.cookie)
+  await h.cmd('attendrule.save', { site: 'Ocean Beach', graceMinutes: 10, noShowMinutes: 30 })
+  clock.now = '2026-10-12T23:00:00Z'
+  const read = async (cookie = manager.cookie, status = 200, query = '') => {
+   const response = await h.send(`/api/lanyard/attendance${query}`, undefined, cookie)
+   assert.equal(response.status, status, response.text)
+   return response.value.rows
+  }
+  const facts = rows => rows.map(r => [r.staffId, r.status, r.alert?.kind ?? null])
+  const expected = approved => people.slice(0, 8).map(p => [p.id, approved.includes(p) ? 'approved time' : 'no-show', approved.includes(p) ? null : 'no-show'])
+  const sorted = rows => rows.sort((a, b) => a[0].localeCompare(b[0]))
+  assert.deepEqual(sorted(facts(await read())), sorted(expected([])), 'published and reassigned shifts have no worked evidence')
+  const sources = []
+  for (const [p, start, end] of [[partialStart, '15', '22'], [partialEnd, '14', '21'], [atStart, '13', '14'], [atEnd, '22', '23'], [full, '14', '22'], [surrounding, '13', '23'], [pending, '14', '22'], [previous, '14', '22']]) {
+   sources.push(await h.cmd('time.prepare', { staffId: p.id, start: at(start), end: at(end), breakMinutes: 0, reason: 'Recorded service work reviewed separately' }, manager.cookie))
+  }
+  assert.deepEqual(sorted(facts(await read())), sorted(expected([])), 'submitted full time cannot close an alert')
+  for (const source of sources.filter(s => s.staffId !== pending.id)) await h.cmd('time.approve', pin(source), manager.cookie)
+  assert.deepEqual(sorted(facts(await read())), sorted(expected([full, surrounding])), 'both boundaries must be covered for the current assignee')
+  const partial = (await read()).find(r => r.staffId === partialStart.id)
+  await h.cmd('attendance.acknowledge', { shiftId: partial.shiftId, note: 'Checking the missing first hour' }, manager.cookie)
+  const handled = (await read()).find(r => r.staffId === partialStart.id)
+  assert.equal(handled.alert.kind, 'no-show')
+  assert.deepEqual(handled.alert.acknowledged.map(a => a.note), ['Checking the missing first hour'])
+  const correction = await h.cmd('time.prepare', { staffId: full.id, start: at('14'), end: at('21'), breakMinutes: 0, reason: 'Approved source ended an hour earlier', corrects: sources.find(t => t.staffId === full.id).id }, manager.cookie)
+  assert.equal((await read()).find(r => r.staffId === full.id).status, 'approved time', 'a pending correction leaves the approved source effective')
+  await h.cmd('time.approve', pin(correction), manager.cookie)
+  assert.deepEqual(sorted(facts(await read())), sorted(expected([surrounding])), 'superseded full coverage cannot close the corrected alert')
+  const sourceBytes = async () => {
+   const s = await h.state()
+   return JSON.stringify([s.timesheets, s.clocks, s.shifts, s.batches, s.attendacks])
+  }
+  const before = await sourceBytes()
+  assert.deepEqual(await read(foreign.cookie, 200, '?site=Ocean%20Beach'), [])
+  await read(partialStart.cookie, 403)
+  await h.cmd('attendance.acknowledge', { shiftId: partial.shiftId, note: 'Outside my site' }, foreign.cookie, 403)
+  assert.deepEqual(sorted(facts(await read(h.owner))), sorted(expected([surrounding])))
+  await h.restart()
+  assert.deepEqual(sorted(facts(await read())), sorted(expected([surrounding])))
+  assert.deepEqual((await read()).find(r => r.staffId === partialStart.id).alert.acknowledged.map(a => a.note), ['Checking the missing first hour'])
+  assert.equal(await sourceBytes(), before, 'reads, refused actions and restart preserve time, clocks, assignments, payroll and handling records')
+  const punch = await h.cmd('clock.in', { commandId: 'synthetic-lanyard-1', capturedAt: at('14') }, surrounding.cookie)
+  const observed = (await read()).find(r => r.staffId === surrounding.id)
+  assert.deepEqual([observed.status, observed.alert, observed.punch.clockId], ['present', null, punch.id], 'received punch takes precedence over covering approved time')
+ }, clock)
+})
 
 test('SCHEDULE-002: a saved week is applied to a holiday week at the same wall times, a recurring shift skips its exception date, conflicts name the person now on leave, one occurrence is edited and published while earlier weeks stay unchanged', () => run(async h => {
   const alex = await h.person('Alex'), sam = await h.person('Sam'), priya = await h.person('Priya', 'manager')

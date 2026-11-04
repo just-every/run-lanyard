@@ -1446,7 +1446,7 @@
       "executable": false
     },
     "src/lanyard/domain/attendance.ts": {
-      "sha256": "a13cc3eed130cdb51cb4ab335f8622f90baf1c07476d5ea5678f49d5ab855fa2",
+      "sha256": "90320d21387c531d027c2b370b7cd9f8c873167095fb4bd50b722513b5dde0be",
       "executable": false
     },
     "src/lanyard/domain/audit-access.ts": {
@@ -4878,7 +4878,7 @@
       "executable": false
     },
     "tests/lanyard.test.mjs": {
-      "sha256": "5c74506f43dd53bbaadedc31ed9a17c7f95355f90adf5d09e8fb71d8a333e69d",
+      "sha256": "4c3238db0987f5bfa587d4678e89b361c64573dce21398c077e896a74d7b471b",
       "executable": false
     },
     "tests/learn-demand-journey.mjs": {

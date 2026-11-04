@@ -25,8 +25,8 @@ export function attendanceFact(s:State,x:Row,asOf:string) {
   const cafe=siteOf(s,x),rule=s.attendrules.find(r=>r.site===cafe),grace=(rule?.graceMinutes??0)*60000,k=punchFor(s,x,asOf)
   const closed=k?.end&&k.end<=asOf,onBreak=k&&!closed&&(k.breaks??[]).some((b:any)=>b.start<=asOf&&(!b.end||b.end>asOf))
   const lateMinutes=k?Math.max(0,Math.round((at(k.start)-at(x.start))/60000)):null
-  // Approved time covering the shift counts as a fact; a published or confirmed shift alone never does.
-  const approved=s.timesheets.some(t=>t.staffId===x.staffId&&t.status==='approved'&&t.start<x.end&&t.end>x.start)
+  // Only approved time covering the whole shift for its current assignee closes an alert.
+  const approved=s.timesheets.some(t=>t.staffId===x.staffId&&t.status==='approved'&&t.start<=x.start&&t.end>=x.end)
   const status=k?(closed?'done':onBreak?'on break':'present'):approved?'approved time':at(asOf)<at(x.start)?'scheduled':at(asOf)<at(x.start)+grace?'due':rule&&at(asOf)>=at(x.start)+rule.noShowMinutes*60000?'no-show':'missing'
   const conflicts=[...(k?.exceptions??[]),...(x.callout&&!x.callout.coveredBy?['called out, waiting for cover']:[])]
   const alert=rule&&(status==='missing'||status==='no-show')?{kind:status==='no-show'?'no-show':'late',since:new Date(at(x.start)+(status==='no-show'?rule.noShowMinutes*60000:grace)).toISOString(),acknowledged:s.attendacks.filter(r=>r.shiftId===x.id&&r.staffId===x.staffId).map(({by,byName,at,note})=>({by,byName,at,note}))}:null
