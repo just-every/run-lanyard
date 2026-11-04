@@ -378,7 +378,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "9136f4fa3b6057f140d50ddaea1591574115909386833cbaa3fdd9da7d624465",
+      "sha256": "c13b1aa0e5148d89f72e07c58268618a77588355a3e6e28e720afc269df576a7",
       "executable": false
     },
     "DEMO.md": {
@@ -4934,7 +4934,7 @@
       "executable": false
     },
     "tests/payschedules-journey.mjs": {
-      "sha256": "dc441ae70f381146f552ec533654286a0462eab13684a66d2733dc4e46867b43",
+      "sha256": "285a7165f690d50feb51bac938e711f65d04f2b6a19e45f7a4906aa060c7556e",
       "executable": false
     },
     "tests/paytemplates-journey.mjs": {

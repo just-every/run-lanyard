@@ -92,6 +92,8 @@ export async function payScheduleApi(h) {
  // periods, but must wait if there is no later locked period in its own group.
  second=await h.cmd('period.close',{...pin(second),reference:'Employer-recorded second-period run'})
  const secondLocked=structuredClone(second.locked)
+ const foreignLater=await h.cmd('paygroup.period',{groupId:bi.id,date:'2026-10-25'})
+ await lockEmpty(foreignLater)
  later=await h.cmd('period.reopen',{...pin(later),reason:'Review later destination'})
  last=await h.cmd('period.reopen',{...pin(last),reason:'Review final destination'})
  await enter(alex,12,6,{corrects:early[1].id,reason:'Agreed two-hour correction'})
