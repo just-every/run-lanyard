@@ -2,7 +2,7 @@
 // A historical sale is an entered observation; a forecast is never backdated.
 import assert from 'node:assert/strict'
 
-export default async function ({request, origin, cookie}) {
+export default async function ({request, origin, cookie, now = Date.now()}) {
  const headers = {origin, cookie, 'content-type': 'application/json'}
  const command = async (name, input, status = 200) => {
   const response = await request(origin + '/api/lanyard/command', {
@@ -16,7 +16,7 @@ export default async function ({request, origin, cookie}) {
   assert.equal(response.status, 200)
   return response.json()
  }
- const today = new Date().toISOString().slice(0, 10)
+ const today = new Date(now).toISOString().slice(0, 10)
  const prior = days => new Date(Date.parse(today + 'T12:00:00Z') - days * 86400000).toISOString().slice(0, 10)
  const site = 'Ocean Beach'
  const csv = ['date,hour,site,sales', ...Array.from({length: 21}, (_, i) =>
