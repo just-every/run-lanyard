@@ -360,11 +360,16 @@ test('SCHEDULE-005: a manager prints cafe and employee PDFs stamped with the rev
   const site = (await h.state(priya.cookie)).postings.find(p => p.id !== own.id)
   const download = async (id, cookie = priya.cookie) => { const r = await h.mf.dispatchFetch(`${h.origin}/api/lanyard/postings/${id}.pdf`, { headers: { cookie } }); return { status: r.status, type: r.headers.get('content-type'), bytes: Buffer.from(await r.arrayBuffer()) } }
   const sitePdf = await download(site.id), ownPdf = await download(own.id)
+  const role = await h.cmd('schedule.post', { week: '2026-10-12', site: 'Ocean Beach', position: 'Kitchen' }, priya.cookie)
+  const rolePdf = await download(role.id)
   assert.equal(sitePdf.type, 'application/pdf'); assert.equal(sitePdf.bytes.subarray(0, 8).toString(), '%PDF-1.4')
   const text = b => b.toString('latin1')
   for (const pdf of [sitePdf, ownPdf]) assert.match(text(pdf.bytes), /published revision 1,/)
   assert.match(text(sitePdf.bytes), /\(Alex\)/); assert.match(text(sitePdf.bytes), /\(Sam\)/); assert.ok(!text(sitePdf.bytes).includes('(Lee)'))
   assert.match(text(ownPdf.bytes), /\(Alex\)/); assert.ok(!text(ownPdf.bytes).includes('(Sam)'))
+  assert.match(text(rolePdf.bytes), /\(Sam\)/); assert.ok(!text(rolePdf.bytes).includes('(Alex)') && !text(rolePdf.bytes).includes('(Lee)'))
+  assert.match(text(ownPdf.bytes), new RegExp(`posting ${own.id}`))
+  assert.deepEqual((await download(own.id, h.owner)).bytes, ownPdf.bytes)
   assert.equal((await download(site.id, alex.cookie)).status, 403)
   // The wall display shows this revision, read-only, for managers.
   const wall = async () => (await h.send('/app/wall?site=Ocean%20Beach&week=2026-10-12', undefined, priya.cookie)).text
@@ -379,6 +384,7 @@ test('SCHEDULE-005: a manager prints cafe and employee PDFs stamped with the rev
   for (const original of [sitePdf, ownPdf]) assert.ok(!text(original.bytes).includes('Alex Renamed'))
   assert.deepEqual((await download(own.id)).bytes, ownPdf.bytes)
   assert.deepEqual((await download(site.id)).bytes, sitePdf.bytes)
+  assert.deepEqual((await download(role.id)).bytes, rolePdf.bytes)
   await h.restart()
   assert.deepEqual((await download(own.id)).bytes, ownPdf.bytes)
   assert.deepEqual((await download(site.id)).bytes, sitePdf.bytes)
@@ -397,8 +403,15 @@ test('SCHEDULE-005: a manager prints cafe and employee PDFs stamped with the rev
   await h.restart()
   assert.deepEqual((await download(own.id)).bytes, ownPdf.bytes)
   assert.deepEqual((await download(later.id)).bytes, laterPdf.bytes)
+  assert.deepEqual((await download(role.id)).bytes, rolePdf.bytes)
   // Pay, contact details and time-off reasons are in no output.
-  for (const out of [text(sitePdf.bytes), text(ownPdf.bytes), before]) for (const secret of ['21.75', 'Dentist', alex.email]) assert.ok(!out.includes(secret), secret)
+  for (const out of [text(sitePdf.bytes), text(ownPdf.bytes), text(rolePdf.bytes), text(laterPdf.bytes), before]) for (const secret of ['21.75', 'Dentist', alex.email]) assert.ok(!out.includes(secret), secret)
+  const currentPriya = (await h.state()).staff.find(p => p.id === priya.id)
+  await h.cmd('staff.save', { id: currentPriya.id, revision: currentPriya.revision, name: currentPriya.name, email: currentPriya.email, payrollId: currentPriya.payrollId, role: currentPriya.role, active: false, position: currentPriya.position, site: currentPriya.site, hourlyRate: '21.75' })
+  const retained = async () => (await h.db.batch([h.db.prepare('SELECT * FROM l_meta'), h.db.prepare('SELECT * FROM l_staff ORDER BY id'), h.db.prepare('SELECT * FROM l_records ORDER BY kind,id'), h.db.prepare('SELECT * FROM l_commands ORDER BY id')])).map(r => r.results)
+  const afterRevocation = await retained()
+  assert.equal((await download(own.id)).status, 403)
+  assert.deepEqual(await retained(), afterRevocation)
 }))
 
 test('BREAK-002: a 30-minute automatic meal deduction is confirmed at clock-out, reversed with an exception when the meal is reported missed, and flagged when left unconfirmed', () => run(async h => {
