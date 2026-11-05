@@ -4730,7 +4730,7 @@
       "executable": false
     },
     "tests/agent-native.mjs": {
-      "sha256": "0031e25d4e21858668590569965c0facb8744f457d491d97f6d7b9536eadf34e",
+      "sha256": "eb972918aa9f78cf6405023a96b35c1cd1a607ab4b3bd37fa65ee0b2ea4a1b7e",
       "executable": false
     },
     "tests/agent-owner.mjs": {
