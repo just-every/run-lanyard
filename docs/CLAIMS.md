@@ -5,7 +5,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | Clause | Title | Status |
 | --- | --- | --- |
 | ACCESS-001 | Native sessions and server-side authority | partial |
-| PEOPLE-001 | Staff lifecycle and payroll identities | done |
+| PEOPLE-001 | Staff lifecycle and payroll identities | partial |
 | MOVE-001 | Reviewed Staff CSV move-in | done |
 | ROSTER-001 | Availability and explicit leave decisions | partial |
 | ROSTER-002 | Conflict-checked revision publication | done |
@@ -64,7 +64,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | BREAK-001 | Timed meals breaks and exceptions | done |
 | BREAK-002 | Automatic meal deductions with employee attestation | done |
 | TIME-003 | Missed punches employee review and exception resolution | done |
-| TIME-004 | Payroll period locks and controlled reopening | done |
+| TIME-004 | Payroll period locks and controlled reopening | partial |
 | TIME-005 | Punch rounding and snap-to-schedule | done |
 | TIME-006 | Early clock-in window and unscheduled punches | done |
 | TIME-007 | Forgotten clock-out reminder cap and provisional close | done |
@@ -86,14 +86,14 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | DASH-001 | Manager daily operations dashboard | done |
 | EARN-001 | Employee hours and estimated earnings | done |
 | PAY-001 | Payroll-ready classified hours and pay codes | partial |
-| PAY-002 | Configurable payroll export templates | done |
+| PAY-002 | Configurable payroll export templates | partial |
 | PAY-003 | Paylocity import preset | missing |
 | PAY-004 | Paycor import preset | missing |
 | PAY-005 | Rippling import preset | missing |
 | PAY-006 | Heartland Payroll import preset | missing |
 | PAY-007 | Square Payroll hours preset | missing |
 | PAY-008 | Toast Payroll hours preset | missing |
-| PAY-009 | Pay schedules and workweeks that cross pay periods | done |
+| PAY-009 | Pay schedules and workweeks that cross pay periods | partial |
 | PAY-010 | Paychex Flex payroll import file preset | missing |
 | PAY-011 | QuickBooks Desktop Payroll IIF time export | partial |
 | SYNC-001 | Approved transfer and provider-applied reconciliation | partial |
