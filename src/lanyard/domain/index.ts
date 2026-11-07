@@ -78,7 +78,7 @@ import {questions,injuriesFor} from './questions'
 import {attendance,board} from './attendance'
 import {offerRules,accessToHours} from './offerorder'
 import {cutoffCommand,cutoffReports} from './cutoff'
-import {periodFor,periods,guardPeriods,signoffCurrent} from './periods'
+import {periodFor,periods,guardPeriods,signoffCurrent,signoffSources} from './periods'
 import {logbook,logFor,searchLog,incidentText,logFile} from './logbook'
 import {dashboard} from './dashboard'
 import {contacts,mayRead,contactCard} from './contacts'
@@ -245,6 +245,10 @@ export async function snapshot(db:D1Database,identity:Actor,secret?:string,earni
  result.demandcoverage=[]
  result.demandCoverageCases=await demandCoverageCases(s,a,new Date().toISOString())
  result.cutoffReports=a.role==='owner'?await cutoffReports(s,a,new Date().toISOString(),db):[]
+ result.periodSignoffSources=Object.fromEntries(s.periods.map(p=>[p.id,{
+  ...(!agent&&a.staffId?{employee:signoffSources(s,p,a.staffId)}:{}),
+  ...(manages?{manager:signoffSources(s,p)}:{})
+ }]))
  result.periodSignoffState=Object.fromEntries(s.periods.map(p=>[p.id,Object.fromEntries(p.signoffs.map((x:any)=>[x.by+'|'+x.role,signoffCurrent(s,p,x)]))]))
  result.paytemplates=a.role==='owner'?s.paytemplates:[]
  result.payinputs=a.role==='owner'?s.payinputs:[]

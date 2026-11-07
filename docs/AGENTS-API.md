@@ -55,6 +55,19 @@ retain the original operation identity, so door recovery cannot duplicate a draf
 No provider cost or spend reservation is registered: spend is explicitly none.
 No Undo is offered where the native service has no reversal.
 
+For ordinary worked-time payroll preparation, the standard measure counts the
+approved, unclaimed timesheet revisions eligible under the native period rules.
+The saved review or approval summary lists those same sources in draft order.
+Time held by an open pay period is excluded until that period is locked; an
+explicit selection containing held or unavailable time refuses. Locking or
+reopening a period changes the current measure and requires fresh source review.
+An explicit selection mixing eligible and held time refuses the whole call;
+it never silently prepares a subset. Reopening also invalidates a pending
+approval that reviewed the source while it was eligible.
+The measure counts source timesheets, not generated premium or segmented lines;
+non-work and premium-only measurement variants remain unproved. Policy approval
+permits preparation only; a native person still exports the exact draft.
+
 The declared capabilities include prompts alongside tools, policy, pause, audit
 and idempotency. Events, resources and subscriptions are undeclared: discovery omits
 them and their public calls return typed `capability_not_declared` refusals.

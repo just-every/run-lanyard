@@ -5,7 +5,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | Clause | Title | Status |
 | --- | --- | --- |
 | ACCESS-001 | Native sessions and server-side authority | partial |
-| PEOPLE-001 | Staff lifecycle and payroll identities | done |
+| PEOPLE-001 | Staff lifecycle and payroll identities | partial |
 | MOVE-001 | Reviewed Staff CSV move-in | done |
 | ROSTER-001 | Availability and explicit leave decisions | partial |
 | ROSTER-002 | Conflict-checked revision publication | done |
@@ -93,7 +93,7 @@ Generated from [CONTRACT.md](../CONTRACT.md). Each status carries the evidence a
 | PAY-006 | Heartland Payroll import preset | missing |
 | PAY-007 | Square Payroll hours preset | missing |
 | PAY-008 | Toast Payroll hours preset | missing |
-| PAY-009 | Pay schedules and workweeks that cross pay periods | done |
+| PAY-009 | Pay schedules and workweeks that cross pay periods | partial |
 | PAY-010 | Paychex Flex payroll import file preset | missing |
 | PAY-011 | QuickBooks Desktop Payroll IIF time export | partial |
 | SYNC-001 | Approved transfer and provider-applied reconciliation | partial |
