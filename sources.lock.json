@@ -366,7 +366,7 @@
       "executable": false
     },
     "CHANGELOG.md": {
-      "sha256": "ca8782a75a44243cba43bf17f8e78df4583de66697338e18668a4cd31cd8b1b7",
+      "sha256": "db5c9b44a9821806932dd0187f42464f8369a74c343a79ff4db6bd15f2bd33ae",
       "executable": false
     },
     "CLAUDE.md": {
@@ -394,7 +394,7 @@
       "executable": false
     },
     "deploy.json": {
-      "sha256": "f2f74cbc3988c87bbde71d188aeea70a580ab56ef1ee7c29b055d704dede0f86",
+      "sha256": "ad41c27159ba2dc8da661f844e5409876191af78523e9af06af19490d9b12ff2",
       "executable": false
     },
     "docs/ACCESS-CHAT-KIOSK.md": {
@@ -946,7 +946,7 @@
       "executable": false
     },
     "README.md": {
-      "sha256": "28641d57ba43867ee08bb095c49d21f144fbc04defd87ee88c35664b78383a1c",
+      "sha256": "f147c3ad27a7492baa215a29603c0151ec128f2498f160d29ddb814ef9b4f55a",
       "executable": false
     },
     "release-history/0.1.0.json": {
@@ -966,7 +966,7 @@
       "executable": false
     },
     "RELEASE.json": {
-      "sha256": "841be855ab1d0a47268b0be4477ebe8fc66feba5e63a01b8798b1ccffec72659",
+      "sha256": "10ae99ac49ca082f58ef2bf497325d40949121226ea7166f7855cce16708d625",
       "executable": false
     },
     "rer-project.json": {
@@ -1426,7 +1426,7 @@
       "executable": false
     },
     "src/lanyard/credentials.ts": {
-      "sha256": "1d08347296cb3d494ef4948f58eac3a9e5eb88aab432eb0c734b3e9e4304122b",
+      "sha256": "83bb934c30c6e10b1e7ba416b94729a09a620360ce22f156f7acfe47ada2321f",
       "executable": false
     },
     "src/lanyard/domain/aca-report.ts": {

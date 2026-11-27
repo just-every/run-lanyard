@@ -75,6 +75,8 @@ Deactivate staff in **People** to revoke app access immediately. Revoke keys in 
 
 A provider account and purchased domain are unnecessary locally. Worker, D1 and project identities are declared in `wrangler.jsonc` and `deploy.json`; keep them stable. Real deployment needs your Cloudflare account, a scoped Workers and D1 token, and a verified mail sender. `rer deploy --help` lists options. Supply `MAIL_PROVIDER` (resend or sendgrid) and `MAIL_FROM` (your verified sender), plus private `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `OWNER_EMAIL`, `SESSION_SECRET`, `INSTALLATION_KEY`, `SETUP_TOKEN` and `MAIL_API_KEY` environment variables from your secret manager. Other declared mail transports also require their transport-specific setup. Mail settings are installation inputs, so a fresh clone contains no placeholder sender to replace. Never commit secrets.
 
+**Without a mail provider.** Deploy with `MAIL_PROVIDER=none` and no `MAIL_FROM` or `MAIL_API_KEY`: Lanyard then sends nothing, the sign-in page has no email form, and staff invitations are refused. The owner signs in with `rer signin` from the deployment checkout, which prints a one-time link valid for 15 minutes. That session counts as a fresh proof for only 10 minutes, so exporting, deleting, minting agent keys or changing the owner later needs a new `rer signin`. Managers and staff have no way to sign in until mail is turned on (`rer deploy --set-secret MAIL_PROVIDER,MAIL_FROM,MAIL_API_KEY`) or an identity provider is set up.
+
 ```sh
 rer deploy --dry-run
 rer deploy
