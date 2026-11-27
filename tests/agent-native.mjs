@@ -32,17 +32,16 @@ export async function identityProof() {
   const call=async(overrides={},name='lanyard.context.read',args={},requestState)=>h.send('/mcp',{jsonrpc:'2.0',id:'identity',method:'tools/call',params:{name,arguments:args,requestState,_meta:{'io.modelcontextprotocol/protocolVersion':'2026-07-28'}}},'',{authorization:'Bearer '+await token(overrides),'mcp-protocol-version':'2026-07-28','mcp-method':'tools/call','mcp-name':name})
   const rpc=async(method,params={},version='2026-07-28',authenticated=true)=>{method=method.replaceAll(' ','/');return h.send('/mcp',{jsonrpc:'2.0',id:'catalogue',method,params:{...params,_meta:{'io.modelcontextprotocol/protocolVersion':version}}},'',{
    ...(authenticated?{authorization:'Bearer '+await token({})}:{}),'mcp-protocol-version':version,'mcp-method':method,...(params.name?{'mcp-name':params.name}:{})})}
-  const versions=(await rpc('server discover')).value.result.supportedVersions,promptName='prepare_service_week'
-  assert.ok(versions.length,'prompt access is checked for every advertised version')
-  const beforePrompts=await h.state()
-  for(const version of versions){
-   for(const method of ['prompts list','prompts get'])assert.equal((await rpc(method,{name:promptName},version,false)).status,401,'prompt access requires current native admission')
-   assert.deepEqual((await rpc('prompts list',{},version)).value.result.prompts,[])
-   assert.equal((await rpc('prompts get',{name:promptName},version)).value.error.data.code,'policy_unset')
-  }
-  assert.equal((await h.state()).version,beforePrompts.version,'unset prompt calls make no native changes')
+  const promptName='prepare_service_week',beforePrompts=await h.state()
+  // Until a signed policy binds this installation's Business, no Business token is admitted.
+  for(const method of ['server discover','prompts list','prompts get'])for(const authenticated of [false,true])
+   assert.equal((await rpc(method,{name:promptName},'2026-07-28',authenticated)).status,401,'prompt access requires a bound Business and current native admission')
+  assert.equal((await h.state()).version,beforePrompts.version,'refused prompt calls make no native changes')
   const policy=await policyEnvelope({now:()=>clock,signer,origin:h.origin,business,seq:0,revision:0},autonomousPolicy())
   assert.equal((await h.send('/api/rer/agent-policy',{policy:policy.policy})).status,200)
+  const versions=(await rpc('server discover')).value.result.supportedVersions
+  assert.ok(versions.length,'prompt access is checked for every advertised version')
+  for(const version of versions)for(const method of ['prompts list','prompts get'])assert.equal((await rpc(method,{name:promptName},version,false)).status,401,'prompt access requires current native admission')
   const surface=JSON.parse(readFileSync(new URL('../agent-surface.json',import.meta.url),'utf8'))
   for(const version of versions){
    const discovery=(await rpc('server discover',{},version)).value.result

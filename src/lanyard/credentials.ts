@@ -68,6 +68,8 @@ export async function credentialCommand(request: Request, env: Bindings, who: Ac
   if (name === 'staff.invite') {
     const staff = await env.DB.prepare('SELECT * FROM l_staff WHERE id=? AND active=1 AND erased_at IS NULL').bind(String(input.id ?? '')).first<any>()
     if (!staff) fail('Activate the staff record before inviting them', 409)
+    // Mail off: refuse before Base records an invitation it cannot send.
+    if (env.MAIL_PROVIDER === 'none') fail('Outbound email is off, so Lanyard cannot send invitations. Turn mail on to invite staff.', 409)
     await operatorAuth(env).invite(request, { email: staff.email, displayName: staff.name, role: 'member', returnTo: '/app' })
     return { invited: true }
   }

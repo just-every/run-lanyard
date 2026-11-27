@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5
+
+Lanyard 0.1.5 moves the RER CLI pin from 0.2.98 to 0.2.144 so a business can set Lanyard up without a mail provider, and adopts Base's current agent door. **Back up first** (`rer export`, or the authenticated transfer client for a hosted copy), then `pnpm install --frozen-lockfile` and `rer setup` locally or `rer deploy --environment <name>` hosted. One migration: 0037_agent_door_relay_privacy.sql.
+
+- **Mail off.** `MAIL_PROVIDER=none` needs no sender or key and sends nothing: the sign-in page offers no email form, `/auth/magic-link` refuses as `mail_unavailable`, a staff invitation is refused before it is recorded ("Outbound email is off"), and the owner signs in with `rer signin` from the deployment checkout. Setup offers "Turn off outbound email"; `MAIL_API_KEY` is now an optional secret (MAILOFF-001).
+- **The agent door.** Base rer-v0.2.144's door runtime: no Business token is admitted before a signed policy binds the installation's Business; Business authority needs a positive, durable "not stopped" read; a detached Business's tokens, held calls and relay pulls are refused. Migration 0037 removes only provably cross-Business relay memberships and recreates the two relay audit triggers (Base default-seed 0043). Agent erasure stays on the 0.2.98 copy.
+
 ## 0.1.4
 
 Lanyard's work since 0.1.3 (25 Oct), released so its demo opens current code. 10 migrations are added (0027_report_delivery_approvals.sql … 0036_agent_door_upgrade.sql, all listed in RELEASE.json); the RER CLI pin is 0.2.98.

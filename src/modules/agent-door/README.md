@@ -94,10 +94,23 @@ the door ends everything it derived from Business: no Business token is admitted
 answers 401 with its resource-metadata challenge and open subscriptions close on their next tick), a call admitted
 with a Business token (`Principal.source: 'business'`) that was held for approval or waiting for admission is refused
 as `sponsor_unavailable` without a native effect, and `person:` and `role:` approver and reviewer refs match nobody.
+A principal saved by rer 0.2.95 or earlier has no `source`; approval execution treats one that has a `consent` id and was not
+held through the embedded door as Business-admitted (those versions admitted a Business token only with a consent id and
+never gave a local credential one), so such an approval ends with its Business too, with no migration.
 `sponsor` refs, seed credentials, native sessions and embedded invocations are unchanged, and the subject mapping
 stays, so a validly signed envelope that names Business people is still adopted and its Pause and revoked lists apply.
-`PeopleAdapter.businessStopped()` carries the stop; `operatorAuthPeople` reads `bs_settings.stopped`, and an adapter
-that omits it is never stopped. A signed envelope may include
+`PeopleAdapter.businessStopped()` is required; `operatorAuthPeople` reads `bs_settings.stopped`,
+including in Base's maintained seed, and answers `false` only for a present singleton row with `stopped=0`
+(an install with no settings row has never been paired and counts as stopped). A Business token is also
+refused with 401 until a signed policy envelope binds this installation's Business: before the first
+envelope there is no Business to compare the token's `business` claim with. Business should adopt an
+envelope (a `document: null` one leaves the policy unset) before its agents connect. Business token admission, `person:`/`role:` reference resolution,
+held Business calls and signed decision-relay pulls require this reader to positively return `false`.
+A missing or non-function method, thrown or rejected read, `true`, `undefined` or any nonboolean answer
+uses the same refusal as a stopped Business: token admission returns 401, references match nobody,
+held calls refuse `sponsor_unavailable`, and the relay returns empty 404. Adoption conformance checks
+all four paths after signed detachment with the old policy and trust retained. This runtime correction
+needs no migration and leaves the default seed adapter's behavior unchanged. A signed envelope may include
 `revoked: { agents: string[], consents: string[] }`; these refuse the next call
 and expire affected pending approvals. Business delivery of those lists remains
 platform work.

@@ -2460,3 +2460,33 @@ test('TIPS-001: owner prepares reviews approves and corrects pools through Payro
 
 test('DEMAND-001 COVERAGE-001: reviewed demand cases follow native pickup decisions and received arrival while fencing stale sources and private authority',async()=>{const {demandCoverageApi}=await import('./demand-coverage-journey.mjs');await demandCoverageApi()})
 test('DEMAND-001 COVERAGE-001: manager reviews a deficit, links an existing shift and independently approves an employee pickup',async()=>{const {demandCoverageBrowser}=await import('./demand-coverage-journey.mjs');await demandCoverageBrowser()})
+
+test('MAILOFF-001: with MAIL_PROVIDER=none email sign-in refuses plainly, nothing is sent and the owner signs in with a rer signin grant', async () => {
+ const h = await harness({ secure: true, auth: { AUTH_LOCAL: 'false', MAIL_PROVIDER: 'none', MAIL_FROM: '', MAIL_API_KEY: '' } })
+ try {
+  const page = await h.send('/signin')
+  assert.equal(page.status, 200)
+  assert.doesNotMatch(page.text, /action="\/auth\/magic-link"/)
+  const magic = await h.send('/auth/magic-link', { email: h.auth.OWNER_EMAIL })
+  assert.equal(magic.status, 503, magic.text)
+  assert.equal(magic.value.error, 'mail_unavailable')
+  // The grant rer signin writes at the Cloudflare D1 boundary (owner-signin-grant.mjs).
+  const { createHash, randomBytes, randomUUID } = await import('node:crypto')
+  const token = randomBytes(32).toString('base64url'), now = Date.now()
+  const grant = await h.db.prepare(`INSERT INTO oa_owner_signins(id,token_hash,operator_id,operator_version,created_at,expires_at)
+   SELECT ?,?,id,version,?,? FROM oa_operators WHERE email=? AND role='owner' AND status='active'`)
+   .bind(randomUUID(), createHash('sha256').update(`owner-signin\0${token}`).digest('hex'), now, now + 60_000, h.auth.OWNER_EMAIL).run()
+  assert.equal(grant.meta.changes, 1)
+  assert.equal((await h.send(`/auth/owner-signin?token=${token}`)).status, 200)
+  const confirmed = await h.send('/auth/owner-signin', { token })
+  assert.equal(confirmed.status, 303, confirmed.text)
+  await h.state(confirmed.cookie)
+  assert.equal((await h.send('/auth/owner-signin', { token })).status, 400)
+  const staff = await h.cmd('staff.save', { name: 'Robin', email: 'robin@venue.example', payrollId: 'ROBIN', role: 'staff', active: true }, confirmed.cookie)
+  const invite = await h.send('/api/lanyard/command', { name: 'staff.invite', input: { id: staff.id } }, confirmed.cookie)
+  assert.equal(invite.status, 409, invite.text)
+  assert.match(invite.value.error, /Outbound email is off/)
+  assert.equal((await h.db.prepare("SELECT COUNT(*) AS n FROM oa_operators WHERE email='robin@venue.example'").first()).n, 0)
+  assert.deepEqual(h.mailbox, [])
+ } finally { await h.close() }
+})

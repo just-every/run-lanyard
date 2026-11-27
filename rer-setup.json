@@ -100,6 +100,10 @@
           "label": "RER managed mail"
         },
         {
+          "value": "none",
+          "label": "Turn off outbound email"
+        },
+        {
           "value": "resend",
           "label": "Resend"
         },
@@ -117,7 +121,7 @@
         }
       ],
       "group": "mail",
-      "help": "Hosted installations require RER, Resend, SendGrid or Cloudflare. Development suppresses mail on this computer only."
+      "help": "Hosted installations use RER, Resend, SendGrid or Cloudflare, or turn outbound email off: then nothing is emailed and the owner signs in with rer signin. Development suppresses mail on this computer only."
     },
     {
       "name": "MAIL_FROM",

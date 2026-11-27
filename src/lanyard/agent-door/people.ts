@@ -23,6 +23,7 @@ export function people(env: Bindings): PeopleAdapter {
   async sponsor(claims) { const p = await operators.sponsor(claims); return p ? current(p.id) : null },
   async session(request) { const p = await operators.session(request); return p ? current(p.id) : null },
   businessMember: p => operators.businessMember!(p),
+  businessStopped: () => operators.businessStopped(),
   businessRole: p => (p as Person & {policyRole?: 'owner'|'editor'|null}).policyRole ?? null,
  }
 }
