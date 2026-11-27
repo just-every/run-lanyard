@@ -235,7 +235,7 @@ export async function payScheduleBrowser() {
 // TIME-004 uses the same native form and browser patterns as scheduled payroll.
 export async function periodSignoffBrowser() {
  for(const width of [1440,390]) {
-  const h=await harness({now:'2026-11-04T08:00:00Z'}),browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox','--use-mock-keychain','--password-store=basic']}),context=await browser.newContext({viewport:{width,height:1000}})
+  const h=await harness({now:'2026-11-04T08:00:00Z'}),browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,args:['--no-sandbox','--use-mock-keychain','--password-store=basic']}),context=await browser.newContext({viewport:{width,height:1000},extraHTTPHeaders:{'x-test-now':String(Date.parse('2026-11-04T08:00:00Z'))}})
   context.setDefaultTimeout(15000)
   try {
    const manager=await h.person('Morgan','manager'),alex=await h.person('Alex'),page=await context.newPage(),errors=[]

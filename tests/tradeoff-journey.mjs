@@ -393,7 +393,7 @@ async function retainedCoverTradeoff(){
 export async function generatedTradeoffBrowser(){
  const browser=await chromium.launch({headless:true,...(process.env.LANYARD_CHROMIUM?{executablePath:process.env.LANYARD_CHROMIUM}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try{for(const width of [1440,390]){
-  const h=await harness({now:generationNow}),context=await browser.newContext({viewport:{width,height:1100}})
+  const h=await harness({now:generationNow}),clock={'x-test-now':String(Date.parse(generationNow))},context=await browser.newContext({viewport:{width,height:1100},extraHTTPHeaders:clock})
   try{
    const f=await generatedComparisonFixture(h);await confirmGeneratedFairness(h,f)
    const c=await f.read(),page=await context.newPage(),[name,...value]=f.manager.cookie.split('=')
@@ -407,8 +407,10 @@ export async function generatedTradeoffBrowser(){
    const shot=async key=>{await (key==='comparison'?panel:page.locator('main')).scrollIntoViewIfNeeded();if(process.env.TRADEOFF_SCREENS){await mkdir(process.env.TRADEOFF_SCREENS,{recursive:true});await page.screenshot({path:join(process.env.TRADEOFF_SCREENS,`generated-${key}-${width}.png`)})}}
    if(width===1440){assert.equal(await panel.isVisible(),true);const text=await panel.innerText();for(const v of ['$60.00','$100.00','180','300','120','Candidate A','Candidate B'])assert.ok(text.includes(v),v);const changes=panel.locator('details').filter({has:page.locator('summary',{hasText:'Inspect changed boundaries and assignments'})});await changes.locator('summary').click();assert.ok((await changes.innerText()).includes('Only A'));assert.ok((await changes.innerText()).includes('Only B'));for(const person of f.people)assert.ok((await changes.innerText()).includes(person.name));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)}
    await shot('comparison')
-   const [download]=await Promise.all([page.waitForEvent('download'),panel.getByRole('link',{name:'Download generated comparison (JSON)'}).click()])
-   const exported=JSON.parse(await readFile(await download.path(),'utf8'))
+   // Chromium re-issues a download without the pinned test clock, so read the link's bytes through the signed-in context.
+   const link=panel.getByRole('link',{name:'Download generated comparison (JSON)'});assert.equal(await link.getAttribute('download'),'lanyard-generated-comparison.json')
+   const response=await context.request.get(h.origin+await link.getAttribute('href'),{headers:clock});assert.equal(response.status(),200)
+   const exported=await response.json()
    if(width===1440){reconcileGenerated(exported,f);assert.deepEqual(exported.changes,c.changes);assert.equal(exported.b.digest,c.b.digest)}
    await panel.getByRole('button',{name:'Prepare candidate B',exact:true}).click();await page.waitForLoadState('networkidle')
    const prepared=await h.state(),draft=prepared.rosters.find(r=>r.week===f.week&&r.status==='draft')

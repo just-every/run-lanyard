@@ -4810,7 +4810,7 @@
       "executable": false
     },
     "tests/cutoff-journey.mjs": {
-      "sha256": "eb3ddab3864537df9e21ff3854549753db69b093d5037da8af277805353789e3",
+      "sha256": "9ef52ceb78d90620f1e075b18e33b21e769cd1cfc01ea9b04cab29abe6b0c40b",
       "executable": false
     },
     "tests/demand-coverage-journey.mjs": {
@@ -4818,7 +4818,7 @@
       "executable": false
     },
     "tests/demand-generation-journey.mjs": {
-      "sha256": "a7b1b26287fb58a1e16454e0e22fb8b2b11f6a5cfc27bf74b4e2a8c57dd427c4",
+      "sha256": "141bf30f92b20eed46e19b720b02391efe985df1729fb68f693b9ec31837b2d0",
       "executable": false
     },
     "tests/demand-journey.mjs": {
@@ -4954,7 +4954,7 @@
       "executable": false
     },
     "tests/payschedules-journey.mjs": {
-      "sha256": "684fce58bab5d0437d9d7865cc5f5bdcbd36da8b5aee7185fd0e1ebbe46095e6",
+      "sha256": "69c4d9f7c5432f57c707e5193b12cab45cc5fc889f107bf064a11d0fff6399c7",
       "executable": false
     },
     "tests/paytemplates-journey.mjs": {
@@ -5106,7 +5106,7 @@
       "executable": false
     },
     "tests/tradeoff-journey.mjs": {
-      "sha256": "122c55f33a1f3f8dae0e543d2fcf668b63fa0d62043f41bc997b871c36394452",
+      "sha256": "fafc6e1dbb16d44f5a35efd0e962cf9b0af719c1e16a42ef59316fa49b6a7435",
       "executable": false
     },
     "tests/transfer-journey.mjs": {

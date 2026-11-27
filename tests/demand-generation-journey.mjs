@@ -159,7 +159,7 @@ export async function demandGenerationApi(){
 export async function demandGenerationBrowser(){
  const browser=await chromium.launch({headless:true,...(process.env.LANYARD_CHROMIUM?{executablePath:process.env.LANYARD_CHROMIUM}:{}),args:['--no-sandbox','--use-mock-keychain','--password-store=basic']})
  try{for(const width of [1440,390]){
-  const h=await harness({now}),context=await browser.newContext({viewport:{width,height:1100}})
+  const h=await harness({now}),context=await browser.newContext({viewport:{width,height:1100},extraHTTPHeaders:{'x-test-now':String(Date.parse(now))}})
   try{
    const f=await generationFixture(h),page=await context.newPage(),[name,...value]=f.manager.cookie.split('=')
    await context.addCookies([{name,value:value.join('='),url:h.origin}])
