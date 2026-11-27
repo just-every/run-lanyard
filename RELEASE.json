@@ -1,8 +1,19 @@
 {
-  "version": "0.1.3",
-  "publicReleaseNotes": "Keep the exact rer 0.2.80 pin and refreshed Base delivery metadata. Clean runtime scratch from the emitted Worker after verification so the native delivery artifact remains installable on Linux.",
-  "migrations": [],
+  "version": "0.1.4",
+  "publicReleaseNotes": "Lanyard's work since 0.1.3: live attendance board, clock questions, published-shift changes with history, overtime projection, breaks and exceptions, time corrections, open-shift cover, tip pools, pay schedules, Nevada payroll rules, offline kiosk transfers, recipient-specific schedule notices and the RER CLI at 0.2.98.",
+  "migrations": [
+    "0027_report_delivery_approvals.sql",
+    "0028_partner_roster_keys.sql",
+    "0029_lanyard_calendar.sql",
+    "0030_0001_business_settings.sql",
+    "0031_0002_business_people.sql",
+    "0032_agent-door.sql",
+    "0033_company_comparison_grants.sql",
+    "0034_native_agent_attribution.sql",
+    "0035_agent_custody.sql",
+    "0036_agent_door_upgrade.sql"
+  ],
   "breaking": false,
-  "agentUpdateInstructions": "Keep existing deployment identities and applied migration bytes. Configure the selected mail provider before inviting staff. Follow docs/BACKUP-RESTORE.md before moving an installation.",
-  "previousVersion": "0.1.2"
+  "agentUpdateInstructions": "Install the frozen dependencies with RER CLI 0.2.98. Apply the 10 migrations added since 0.1.3 (listed above) with the installation's normal update; no runtime configuration changes are required.",
+  "previousVersion": "0.1.3"
 }

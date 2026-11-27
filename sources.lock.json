@@ -366,7 +366,7 @@
       "executable": false
     },
     "CHANGELOG.md": {
-      "sha256": "39f254bde96406da50770e2da091681533573a02549d6fe898964e4066f02514",
+      "sha256": "78ce80d701d40700b708cedae684f123ece9a63872e4214130d06d7889e89730",
       "executable": false
     },
     "CLAUDE.md": {
@@ -642,7 +642,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "e66b205fe02e0283cf57c8c237313dd5dfa64fc1ec1b0d1d5dea9bbed749a211",
+      "sha256": "a573e967e114543da542d77132f686239eff4704e79bcc127c844679d9d20015",
       "executable": false
     },
     "packaging.json": {
@@ -957,12 +957,16 @@
       "sha256": "8ca886361dccb32894b8676ea7494424f643b6f117592321eefaa6d7f583aae8",
       "executable": false
     },
-    "RELEASE.json": {
+    "release-history/0.1.3.json": {
       "sha256": "c25508ccfe145ca07f66ef65e200113883db365bafd7002850b7c54854eb35b2",
       "executable": false
     },
+    "RELEASE.json": {
+      "sha256": "7fb20d23d58920ae4c57dd9df2f20989da634db15be15135d7b40eafd0402baa",
+      "executable": false
+    },
     "rer-project.json": {
-      "sha256": "944ec4c03522a41bb951cbe4e4d351aea8d67bf3acbff54d71e3a2a302a20025",
+      "sha256": "ca46e85ed1a9cf8a988ca8ac8f44b70105b181fdd2e344c506dfe8d6248ee7ac",
       "executable": false
     },
     "rer-setup.json": {
@@ -1194,7 +1198,7 @@
       "executable": false
     },
     "seed.json": {
-      "sha256": "922539c68f09a6ae033f1fae2ca9bf7fc4c9a6aea1503d79c1f9bb588169255c",
+      "sha256": "240778ec26be7fb1d6e3e458934470fc17c00df4a5622702446a95e89438797d",
       "executable": false
     },
     "SHIFT-HANDOVER-API.md": {

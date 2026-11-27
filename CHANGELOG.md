@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 0.1.4
+
+Lanyard's work since 0.1.3 (25 Oct), released so its demo opens current code. 10 migrations are added (0027_report_delivery_approvals.sql … 0036_agent_door_upgrade.sql, all listed in RELEASE.json); the RER CLI pin is 0.2.98.
 
 - CLOCK-004: managers see a live attendance board (scheduled, present, on break, late, not in, no-show, offline captures, wrong-cafe networks and open conflicts) and per-cafe late and no-show alerts they record handling, call out for cover, and that close only on a received punch or approved time.
 - CLOCK-006: owners set clock-in and clock-out questions (breaks, injury, cash tips, custom yes-no or number) with Spanish text and versioned wording; answers stay on the punch, a missed break or flagged answer opens an exception, an injury a private safety follow-up for the cafe's managers, and declared tips are listed for managers.
